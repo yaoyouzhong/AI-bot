@@ -8,14 +8,134 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length>=1&&ClaudeSessionHost.Vendor(args[0])){
+            try{Environment.ExitCode=ClaudeSessionHost.Run(args).GetAwaiter().GetResult();}
+            catch(Exception){Environment.ExitCode=2;}
+            return;
+        }
+        if(args.Length==1&&args[0]=="--claude-native-console"){ClaudeNativeConsole.Run();return;}
+        if(args.Length==4&&args[0] is "--tab5-foreground-suite" or "--tab5-foreground-suite-probe"){
+            Environment.ExitCode=Tab5NativeAcceptance.Run(args[1],"terminal",args[2],args[0].EndsWith("-probe",StringComparison.Ordinal),
+                freshKeyboard:args[3],foregroundRun:true);
+            return;
+        }
+        if(args.Length==4&&args[0] is "--tab5-foreground-stop" or "--tab5-foreground-stop-probe"){
+            Environment.ExitCode=Tab5NativeAcceptance.Run(args[1],"terminal",args[2],args[0].EndsWith("-probe",StringComparison.Ordinal),
+                freshKeyboard:args[3],foregroundRun:true,awaitRunning:true,stopOnly:true);
+            return;
+        }
+        if(args.Length==5&&args[0] is "--tab5-foreground-controls" or "--tab5-foreground-controls-probe"&&Guid.TryParse(args[4],out var photoTurn)){
+            Environment.ExitCode=Tab5NativeAcceptance.Run(args[1],"terminal",args[2],args[0].EndsWith("-probe",StringComparison.Ordinal),
+                freshKeyboard:args[3],foregroundRun:true,acceptedPhotoTurn:photoTurn.ToString());
+            return;
+        }
+        if(args.Length==5&&args[0] is "--tab5-foreground-active" or "--tab5-foreground-active-probe"&&Guid.TryParse(args[4],out var workTurn)){
+            Environment.ExitCode=Tab5NativeAcceptance.Run(args[1],"terminal",args[2],args[0].EndsWith("-probe",StringComparison.Ordinal),
+                freshKeyboard:args[3],foregroundRun:true,awaitRunning:true,acceptedWorkTurn:workTurn.ToString());
+            return;
+        }
+        if(args.Length==5&&args[0] is "--tab5-api-controls" or "--tab5-api-controls-probe"){
+            Environment.ExitCode=Tab5NativeAcceptance.Run(args[1],args[2],args[3],args[0].EndsWith("-probe",StringComparison.Ordinal),freshKeyboard:args[4],apiRun:true);return;
+        }
+        if(args.Length==5&&args[0] is "--tab5-api-photo" or "--tab5-api-photo-probe"){
+            Environment.ExitCode=Tab5NativeAcceptance.Run(args[1],args[2],args[3],args[0].EndsWith("-probe",StringComparison.Ordinal),freshKeyboard:args[4],apiRun:true,photoOnly:true);return;
+        }
+        if(args.Length==5&&args[0] is "--tab5-bg-active-append" or "--tab5-bg-active-append-probe"){
+            Environment.ExitCode=Tab5NativeAcceptance.Run(args[1],args[2],args[3],args[0].EndsWith("-probe",StringComparison.Ordinal),freshKeyboard:args[4],awaitRunning:true,apiRun:true);return;
+        }
+        if(args.Length==5&&args[0] is "--tab5-bg-active-stop" or "--tab5-bg-active-stop-probe"){
+            Environment.ExitCode=Tab5NativeAcceptance.Run(args[1],args[2],args[3],args[0].EndsWith("-probe",StringComparison.Ordinal),freshKeyboard:args[4],awaitRunning:true,apiRun:true,stopOnly:true);return;
+        }
+        if(args.Length==3&&args[0]=="--check-tab5-client-switch"&&args[2] is "capture" or "prepare" or "sync" or "verify"){
+            try{AppProfileGuard.EnsureDesktopProfile();Tab5AutomationRunner.Run(args[1],screenCheck:args[2]);}
+            catch(Exception e){Console.Error.WriteLine("TAB5_SCREEN_CHECK "+e.GetType().Name+" "+e.Message);Environment.ExitCode=1;}
+            return;
+        }
+        if(args.Length==2&&args[0]=="--inspect-claude-session-api"&&Guid.TryParse(args[1],out var inspected)){
+            try{AppProfileGuard.EnsureDesktopProfile();var api=ClaudeSessionApi.Find(inspected);
+                Console.WriteLine(JsonSerializer.Serialize(api==null?(object)new{available=false}:new{available=true,scope=api.Scope(),state=api.State,fresh=api.IsFresh()}));Environment.ExitCode=api==null?1:0;
+            }catch(Exception e) when(e is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or System.ComponentModel.Win32Exception){Console.WriteLine("{\"available\":false}");Environment.ExitCode=1;}
+            return;
+        }
+        if(args.Length==2&&args[0]=="--inspect-claude-native-terminal"&&Guid.TryParse(args[1],out var foregroundSession)){
+            try{
+                AppProfileGuard.EnsureDesktopProfile();
+                var cli=ClaudeNativeTerminal.Find(foregroundSession);
+                Console.WriteLine(JsonSerializer.Serialize(cli?.Inspect()??new{available=false}));
+                Environment.ExitCode=cli==null?1:0;
+            }catch(Exception e) when(e is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception){
+                Console.WriteLine(JsonSerializer.Serialize(new{available=false,reason=e is ClaudeNativeTerminal.ConsoleFailure?e.Message:"terminal_inspection_unavailable"}));Environment.ExitCode=1;
+            }
+            return;
+        }
+        if(args.Length==2&&args[0]=="--inspect-claude-background-api"&&Guid.TryParse(args[1],out var terminalSession)){
+            AppProfileGuard.EnsureDesktopProfile();
+            var api=ClaudeBackgroundApi.Find(terminalSession);
+            Console.WriteLine(JsonSerializer.Serialize(api is null?(object)new{available=false}:
+                new{available=true,scope=api.Scope(),state=api.State,canAppend=api.CanAppend,canImages=api.CanImages,canInterrupt=((IClaudeNativeSession)api).CanInterrupt}));
+            Environment.ExitCode=api==null?1:0;return;
+        }
+        if(args.Length==1&&args[0]=="--self-test-native-continuation"){
+            AppPaths.BeginPublicSelfTest();Tab5NativeAcceptance.ContinuationSelfTest();return;
+        }
+        if(args.Length==2&&args[0]=="--inspect-native-file-dialog"&&int.TryParse(args[1],out var pickerPid)){
+            Console.WriteLine(JsonSerializer.Serialize(ClaudeNativePickerDiagnostic.Read(pickerPid)));
+            return;
+        }
+        if(args.Length==2&&args[0]=="--inspect-native-code-composer"&&int.TryParse(args[1],out var composerPid)){
+            Console.WriteLine(JsonSerializer.Serialize(ClaudeNativePickerDiagnostic.Composer(composerPid)));
+            return;
+        }
+        if(args.Length==3&&args[0]=="--probe-claude-native-attachment"&&Guid.TryParse(args[1],out var probeSession)){
+            try{
+                AppProfileGuard.EnsureDesktopProfile();
+                var client=ClaudeNativeCode.Find(probeSession,explain:true)??throw new IOException("native_process_unavailable");
+                Console.WriteLine(JsonSerializer.Serialize(client.ProbeAttachment(args[2])));
+            }catch(Exception e) when(e is IOException or ArgumentException or InvalidOperationException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException){
+                string stage=e is IOException&&e.Message.StartsWith("native_")&&e.Message.All(c=>char.IsAsciiLetter(c)||c=='_')?e.Message:e.GetType().Name;
+                Console.WriteLine(JsonSerializer.Serialize(new{passed=false,stage,submitted=false,picker=e.Data["picker"]}));
+                Environment.ExitCode=1;
+            }
+            return;
+        }
+        if(args.Length==1&&args[0] is "--resident-native-status" or "--resident-native-run" ||
+            args.Length==3&&args[0]=="--resident-native-inspect"){
+            try{
+                string op=args[0]=="--resident-native-inspect"?"native-inspect":args[0]=="--resident-native-run"?"native-run":"native-status";
+                var data=Tab5OtaControl.CallAsync(op,host:args.Length==3?args[1]:null,session:args.Length==3?args[2]:null).GetAwaiter().GetResult();
+                Console.WriteLine(JsonSerializer.Serialize(data));
+                Environment.ExitCode=data.GetProperty("ok").GetBoolean()?0:1;
+            }catch(Exception e) when(e is IOException or TimeoutException or OperationCanceledException or JsonException or UnauthorizedAccessException){Console.Error.WriteLine("resident_control_unavailable");Environment.ExitCode=1;}
+            return;
+        }
+        if(args.Length==3&&args[0]=="--arm-resident-native-suite"&&Guid.TryParse(args[2],out var armSession)){
+            try{Console.WriteLine(JsonSerializer.Serialize(Tab5NativeJob.Arm(args[1],armSession)));}
+            catch(Exception e) when(e is IOException or ArgumentException or InvalidOperationException or UnauthorizedAccessException){Console.Error.WriteLine(e.Message);Environment.ExitCode=1;}
+            return;
+        }
+        if(args.Length==2&&args[0]=="--tab5-armed-worker"&&Guid.TryParse(args[1],out var jobId)){
+            try{Environment.ExitCode=Tab5NativeJob.Worker(jobId);}
+            catch(Exception e) when(e is IOException or ArgumentException or InvalidOperationException or UnauthorizedAccessException){Console.Error.WriteLine(e.GetType().Name);Environment.ExitCode=1;}
+            return;
+        }
         if(args.FirstOrDefault()=="--self-test-claude-wire-peer"){ClaudeWireFixture.RunAsync(args).GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--claude-hook"&&int.TryParse(args[1],out var hookPort)&&hookPort is >0 and <=65535){ClaudeHook.RunAsync(hookPort).GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-automation"){AppPaths.BeginPublicSelfTest();Tab5UIAutomationSelfTest.Run();return;}
+        if(args is ["--check-tab5-suite-ocr"]){try{Tab5NativeScreen.CheckScreenReaderAsync().GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine(ex.GetType().Name+" "+ex.Message);Environment.ExitCode=1;}return;}
         if(args.Length==1&&args[0]=="--self-test-claude-workspace"){AppPaths.BeginPublicSelfTest();ClaudeWorkspaceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-claude-approval-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();ClaudeApprovalFormSelfTest.Run(args[1]);return;}
         if(args.Length==2&&args[0]=="--self-test-claude-native"){AppPaths.BeginPublicSelfTest();ClaudeWorkspaceSelfTest.RunNativeAsync(args[1]).GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-voice-draft-ui"){AppPaths.BeginPublicSelfTest();Application.SetUnhandledExceptionMode(UnhandledExceptionMode.ThrowException);ApplicationConfiguration.Initialize();Tab5VoiceSelfTest.RunDraftLayout(Path.GetFullPath(args[1]));return;}
         if(args.Length==1&&args[0]=="--self-test-doubao-microphone"){AppPaths.BeginPublicSelfTest();Tab5DoubaoMicrophoneSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==4&&args[0] is "--tab5-native-suite" or "--tab5-native-suite-probe"){
+            Environment.ExitCode=Tab5NativeAcceptance.Run(args[1],args[2],args[3],args[0]=="--tab5-native-suite-probe");return;
+        }
+        if(args.Length==5&&args[0] is "--tab5-native-fresh-controls" or "--tab5-native-fresh-controls-probe" or "--tab5-native-active-controls" or "--tab5-native-active-controls-probe"){
+            Environment.ExitCode=Tab5NativeAcceptance.Run(args[1],args[2],args[3],args[0].EndsWith("-probe",StringComparison.Ordinal),freshKeyboard:args[4],awaitRunning:args[0].StartsWith("--tab5-native-active-",StringComparison.Ordinal));return;
+        }
+        if(args.Length==6&&args[0] is "--tab5-native-controls" or "--tab5-native-controls-probe"){
+            Environment.ExitCode=Tab5NativeAcceptance.Run(args[1],args[2],args[3],args[0]=="--tab5-native-controls-probe",args[4],args[5]);return;
+        }
         if(args.Length==2&&args[0]=="--tab5-automation"){
             try{AppProfileGuard.EnsureDesktopProfile();Tab5AutomationRunner.Run(args[1]);}catch(Exception e) when(e is IOException or InvalidOperationException or OperationCanceledException or UnauthorizedAccessException or TimeoutException or System.Net.Sockets.SocketException or System.Security.Cryptography.CryptographicException){Console.Error.WriteLine("TAB5_AUTOMATION_FAILED "+e.GetType().Name);Environment.ExitCode=1;}return;}
         // This command only signals the current user's resident bridge. It does
@@ -118,6 +238,25 @@ internal static class Program
         if(args.Length==1&&args[0]=="--self-test-codex-read-sync"){AppPaths.BeginPublicSelfTest();Tab5CodexReadStateSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-codex-tasks"){AppPaths.BeginPublicSelfTest();Tab5CodexSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-claude-history"){AppPaths.BeginPublicSelfTest();ClaudeHistorySelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-claude-native-receipt"){AppPaths.BeginPublicSelfTest();ClaudeNativeReceiptSelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-claude-native-send"){AppPaths.BeginPublicSelfTest();ClaudeNativeSendSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--self-test-claude-native-workspace"){AppPaths.BeginPublicSelfTest();ClaudeNativeWorkspaceSelfTest.RunAsync().GetAwaiter().GetResult();return;}
+        if(args.Length==1&&args[0]=="--inspect-claude-native-clients"){
+            AppProfileGuard.EnsureDesktopProfile();var rows=new List<object>();
+            foreach(var id in ClaudeNativeTerminal.LiveSessions()){
+                try{rows.Add(ClaudeNativeTerminal.Find(id)?.Inspect()??new{available=false,host="terminal"});}
+                catch(Exception e) when(e is IOException or InvalidOperationException or System.ComponentModel.Win32Exception){rows.Add(new{available=false,host="terminal",error=e.Message});}
+            }
+            foreach(var id in ClaudeNativeCode.LiveSessions()){
+                try{rows.Add(ClaudeNativeCode.Find(id)?.Inspect()??new{available=false,host="vscode"});}
+                catch(Exception e) when(e is IOException or InvalidOperationException or System.Runtime.InteropServices.COMException or System.Windows.Automation.ElementNotAvailableException){rows.Add(new{available=false,host="vscode",error=e is IOException&&e.Message.StartsWith("native_",StringComparison.Ordinal)&&e.Message.All(c=>char.IsAsciiLetter(c)||c=='_')?e.Message:e.GetType().Name});}
+            }
+            Console.WriteLine(JsonSerializer.Serialize(new{readOnly=true,clients=rows}));return;
+        }
+        if(args.Length==2&&args[0]=="--inspect-claude-native-code"&&Guid.TryParse(args[1],out var nativeSession)){
+            try{AppProfileGuard.EnsureDesktopProfile();Console.WriteLine(JsonSerializer.Serialize(Tab5NativeJob.Inspect("vscode",nativeSession)));}
+            catch(Exception e) when(e is IOException or JsonException or ArgumentException or InvalidOperationException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or System.Runtime.InteropServices.COMException or System.Windows.Automation.ElementNotAvailableException){Console.WriteLine(JsonSerializer.Serialize(new{available=false,error=e.GetType().Name}));Environment.ExitCode=1;}return;
+        }
         if(args.Length==1&&args[0]=="--self-test-codex-read-state-local"){
             var state=Tab5CodexReadState.ReadLocal();Console.WriteLine(state is null?"CODEX_LOCAL_READ_STATE_UNAVAILABLE":"CODEX_LOCAL_READ_STATE_OK unread="+state.Unread.Count);return;
         }

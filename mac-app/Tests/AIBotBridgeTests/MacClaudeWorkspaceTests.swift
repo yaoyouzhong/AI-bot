@@ -46,7 +46,7 @@ for line in sys.stdin:
 """#.utf8).write(to:cli)
         try FileManager.default.setAttributes([.posixPermissions:0o700],ofItemAtPath:cli.path)
         let store = MacTab5PrivateStore(root:root.appendingPathComponent("sealed"),key:{key})
-        let backend = MacClaudeWorkspaceBackend(root:root,store:store,key:{key},executable:{cli},live:{[]})
+        let backend = MacClaudeWorkspaceBackend(root:root,store:store,key:{key},executable:{cli},live:{[]},legacyFixture:true)
         defer { backend.stop() }
         let tasks = MacTab5Codex(store:store,enabled:{true},sendEnabled:{true},call:backend.call,provider:"Claude")
         tasks.deliveryReceipt = backend.receipt;tasks.deliveryCancelled = backend.cancelled; tasks.refresh()
@@ -119,7 +119,7 @@ for line in sys.stdin:
         let environment = try JSONSerialization.jsonObject(with:Data(contentsOf:root.appendingPathComponent("environment.json"))) as! [String:String]
         let arguments = try JSONSerialization.jsonObject(with:Data(contentsOf:root.appendingPathComponent("arguments.json"))) as! [String]
         let store = MacTab5PrivateStore(root:root.appendingPathComponent("private"),key:{key})
-        let backend = MacClaudeWorkspaceBackend(root:root.appendingPathComponent(".claude/projects"),store:store,key:{key},executable:{URL(fileURLWithPath:executable)},live:{[]},environment:environment,arguments:arguments)
+        let backend = MacClaudeWorkspaceBackend(root:root.appendingPathComponent(".claude/projects"),store:store,key:{key},executable:{URL(fileURLWithPath:executable)},live:{[]},environment:environment,arguments:arguments,legacyFixture:true)
         defer { backend.stop() }
         let tasks = MacTab5Codex(store:store,enabled:{true},sendEnabled:{true},call:backend.call,provider:"Claude")
         tasks.deliveryReceipt = backend.receipt;tasks.deliveryCancelled = backend.cancelled;tasks.refresh()

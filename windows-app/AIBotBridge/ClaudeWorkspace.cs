@@ -6,7 +6,7 @@ namespace AIBotBridge;
 
 // Independent Claude adapter using the same device schema and existing private
 // draft/photo stores. It never opens a terminal or overrides Claude policies.
-internal sealed class ClaudeWorkspace:IDisposable
+internal sealed partial class ClaudeWorkspace:IDisposable
 {
     internal sealed record Approval(string Id,string Task,string Tool,JsonElement Input);
     private sealed class Message(string id,string turn,string device="",string? queuedText=null,string[]? queuedImages=null){internal string Id=id,Turn=turn,Status="inProgress",Device=device;internal string? QueuedText=queuedText;internal string[] QueuedImages=queuedImages??[];internal long Started=DateTimeOffset.UtcNow.ToUnixTimeSeconds();internal DateTimeOffset Observed=DateTimeOffset.UtcNow;internal bool Accepted;internal int Bytes;internal List<object> Items=[];}
@@ -21,13 +21,16 @@ internal sealed class ClaudeWorkspace:IDisposable
     private readonly Dictionary<string,string> _ready=[],_read=[];
     private readonly Dictionary<string,(string Device,string Task,string Turn)> _readReceipts=[];
     private readonly Dictionary<string,object> _responses=[];
+    private readonly Dictionary<string,string> _receipts=[];
     private object? _view,_control,_draft;private string? _viewTask,_draftDevice;
     private readonly System.Threading.Timer _timer;private long _catalogAt;private byte[]? _key;private bool _disposed;
-    internal ClaudeWorkspace(Func<bool> enabled,string? root=null,string? directory=null,Func<string?>? executable=null,Func<CancellationToken,Task<JsonElement>>? live=null,Func<ClaudeCatalog.Entry,Action<JsonElement>,ClaudeStream>? streamFactory=null){
+    internal ClaudeWorkspace(Func<bool> enabled,string? root=null,string? directory=null,Func<string?>? executable=null,Func<CancellationToken,Task<JsonElement>>? live=null,Func<ClaudeCatalog.Entry,Action<JsonElement>,ClaudeStream>? streamFactory=null,Func<Guid,IClaudeNativeSession?>? nativeFactory=null,Func<IEnumerable<ClaudeSessionObservation>>? newPanels=null,ClaudeHarnessAdapters? harnesses=null){
         _enabled=enabled;_root=root??Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile),".claude","projects");
         _private=directory??Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData),"AI-bot","tab5-claude");
-        _images=new(Path.Combine(_private,"images"));_catalog=new(_root,Key);_executable=executable??Locate;_live=live;
+        _harnesses=harnesses??ClaudeHarnessAdapters.Default;_sources=new(_private);
+        _images=new(Path.Combine(_private,"images"));_catalog=new(_root,Key,newPanels??(streamFactory is null&&(root is null||harnesses is not null)?_harnesses.Discover:null));_executable=executable??Locate;_live=live;
         _streamFactory=streamFactory;
+        _nativeClients=streamFactory is null;_customNativeFactory=nativeFactory is not null;_nativeFactory=nativeFactory??_harnesses.Resolve;
         _timer=new(_=>Refresh(),null,Timeout.Infinite,Timeout.Infinite);
     }
     internal void Start()=>_timer.Change(0,4000);
@@ -37,9 +40,10 @@ internal sealed class ClaudeWorkspace:IDisposable
         try{using var file=new FileStream(path,FileMode.CreateNew,FileAccess.Write,FileShare.None);file.Write(sealedKey);file.Flush(true);}catch(IOException) when(File.Exists(path)){key=ProtectedData.Unprotect(File.ReadAllBytes(path),null,DataProtectionScope.CurrentUser);}
         if(key.Length!=32)throw new IOException("Private key unavailable");return _key=key;}}
     private static string? Locate(){var paths=new[]{Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),".local","bin","claude.exe"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","Claude","claude.exe")}.Concat((Environment.GetEnvironmentVariable("PATH")??"").Split(Path.PathSeparator).Where(p=>p.Length>0).Select(p=>Path.Combine(p,"claude.exe")));return paths.FirstOrDefault(File.Exists);}
-    private void Refresh(){if(!_enabled()||_disposed||!_gate.Wait(0))return;try{_catalog.Refresh();_catalogAt=Environment.TickCount64;}catch(Exception e) when(e is IOException or UnauthorizedAccessException or CryptographicException){}finally{_gate.Release();}}
+    private void Refresh(){if(!_enabled()||_disposed||!_gate.Wait(0))return;try{_catalog.Refresh();_catalogAt=Environment.TickCount64;if(_nativeClients)RefreshNative();}catch(Exception e) when(e is IOException or UnauthorizedAccessException or CryptographicException){}finally{_gate.Release();}}
     internal string? Alias(Guid session)=>_catalog.Snapshot().FirstOrDefault(e=>e.Session==session)?.Alias;
     internal ClaudeIdentity.Selection? Selection(ClaudeIdentity.Selection? bound,DateTimeOffset now){
+        if(_nativeClients)return NativeSelection(bound,now);
         var entries=_catalog.Snapshot();lock(_sync){var owned=new List<ClaudeIdentity.Selection>();foreach(var entry in entries){
             if(_owners.GetValueOrDefault(entry.Alias) is not {} owner||(owner.Messages.FirstOrDefault(m=>m.Status=="inProgress")??owner.Messages.LastOrDefault()) is not {} message||!Guid.TryParse(message.Id,out var prompt))continue;
             bool running=owner.Messages.Any(m=>m.Status=="inProgress"),waiting=running&&owner.Approvals.Count>0,expired=running&&(now-message.Observed).TotalSeconds>=(waiting?300:600);
@@ -49,7 +53,9 @@ internal sealed class ClaudeWorkspace:IDisposable
         }return ClaudeIdentity.Resolve(bound,owned);}
     }
     internal object? Snapshot(int limit=64,string? requiredTask=null,string device=""){
-        if(!_enabled())return null;var full=_catalog.Snapshot();lock(_sync){
+        if(!_enabled())return null;var full=_catalog.Snapshot();
+        if(DiagnosticSession is {} selected)full=full.Where(e=>e.Session==selected).ToArray();
+        lock(_sync){
             var entries=full.Take(Math.Max(1,limit)).ToList();var pinned=new HashSet<string>();
             foreach(string? id in new[]{requiredTask,_viewTask})if(id is not null&&full.FirstOrDefault(e=>e.Alias==id) is {} entry){
                 if(!entries.Any(e=>e.Alias==id)){int replace=entries.FindLastIndex(e=>!pinned.Contains(e.Alias));if(replace>=0)entries[replace]=entry;}pinned.Add(id);
@@ -57,19 +63,27 @@ internal sealed class ClaudeWorkspace:IDisposable
             var positions=new Dictionary<string,int>();var counts=entries.GroupBy(e=>e.Project).ToDictionary(g=>g.Key,g=>g.Count());
             var tasks=entries.Select(e=>{
                 var owner=_owners.GetValueOrDefault(e.Alias);string state=Environment.TickCount64-_catalogAt>30000?"unknown":owner?.Approvals.Count>0?"waiting":owner?.Messages.Any(m=>m.Status=="inProgress")==true?"working":owner is {Ended:false}?"idle":"unknown";
+                if(_nativeClients)state=Environment.TickCount64-_catalogAt>30000?"unknown":_nativeViews.GetValueOrDefault(e.Alias)?.State??"unknown";
                 int position=positions.GetValueOrDefault(e.Project);positions[e.Project]=position+1;int page=position/8,total=(counts[e.Project]+7)/8;
                 string project=page==0?e.Project:Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(e.Project+":page:"+page))).ToLowerInvariant()[..16];
-                return new{id=e.Alias,title=e.Title,folder=total>1?e.Folder+" · "+(page+1)+"/"+total:e.Folder,projectId=project,updatedAt=e.Updated,state,companionState=state,waitingKind=state=="waiting"?"confirm":""};
+                return new{id=e.Alias,title=e.Title,source=_sources.Get(e.Alias),folder=total>1?e.Folder+" · "+(page+1)+"/"+total:e.Folder,projectId=project,updatedAt=e.Updated,state,companionState=state,waitingKind=state=="waiting"?"confirm":""};
             }).ToArray();
             var ids=tasks.Select(t=>t.id).ToHashSet();
+            // Isolated acceptance sessions have their own private catalog/aliases.
+            // Publishing their notices would leave badges on the real device
+            // after its ordinary catalog is restored.
+            var notices=_ready.Where(p=>DiagnosticSession is null&&ids.Contains(p.Key)).ToArray();
             return new{projects=tasks.GroupBy(t=>t.projectId).Take(24).Select(g=>new{id=g.Key,name=g.First().folder}).ToArray(),tasks,
                 overviewTask=tasks.OrderByDescending(t=>t.state=="waiting"?3:t.state=="working"?1:0).ThenByDescending(t=>t.updatedAt).FirstOrDefault(),
-                replyView=_view,control=_control,draftView=device==_draftDevice?_draft:null,responses=_responses.Where(p=>ids.Contains(p.Key)).ToDictionary(p=>p.Key,p=>p.Value),
-                repliesReady=_ready.Where(p=>ids.Contains(p.Key)).ToDictionary(p=>p.Key,p=>p.Value),repliesRead=new Dictionary<string,string>(_read),
-                repliesUnread=_ready.Where(p=>ids.Contains(p.Key)&&_read.GetValueOrDefault(p.Key)!=p.Value).ToDictionary(p=>p.Key,p=>p.Value)};
+                replyView=_view,control=_control,controls=_nativeClients?entries.ToDictionary(e=>e.Alias,e=>NativeControl(e.Alias)):null,
+                draftView=device==_draftDevice?_draft:null,responses=_responses.Where(p=>ids.Contains(p.Key)).ToDictionary(p=>p.Key,p=>p.Value),
+                receipts=_receipts.Where(p=>ids.Contains(p.Key)).ToDictionary(p=>p.Key,p=>p.Value),
+                repliesReady=notices.ToDictionary(p=>p.Key,p=>p.Value),repliesRead=new Dictionary<string,string>(_read),
+                repliesUnread=notices.Where(p=>_read.GetValueOrDefault(p.Key)!=p.Value).ToDictionary(p=>p.Key,p=>p.Value)};
         }
     }
-    private Tab5CodexJournal Journal(string device){lock(_sync){if(!_journals.TryGetValue(device,out var journal)){if(_journals.Count>=64||device.Length is <1 or >128)throw new IOException("Private storage unavailable");string name=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(device))).ToLowerInvariant();journal=new(Path.Combine(_private,"devices",name,"drafts.dat"));_journals[device]=journal;}return journal;}}
+    internal Guid? DiagnosticSession {get;init;}
+    internal Tab5CodexJournal Journal(string device){lock(_sync){if(!_journals.TryGetValue(device,out var journal)){if(_journals.Count>=64||device.Length is <1 or >128)throw new IOException("Private storage unavailable");string name=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(device))).ToLowerInvariant();journal=new(Path.Combine(_private,"devices",name,"drafts.dat"));_journals[device]=journal;}return journal;}}
     private async Task<bool> ExternalAsync(ClaudeCatalog.Entry entry,CancellationToken token){
         JsonElement rows;
         if(_live is not null)rows=await _live(token);
@@ -88,7 +102,7 @@ internal sealed class ClaudeWorkspace:IDisposable
         if(entry.Directory.Length==0||!Directory.Exists(entry.Directory)||await ExternalAsync(entry,token))throw new IOException("Claude session owned elsewhere");
         lock(_sync)if(_owners.Count>=8&&!_owners.ContainsKey(entry.Alias))throw new IOException("Claude capacity reached");
         var owner=new Owner();Action<JsonElement> receive=frame=>Receive(owner,entry,frame);
-        var stream=_streamFactory?.Invoke(entry,receive)??new ClaudeStream(_executable()??throw new IOException("Claude unavailable"),entry.Directory,entry.Session,receive);owner.Stream=stream;
+        var stream=_streamFactory?.Invoke(entry,receive)??throw new IOException("Native Claude client required");owner.Stream=stream;
         lock(_sync)_owners[entry.Alias]=owner;try{await stream.StartAsync(token);return owner;}catch{owner.Ended=true;stream.Dispose();throw;}
     }
     private string Turn(ClaudeCatalog.Entry entry,string message)=>ClaudeCatalog.Alias("claude:turn:"+entry.Session+":"+message,Key());
@@ -108,12 +122,12 @@ internal sealed class ClaudeWorkspace:IDisposable
         if(type=="control_cancel_request")owner.Approvals.RemoveAll(a=>a.Id==Text(frame,"request_id"));
         if(type is "bridge_exit" or "bridge_protocol_error"){owner.Ended=true;owner.Approvals.Clear();foreach(var m in owner.Messages.Where(m=>m.Status=="inProgress")){m.Status="unknown";m.Observed=DateTimeOffset.UtcNow;}}
     }}
-    private string? Receipt(ClaudeCatalog.Entry entry,Tab5SendRecord record){lock(_sync){if(record.Operation=="interrupt")return _interruptions.GetValueOrDefault(record.Id);if(_owners.GetValueOrDefault(entry.Alias)?.Messages.FirstOrDefault(m=>m.Id==record.Id&&m.Accepted) is {} message)return message.Turn;}
+    private string? Receipt(ClaudeCatalog.Entry entry,Tab5SendRecord record){if(record.NativeReceipt is not null||record.NativeScope.Length>0)return NativeReceipt(entry,record);lock(_sync){if(record.Operation=="interrupt")return _interruptions.GetValueOrDefault(record.Id);if(_owners.GetValueOrDefault(entry.Alias)?.Messages.FirstOrDefault(m=>m.Id==record.Id&&m.Accepted) is {} message)return message.Turn;}
         if(record.Operation=="interrupt")return null;try{if(!ClaudeHistory.Read(_root,entry.Session,Key()).Accepted.Contains(record.Id))return null;
             lock(_sync)if(_owners.GetValueOrDefault(entry.Alias)?.Messages.FirstOrDefault(m=>m.Id==record.Id) is {} accepted&&!accepted.Accepted){accepted.Accepted=true;accepted.Observed=DateTimeOffset.UtcNow;}
             return Turn(entry,record.Id);}catch(IOException){return null;}}
     internal (int Status,object Body) Upload(string device,string task,string id,byte[] bytes){if(!_enabled()||_catalog.Resolve(task) is null)return(404,new{error="task_not_in_recent_catalog"});try{return(200,_images.Upload(device,task,id,bytes));}catch(Exception e) when(e is IOException or ArgumentException or CryptographicException){return(400,new{error="invalid_image"});}}
-    internal async Task<(int Status,object Body)> HandleAsync(JsonElement root,string device,CancellationToken token){
+    internal async Task<(int Status,object Body)> HandleAsync(JsonElement root,string device,CancellationToken token,Func<bool>? authorized=null){
         if(!_enabled())return(403,new{error="claude_disabled"});await _gate.WaitAsync(token);
         try{
             var journal=Journal(device);
@@ -125,16 +139,30 @@ internal sealed class ClaudeWorkspace:IDisposable
             if(op is "draft-save" or "draft-load"){
                 if(op=="draft-save"){_images.Resolve(device,task,images,false);journal.SaveDraft(task,text,images,device);}
                 else{var pending=journal.Pending(task);lock(_sync){_draftDevice=device;_draft=new{taskId=task,requestId=request,text=journal.Draft(task),images=journal.Images(task),pendingRequest=pending?.Id??"",operation=pending?.Operation??"",expectedTurn=pending?.ExpectedTurn??""};}}
+                if(op=="draft-load"&&_nativeClients&&_nativeFactory(entry.Session) is {CanAddressInput:true} api&&api.IsVerifiedBlank()){
+                    lock(_sync)_control=new{taskId=task,turnId="",running=false,waiting=false,canSend=true,canSteer=false,canInterrupt=false};
+                }
                 return(200,new{status="saved",taskId=task,requestId=request});}
             if(op=="read-ack"){lock(_sync){if(!_readReceipts.TryGetValue(request,out var receipt)||receipt.Device!=device||receipt.Task!=task||receipt.Turn!=Text(root,"turnId")||_ready.GetValueOrDefault(task)!=receipt.Turn)return(409,new{error="read_receipt_expired"});_read[task]=receipt.Turn;}return(200,new{accepted=true});}
             var record=journal.Find(request);
+            if(op=="receipt-confirm"&&_nativeClients){
+                var confirmed=journal.ConfirmDelivered(request,task,device,text,expected,images);
+                return confirmed is null?(409,new{error="pending_delivery_changed"}):(202,new{status="submitted",taskId=task,requestId=request,turnId=confirmed.TurnId});
+            }
             if(op=="receipt"||record is not null){
                 if(record is null)return(404,new{error="receipt_not_found"});if(record.TaskId!=task||record.Device!=device||op!="receipt"&&record.Hash!=Tab5CodexJournal.Fingerprint(task,text,op,expected,images))return(409,new{error="request_id_conflict"});
-                if(record.State=="rejected")return(record.Status,new{error=record.Error,deliveryFinal=record.Error=="message_cancelled"});if(record.State is "accepted" or "completed")return(202,new{status="submitted",taskId=task,requestId=request,turnId=record.TurnId});
-                string? found=Receipt(entry,record);if(found is null)return(504,new{error="delivery_unknown"});journal.Save(record with{State="accepted",Status=202,TurnId=found});return(202,new{status="submitted",taskId=task,requestId=request,turnId=found});}
+                if(record.State=="dispatching"&&CompletedBeforeStop(entry,record)){
+                    record=record with{State="rejected",Status=409,Error="turn_completed",ResolutionSource="native_turn_completed"};
+                    journal.Save(record);
+                }
+                if(record.State=="rejected")return(record.Status,new{error=record.Error,deliveryFinal=record.Error=="message_cancelled"||record.ResolutionSource is "native_submit_not_invoked" or "native_turn_completed" or "test_tracking_closed_unknown"});
+                if(record.State is "accepted" or "completed")return(202,new{status="submitted",taskId=task,requestId=request,turnId=record.TurnId});
+                if(record.State=="abandoned")return(504,new{error="delivery_unknown",canConfirmDelivered=false});
+                string? found=Receipt(entry,record);if(found is null)return(504,new{error="delivery_unknown",canConfirmDelivered=_nativeClients&&journal.CanConfirm(record,device)});journal.Save(record with{State="accepted",Status=202,TurnId=found,NativeReceipt=null});return(202,new{status="submitted",taskId=task,requestId=request,turnId=found});}
             if(op is not ("send" or "steer" or "interrupt")||op!="interrupt"&&string.IsNullOrWhiteSpace(text)&&images.Length==0||op!="send"&&!Guid.TryParse(expected,out _))return(400,new{error="invalid_request"});
             if(Environment.TickCount64-_catalogAt>30000)return(503,new{error="claude_catalog_stale"});
             if(op!="interrupt"&&journal.Pending(task) is not null)return(409,new{error="pending_delivery_requires_receipt"});
+            if(_nativeClients)return await SendNativeAsync(entry,journal,device,request,op,text,expected,images,token,authorized);
             Owner? owner;lock(_sync)_owners.TryGetValue(task,out owner);
             Message? active;lock(_sync)active=owner?.Messages.LastOrDefault(m=>m.Status=="inProgress");
             if(op=="send"?active is not null:active?.Turn!=expected)return(409,new{error="turn_changed"});
@@ -172,20 +200,32 @@ internal sealed class ClaudeWorkspace:IDisposable
         }catch(Exception e) when(e is IOException or UnauthorizedAccessException or CryptographicException or JsonException or ArgumentException){return(503,new{error="claude_or_private_storage_unavailable"});}finally{_gate.Release();}
     }
     private async Task<(int Status,object Body)> ReadAsync(ClaudeCatalog.Entry entry,JsonElement root,string device,CancellationToken token){
-        var history=ClaudeHistory.Read(_root,entry.Session,Key());var turns=history.Turns;Owner? owner;lock(_sync)_owners.TryGetValue(entry.Alias,out owner);
+        var nativeClient=_nativeClients?_nativeFactory(entry.Session):null;
+        var history=nativeClient is null?ClaudeHistory.Read(_root,entry.Session,Key()):ReadNativeHistory(entry,nativeClient);var turns=history.Turns;Owner? owner;lock(_sync)_owners.TryGetValue(entry.Alias,out owner);
         lock(_sync){var owned=owner?.Messages??[];var ids=owned.Select(m=>m.Turn).ToHashSet();var persisted=turns.Where(t=>ids.Contains((string)t["id"])).ToDictionary(t=>(string)t["id"]);turns.RemoveAll(t=>ids.Contains((string)t["id"]));foreach(var m in owned){var row=new Dictionary<string,object>{{"id",m.Turn},{"status",m.Status},{"startedAt",m.Started},{"items",m.Items.Count==0&&persisted.TryGetValue(m.Turn,out var saved)?saved["items"]:m.Items.ToArray()}};turns.Add(row);}}
-        if(turns.Count==0)return(404,new{error="reply_unavailable"});string selected=Text(root,"turnId");int index=selected.Length==0?turns.Count-1:turns.FindIndex(t=>(string)t["id"]==selected);
+        NativeView? native=null;if(_nativeClients){native=ObserveNative(entry,history,nativeClient);lock(_sync){if(native is null)_nativeViews.Remove(entry.Alias);else _nativeViews[entry.Alias]=native;}if(turns.Count>0&&native is {Running:true})turns[^1]["status"]="inProgress";}
+        if(turns.Count==0){
+            if(native is not null)lock(_sync)_control=new{taskId=entry.Alias,turnId="",running=native.Running,waiting=native.Waiting,canSend=native.CanSend,canSteer=false,canInterrupt=false};
+            return(404,new{error="reply_unavailable"});
+        }
+        string selected=Text(root,"turnId");int index=selected.Length==0?turns.Count-1:turns.FindIndex(t=>(string)t["id"]==selected);
         int offset=root.TryGetProperty("turnOffset",out var ov)&&ov.TryGetInt32(out int n)?n:0;if(offset is < -1 or >1)return(400,new{error="invalid_turn"});index+=offset;if(index<0||index>=turns.Count)return(404,new{error="turn_not_in_available_history"});
         var turn=turns[index];using var items=JsonDocument.Parse(JsonSerializer.Serialize(turn["items"]));string text=string.Join("\n\n",items.RootElement.EnumerateArray().Where(i=>Text(i,"type")=="agentMessage").Select(i=>Text(i,"text")));if(Encoding.UTF8.GetByteCount(text)>1024*1024)return(413,new{error="reply_too_large"});
-        bool hasText=text.Length>0;string state=(string)turn["status"],turnId=(string)turn["id"];if(!hasText)text=state=="inProgress"?"Claude 正在处理，等待新的动态…":"本轮尚无公开文字。";
+        string turnId=(string)turn["id"];
+        string state=_nativeClients&&ConfirmedNativeStop(entry.Alias,turnId)?"interrupted":(string)turn["status"];
+        bool hasText=text.Length>0;if(!hasText)text=state=="inProgress"?"Claude 正在处理，等待新的动态…":"本轮尚无公开文字。";
         var pages=new List<string>();var pageText=new StringBuilder();int length=0;foreach(var rune in text.EnumerateRunes()){if(length+rune.Utf8SequenceLength>3500){pages.Add(pageText.ToString());pageText.Clear();length=0;}pageText.Append(rune.ToString());length+=rune.Utf8SequenceLength;}pages.Add(pageText.ToString());
         int page=root.TryGetProperty("page",out var pv)&&pv.TryGetInt32(out int number)?number:-1;if(page==-1)page=pages.Count-1;if(page<0||page>=pages.Count)return(400,new{error="invalid_page"});
-        bool external=owner is null||owner.Ended;try{if(external)external=await ExternalAsync(entry,token);}catch(Exception e) when(e is IOException or JsonException or OperationCanceledException){external=true;}
+        bool external=!_nativeClients&&(owner is null||owner.Ended);try{if(external)external=await ExternalAsync(entry,token);}catch(Exception e) when(e is IOException or JsonException or OperationCanceledException){external=true;}
         lock(_sync){string readReceipt="";bool running=owner?.Messages.Any(m=>m.Status=="inProgress")==true,waiting=owner?.Approvals.Count>0;
+            if(_nativeClients){running=native?.Running==true;waiting=native?.Waiting==true;external=native is not {CanSend:true};}
             if(hasText&&index==turns.Count-1&&state is "completed" or "failed" or "interrupted"){_ready[entry.Alias]=turnId;if(_readReceipts.Count<80){readReceipt=Guid.NewGuid().ToString();_readReceipts[readReceipt]=new(device,entry.Alias,turnId);}}
-            var view=new{taskId=entry.Alias,turnId,page,pageCount=pages.Count,hasText,readReceipt,history=index!=turns.Count-1,hasPrevious=index>0,hasNext=index+1<turns.Count,previousTurnId=index>0?(string)turns[index-1]["id"]:"",nextTurnId=index+1<turns.Count?(string)turns[index+1]["id"]:"",state,startedAt=turn["startedAt"]};
-            _view=view;_viewTask=entry.Alias;_responses.Clear();_responses[entry.Alias]=pages[page];_control=new{taskId=entry.Alias,turnId=owner?.Messages.LastOrDefault(m=>m.Status=="inProgress")?.Turn??"",running,waiting,canSend=!external&&!running,canSteer=!external&&running&&!waiting,canInterrupt=!external&&running};
-            return(200,new{rpcReplyVersion=1,status="loaded",taskId=entry.Alias,turnId,replyView=view,text=pages[page],receipt=state=="completed"?"已完成":state=="inProgress"?waiting?"等待电脑端确认":"运行中":state=="interrupted"?"已中断":state=="failed"?"失败":"状态未知"});
+            long started=Convert.ToInt64(turn["startedAt"]);
+            var view=new{taskId=entry.Alias,turnId,page,pageCount=pages.Count,hasText,readReceipt,history=index!=turns.Count-1,hasPrevious=index>0,hasNext=index+1<turns.Count,previousTurnId=index>0?(string)turns[index-1]["id"]:"",nextTurnId=index+1<turns.Count?(string)turns[index+1]["id"]:"",state,startedAt=started,startedLabel=started>0?DateTimeOffset.FromUnixTimeSeconds(started).ToLocalTime().ToString("MM-dd HH:mm"):""};
+            _view=view;_viewTask=entry.Alias;_responses.Clear();_responses[entry.Alias]=pages[page];_control=new{taskId=entry.Alias,turnId=_nativeClients?native?.Turn??"":owner?.Messages.LastOrDefault(m=>m.Status=="inProgress")?.Turn??"",running,waiting,canSend=!external&&!running,canSteer=_nativeClients?native?.CanAppend==true&&running&&!waiting:!external&&running&&!waiting,canInterrupt=_nativeClients?native?.CanInterrupt==true&&running&&!waiting:!external&&running};
+            string receipt=state=="completed"?"已完成":state=="inProgress"?waiting?"等待电脑端确认":"运行中":state=="interrupted"?"已中断":state=="failed"?"失败":"状态未知";
+            _receipts.Clear();_receipts[entry.Alias]=receipt;
+            return(200,new{rpcReplyVersion=1,status="loaded",taskId=entry.Alias,turnId,replyView=view,text=pages[page],receipt});
         }
     }
     internal void StopOwners(){ClaudeStream[] streams;lock(_sync)streams=_owners.Values.Select(o=>o.Stream).OfType<ClaudeStream>().ToArray();foreach(var stream in streams)stream.Dispose();}

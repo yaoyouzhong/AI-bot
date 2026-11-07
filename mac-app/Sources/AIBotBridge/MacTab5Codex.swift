@@ -444,6 +444,7 @@ final class MacTab5Codex {
         } catch { return false }
     }
     static func id(_ value: Any?) -> String? { guard let text = value as? String, text.count == 36, UUID(uuidString: text) != nil else { return nil }; return text.lowercased() }
+    func nativeAuthorized() -> Bool { enabled() && sendEnabled() && mutationAllowed() }
     func contains(_ task: String) -> Bool {
         guard enabled() else { return false }
         stateLock.lock(); defer { stateLock.unlock() }
@@ -660,6 +661,7 @@ final class MacTab5Codex {
                 return receiptResult(receipt)
             } catch MacCodexDesktopError.rejected(let reason) {
                 receipt["status"] = 409; receipt["body"] = ["error": reason]
+                if deliveryReceipt != nil { receipt["body"] = ["error": reason, "deliveryFinal": true] }
                 receipts[id] = receipt; data["receipts"] = receipts; try saveJournal(data)
                 pendingBaselines.removeValue(forKey: id)
                 stateLock.lock(); sendDiagnostic = ["desktop_draft_present": "未发送：电脑已有草稿", "desktop_attachments_present": "未发送：电脑已有附件或引用", "desktop_foreground_unconfirmed": "未发送：目标会话尚未确认"][reason] ?? "未发送：输入状态已变化"; stateLock.unlock()

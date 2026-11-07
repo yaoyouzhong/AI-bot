@@ -15,6 +15,15 @@ internal static class Tab5UIAutomationSelfTest
         using var invalid=JsonDocument.Parse("{\"op\":\"tap\",\"width\":1280,\"height\":720,\"rotation\":1,\"x\":1280,\"y\":0}");
         bool rejected=false;try{control.Begin(invalid.RootElement);}catch(ArgumentException){rejected=true;}Check(rejected,"bounds");
         RunnerAsync().GetAwaiter().GetResult();
+        string current=Guid.NewGuid().ToString(),following=Guid.NewGuid().ToString(),photoId=Guid.NewGuid().ToString();
+        JsonElement Request(string text,string turn,params string[] photos)=>JsonSerializer.SerializeToElement(new{message=text,expectedTurn=turn,images=photos});
+        var photo=new Tab5NativeAcceptance.Step("photo","send","blue","",[photoId]);
+        Check(photo.Matches("send",Request("blue","",photoId))&&!photo.Matches("send",Request("blue","")),"missing hardware photo cannot pass");
+        var append=new Tab5NativeAcceptance.Step("append","steer","w",current,[]);
+        Check(append.Matches("steer",Request("w",current))&&!append.Matches("send",Request("w",current))&&!append.Matches("steer",Request("w",following)),"append must be bound to original turn");
+        Check(append.AcceptedTurn(following)&&!append.AcceptedTurn(current),"append requires a distinct observed human turn");
+        var stop=new Tab5NativeAcceptance.Step("stop","interrupt","",following,[]);
+        Check(stop.AcceptedTurn(following)&&!stop.AcceptedTurn(current)&&!stop.Matches("interrupt",Request("",current)),"interrupt cannot acknowledge a different task");
         Console.WriteLine("TAB5_UI_AUTOMATION_OK bounded command, exact acknowledgement, expiry and coordinate rejection");
         void Observe(string request,int status){using var doc=JsonDocument.Parse(JsonSerializer.Serialize(new{uiAutomation=$"1,{request},{status},1280,720,1"}));control.Observe(doc.RootElement);}
         void Check(bool value,string name){if(!value)throw new Exception("TAB5 automation: "+name);}

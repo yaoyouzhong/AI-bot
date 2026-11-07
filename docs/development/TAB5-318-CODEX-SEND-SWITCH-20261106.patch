@@ -1,0 +1,32 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1759,6 +1759,9 @@
+     snprintf(workspace_tasks[workspace_client],37,"%s",codex_selected);
+     snprintf(workspace_projects[workspace_client],17,"%s",codex_project_selected);
+     workspace_client=next;workspace_switch_pending=-1;
++    // A completed client switch is idle. Codex must not inherit Claude's
++    // read-only button state; its own send/voice paths manage it afterwards.
++    if(!next)lv_obj_remove_state(codex_send_button,LV_STATE_DISABLED);
+     codex_remote_set_client(workspace_name());voice_remote_set_client(workspace_name());
+     snprintf(codex_selected,sizeof(codex_selected),"%s",workspace_tasks[next]);
+     snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",workspace_projects[next]);
+--- a/tests/ui-preview/workspace_parity_ui_test.h
++++ b/tests/ui-preview/workspace_parity_ui_test.h
+@@ -19,7 +19,17 @@
+     assert(first.x2<second.x1&&first.y2<picker.y1&&picker.y2<list.y1&&lv_obj_get_height(codex_list)==328);
+     codex_voice_waiting=true;assert(!workspace_choose(0)&&workspace_client==1);codex_voice_waiting=false;
+     photo_flow=true;assert(!workspace_choose(0)&&workspace_client==1);photo_flow=false;
++    codex_control_style();
++    assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
+     assert(workspace_choose(0));assert(!strcmp(lv_textarea_get_text(codex_input),a->text));
++    codex_control_style();
++    assert(!lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++    cJSON *cx=item(shown,"codexTasks");
++    cJSON_AddItemToObject(cx,"control",cJSON_Parse("{\"taskId\":\"11111111-1111-4111-8111-111111111111\",\"running\":true,\"turnId\":\"55555555-5555-4555-8555-555555555555\"}"));
++    codex_control_style();
++    assert(!strcmp(lv_label_get_text(lv_obj_get_child(codex_send_button,0)),"追加")&&!lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++    capture("workspace-codex-append-restored");
++    cJSON_DeleteItemFromObject(cx,"control");
+     codex_set_text("Codex 更新后的草稿");assert(!workspace_choose(1));assert(workspace_switch_pending==1&&workspace_client==0&&a->dirty);
+     a->dirty=false;workspace_switch_tick();assert(workspace_client==1&&!strcmp(lv_textarea_get_text(codex_input),b->text));
+     capture("workspace-claude-restored");

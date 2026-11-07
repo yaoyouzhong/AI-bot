@@ -92,6 +92,12 @@ Noto Sans CJK SC Regular source (SIL OFL 1.1), SHA-256
 `2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b`;
 the TAB5 source retains its notice and subset generator.
 
+The local .318 session-source badges also use this Noto Sans CJK SC Regular
+source under SIL OFL 1.1. `tab5_source_20.c` contains a 20px subset for ASCII
+and fixed source labels; other labels reuse the existing 24px font. The source
+hash above is checked before generation. See
+`docs/development/TAB5-SESSION-SOURCE-20261107.md` for the local artifact record.
+
 The classical left cover uses LXGW WenKai Regular v1.522 under SIL OFL 1.1.
 Copyright 2021–2026 LXGW and 2020 The Klee Project Authors. Upstream:
 https://github.com/lxgw/LxgwWenKai/releases/tag/v1.522 (`LXGWWenKai-Regular.ttf`).

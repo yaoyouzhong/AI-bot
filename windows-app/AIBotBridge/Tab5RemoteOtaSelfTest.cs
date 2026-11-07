@@ -55,6 +55,17 @@ internal static class Tab5RemoteOtaSelfTest
             try {
                 var info=await Tab5OtaControl.CallAsync("info",name:pipeName);
                 if(!info.GetProperty("ok").GetBoolean()||info.GetProperty("body").GetProperty("sha256").GetString()!=image.Sha256)throw new Exception("IPC offer metadata differs");
+                var status=await Tab5OtaControl.CallAsync("native-status",name:pipeName);
+                if(!status.GetProperty("ok").GetBoolean()||status.GetProperty("body").GetProperty("armed").GetBoolean())
+                    throw new Exception("Native diagnostics must start unarmed");
+                var unarmed=await Tab5OtaControl.CallAsync("native-run",name:pipeName);
+                if(unarmed.GetProperty("ok").GetBoolean()||unarmed.GetProperty("error").GetString()!="no_armed_plan")
+                    throw new Exception("Unarmed native job was accepted");
+                var invalidTarget=await Tab5OtaControl.CallAsync("native-inspect",name:pipeName,host:"vscode",session:"invalid");
+                if(invalidTarget.GetProperty("ok").GetBoolean()||invalidTarget.GetProperty("error").GetString()!="invalid_session")
+                    throw new Exception("Invalid inspect target accepted");
+                var arm=await Tab5OtaControl.CallAsync("native-arm",name:pipeName);
+                if(arm.GetProperty("ok").GetBoolean())throw new Exception("Remote arming accepted");
                 string localImage=Path.Combine(Path.GetTempPath(),"tab5-offer-"+Guid.NewGuid().ToString("N")+".bin");
                 try {
                     File.WriteAllBytes(localImage,TestFirmwareImage.Create("0.2.303-ui"));

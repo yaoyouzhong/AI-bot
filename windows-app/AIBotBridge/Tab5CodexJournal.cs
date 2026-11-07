@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace AIBotBridge;
 
 internal sealed record Tab5SendRecord(string Id,string TaskId,string Hash,string Operation,string ExpectedTurn,
-    string State,string TurnId,long UpdatedAt,int Status=0,string Error="",string Device="",string ResolutionSource="");
+    string State,string TurnId,long UpdatedAt,int Status=0,string Error="",string Device="",string ResolutionSource="",ClaudeNativeReceipt? NativeReceipt=null,string NativeScope="",string? NativeFailureStage=null);
 internal sealed record Tab5DraftRecord(string Text,long UpdatedAt,string[]? Images=null);
 
 // User content stays in an atomic, current-Windows-user encrypted file. A corrupt
@@ -34,6 +34,11 @@ internal sealed class Tab5CodexJournal
     internal string Draft(string id) {lock(_gate){Check();return _data.Drafts.TryGetValue(id,out var value)?value.Text:"";}}
     internal string[] Images(string id) {lock(_gate){Check();return _data.Drafts.GetValueOrDefault(id)?.Images??[];}}
     internal Tab5SendRecord? Find(string id) {lock(_gate){Check();return _data.Sends.GetValueOrDefault(id);}}
+    internal bool ConfirmsNativeStop(string task,string turn) {
+        lock(_gate)return !_damaged&&turn.Length>0&&_data.Sends.Values.Any(r=>
+            r.TaskId==task&&r.Operation=="interrupt"&&r.ExpectedTurn==turn&&r.TurnId==turn&&r.Status==202&&
+            r.State is "accepted" or "completed"&&r.ResolutionSource is "native_interrupt_confirmed" or "session_api_pending");
+    }
     internal bool CanConfirm(Tab5SendRecord record,string device) {
         lock(_gate) {
             Check();var draft=_data.Drafts.GetValueOrDefault(record.TaskId);

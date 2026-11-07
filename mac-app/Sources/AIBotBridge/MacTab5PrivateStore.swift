@@ -42,6 +42,15 @@ final class MacTab5PrivateStore {
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url(name).path)
     }
     private func url(_ name: String) -> URL { root.appendingPathComponent(MacTab5Protocol.sha256(Data(name.utf8)) + ".sealed") }
+    func materializeNativePhoto(_ bytes:Data)throws->URL {
+        let mime=try MacTab5Photos.imageType(bytes),directory=root.appendingPathComponent("native-images",isDirectory:true)
+        try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])
+        guard try directory.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink != true else{throw MacTab5Error.unconfirmed}
+        let path=directory.appendingPathComponent(MacTab5Protocol.sha256(bytes)+(mime=="image/png" ? ".png":".jpg"))
+        if FileManager.default.fileExists(atPath:path.path){guard try path.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink != true,try Data(contentsOf:path)==bytes else{throw MacTab5Error.unconfirmed}}
+        else{try bytes.write(to:path,options:.atomic);try FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:path.path)}
+        return path
+    }
     static func keychainKey() throws -> Data {
         try cachedKey.read()
     }

@@ -1,0 +1,163 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1216,8 +1216,20 @@
+     codex_draft *d=codex_draft_for(task,false);
+     return age>=0&&age<=6000&&strcmp(session,"--")&&codex_remote_with_images(op,task,value,session,(int64_t)num(shown,"epochMilliseconds")+age,id,turn,strcmp(op,"interrupt")&&d?d->images:NULL);
+ }
++static cJSON *codex_selected_control(void) {
++    cJSON *remote=item(shown,workspace_key()),*controls=item(remote,"controls");
++    if(workspace_client&&cJSON_IsObject(controls)) {
++        int64_t age=esp_timer_get_time()/1000-last_received;
++        cJSON *control=item(controls,codex_selected);
++        // An explicit map is authoritative, including missing/null entries.
++        // Do not borrow the previously viewed session's capability or turn.
++        return age>=0&&age<=6000&&strcmp(text(item(shown,"pcInput"),"session"),"--")&&
++            !strcmp(text(control,"taskId"),codex_selected)?control:NULL;
++    }
++    return item(remote,"control");
++}
+ static bool codex_running(void) {
+-    cJSON *control=item(item(shown,workspace_key()),"control");
++    cJSON *control=codex_selected_control();
+     return !strcmp(text(control,"taskId"),codex_selected)&&yes(control,"running")&&strlen(text(control,"turnId"))==36;
+ }
+ // Keep the shared guard out of both callers in the nearly full OTA image.
+@@ -1251,7 +1263,7 @@
+     codex_draft *d=codex_draft_for(codex_selected,false);
+     if(!codex_waiting&&!codex_send_queued)ui_text(lv_obj_get_child(codex_send_button,0),d&&d->request[0]?"核对送达":codex_running()?"追加":"发送");
+     if(workspace_client) {
+-        cJSON *control=item(item(shown,workspace_key()),"control");
++        cJSON *control=codex_selected_control();
+         bool available=!strcmp(text(control,"taskId"),codex_selected)&&yes(control,codex_running()?"canSteer":"canSend");
+         if(!codex_waiting&&!codex_send_queued&&((d&&d->request[0])||available))lv_obj_remove_state(codex_send_button,LV_STATE_DISABLED);
+         else lv_obj_add_state(codex_send_button,LV_STATE_DISABLED);
+@@ -1660,7 +1672,8 @@
+     bool multiple=codex_reply_total>1;
+     visible(codex_reply_older,multiple);visible(codex_reply_newer,multiple);
+     if(multiple)ui_text_fmt(codex_reply_position,"%d / %d",codex_reply_page<0?1:codex_reply_page+1,codex_reply_total);
+-    else ui_text(codex_reply_position,codex_reply_selected[0]?"历史回复":"自动更新");
++    else ui_text(codex_reply_position,codex_reply_selected[0]?"历史回复":
++        view_matches&&!strcmp(text(view,"state"),"completed")?"":"自动更新");
+     lv_obj_set_x(codex_reply_position,752);
+     lv_obj_set_width(codex_reply_position,100);
+     visible(codex_reply_latest,!codex_reply_follow||codex_reply_selected[0]);
+@@ -1668,11 +1681,7 @@
+     int button_page=codex_nav_pending&&!codex_turn_pending?codex_requested_page:codex_reply_page;
+     if(button_page<=0)lv_obj_add_state(codex_reply_older,LV_STATE_DISABLED);else lv_obj_remove_state(codex_reply_older,LV_STATE_DISABLED);
+     if(button_page>=codex_reply_total-1)lv_obj_add_state(codex_reply_newer,LV_STATE_DISABLED);else lv_obj_remove_state(codex_reply_newer,LV_STATE_DISABLED);
+-    // Refresh readiness is not the outcome of the conversation. Preserve public
+-    // content and its receipt; expose sustained delay only in the secondary slot.
+-    if(codex_refresh_wait_at&&esp_timer_get_time()/1000-codex_refresh_wait_at>=3000&&
+-       !multiple&&!codex_nav_pending&&view_matches&&codex_public_reply(view,body))
+-        ui_text(codex_reply_position,"稍后更新");
++    // Cached results remain stable while background reads retry silently.
+     if(codex_nav_timed_out)ui_text(codex_reply_status,"读取超时 · 可重新翻页");
+     if(codex_nav_pending)ui_text(codex_reply_status,codex_reply_follow?"正在读取…":"正在翻页…");
+     if(codex_nav_pending) {
+@@ -2134,7 +2143,7 @@
+     if(!querying&&strcmp(operation,"interrupt")&&(!d->text||!*d->text)&&!d->images[0][0]){ui_text(codex_receipt,"请先输入内容或添加照片");return;}
+     if(!querying) {
+         codex_uuid(d->request);snprintf(d->operation,sizeof(d->operation),"%s",operation);
+-        snprintf(d->turn,sizeof(d->turn),"%s",strcmp(operation,"send")?text(item(item(shown,workspace_key()),"control"),"turnId"):"");
++        snprintf(d->turn,sizeof(d->turn),"%s",strcmp(operation,"send")?text(codex_selected_control(),"turnId"):"");
+         if(!codex_checkpoint_write()){d->request[0]=0;ui_text(codex_receipt,"草稿未保存，未发送");return;}
+     }
+     if(!codex_request(querying?(!strcmp(operation,"receipt-confirm")?"receipt-confirm":"receipt"):operation,d->id,!strcmp(operation,"interrupt")?"":d->text?d->text:"",d->request,d->turn)) {
+@@ -2240,7 +2249,7 @@
+         int64_t age=esp_timer_get_time()/1000-last_received;
+         const char *session=text(item(shown,"pcInput"),"session");char request[37];codex_uuid(request);
+         if(age<0||age>6000||!strcmp(session,"--"))return;
+-        if(codex_remote_request("interrupt",codex_selected,"",session,(int64_t)num(shown,"epochMilliseconds")+age,request,text(item(item(shown,workspace_key()),"control"),"turnId"))) {
++        if(codex_remote_request("interrupt",codex_selected,"",session,(int64_t)num(shown,"epochMilliseconds")+age,request,text(codex_selected_control(),"turnId"))) {
+             workspace_stopping=true;ui_text(codex_receipt,"正在停止；保留待核对消息与草稿");codex_control_style();
+         }
+         return;
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2040,6 +2040,7 @@
+ #include "workspace_parity_ui_test.h"
+ #include "workspace_switch_sync_test.h"
+ #include "reply_open_state_test.h"
++#include "workspace_controls_test.h"
+ #include "cancelled_draft_refresh_test.h"
+ #include "project_dropdown_navigation_test.h"
+ int main(void) {
+@@ -2062,6 +2063,7 @@
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
+     if(getenv("TAB5_REPLY_OPEN_STATE_ONLY")){check_reply_open_state();return 0;}
++    if(getenv("TAB5_WORKSPACE_CONTROLS_ONLY")){check_workspace_controls();return 0;}
+     if(getenv("TAB5_PROJECT_DROPDOWN_ONLY")){check_project_dropdown_navigation();return 0;}
+     if(getenv("TAB5_CANCELLED_DRAFT_ONLY")){check_cancelled_draft_refresh();return 0;}
+     if(getenv("TAB5_WORKSPACE_PARITY_ONLY")){check_workspace_parity_ui();return 0;}
+--- a/tests/ui-preview/reply_open_state_test.h
++++ b/tests/ui-preview/reply_open_state_test.h
+@@ -28,12 +28,13 @@
+         printf("REPLY_OPEN_INITIAL client=%u status=%s\n",client,lv_label_get_text(codex_reply_status));
+         assert(!strcmp(lv_label_get_text(codex_reply_status),"已完成"));
+         render_codex();assert(!strcmp(lv_label_get_text(codex_reply_status),"已完成"));
++        assert(!lv_label_get_text(codex_reply_position)[0]);
+         assert(codex_showing_cache&&!codex_reading&&!codex_nav_pending);
+         for(int i=0;i<20;i++){lv_tick_inc(50);lv_anim_refr_now();}
+         capture(client?"claude-completed-open":"codex-completed-open");
+         preview_now_us+=4000000;codex_reply_refresh(NULL);render_codex();
+         assert(!strcmp(lv_label_get_text(codex_reply_status),"已完成"));
+-        assert(!strcmp(lv_label_get_text(codex_reply_position),"稍后更新"));
++        assert(!lv_label_get_text(codex_reply_position)[0]);
+         capture(client?"claude-completed-wait":"codex-completed-wait");
+         preview_usb_connected=true;last_received=preview_now_us/1000;codex_reply_refresh(NULL);assert(codex_reading);
+         preview_result_code=503;codex_read_finish(preview_now_us/1000);
+@@ -41,7 +42,7 @@
+         preview_result_code=-1;codex_reply_refresh(NULL);assert(codex_reading);
+         preview_read_view=cJSON_Duplicate(reply,true);preview_result_code=200;codex_read_finish(preview_now_us/1000);
+         assert(!strcmp(lv_label_get_text(codex_reply_status),"已完成"));
+-        assert(!strcmp(lv_label_get_text(codex_reply_position),"自动更新"));
++        assert(!lv_label_get_text(codex_reply_position)[0]);
+         assert(!codex_showing_cache&&!codex_nav_pending);
+         // A periodic frame without a receipt must not erase the direct result
+         // when bookmarking the visible page (the former Claude-only mismatch).
+--- /dev/null
++++ b/tests/ui-preview/workspace_controls_test.h
+@@ -0,0 +1,42 @@
++static cJSON *ready_control(const char *task,bool running) {
++    cJSON *v=cJSON_CreateObject();cJSON_AddStringToObject(v,"taskId",task);
++    cJSON_AddStringToObject(v,"turnId",running?"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa":"");
++    cJSON_AddBoolToObject(v,"running",running);cJSON_AddBoolToObject(v,"waiting",false);
++    cJSON_AddBoolToObject(v,"canSend",!running);cJSON_AddBoolToObject(v,"canSteer",running);cJSON_AddBoolToObject(v,"canInterrupt",running);return v;
++}
++static void check_workspace_controls(void) {
++    int sends=preview_submit_count,reads=preview_reads;
++    reply_open_state_setup(1);preview_usb_connected=true;last_link=LINK_USB;
++    const char *a="11111111-1111-4111-8111-111111111111",*b="22222222-2222-4222-8222-222222222222";
++    cJSON *remote=item(shown,"claudeTasks"),*tasks=item(remote,"tasks"),*second=cJSON_Duplicate(cJSON_GetArrayItem(tasks,0),true);
++    cJSON_ReplaceItemInObject(second,"id",cJSON_CreateString(b));cJSON_ReplaceItemInObject(second,"title",cJSON_CreateString("Claude Code原生终端"));cJSON_AddItemToArray(tasks,second);
++    cJSON *controls=cJSON_AddObjectToObject(remote,"controls");cJSON_AddItemToObject(controls,a,ready_control(a,false));cJSON_AddItemToObject(controls,b,ready_control(b,false));
++    // The last read belongs to A; B has never been read and must be ready on selection.
++    cJSON_AddItemToObject(remote,"control",ready_control(a,false));render_codex();
++    assert(!lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++    for(int i=0;i<4;i++){
++        codex_select_task(i%2?a:b);
++        assert(!lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++        assert(!strcmp(lv_label_get_text(lv_obj_get_child(codex_send_button,0)),"发送"));
++    }
++    codex_select_task(b);capture("native-session-send-ready");
++    codex_select_task(a);capture("vscode-session-send-ready");
++    // Explicit unavailable capability must override the old positive viewed control.
++    cJSON_ReplaceItemInObject(controls,a,cJSON_CreateNull());codex_control_style();assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++    cJSON_ReplaceItemInObject(controls,a,ready_control(b,false));codex_control_style();assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++    cJSON_ReplaceItemInObject(controls,a,ready_control(a,true));codex_control_style();
++    assert(codex_running()&&!lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++    assert(!strcmp(lv_label_get_text(lv_obj_get_child(codex_send_button,0)),"追加"));
++    cJSON_ReplaceItemInObject(item(controls,a),"canSteer",cJSON_CreateFalse());codex_control_style();assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++    cJSON_ReplaceItemInObject(controls,a,ready_control(a,false));
++    preview_now_us+=7000000;codex_control_style();assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++    last_received=preview_now_us/1000;codex_control_style();assert(!lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++    codex_draft *draft=codex_draft_for(a,true);snprintf(draft->request,sizeof(draft->request),"33333333-3333-4333-8333-333333333333");
++    cJSON_ReplaceItemInObject(controls,a,cJSON_CreateNull());codex_control_style();
++    assert(!lv_obj_has_state(codex_send_button,LV_STATE_DISABLED)&&!strcmp(lv_label_get_text(lv_obj_get_child(codex_send_button,0)),"核对送达"));draft->request[0]=0;
++    // Older producers with no per-task map keep the exact-task legacy path.
++    cJSON_DeleteItemFromObject(remote,"controls");codex_control_style();assert(!lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++    codex_select_task(b);assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++    assert(preview_reads==reads&&preview_submit_count==sends);
++    puts("WORKSPACE_CONTROLS_OK immediate unread-session switches; exact task; unavailable/waiting/stale controls; running turn; receipt recovery; legacy fallback; zero reads/sends");
++}

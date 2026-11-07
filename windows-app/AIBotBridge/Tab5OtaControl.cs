@@ -33,6 +33,13 @@ internal static class Tab5OtaControl
                     var current=service()??throw new InvalidOperationException("没有已启用的 TAB5。");
                     string op=request.RootElement.GetProperty("op").GetString()??"";
                     if(op=="info")response=new{ok=true,body=current.OtaControlInfo};
+                    else if(op=="native-inspect"){
+                        var host=request.RootElement.GetProperty("host").GetString()??"";
+                        if(!Guid.TryParse(request.RootElement.GetProperty("session").GetString(),out var session))throw new ArgumentException("invalid_session");
+                        response=new{ok=true,body=Tab5NativeJob.Inspect(host,session)};
+                    }
+                    else if(op=="native-status")response=new{ok=true,body=Tab5NativeJob.Status()};
+                    else if(op=="native-run")response=new{ok=true,body=Tab5NativeJob.Start(current)};
                     else if(op=="offer") {
                         string id=request.RootElement.GetProperty("deviceId").GetString()??"",sha=request.RootElement.GetProperty("sha256").GetString()??"";
                         string path=request.RootElement.GetProperty("imagePath").GetString()??"";
@@ -51,10 +58,10 @@ internal static class Tab5OtaControl
             catch(Exception ex) when(ex is IOException or JsonException or OperationCanceledException) {/* Close this bounded connection; no retry of an installation. */}
         }
     }
-    internal static async Task<JsonElement> CallAsync(string op,string? device=null,string? sha=null,string? name=null,string? imagePath=null) {
+    internal static async Task<JsonElement> CallAsync(string op,string? device=null,string? sha=null,string? name=null,string? imagePath=null,string? host=null,string? session=null) {
         using var token=new CancellationTokenSource(TimeSpan.FromSeconds(45));
         using var pipe=new NamedPipeClientStream(".",name??PipeName,PipeDirection.InOut,PipeOptions.Asynchronous|PipeOptions.CurrentUserOnly);
-        await pipe.ConnectAsync(2000,token.Token);await WriteAsync(pipe,new{op,deviceId=device,sha256=sha,imagePath},token.Token);
+        await pipe.ConnectAsync(2000,token.Token);await WriteAsync(pipe,new{op,deviceId=device,sha256=sha,imagePath,host,session},token.Token);
         using var response=JsonDocument.Parse(await ReadAsync(pipe,token.Token));return response.RootElement.Clone();
     }
 }

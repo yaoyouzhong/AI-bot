@@ -10,14 +10,14 @@ internal static class Tab5AutomationRunner
         Func<CancellationToken,Task<Tab5ScreenPreview.Frame>> Capture,
         Func<CancellationToken,Task<Tab5DisplaySettings>> Settings);
 
-    internal static void Run(string directory)
+    internal static void Run(string directory,Tab5UsbDiagnostic? suite=null,string? screenCheck=null)
     {
         using var instance=new Mutex(false,@"Local\AIBotBridge.Instance."+System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value);
         bool owned;try{owned=instance.WaitOne(0);}catch(AbandonedMutexException){owned=true;}
         if(!owned)throw new InvalidOperationException("Normally exit the resident bridge before USB diagnostics.");
-        try{RunAsync(Path.GetFullPath(directory)).GetAwaiter().GetResult();}finally{instance.ReleaseMutex();}
+        try{RunAsync(Path.GetFullPath(directory),suite,screenCheck).GetAwaiter().GetResult();}finally{instance.ReleaseMutex();}
     }
-    private static async Task RunAsync(string directory)
+    private static async Task RunAsync(string directory,Tab5UsbDiagnostic? suite,string? screenCheck)
     {
         if(Directory.Exists(directory)||File.Exists(directory))throw new IOException("New output directory required");
         var registry=new DeviceRegistryStore().Snapshot;
@@ -27,15 +27,24 @@ internal static class Tab5AutomationRunner
         Directory.CreateDirectory(directory);
         using var stop=new CancellationTokenSource(TimeSpan.FromMinutes(10));
         using var runtime=new BridgeRuntime(startRefresh:false);
-        using var service=new Tab5Service(store){ActivitySourceEnabled=device.Sources.Contains("activity")};
-        service.AttachVoice(new Tab5VoiceHost(physicalToggle:service.TryVoiceHidToggle));
+        var observed=new List<object>();
+        using var service=new Tab5Service(store,acceptance:suite){
+            ActivitySourceEnabled=device.Sources.Contains("activity"),
+            DraftObservation=screenCheck is "prepare" or "sync"?(client,op,task,request,status)=>{
+                lock(observed)if(observed.Count<128)observed.Add(new{client,op,task,request,status});
+            }:null
+        };
+        if(suite is not null)await suite.PrepareAsync(service,device.HardwareId??throw new IOException("Missing paired device identity"),stop.Token);
+        else if(screenCheck is null)service.AttachVoice(new Tab5VoiceHost(physicalToggle:service.TryVoiceHidToggle));
         int port=int.TryParse(Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT"),out int configured)&&configured is >0 and <=65535?configured:8765;
         var serial=new SerialPublisher(null,null); // No ESP worker is started.
         var server=new LocalStatusServer(port);
-        Task[] workers=[Task.Run(()=>service.RunUsbAsync(stop.Token)),
-            Task.Run(()=>Tab5StatusPublisher.RunAsync(()=>service.Publish(runtime.Capture()),stop.Token,TimeSpan.FromMilliseconds(400))),
-            Task.Run(()=>LanBindingManager.RunAsync(port,serial,runtime.Capture,runtime.Resources,stop.Token,tab5:service,legacyEnabled:()=>false)),
-            Task.Run(()=>server.RunAsync(runtime.Capture,stop.Token))];
+        List<Task> workers=[Task.Run(()=>service.RunUsbAsync(stop.Token)),
+            Task.Run(()=>Tab5StatusPublisher.RunAsync(()=>service.Publish(runtime.Capture()),stop.Token,TimeSpan.FromMilliseconds(400)))];
+        if(suite is null&&screenCheck is null){
+            workers.Add(Task.Run(()=>LanBindingManager.RunAsync(port,serial,runtime.Capture,runtime.Resources,stop.Token,tab5:service,legacyEnabled:()=>false)));
+            workers.Add(Task.Run(()=>server.RunAsync(runtime.Capture,stop.Token)));
+        }
         try
         {
             using(var connect=CancellationTokenSource.CreateLinkedTokenSource(stop.Token)){
@@ -64,10 +73,20 @@ internal static class Tab5AutomationRunner
             }
             using var input=new StreamReader(Console.OpenStandardInput(),Encoding.UTF8);
             using var output=new StreamWriter(Console.OpenStandardOutput(),new UTF8Encoding(false)){AutoFlush=true};
-            await CommandsAsync(input,output,directory,new(Action,Capture,t=>ReadSettingsAsync(
-                ct=>service.DisplaySettingsAsync(null,ct),()=>service.Busy,t)),stop.Token);
+            var backend=new Backend(Action,Capture,t=>ReadSettingsAsync(ct=>service.DisplaySettingsAsync(null,ct),()=>service.Busy,t));
+            if(screenCheck is not null){
+                var before=await backend.Settings(stop.Token);
+                var viewport=await Action(JsonSerializer.SerializeToElement(new{op="probe"}),stop.Token);
+                if(viewport.Width!=1280||viewport.Height!=720)throw new IOException("unexpected_viewport");
+                await new Tab5NativeScreen(backend,viewport,directory).CheckClientSwitch(screenCheck,stop.Token);
+                if(screenCheck=="prepare")await Task.Delay(TimeSpan.FromSeconds(18),stop.Token);
+                if(JsonSerializer.Serialize(before)!=JsonSerializer.Serialize(await backend.Settings(stop.Token)))throw new IOException("settings_changed");
+            }
+            else if(suite is null)await CommandsAsync(input,output,directory,backend,stop.Token);
+            else await suite.RunAsync(backend,stop.Token);
         }
         finally{
+            if(screenCheck is "prepare" or "sync")lock(observed)File.WriteAllText(Path.Combine(directory,"draft-traffic.json"),JsonSerializer.Serialize(observed));
             service.UIAutomation.Cancel();service.ScreenPreview.Stop();stop.Cancel();
             try{await Task.WhenAll(workers).WaitAsync(TimeSpan.FromSeconds(10));}catch(Exception e) when(e is OperationCanceledException or IOException or TimeoutException){}
         }

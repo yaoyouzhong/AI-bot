@@ -54,6 +54,11 @@ internal static class Tab5QuickConsoleSelfTest
         int previousActivations=activations;
         Check(Tab5DesktopActivation.Raise(2,calls:focus with {Interactive=()=>false}).InputBlocked&&
             activations==previousActivations&&taps==1,"locked desktop never activates or injects Alt");
+        Check(!Tab5DesktopActivation.ForegroundAllowed("LockApp")&&
+            !Tab5DesktopActivation.ForegroundAllowed("lockapp")&&
+            !Tab5DesktopActivation.ForegroundAllowed("LogonUI")&&
+            !Tab5DesktopActivation.ForegroundAllowed("CredentialUIBroker")&&
+            Tab5DesktopActivation.ForegroundAllowed("Code"),"lock and credential foregrounds reject activation");
         Check(Tab5CodexComposer.HasClass("ProseMirror ProseMirror-focused","ProseMirror"),"focused editor remains a composer");
         Check(!Tab5CodexComposer.HasClass("ProseMirror-trailingBreak","ProseMirror"),"decoration is not a composer");
         Check(Tab5CodexComposer.IsComposerBodyClass("relative _ComposerLayoutBody_gcdh7_2"),"main composer container identified");

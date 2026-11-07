@@ -256,9 +256,12 @@ internal sealed partial class Tab5Service : IDisposable
             return $"USB：{_usbStatus}\nWi-Fi：{WifiConnectionStatus}\n蓝牙：{_bleStatus}\n{HostBindingSummary}\n电脑服务地址：{_host??"等待可用局域网"}{(_port>0?":"+_port:"")}";
         }
     }
-    internal Tab5Service(Tab5PairingStore? store=null,Tab5CodexTasks? codexTasks=null,Tab5Gallery? gallery=null) {
+    private readonly Tab5UsbDiagnostic? _nativeAcceptance;
+    internal Action<string,string,string,string,int>? DraftObservation { get; init; }
+    internal Tab5Service(Tab5PairingStore? store=null,Tab5CodexTasks? codexTasks=null,Tab5Gallery? gallery=null,Tab5UsbDiagnostic? acceptance=null) {
         ClaudeReplies=new(()=>ActivitySourceEnabled);
-        ClaudeWorkspace=new(()=>ActivitySourceEnabled);ClaudeWorkspace.Start();
+        _nativeAcceptance=acceptance;
+        ClaudeWorkspace=acceptance?.CreateWorkspace(()=>ActivitySourceEnabled)??new(()=>ActivitySourceEnabled);ClaudeWorkspace.Start();
         _store=store??new();
         _codexTasks=codexTasks??new();
         _gallery=gallery??new();
@@ -425,13 +428,20 @@ internal sealed partial class Tab5Service : IDisposable
         string expectedTurn=root.TryGetProperty("expectedTurn",out var expected)&&expected.ValueKind==JsonValueKind.String?expected.GetString()!:"";
         string client=Text(root,"client");
         if(client.Length>0&&client is not ("codex" or "claude"))return(400,new{error="invalid_client"});
+        if(_nativeAcceptance is not null&&!_nativeAcceptance.Allows(id,client,operation,root))return(409,new{error="outside_acceptance_case"});
+        (int Status,object Body) ObserveDraft((int Status,object Body) result){
+            if(operation is "draft-save" or "draft-load" or "receipt" && Guid.TryParse(taskId.GetString(),out var task) && Guid.TryParse(requestId,out var request))
+                DraftObservation?.Invoke(client=="claude"?"claude":"codex",operation,task.ToString(),request.ToString(),result.Status);
+            return result;
+        }
         if(client=="claude") {
             if(!ActivitySourceEnabled)return(403,new{error="claude_disabled"});
             if(imageOnly)return ClaudeWorkspace.Upload(id,taskId.GetString()!,requestId,imageOffset>0?clear[imageOffset..]:Convert.FromBase64String(Text(root,"image")));
-            var claudeResult=await ClaudeWorkspace.HandleAsync(root,id,token);
+            var claudeResult=await ClaudeWorkspace.HandleAsync(root,id,token,()=>ActivitySourceEnabled&&_store.Current==pairing&&_session==session.GetString());
+            _nativeAcceptance?.Observe(operation,root,claudeResult);
             if(operation=="read"&&claudeResult.Status==200&&!rpcEnvelope)
                 return(200,new{status="loaded",encrypted=Convert.ToBase64String(Tab5Protocol.Encrypt(key,nonce,JsonSerializer.SerializeToUtf8Bytes(claudeResult.Body,JsonDefaults.Options)))});
-            return claudeResult;
+            return ObserveDraft(claudeResult);
         }
         if(imageOnly&&imageOffset>0)return _codexTasks.UploadImageBytes(id,taskId.GetString()!,requestId,clear[imageOffset..]);
         if(imageOnly)return root.TryGetProperty("image",out var image)&&image.ValueKind==JsonValueKind.String
@@ -441,10 +451,10 @@ internal sealed partial class Tab5Service : IDisposable
             if(imageIds.ValueKind!=JsonValueKind.Array||imageIds.GetArrayLength()>Tab5CodexImages.MaxCount||imageIds.EnumerateArray().Any(x=>x.ValueKind!=JsonValueKind.String))return(400,new{error="invalid_images"});
             images=imageIds.EnumerateArray().Select(x=>x.GetString()!).ToArray();
         }
-        if(operation=="draft-save")return _codexTasks.Draft(taskId.GetString()!,requestId,message.GetString()!,images,id);
-        if(operation=="draft-load")return _codexTasks.Draft(taskId.GetString()!,requestId);
+        if(operation=="draft-save")return ObserveDraft(_codexTasks.Draft(taskId.GetString()!,requestId,message.GetString()!,images,id));
+        if(operation=="draft-load")return ObserveDraft(_codexTasks.Draft(taskId.GetString()!,requestId));
         if(operation=="receipt-confirm")return _codexTasks.ConfirmDelivery(taskId.GetString()!,requestId,id,message.GetString()!,expectedTurn,images);
-        if(operation=="receipt")return await _codexTasks.ReceiptAsync(taskId.GetString()!,requestId,token,id);
+        if(operation=="receipt")return ObserveDraft(await _codexTasks.ReceiptAsync(taskId.GetString()!,requestId,token,id));
         if(operation=="read-ack")return await _codexTasks.ConfirmReadAsync(id,taskId.GetString()!,readTurn,requestId,token);
         if(operation=="read") {
             bool inlineReply=root.TryGetProperty("inlineReply",out var inline)&&inline.ValueKind==JsonValueKind.True;

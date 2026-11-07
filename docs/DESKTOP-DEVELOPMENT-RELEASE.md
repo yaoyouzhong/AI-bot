@@ -36,7 +36,7 @@
 - 只改变版本声明时，沿用未变更运行代码的功能实测，补实际发布包的身份、安装／启动检查；说明修改不触发重建。
 - 小幅变化且原截图、宣传视频仍准确时，标记“已有无需修改”并复用原素材及适用的播放证据；只有旧素材会误导用户时才更新受影响镜头或截图。更新说明、版本和下载入口仍按实际发布同步。
 - 对照最近已发布版本列出实际变化。安装器、运行时依赖、数据格式、加密和迁移代码未变时，可结合既有对应链路实测、本次实际包安装与资料保留结果复用证据；新增安装或数据迁移路径仍须定向验证。保留未覆盖的具体条件，不将其扩成每次全量重测。
-- 安装升级检查允许使用本机临时目录、静默安装和只读启动，保存并恢复原安装登记，保护用户资料；没有新证据时不反复尝试同一沙盒路径。后台自动化继续遵守前台窗口约束。
+- 安装升级检查允许使用本机临时目录、静默安装和只读启动，保存并恢复原安装登记，保护用户资料；没有新证据时不反复尝试同一沙盒路径。
 - 唯一发布负责人汇集各端一次性验收结果与剩余限制后，按原包手动晋级或自动晋级。不通过的关键变更仍阻止发布；证据复用不等于把失败或未验证的新增路径标为成功。
 
 Evidence follows the actual change: identify candidates by source and archive hashes, promote accepted bytes, reuse unchanged functional and storage-path evidence, and target installation or migration checks to changed paths. Documentation and version-only updates do not trigger a complete acceptance cycle. Minor changes may retain accurate screenshots, video and applicable playback evidence; update only misleading material while synchronizing release details and downloads. Preserve explicit limitations and continue to block failed critical changes.

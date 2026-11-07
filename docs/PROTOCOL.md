@@ -1532,6 +1532,41 @@ An explicit local diagnostic session can issue bounded USB probe/tap/swipe comma
 
 ## TAB5 AI dialogue workspace (local .313 candidate)
 
+### Optional session source / 可选会话来源
+
+Each `claudeTasks.tasks[]` may carry `source: {"id":"claude.vscode","label":"VS Code","kind":"ide"}`.
+`id` is a stable adapter identifier (1–64 ASCII letters, digits, `.`, `_`, `-`),
+not a process ID, path or session identity. `label` is display text (1–48 UTF-16
+code units, at most 80 UTF-8 bytes, no control/format/line-separator characters).
+`kind` is `ide`, `terminal`, `harness` or `unknown`; it selects a visual style only.
+Built-ins use `claude.vscode`, `claude.terminal` and `claude.background`.
+Unidentified sessions use `unknown`; simultaneously verified owners use `multiple`
+with an unknown style and no input capabilities. Missing metadata is displayed
+neutrally as an unknown source; do not infer it from the editable session title.
+
+Confirmed provenance may be cached across scans, disconnects and restarts, but
+must never route or authorize a send. Only the live exact-session control map
+and host-side identity/turn validation grant capabilities. The metadata travels
+with each task when catalogs are truncated. Old clients ignore it; producers,
+including macOS, may omit it. No additional client tab is implied.
+
+中文：`claudeTasks.tasks[]` 可携带 `source: {id,label,kind}`，分别表示稳定适配器 ID、
+来源显示名和样式种类。来源与模型、项目、可编辑会话标题及实时操作权限分离。已确认的
+来源可保留到断连、刷新和重启之后；发送、追加和停止仍需实时身份与轮次校验。缺少来源
+显示“来源未知”；多个已核验承载端同时认领同一会话时显示“多端打开”并禁用输入。
+字段随会话一起裁剪，旧客户端忽略，未实现该字段的桌面端可省略。
+
+The Windows compiled `IClaudeHarnessAdapter` seam provides discovery, live IDs
+and exact-session resolution; returned `IClaudeNativeSession` supplies supported
+capabilities and dispatch. It currently covers Claude-compatible sessions and
+history. A different transcript/identity system requires an explicit adapter;
+this is not automatic support for every Harness or a dynamic plugin loader.
+See [adapter contract](development/CLAUDE-HARNESS-ADAPTERS.md).
+
+中文：Windows 通过编译期 `IClaudeHarnessAdapter` 注册发现、存活身份和精确会话解析，
+通过 `IClaudeNativeSession` 声明能力并执行。当前面向 Claude 兼容会话和历史；其他格式
+需另写适配层，不代表已接通所有第三方 Harness，也不加载任意插件代码。
+
 Optional `data.claudeTasks` uses the existing `codexTasks` project/task, replyView,
 control, draftView and exact ready/read-turn maps. `claudeSession.taskId` is a
 keyed opaque session alias used only for exact Overview navigation. Raw Claude
@@ -1540,6 +1575,26 @@ the host. Project IDs are opaque; folders with more than eight sessions have
 explicit project pages. Shrinking a transport catalog retains the Overview and
 viewed sessions. A failed scan/read retains successful data and revokes stale
 controls.
+
+Windows native Claude candidates may additionally publish `claudeTasks.controls`,
+an optional map keyed by the task aliases in the transported catalog. Each value
+is the existing control shape (`taskId`, `turnId`, `running`, `waiting`, `canSend`,
+`canSteer`, `canInterrupt`), or null when that session is unavailable or its
+observation is older than 30 seconds. The map is bounded with `tasks`; it is
+independent of the last reply read. Updated TAB5 clients use only the selected
+task's map entry, from a current authenticated frame no older than six seconds.
+Missing/null entries in a present map disable new sends rather than borrowing
+the legacy viewed-task `control`. Hosts without a map retain legacy behavior.
+This metadata only controls UI availability: host dispatch still revalidates
+native identity, input availability and the expected turn. Receipt recovery and
+draft/load/save isolation are unchanged. Other desktop producers may omit this
+optional map; no macOS implementation or native validation is implied.
+
+中文：Windows 原生 Claude 候选可选发布按会话别名索引的 `controls`，值沿用既有控制结构，
+不可用或超过 30 秒的观察为 null，随实际传输的 `tasks` 裁剪。设备切换会话时直接使用
+六秒内已认证状态帧中的对应项；映射存在但对应项缺失/null 时禁用新发送，不借用上次
+查看会话的控制状态。无此映射的旧桥接保持原路径。它仅用于按钮状态，不代替主机派发前
+的会话身份、输入能力及当前轮次校验，也不改变草稿隔离、排队和送达未知恢复。
 
 The existing encrypted `kind=codex` workspace RPC and `image-chunk`, binary image
 and `kind=voice` requests may carry `client=codex|claude`; omission means Codex.

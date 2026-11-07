@@ -1,0 +1,254 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -494,6 +494,7 @@
+ static int codex_requested_page=-1;
+ static bool codex_reply_follow=true,codex_reply_jump;
+ static int64_t codex_read_next,codex_nav_started;
++static int64_t codex_refresh_wait_at;
+ static bool codex_nav_timed_out;
+ static char codex_read_session[40];
+ static char codex_reply_turn[64],codex_alert_task[37];
+@@ -1418,7 +1419,7 @@
+     cJSON *payload=cJSON_CreateObject();if(!payload)return;
+     cJSON_AddStringToObject(payload,"taskId",codex_selected);
+     cJSON_AddStringToObject(payload,"text",lv_label_get_text(codex_reply_text));
+-    cJSON_AddStringToObject(payload,"receipt",text(item(item(shown,workspace_key()),"receipts"),codex_selected));
++    cJSON_AddStringToObject(payload,"receipt",codex_inline_reply?text(codex_inline_reply,"receipt"):text(item(item(shown,workspace_key()),"receipts"),codex_selected));
+     cJSON_AddItemToObject(payload,"replyView",cJSON_Duplicate(view,true));
+     codex_cache_store(payload);cJSON_Delete(payload);
+ }
+@@ -1528,7 +1529,7 @@
+         for(int i=0;i<CODEX_CACHE_PAGES;i++){cJSON_Delete(codex_reply_cache[i].value);codex_reply_cache[i]=(codex_cached_page){0};}
+         memset(codex_turn_cache,0,sizeof(codex_turn_cache));
+         codex_nav_revision++;
+-        cJSON_Delete(codex_inline_reply);codex_inline_reply=NULL;codex_showing_cache=false;
++        cJSON_Delete(codex_inline_reply);codex_inline_reply=NULL;codex_showing_cache=false;codex_refresh_wait_at=0;
+         snprintf(codex_cache_session,sizeof(codex_cache_session),"%s",cache_session);
+     }
+     if (!codex_list || !shown || codex_waiting || codex_voice_waiting || codex_send_queued) return;
+@@ -1627,7 +1628,9 @@
+         if(previous)lv_obj_remove_state(codex_turn_older,LV_STATE_DISABLED);else lv_obj_add_state(codex_turn_older,LV_STATE_DISABLED);
+         if(next)lv_obj_remove_state(codex_turn_newer,LV_STATE_DISABLED);else lv_obj_add_state(codex_turn_newer,LV_STATE_DISABLED);
+         if(cJSON_IsTrue(item(view,"history"))) {
+-            ui_text_fmt(codex_reply_status,"历史回复 · %s",text(view,"startedLabel"));
++            const char *started=text(view,"startedLabel");
++            if(started[0]&&strcmp(started,"--"))ui_text_fmt(codex_reply_status,"历史回复 · %s",started);
++            else ui_text(codex_reply_status,"历史回复");
+             tint(codex_reply_status,MUTED);
+         }
+     }
+@@ -1665,9 +1668,13 @@
+     int button_page=codex_nav_pending&&!codex_turn_pending?codex_requested_page:codex_reply_page;
+     if(button_page<=0)lv_obj_add_state(codex_reply_older,LV_STATE_DISABLED);else lv_obj_remove_state(codex_reply_older,LV_STATE_DISABLED);
+     if(button_page>=codex_reply_total-1)lv_obj_add_state(codex_reply_newer,LV_STATE_DISABLED);else lv_obj_remove_state(codex_reply_newer,LV_STATE_DISABLED);
+-    if(codex_showing_cache)ui_text(codex_reply_status,codex_reply_follow?"缓存 · 正在更新":"历史回复 · 已缓存");
++    // Refresh readiness is not the outcome of the conversation. Preserve public
++    // content and its receipt; expose sustained delay only in the secondary slot.
++    if(codex_refresh_wait_at&&esp_timer_get_time()/1000-codex_refresh_wait_at>=3000&&
++       !multiple&&!codex_nav_pending&&view_matches&&codex_public_reply(view,body))
++        ui_text(codex_reply_position,"稍后更新");
+     if(codex_nav_timed_out)ui_text(codex_reply_status,"读取超时 · 可重新翻页");
+-    if(codex_nav_pending)ui_text(codex_reply_status,codex_reply_follow?"正在回到最新…":"正在翻页…");
++    if(codex_nav_pending)ui_text(codex_reply_status,codex_reply_follow?"正在读取…":"正在翻页…");
+     if(codex_nav_pending) {
+         lv_obj_add_state(codex_reply_older,LV_STATE_DISABLED);lv_obj_add_state(codex_reply_newer,LV_STATE_DISABLED);
+         lv_obj_add_state(codex_turn_older,LV_STATE_DISABLED);lv_obj_add_state(codex_turn_newer,LV_STATE_DISABLED);
+@@ -1743,7 +1750,7 @@
+     lv_obj_scroll_to_y(codex_reply_scroll,0,LV_ANIM_OFF);
+     cJSON_Delete(codex_inline_reply);codex_inline_reply=NULL;
+     codex_nav_revision++;codex_nav_queued=codex_nav_pending=false;
+-    codex_nav_timed_out=false;
++    codex_nav_timed_out=false;codex_refresh_wait_at=0;
+     codex_reply_turn[0]=codex_reply_selected[0]=0;codex_turn_offset=0;codex_turn_pending=false;codex_reply_page=-1;codex_reply_total=1;codex_reply_follow=true;
+     ui_text(codex_reply_status,"");
+     last_codex_status[0]=0;
+@@ -1774,7 +1781,7 @@
+     snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",workspace_projects[next]);
+     cJSON_Delete(codex_inline_reply);codex_inline_reply=NULL;
+     codex_nav_revision++;codex_nav_queued=codex_nav_pending=codex_turn_pending=false;
+-    codex_nav_timed_out=false;codex_reply_turn[0]=codex_reply_selected[0]=0;
++    codex_nav_timed_out=false;codex_refresh_wait_at=0;codex_reply_turn[0]=codex_reply_selected[0]=0;
+     codex_reply_page=-1;codex_reply_follow=true;codex_restore_project=codex_selected[0]!=0;
+     codex_default_pending=!codex_selected[0];codex_default_all=true;
+     codex_feedback_pinned=codex_submit_accepted=false;last_codex_status[0]=0;
+@@ -1876,14 +1883,13 @@
+     // A pinned public page is locally readable. Only explicit navigation or
+     // returning to live activity should request new content.
+     if(cache_only){codex_read_next=esp_timer_get_time()/1000+15000;return;}
+-    const char *wait_reason=NULL;
+     bool read_ready=rpc_read_link_ready();
+-    if(age<0||age>90000||!strcmp(session,"--")||(age>6000&&!read_ready))wait_reason="等待状态同步 · 自动重试";
+-    else if(!read_ready)wait_reason="连接暂不可用 · 自动重试";
+-    else if(!codex_remote_read_turn(codex_selected,session,(int64_t)num(shown,"epochMilliseconds")+age,cache_only||codex_reply_follow?-1:codex_nav_pending?codex_requested_page:codex_reply_page,cache_only?"":codex_turn_pending&&codex_reply_expected[0]?codex_reply_expected:codex_reply_selected,cache_only?0:codex_turn_offset))wait_reason="读取尚未开始 · 自动重试";
+-    if(wait_reason) {
+-        if(!cache_only)ui_text(codex_reply_status,wait_reason);
+-        if(!cache_only)codex_read_next=esp_timer_get_time()/1000+(codex_nav_pending?250:6000);
++    if(age<0||age>90000||!strcmp(session,"--")||!read_ready||
++       !codex_remote_read_turn(codex_selected,session,(int64_t)num(shown,"epochMilliseconds")+age,cache_only||codex_reply_follow?-1:codex_nav_pending?codex_requested_page:codex_reply_page,cache_only?"":codex_turn_pending&&codex_reply_expected[0]?codex_reply_expected:codex_reply_selected,cache_only?0:codex_turn_offset)) {
++        int64_t now=esp_timer_get_time()/1000;
++        if(!codex_refresh_wait_at)codex_refresh_wait_at=now;
++        codex_read_next=now+(codex_nav_pending||now-codex_refresh_wait_at<3000?250:1500);
++        render_codex();
+         return;
+     }
+     snprintf(codex_read_task,sizeof(codex_read_task),"%s",codex_selected);codex_reading=true;codex_result_is_read=true;
+@@ -1900,7 +1906,7 @@
+     codex_prefetch_due=esp_timer_get_time()/1000+250;
+     codex_nav_revision++;codex_nav_queued=codex_nav_pending=true;
+     codex_prefetch_revision=codex_nav_revision;
+-    codex_nav_timed_out=false;
++    codex_nav_timed_out=false;codex_refresh_wait_at=0;
+     codex_nav_started=esp_timer_get_time()/1000;
+     codex_read_next=0;
+     cJSON *cached=codex_turn_offset?codex_cache_copy(codex_cache_turn_index(codex_reply_selected,codex_turn_offset)):codex_cache_find(codex_reply_follow,codex_reply_selected,codex_requested_page);
+@@ -2007,7 +2013,7 @@
+                 }
+                 else if(codex_read_cache_only){cJSON_Delete(direct);codex_read_next=now+15000;}
+                 else if(read_code==200) {
+-                    codex_showing_cache=false;
++                    codex_showing_cache=false;codex_refresh_wait_at=0;
+                     codex_nav_pending=false;
+                     if(direct&&!strcmp(text(direct,"taskId"),codex_selected)) {
+                         cJSON_Delete(codex_inline_reply);codex_inline_reply=direct;direct=NULL;codex_turn_pending=false;
+@@ -2019,7 +2025,8 @@
+                     codex_read_next=now+(codex_reply_selected[0]&&!codex_reply_follow?15000:3000);
+                 }else {
+                     cJSON_Delete(direct);
+-                    ui_text(codex_reply_status,read_code==429?"正在翻页…":"连接稍慢 · 正在重试");
++                    if(!codex_refresh_wait_at)codex_refresh_wait_at=now;
++                    render_codex();
+                     codex_read_next=now+(read_code==429?200:1500);
+                 }
+             }
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2039,6 +2039,7 @@
+ #include "claude_companion_ui_test.h"
+ #include "workspace_parity_ui_test.h"
+ #include "workspace_switch_sync_test.h"
++#include "reply_open_state_test.h"
+ #include "cancelled_draft_refresh_test.h"
+ #include "project_dropdown_navigation_test.h"
+ int main(void) {
+@@ -2060,6 +2061,7 @@
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++    if(getenv("TAB5_REPLY_OPEN_STATE_ONLY")){check_reply_open_state();return 0;}
+     if(getenv("TAB5_PROJECT_DROPDOWN_ONLY")){check_project_dropdown_navigation();return 0;}
+     if(getenv("TAB5_CANCELLED_DRAFT_ONLY")){check_cancelled_draft_refresh();return 0;}
+     if(getenv("TAB5_WORKSPACE_PARITY_ONLY")){check_workspace_parity_ui();return 0;}
+@@ -3274,7 +3276,7 @@
+     codex_reply_refresh(NULL);assert(preview_read_page==1);
+     // Back to latest supersedes that pending page, with immediate visual feedback.
+     lv_obj_send_event(codex_reply_latest,LV_EVENT_CLICKED,NULL);
+-    assert(codex_requested_page==-1&&strstr(lv_label_get_text(codex_reply_status),"正在回到最新"));
++    assert(codex_requested_page==-1&&strstr(lv_label_get_text(codex_reply_status),"正在读取"));
+     codex_read_finish(200);codex_reply_refresh(NULL);assert(preview_read_page==-1&&!preview_read_turn[0]);
+     preview_read_view=cJSON_CreateObject();cJSON_AddStringToObject(preview_read_view,"taskId",codex_selected);
+     cJSON_AddStringToObject(preview_read_view,"text","最新答复直接显示");cJSON_AddStringToObject(preview_read_view,"receipt","已完成");
+@@ -3304,11 +3306,11 @@
+     last_received=esp_timer_get_time()/1000-7000;
+     codex_reply_refresh(NULL);
+     assert(preview_reads==cache_reads&&!codex_reading);
+-    assert(!strcmp(lv_label_get_text(codex_reply_status),"历史回复 · 已缓存"));
++    assert(!strcmp(lv_label_get_text(codex_reply_status),"历史回复"));
+     assert(!strcmp(lv_label_get_text(codex_reply_text),"缓存中的历史正文"));
+     last_received=esp_timer_get_time()/1000;
+     codex_reply_refresh(NULL);assert(!codex_reading&&preview_reads==cache_reads);
+-    assert(!strcmp(lv_label_get_text(codex_reply_status),"历史回复 · 已缓存"));
++    assert(!strcmp(lv_label_get_text(codex_reply_status),"历史回复"));
+     assert(!strcmp(lv_label_get_text(codex_reply_text),"缓存中的历史正文"));
+     preview_result_code=200;last_received=saved_received;cache_reads=preview_reads;
+     puts("HISTORY_BACKGROUND_OK pinned history never polls; stale and recovered telemetry preserve page");
+@@ -3321,7 +3323,7 @@
+     codex_reading=false;preview_read_recent=false;
+     codex_reply_refresh(NULL);
+     assert(!codex_reading&&codex_read_next<=esp_timer_get_time()/1000+250);
+-    assert(strstr(lv_label_get_text(codex_reply_status),"等待状态同步"));
++    assert(strstr(lv_label_get_text(codex_reply_status),"正在翻页"));
+     last_received=saved_received;codex_requested_page=0;codex_navigation_start();
+     cache_reads=preview_reads;
+     assert(codex_showing_cache&&!codex_reading&&!codex_nav_pending);
+--- /dev/null
++++ b/tests/ui-preview/reply_open_state_test.h
+@@ -0,0 +1,79 @@
++static void reply_open_state_setup(unsigned client) {
++    cJSON_Delete(shown);shown=cJSON_Parse("{\"epochMilliseconds\":1793758000000,\"pcInput\":{\"session\":\"reply-fixture\"},\"codex\":{\"state\":\"idle\"},\"claude\":{\"state\":\"idle\"}}");
++    const char *task="11111111-1111-4111-8111-111111111111";
++    cJSON *remote=cJSON_AddObjectToObject(shown,client?"claudeTasks":"codexTasks");
++    cJSON *projects=cJSON_AddArrayToObject(remote,"projects"),*project=cJSON_CreateObject();cJSON_AddItemToArray(projects,project);
++    cJSON_AddStringToObject(project,"id","1111111111111111");cJSON_AddStringToObject(project,"name","AI-bot");
++    cJSON *tasks=cJSON_AddArrayToObject(remote,"tasks"),*entry=cJSON_CreateObject();cJSON_AddItemToArray(tasks,entry);
++    cJSON_AddStringToObject(entry,"id",task);cJSON_AddStringToObject(entry,"projectId","1111111111111111");cJSON_AddStringToObject(entry,"title",client?"VS Code终端":"Codex 日常会话");
++    cJSON_AddNumberToObject(entry,"updatedAt",1793758000);
++    cJSON_AddStringToObject(cJSON_AddObjectToObject(remote,"receipts"),task,"已完成");
++    workspace_client=client;workspace_switch_pending=-1;codex_selected[0]=codex_project_selected[0]=0;
++    cJSON_Delete(codex_inline_reply);codex_inline_reply=NULL;
++    for(int i=0;i<CODEX_CACHE_PAGES;i++){cJSON_Delete(codex_reply_cache[i].value);codex_reply_cache[i]=(codex_cached_page){0};}
++    codex_showing_cache=codex_nav_pending=codex_nav_queued=codex_nav_timed_out=codex_turn_pending=false;
++    codex_reading=codex_syncing=codex_load_waiting=codex_waiting=codex_send_queued=false;
++    codex_reply_turn[0]=codex_reply_selected[0]=0;preview_now_us=30000000;last_received=30000;
++    wifi_connected=ble_connected=preview_usb_connected=false;preview_read_recent=false;
++    page(8);codex_default_pending=codex_default_all=true;render_codex();
++    codex_draft *draft=codex_draft_for(codex_selected,true);draft->loaded=true;draft->dirty=false;codex_load_draft();
++    codex_syncing=codex_load_waiting=false;preview_result_code=-1;
++}
++static void check_reply_open_state(void) {
++    int sends=preview_submit_count;
++    for(unsigned client=0;client<2;client++) {
++        reply_open_state_setup(client);
++        cJSON *reply=cJSON_Parse("{\"taskId\":\"11111111-1111-4111-8111-111111111111\",\"receipt\":\"已完成\",\"text\":\"这条回复已经完成。重新打开时，正文和完成状态应立即显示。\",\"replyView\":{\"taskId\":\"11111111-1111-4111-8111-111111111111\",\"turnId\":\"completed-turn\",\"state\":\"completed\",\"page\":0,\"pageCount\":1,\"history\":false,\"hasText\":true}}");
++        codex_cache_store(reply);codex_open_latest=true;codex_reply_open(NULL);
++        printf("REPLY_OPEN_INITIAL client=%u status=%s\n",client,lv_label_get_text(codex_reply_status));
++        assert(!strcmp(lv_label_get_text(codex_reply_status),"已完成"));
++        render_codex();assert(!strcmp(lv_label_get_text(codex_reply_status),"已完成"));
++        assert(codex_showing_cache&&!codex_reading&&!codex_nav_pending);
++        for(int i=0;i<20;i++){lv_tick_inc(50);lv_anim_refr_now();}
++        capture(client?"claude-completed-open":"codex-completed-open");
++        preview_now_us+=4000000;codex_reply_refresh(NULL);render_codex();
++        assert(!strcmp(lv_label_get_text(codex_reply_status),"已完成"));
++        assert(!strcmp(lv_label_get_text(codex_reply_position),"稍后更新"));
++        capture(client?"claude-completed-wait":"codex-completed-wait");
++        preview_usb_connected=true;last_received=preview_now_us/1000;codex_reply_refresh(NULL);assert(codex_reading);
++        preview_result_code=503;codex_read_finish(preview_now_us/1000);
++        assert(!strcmp(lv_label_get_text(codex_reply_status),"已完成"));
++        preview_result_code=-1;codex_reply_refresh(NULL);assert(codex_reading);
++        preview_read_view=cJSON_Duplicate(reply,true);preview_result_code=200;codex_read_finish(preview_now_us/1000);
++        assert(!strcmp(lv_label_get_text(codex_reply_status),"已完成"));
++        assert(!strcmp(lv_label_get_text(codex_reply_position),"自动更新"));
++        assert(!codex_showing_cache&&!codex_nav_pending);
++        // A periodic frame without a receipt must not erase the direct result
++        // when bookmarking the visible page (the former Claude-only mismatch).
++        cJSON_DeleteItemFromObject(item(shown,workspace_key()),"receipts");
++        codex_cache_visible();cJSON *saved=codex_cache_find(true,"",-1);
++        assert(saved&&!strcmp(text(saved,"receipt"),"已完成"));cJSON_Delete(saved);
++        cJSON *older=cJSON_Duplicate(reply,true),*older_view=item(older,"replyView");
++        cJSON_ReplaceItemInObject(older_view,"turnId",cJSON_CreateString("older-turn"));
++        cJSON_ReplaceItemInObject(older_view,"history",cJSON_CreateTrue());
++        cJSON_AddStringToObject(older_view,"startedLabel","11-07 10:30");
++        cJSON_ReplaceItemInObject(older_view,"pageCount",cJSON_CreateNumber(2));codex_cache_store(older);
++        snprintf(codex_reply_selected,sizeof(codex_reply_selected),"older-turn");
++        codex_reply_follow=false;codex_requested_page=0;preview_usb_connected=false;
++        int reads=preview_reads;codex_navigation_start();
++        assert(preview_reads==reads&&!codex_reading&&!codex_nav_pending);
++        assert(!strcmp(lv_label_get_text(codex_reply_status),"历史回复 · 11-07 10:30"));
++        assert(!strcmp(lv_label_get_text(codex_reply_position),"1 / 2"));
++        preview_now_us+=4000000;codex_reply_refresh(NULL);render_codex();
++        assert(preview_reads==reads&&!strcmp(lv_label_get_text(codex_reply_position),"1 / 2"));
++        cJSON_Delete(older);
++        cJSON_Delete(reply);
++        // Cold reads wait neutrally, still time out, and never invent a reply.
++        reply_open_state_setup(client);codex_open_latest=true;codex_reply_open(NULL);
++        assert(codex_nav_pending&&!codex_reading);
++        assert(!strstr(lv_label_get_text(codex_reply_status),"连接")&&!strstr(lv_label_get_text(codex_reply_status),"缓存"));
++        for(int i=0;i<20;i++){lv_tick_inc(50);lv_anim_refr_now();}
++        capture(client?"claude-cold-read":"codex-cold-read");
++        preview_now_us+=13000000;codex_navigation_timeout(preview_now_us/1000);
++        assert(codex_nav_timed_out&&!codex_nav_pending&&strstr(lv_label_get_text(codex_reply_status),"读取超时"));
++        capture(client?"claude-read-timeout":"codex-read-timeout");
++        codex_reply_open(NULL);assert(!codex_nav_timed_out&&codex_nav_pending);
++    }
++    assert(preview_submit_count==sends);
++    puts("REPLY_OPEN_STATE_OK both clients; cached completion; direct receipt preservation; history/date/page; cold read; delayed readiness; failed refresh; recovery; timeout/reopen; zero sends");
++}

@@ -9,8 +9,12 @@ namespace AIBotBridge;
 internal sealed record ClaudeSessionObservation(Guid Id, DateTimeOffset LastActivity, string? Title,string? Directory=null);
 internal sealed class ClaudeSessionIndex(string root)
 {
-    private sealed record Entry(long Length, DateTime Modified, ClaudeSessionObservation? Value, DateTimeOffset? RetryAt);
+    private sealed record Entry(long Length, DateTime Modified, ClaudeSessionObservation? Value, DateTimeOffset? RetryAt,string? Title);
     private readonly Dictionary<string,Entry> _cache=new(StringComparer.OrdinalIgnoreCase);
+    internal string? KnownTitle(Guid id){
+        var matches=_cache.Where(p=>Guid.TryParse(Path.GetFileNameWithoutExtension(p.Key),out var found)&&found==id).Take(2).ToArray();
+        return matches.Length==1?matches[0].Value.Title:null;
+    }
     internal ClaudeSessionObservation? Scan(DateTimeOffset now,Guid? sessionId=null)
         =>ScanAll(now).FirstOrDefault(value=>sessionId is null||value.Id==sessionId);
     internal IReadOnlyList<ClaudeSessionObservation> ScanAll(DateTimeOffset now)
@@ -24,7 +28,7 @@ internal sealed class ClaudeSessionIndex(string root)
             try {
                 var file=new FileInfo(path);seen.Add(path);
                 if(!_cache.TryGetValue(path,out var entry)||entry.Length!=file.Length||entry.Modified!=file.LastWriteTimeUtc||entry.RetryAt is {} retry&&now>=retry) {
-                    var read=Read(path,id,now);entry=new(file.Length,file.LastWriteTimeUtc,read.Value,read.RetryAt);_cache[path]=entry;
+                    var read=Read(path,id,now);entry=new(file.Length,file.LastWriteTimeUtc,read.Value,read.RetryAt,read.Title);_cache[path]=entry;
                 }
                 var value=entry.Value;
                 if(value is null||value.LastActivity>now.AddSeconds(60))continue;
@@ -34,7 +38,7 @@ internal sealed class ClaudeSessionIndex(string root)
         foreach(var path in _cache.Keys.Where(path=>!seen.Contains(path)).ToArray())_cache.Remove(path);
         return candidates.GroupBy(v=>v.Id).Where(g=>g.Count()==1).Select(g=>g.Single()).OrderByDescending(v=>v.LastActivity).ThenBy(v=>v.Id.ToString(),StringComparer.Ordinal).ToArray();
     }
-    private static (ClaudeSessionObservation? Value,DateTimeOffset? RetryAt) Read(string path,Guid id,DateTimeOffset now)
+    private static (ClaudeSessionObservation? Value,DateTimeOffset? RetryAt,string? Title) Read(string path,Guid id,DateTimeOffset now)
     {
         using var stream=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete);
         using var reader=new StreamReader(stream,Encoding.UTF8,true);
@@ -51,7 +55,7 @@ internal sealed class ClaudeSessionIndex(string root)
                 if(at>=latest){latest=at;var cwd=Text(obj,"cwd");if(cwd is {Length:>0 and <=4096}&&!cwd.Contains('\0')&&Path.IsPathFullyQualified(cwd))directory=cwd;}
             }catch(JsonException){}
         }
-        return (latest==DateTimeOffset.MinValue?null:new(id,latest,custom??generated,directory),retryAt);
+        return (latest==DateTimeOffset.MinValue?null:new(id,latest,custom??generated,directory),retryAt,custom??generated);
     }
     internal static IEnumerable<string> CompleteLines(TextReader reader)
     {

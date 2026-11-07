@@ -59,6 +59,7 @@ internal sealed class Tab5CodexImages(string? directory=null)
             // Keep the immutable local asset for deferred desktop reads and conversation history.
             string path=Path.Combine(_directory,image.Id+image.Extension);
             if(materialize&&!File.Exists(path)) {File.WriteAllBytes(path+".tmp",image.Bytes);File.Move(path+".tmp",path,false);}
+            if(materialize&&((File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0||new FileInfo(path).Length!=image.Bytes.Length||Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)))!=image.Sha))throw new IOException("image_materialized_content_changed");
             return path;
         }).ToArray();
     }

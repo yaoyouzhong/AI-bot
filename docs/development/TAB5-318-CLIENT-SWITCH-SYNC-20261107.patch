@@ -1,0 +1,147 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1303,7 +1303,9 @@
+     if(photo_flow||quick_visible||photo_open_pending||codex_voice_start_pending||codex_reading||codex_syncing||codex_send_queued||now<codex_sync_next)return;
+     codex_draft *d=NULL;
+     if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].client==workspace_client&&codex_drafts[i].dirty&&!codex_drafts[i].request[0]){d=&codex_drafts[i];break;}
+-    if(!d) {d=codex_draft_for(codex_selected,true);if(!d||d->loaded||d->request[0])return;}
++    // A queued client choice has priority over starting another background
++    // load. Dirty drafts above still finish saving under their original client.
++    if(!d) {if(workspace_switch_pending>=0)return;d=codex_draft_for(codex_selected,true);if(!d||d->loaded||d->request[0])return;}
+     snprintf(codex_sync_op,sizeof(codex_sync_op),"%s",d->dirty?"draft-save":"draft-load");
+     codex_uuid(codex_sync_request);snprintf(codex_sync_task,sizeof(codex_sync_task),"%s",d->id);codex_sync_revision=d->revision;
+     codex_sync_next=now+4000;
+@@ -1747,8 +1749,11 @@
+     ui_text(codex_receipt,"");ui_text(codex_voice_hint,"");
+     render_codex();
+ }
++static bool workspace_switch_input_busy(void) {
++    return workspace_stopping||quick_visible||photo_flow||photo_open_pending||codex_waiting||codex_voice_waiting||codex_voice_start_pending||codex_send_queued;
++}
+ static bool workspace_switch_busy(void) {
+-    return workspace_stopping||quick_visible||photo_flow||photo_open_pending||codex_waiting||codex_reading||codex_voice_waiting||codex_voice_start_pending||codex_send_queued||codex_syncing||codex_load_waiting||codex_remote_busy();
++    return workspace_switch_input_busy()||codex_reading||codex_syncing||codex_load_waiting||codex_remote_busy();
+ }
+ static bool workspace_dirty(void) {
+     if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].client==workspace_client&&codex_drafts[i].dirty&&!codex_drafts[i].request[0])return true;
+@@ -1777,8 +1782,14 @@
+ }
+ static bool workspace_choose(unsigned next) {
+     if(next>1)return false;
+-    if(next==workspace_client)return true;
+-    if(workspace_switch_busy()){ui_text(codex_voice_hint,"正在同步或录入，请稍后切换");return false;}
++    if(next==workspace_client){if(workspace_switch_pending>=0){workspace_switch_pending=-1;ui_text(codex_voice_hint,"");}return true;}
++    if(workspace_switch_busy()){
++        if(!workspace_switch_input_busy()){
++            if(!codex_save_draft())return false;
++            workspace_switch_pending=(int)next;ui_text(codex_voice_hint,"正在同步，完成后切换");
++        }else ui_text(codex_voice_hint,"正在同步或录入，请稍后切换");
++        return false;
++    }
+     if(!codex_save_draft())return false;
+     if(workspace_dirty()){workspace_switch_pending=(int)next;codex_sync_next=0;ui_text(codex_voice_hint,"正在保存草稿，完成后切换");return false;}
+     workspace_apply(next);return true;
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2038,6 +2038,7 @@
+ #include "codex_companion_ui_test.h"
+ #include "claude_companion_ui_test.h"
+ #include "workspace_parity_ui_test.h"
++#include "workspace_switch_sync_test.h"
+ #include "cancelled_draft_refresh_test.h"
+ #include "project_dropdown_navigation_test.h"
+ int main(void) {
+@@ -2062,6 +2063,7 @@
+     if(getenv("TAB5_PROJECT_DROPDOWN_ONLY")){check_project_dropdown_navigation();return 0;}
+     if(getenv("TAB5_CANCELLED_DRAFT_ONLY")){check_cancelled_draft_refresh();return 0;}
+     if(getenv("TAB5_WORKSPACE_PARITY_ONLY")){check_workspace_parity_ui();return 0;}
++    if(getenv("TAB5_WORKSPACE_SWITCH_SYNC_ONLY")){check_workspace_switch_sync();return 0;}
+     if(getenv("TAB5_CLAUDE_COMPANION_ONLY")){check_claude_companion_ui();return 0;}
+     if(getenv("TAB5_CODEX_COMPANION_ONLY")){check_codex_companion_ui();return 0;}
+     if(getenv("TAB5_PINYIN_ONLY")) {
+--- /dev/null
++++ b/tests/ui-preview/workspace_switch_sync_test.h
+@@ -0,0 +1,83 @@
++static void workspace_switch_settle_animation(void) {
++    for(int i=0;i<20;i++){lv_tick_inc(50);lv_anim_refr_now();}
++}
++static void check_workspace_switch_sync(void) {
++    const char *fixture="{\"epochMilliseconds\":1793758000000,\"pcInput\":{\"session\":\"workspace-fixture\"},\"codex\":{\"state\":\"idle\"},\"claude\":{\"state\":\"idle\"},\"codexTasks\":{\"projects\":[{\"id\":\"1111111111111111\",\"name\":\"AI-bot · Codex\"}],\"tasks\":[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"projectId\":\"1111111111111111\",\"title\":\"切换验收 · Codex\",\"updatedAt\":1793758000}]},\"claudeTasks\":{\"projects\":[{\"id\":\"2222222222222222\",\"name\":\"AI-bot · Claude\"}],\"tasks\":[{\"id\":\"22222222-2222-4222-8222-222222222222\",\"projectId\":\"2222222222222222\",\"title\":\"切换验收 · Claude\",\"updatedAt\":1793758001}]}}";
++    cJSON_Delete(shown);shown=cJSON_Parse(fixture);assert(shown);
++    workspace_client=0;workspace_switch_pending=-1;preview_usb_connected=true;last_link=LINK_USB;last_received=preview_now_us/1000;
++    page(8);codex_default_pending=codex_default_all=true;render_codex();
++    codex_draft *a=codex_draft_for(codex_selected,true);assert(codex_store_text(a,"Codex 原草稿",false));a->loaded=true;codex_load_draft();
++    assert(workspace_choose(1));
++    codex_draft *b=codex_draft_for(codex_selected,true);assert(codex_store_text(b,"Claude 原草稿",false));b->loaded=true;codex_load_draft();
++    snprintf(a->request,sizeof(a->request),"%s","aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
++    snprintf(a->images[0],sizeof(a->images[0]),"%s","bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
++    snprintf(b->images[0],sizeof(b->images[0]),"%s","cccccccc-cccc-4ccc-8ccc-cccccccccccc");
++    int submissions=preview_submit_count;
++    // A single click during a read must complete after that original read,
++    // rather than being discarded and requiring repeated user attempts.
++    for(int i=0;i<12;i++) {
++        unsigned before=workspace_client,next=1-before;
++        codex_reading=true;
++        assert(!workspace_choose(next)&&workspace_client==before);
++        if(i==0){workspace_switch_settle_animation();capture("workspace-switch-reading-pending");}
++        assert(workspace_switch_pending==(int)next);
++        codex_reading=false;workspace_switch_tick();
++        assert(workspace_client==next&&workspace_switch_pending==-1);
++        assert(!lv_label_get_text(codex_voice_hint)[0]);
++        assert(!strcmp(lv_textarea_get_text(codex_input),next?b->text:a->text));
++        assert(!strcmp(a->request,"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"));
++        assert(!strcmp(a->images[0],"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"));
++        assert(!strcmp(b->images[0],"cccccccc-cccc-4ccc-8ccc-cccccccccccc"));
++    }
++    assert(!lv_label_get_text(codex_receipt)[0]);
++    workspace_switch_settle_animation();
++    capture("workspace-switch-completed");
++    // A later click on the active client cancels, without cancelling the
++    // original transport or applying an old target when it completes.
++    unsigned current=workspace_client;
++    codex_reading=true;assert(!workspace_choose(1-current));
++    assert(workspace_choose(current)&&workspace_switch_pending==-1);
++    codex_reading=false;workspace_switch_tick();assert(workspace_client==current);
++    // Active input operations keep their old protection and never queue.
++    bool *busy_flags[]={&workspace_stopping,&quick_visible,&photo_flow,&photo_open_pending,&codex_waiting,&codex_voice_waiting,&codex_voice_start_pending,&codex_send_queued};
++    for(unsigned i=0;i<sizeof(busy_flags)/sizeof(busy_flags[0]);i++){
++        *busy_flags[i]=true;assert(!workspace_choose(1-current));
++        assert(workspace_switch_pending==-1&&workspace_client==current);*busy_flags[i]=false;
++    }
++    // Loading a draft must finish against the outgoing client before moving.
++    b->dirty=false;b->loaded=false;memset(b->images,0,sizeof(b->images));
++    assert(codex_store_text(b,"",false));codex_load_draft();
++    snprintf(codex_sync_task,sizeof(codex_sync_task),"%s",b->id);
++    snprintf(codex_sync_request,sizeof(codex_sync_request),"%s","dddddddd-dddd-4ddd-8ddd-dddddddddddd");
++    snprintf(codex_sync_op,sizeof(codex_sync_op),"%s","draft-load");
++    codex_sync_revision=b->revision;codex_syncing=true;preview_result_code=200;
++    assert(!workspace_choose(0)&&workspace_switch_pending==0);
++    codex_sync_tick(preview_now_us/1000);assert(codex_load_waiting&&workspace_client==1);
++    cJSON *remote=item(shown,"claudeTasks");
++    cJSON_AddItemToObject(remote,"draftView",cJSON_Parse("{\"taskId\":\"22222222-2222-4222-8222-222222222222\",\"requestId\":\"dddddddd-dddd-4ddd-8ddd-dddddddddddd\",\"text\":\"从电脑恢复的 Claude 草稿\",\"images\":[]}"));
++    codex_sync_tick(preview_now_us/1000+100);workspace_switch_tick();
++    assert(workspace_client==0&&b->loaded&&!b->dirty&&!strcmp(b->text,"从电脑恢复的 Claude 草稿"));
++    assert(!strcmp(lv_textarea_get_text(codex_input),a->text));
++    assert(workspace_choose(1));assert(!strcmp(lv_textarea_get_text(codex_input),b->text));
++    // An edit made before the queued click is persisted before switching.
++    codex_set_text("Claude 保留新编辑");codex_reading=true;assert(!workspace_choose(0)&&b->dirty);
++    codex_reading=false;workspace_switch_tick();assert(workspace_client==1);
++    preview_submit_enabled=true;codex_sync_next=0;preview_result_code=-1;
++    codex_sync_tick(preview_now_us/1000+200);assert(codex_syncing&&!strcmp(preview_operation,"draft-save"));
++    assert(!strcmp(codex_sync_task,b->id));
++    preview_result_code=200;codex_sync_tick(preview_now_us/1000+300);workspace_switch_tick();
++    assert(workspace_client==0&&!b->dirty&&!strcmp(b->text,"Claude 保留新编辑"));
++    // A timed-out load must not immediately start a fresh load and starve
++    // the pending choice. Its local placeholder remains unloaded.
++    a->request[0]=0;memset(a->images,0,sizeof(a->images));
++    assert(codex_store_text(a,"",false));a->dirty=false;a->loaded=false;codex_load_draft();
++    codex_load_waiting=true;snprintf(codex_sync_task,sizeof(codex_sync_task),"%s",a->id);
++    assert(!workspace_choose(1)&&workspace_switch_pending==1);
++    int syncs=preview_sync_count;codex_sync_next=0;
++    codex_sync_tick(preview_now_us/1000+500);workspace_switch_tick();
++    assert(workspace_client==1&&!a->loaded&&preview_sync_count==syncs);
++    assert(!lv_label_get_text(codex_voice_hint)[0]);
++    workspace_switch_settle_animation();capture("workspace-switch-draft-preserved");
++    assert(preview_submit_count==submissions);
++    puts("WORKSPACE_SWITCH_SYNC_OK repeated_bidirectional_reads_load_save_timeout_latest_choice_input_guards_drafts_images_unknown_preserved_no_submission");
++}

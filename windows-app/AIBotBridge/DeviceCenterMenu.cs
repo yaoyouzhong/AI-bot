@@ -27,7 +27,6 @@ internal static class DeviceCenterMenu
             menu.Items.Add(group);
         }
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(Entry("Claude 操作确认…","claude-approval",()=>common("claude-approval")));
         menu.Items.Add(Entry("退出","exit",()=>common("exit")));
         return menu;
     }

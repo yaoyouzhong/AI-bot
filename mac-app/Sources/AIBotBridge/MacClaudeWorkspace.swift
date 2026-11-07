@@ -2,7 +2,7 @@ import Foundation
 
 // Claude owns the CLI wire; the existing session workspace owns device RPC,
 // encrypted drafts/photos and request deduplication. No model/permission flags
-// are added here. Only explicit device sends launch a resumed CLI process.
+// are added here. Production operates the original client, never a resumed CLI.
 final class MacClaudeWorkspace {
     let tasks: MacTab5Codex
     let backend: MacClaudeWorkspaceBackend
@@ -16,6 +16,7 @@ final class MacClaudeWorkspace {
         tasks.deliveryReceipt = backend.receipt
         tasks.deliveryCancelled = backend.cancelled
         tasks.onDisable = backend.stop
+        backend.nativeAuthorization = { [weak taskWorkspace = tasks] in taskWorkspace?.nativeAuthorized() == true }
     }
     func start() { tasks.start() }
     func stop() { tasks.stop(); backend.stop() }
@@ -42,13 +43,17 @@ final class MacClaudeWorkspaceBackend {
     private var settled: [String:String] = [:]
     private var cancelledMessages: [String:Bool] = [:]
     private var lastLive: [[String:Any]] = [], liveAt = Date.distantPast
+    private let native: MacClaudeNativeBackend?
+    var nativeAuthorization: () -> Bool = {false} { didSet { native?.authorized = nativeAuthorization } }
     init(root: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects"), store: MacTab5PrivateStore,
          key: @escaping () throws -> Data = MacTab5PrivateStore.keychainKey,
          executable: @escaping () -> URL? = MacClaudeWorkspaceBackend.locate, live: (() throws -> [[String:Any]])? = nil,
-         environment: [String:String]? = nil, arguments: [String] = []) {
+          environment: [String:String]? = nil, arguments: [String] = [], legacyFixture: Bool = false,
+          nativeFactory: @escaping (UUID) -> (any MacClaudeNativeSession)? = MacClaudeNativeClient.find) {
         self.root = root; self.store = store; self.key = key; self.executable = executable; self.live = live
         self.environment = environment; self.arguments = arguments
         catalog = MacClaudeCatalog(root:root,key:key)
+        native = legacyFixture ? nil : MacClaudeNativeBackend(root:root,store:store,key:key,factory:nativeFactory)
         settled = (try? store.read("terminal-results").map(MacTab5Protocol.object)) as? [String:String] ?? [:]
         cancelledMessages = (try? store.read("cancelled-messages").map(MacTab5Protocol.object)) as? [String:Bool] ?? [:]
     }
@@ -61,6 +66,7 @@ final class MacClaudeWorkspaceBackend {
     func alias(session: UUID) -> String? { catalog.snapshot().first { $0.session == session }?.alias }
     func selection(over bound: MacClaudeIdentity.Selection?, now: Date = Date()) -> MacClaudeIdentity.Selection? {
         let entries = catalog.snapshot()
+        if let native { return native.selection(entries,bound:bound,now:now) }
         lock.lock(); defer { lock.unlock() }
         let owned = entries.compactMap { entry -> MacClaudeIdentity.Selection? in
             guard let owner = owners[entry.alias], let message = owner.messages.first(where: { $0.status == "inProgress" }) ?? owner.messages.last,
@@ -113,7 +119,8 @@ final class MacClaudeWorkspaceBackend {
     }
     func call(_ method: String, _ params: [String:Any]) throws -> [String:Any] {
         if method == "thread/list" {
-            try catalog.refresh()
+            let normalRoot=FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects").standardizedFileURL
+            try catalog.refresh(newPanels:native != nil && root.standardizedFileURL.path==normalRoot.path ? MacClaudeNativeClient.newPanels():[])
             let rows = catalog.snapshot(), cursor = Int(params["cursor"] as? String ?? "0") ?? 0
             guard cursor >= 0, cursor <= rows.count else { throw MacTab5Error.invalidPacket }
             let slice = rows.dropFirst(cursor).prefix(64)
@@ -126,6 +133,7 @@ final class MacClaudeWorkspaceBackend {
         if method == "thread/read" { return ["thread":try thread(entry)] }
         if method == "thread/resume" { return [:] } // Resume occurs only after the durable journal write.
         guard let request = MacTab5Codex.id(params["requestId"]) else { throw MacTab5Error.invalidPacket }
+        if let native { return try native.call(method,entry:entry,params:params) }
         if method == "turn/interrupt" {
             lock.lock(); let owner = owners[task], stream = owner?.stream
             let active = owner?.messages.last(where: { $0.status == "inProgress" })?.turn; lock.unlock()
@@ -170,6 +178,7 @@ final class MacClaudeWorkspaceBackend {
         throw MacTab5Error.timeout
     }
     private func acquire(_ entry: MacClaudeCatalog.Entry) throws -> Owner {
+        guard native == nil else { throw MacTab5Error.unconfirmed }
         launch.lock(); defer { launch.unlock() }
         lock.lock(); let existing = owners[entry.alias], count = owners.count; lock.unlock()
         if let existing, !existing.ended { return existing }
@@ -185,6 +194,7 @@ final class MacClaudeWorkspaceBackend {
         do { try stream.start(); return owner } catch { stream.stop(); lock.lock(); owner.ended = true; lock.unlock(); throw error }
     }
     private func thread(_ entry: MacClaudeCatalog.Entry, history: Bool = true) throws -> [String:Any] {
+        if let native { return try native.thread(entry,includeHistory:history) }
         var turns: [[String:Any]] = [], limited = false
         if history {
             let value = try MacClaudeHistory.read(root:root,session:entry.session,key:key()); turns = value.turns; limited = value.limited
@@ -209,6 +219,7 @@ final class MacClaudeWorkspaceBackend {
         return ["id":entry.alias,"turns":turns,"historyLimited":limited,"status":status,"controlUnavailable":!controllable]
     }
     func receipt(_ task: String, _ request: String, _ operation: String, _ expected: String) -> String? {
+        if let native { guard let entry=catalog.resolve(task) else { return nil };return native.receipt(entry,request) }
         lock.lock()
         if operation == "interrupt" { let value = interruptionReceipts[request]; lock.unlock(); return value }
         let message = owners[task]?.messages.first(where: { $0.id == request }), accepted = message?.accepted ?? false
@@ -269,5 +280,5 @@ final class MacClaudeWorkspaceBackend {
         try stream.respond(request:current.id,value:allow ? ["behavior":"allow","updatedInput":current.input] : ["behavior":"deny","message":"用户拒绝了此操作。"])
         lock.lock(); owner?.approvals.removeAll { $0.id == approval.id }; lock.unlock()
     }
-    func stop() { lock.lock(); let streams = owners.values.compactMap { $0.stream }; lock.unlock(); streams.forEach { $0.stop() } }
+    func stop() { native?.stop();lock.lock(); let streams = owners.values.compactMap { $0.stream }; lock.unlock(); streams.forEach { $0.stop() } }
 }

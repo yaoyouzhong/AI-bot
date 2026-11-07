@@ -3,16 +3,19 @@ import Foundation
 // Main-branch public assistant text grouped by user turn. Raw prompt/tool data
 // is neither retained in nodes nor included in returned dictionaries.
 enum MacClaudeHistory {
-    struct Value { let turns: [[String:Any]]; let limited: Bool; let accepted: Set<String> }
-    private struct Node { let id: String, parent: String?, human: Bool, text: String, at: Int64 }
-    static func read(root: URL, session: UUID, key: Data) throws -> Value {
-        guard let files = FileManager.default.enumerator(at:root,includingPropertiesForKeys:[.isRegularFileKey,.isSymbolicLinkKey]) else { throw MacTab5Error.unavailable }
+    struct Value { let turns: [[String:Any]]; let limited: Bool; let accepted: Set<String>; var inputDigests: [String:String] = [:] }
+    private struct Node { let id: String, parent: String?, human: Bool, text: String, at: Int64, assistant: Bool, ended: Bool, inputDigest: String?, prompt: UUID?, stopNotice: Bool }
+    static func read(root: URL, session: UUID, key: Data,verifiedNewPanel: () -> Bool = {false}) throws -> Value {
+        var scanFailed=false
+        guard let files = FileManager.default.enumerator(at:root,includingPropertiesForKeys:[.isRegularFileKey,.isSymbolicLinkKey],errorHandler:{_,_ in scanFailed=true;return false}) else { throw MacTab5Error.unavailable }
         var target: URL?
         for case let file as URL in files where file.pathExtension == "jsonl" && !file.pathComponents.contains("subagents") {
             if UUID(uuidString:file.deletingPathExtension().lastPathComponent) == session {
                 guard target == nil else { throw MacTab5Error.unconfirmed }; target = file
             }
         }
+        guard !scanFailed else { throw MacTab5Error.unavailable }
+        if target == nil,verifiedNewPanel(){return Value(turns:[],limited:false,accepted:[])}
         guard let target else { throw MacTab5Error.unavailable }
         let info = try target.resourceValues(forKeys:[.isRegularFileKey,.isSymbolicLinkKey,.fileSizeKey])
         guard info.isRegularFile == true, info.isSymbolicLink != true else { throw MacTab5Error.unavailable }
@@ -26,9 +29,17 @@ enum MacClaudeHistory {
         func consume(_ data: Data) throws {
             guard let row = try? JSONSerialization.jsonObject(with:data) as? [String:Any],
                   let raw = row["sessionId"] as? String, UUID(uuidString:raw) == session,
-                  let type = row["type"] as? String, ["user","assistant"].contains(type),
+                  let type = row["type"] as? String,
                   row["isSidechain"] as? Bool != true else { return }
+            let subtype = row["subtype"] as? String
+            let link = type == "attachment" || (type == "system" && (subtype == "turn_duration" || subtype == "away_summary"))
+            guard link || ["user","assistant"].contains(type) else { return }
             for flag in ["isSidechain","isMeta"] { if let v = row[flag], !MacTab5Protocol.isBoolean(v) { return } }
+            // Context nodes preserve ancestry only; never expose their payload
+            // or let a late attachment select an older conversation branch.
+            if link {
+                guard let uuid = row["uuid"] as? String, UUID(uuidString:uuid) != nil, row["parentUuid"] != nil else { return }
+            }
             ordinal += 1
             let id = (row["uuid"] as? String).flatMap(UUID.init(uuidString:))?.uuidString.lowercased() ?? "legacy-\(ordinal)"
             guard nodes[id] == nil else { return }
@@ -38,16 +49,20 @@ enum MacClaudeHistory {
                 parent = uuid.uuidString.lowercased()
             } else { parent = row["parentUuid"] is NSNull ? nil:leaf }
             let message = row["message"] as? [String:Any] ?? [:], meta = row["isMeta"] as? Bool == true
-            var text = "", human = false
+            var text = "", human = false, assistant = false, ended = false, stopNotice = false
             if !meta, type == "assistant" {
                 guard message["role"] as? String == "assistant", let content = message["content"] as? [[String:Any]] else { throw MacTab5Error.unavailable }
                 text = content.compactMap { $0["type"] as? String == "text" ? $0["text"] as? String:nil }.joined(separator:"\n").trimmingCharacters(in:.whitespacesAndNewlines)
-            } else if !meta, type == "user", row["toolUseResult"] == nil || row["toolUseResult"] is NSNull {
+                assistant = true; ended = message["stop_reason"] as? String == "end_turn" && !text.isEmpty
+            } else if !meta, type == "user", (row["origin"] as? [String:Any])?["kind"] as? String != "peer", row["toolUseResult"] == nil || row["toolUseResult"] is NSNull {
                 let content = message["content"] as? [[String:Any]] ?? []
                 human = message["content"] is String || (!content.isEmpty && content.allSatisfy { ["text","image"].contains($0["type"] as? String ?? "") })
+                stopNotice = content.count == 1 && content[0]["type"] as? String == "text" && content[0]["text"] as? String == "[Request interrupted by user]"
             }
             let stamp = row["timestamp"] as? String ?? "", date = dates.date(from:stamp) ?? plain.date(from:stamp)
-            nodes[id] = Node(id:id,parent:parent,human:human,text:text,at:date.map { Int64($0.timeIntervalSince1970) } ?? 0); leaf = id
+            let prompt=(row["promptId"] as? String).flatMap(UUID.init(uuidString:))
+            nodes[id] = Node(id:id,parent:parent,human:human,text:text,at:date.map { Int64($0.timeIntervalSince1970) } ?? 0,assistant:assistant,ended:ended,inputDigest:human ? MacClaudeNativeContent.message(message["content"]):nil,prompt:prompt,stopNotice:stopNotice)
+            if !link { leaf = id }
         }
         while let bytes = try file.read(upToCount:65536), !bytes.isEmpty {
             for byte in bytes {
@@ -55,7 +70,7 @@ enum MacClaudeHistory {
                     if !skip && !oversized { try consume(line) }
                     line.removeAll(keepingCapacity:true); skip = false; oversized = false
                 } else if !skip && !oversized {
-                    if line.count < 2_000_000 { line.append(byte) } else { line.removeAll(keepingCapacity:true); oversized = true; limited = true }
+                    if line.count < 10_000_000 { line.append(byte) } else { line.removeAll(keepingCapacity:true); oversized = true; limited = true }
                 }
             }
         }
@@ -66,16 +81,21 @@ enum MacClaudeHistory {
             branch.append(node); next = node.parent
         }
         guard !branch.isEmpty else { throw MacTab5Error.unavailable }
-        var turns: [[String:Any]] = [], items: [[String:Any]] = [], start: Node?
+        var turns: [[String:Any]] = [], items: [[String:Any]] = [], start: Node?, complete = false, interrupted = false, endedAt: Int64 = 0
+        var accepted=Set<String>(),digests=[String:String]()
         func finish() {
             guard let first = start else { return }
             turns.append(["id":MacClaudeCatalog.alias("claude:turn:"+session.uuidString.lowercased()+":"+first.id,key:key),
-                          "startedAt":first.at,"status":"unknown","items":items]); items = []
+                          "startedAt":first.at,"status":interrupted ? "interrupted":complete ? "completed":"unknown","endedAt":endedAt,"items":items]); items = []
         }
         var retainedBytes = 0
         for node in branch.reversed() {
-            if node.human { finish(); start = node }
+            if node.stopNotice,let prompt=node.prompt,prompt.uuidString != "00000000-0000-0000-0000-000000000000",start?.human==true,prompt==start?.prompt {
+                interrupted=true;endedAt=node.at;continue
+            }
+            if node.human { finish(); start = node; complete = false; interrupted=false; endedAt = 0; accepted.insert(node.id);digests[node.id]=node.inputDigest }
             if start == nil { start = node }
+            if node.assistant { complete = node.ended; endedAt = complete ? node.at:0 }
             if !node.text.isEmpty {
                 guard node.text.utf8.count <= 1024*1024 else { throw MacTab5Error.invalidPacket }
                 items.append(["id":MacClaudeCatalog.alias("claude:item:"+node.id,key:key),"type":"agentMessage","phase":"final_answer","text":node.text]); retainedBytes += node.text.utf8.count
@@ -84,6 +104,6 @@ enum MacClaudeHistory {
                 if !turns.isEmpty { let removed = turns.removeFirst(); retainedBytes -= (removed["items"] as? [[String:Any]] ?? []).reduce(0) { $0+(($1["text"] as? String)?.utf8.count ?? 0) }; limited = true }
             }
         }
-        finish(); return Value(turns:turns,limited:limited,accepted:Set(branch.filter { $0.human }.map(\.id)))
+        finish(); return Value(turns:turns,limited:limited,accepted:accepted,inputDigests:digests)
     }
 }

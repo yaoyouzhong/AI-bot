@@ -70,8 +70,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
             NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)),
             NSButton(title: "处理待确认发送…", target: self, action: #selector(recoverDelivery))]))
         codexPage.section("Claude 会话")
-        codexPage.add(MacBridgeSettingsStyle.note("Claude 项目、历史、草稿、文字、图片与语音默认可用。工具审批等待你手工核对；桥接退出会停止由 TAB5 启动的 Claude 进程。外部会话仍在运行时只读，请先在原窗口退出该会话。"))
-        codexPage.add(NSButton(title:"Claude 操作确认…",target:self,action:#selector(reviewClaude)))
+        codexPage.add(MacBridgeSettingsStyle.note("Claude 操作电脑上的原会话，沿用原模型与权限设置。电脑已有草稿时保留输入；工具授权请在原客户端确认。原生操作需要辅助功能权限，无法确认会话时不会发送。退出桥接不关闭 Claude。"))
         codexPage.section("桌面直达")
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop)
         codexPage.add(desktop)
@@ -101,17 +100,6 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     }
     func open(section: Section? = nil) { if let section { sections.select(section.rawValue) }; reload(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
     @objc private func toggleComputer() { UserDefaults.standard.set(computer.state == .on, forKey: MacTab5Computer.enabledKey) }
-    @objc private func reviewClaude() {
-        guard let approval = service.claude.backend.approvals().first else { result.stringValue = "Claude 当前没有等待确认的工具操作。"; return }
-        let response = MacClaudeApprovalAlert.make(tool:approval.tool,input:approval.input).runModal()
-        guard response == .alertFirstButtonReturn || response == .alertSecondButtonReturn else { return }
-        result.stringValue = "正在提交本次决定…"
-        DispatchQueue.global(qos:.userInitiated).async { [weak self] in
-            guard let self else { return }
-            let decision = Result { try self.service.claude.backend.decide(approval,allow:response == .alertSecondButtonReturn) }
-            DispatchQueue.main.async { self.result.stringValue = (try? decision.get()) != nil ? "已提交本次决定。":"请求已变化或连接中断，请重新查看；未自动重试。" }
-        }
-    }
     @objc private func toggleMusic() {
         UserDefaults.standard.set(music.state == .on, forKey: MacMusicService.enabledKey)
         musicControl.state = MacFeaturePreferences.musicControlEnabled() ? .on : .off

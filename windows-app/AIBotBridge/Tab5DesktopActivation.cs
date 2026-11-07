@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace AIBotBridge;
 
@@ -16,8 +17,19 @@ internal static class Tab5DesktopActivation
         ()=>SendInput(1,[Key(true)],Marshal.SizeOf<Input>()),IsInteractive);
     // UOI_IO checks whether our desktop currently receives input. Lock screens,
     // secure desktops and disconnected sessions must not trigger activation.
-    internal static bool IsInteractive()=>
-        GetUserObjectInformation(GetThreadDesktop(GetCurrentThreadId()),6,out int active,sizeof(int),out _)&&active!=0;
+    internal static bool IsInteractive(){
+        if(!GetUserObjectInformation(GetThreadDesktop(GetCurrentThreadId()),6,out int active,sizeof(int),out _)||active==0)return false;
+        GetWindowThreadProcessId(GetForegroundWindow(),out uint pid);
+        if(pid==0)return false;
+        try{
+            using var foreground=Process.GetProcessById((int)pid);
+            return ForegroundAllowed(foreground.ProcessName);
+        }catch(Exception e) when(e is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception){return false;}
+    }
+    internal static bool ForegroundAllowed(string name)=>
+        !name.Equals("LockApp",StringComparison.OrdinalIgnoreCase)&&
+        !name.Equals("LogonUI",StringComparison.OrdinalIgnoreCase)&&
+        !name.Equals("CredentialUIBroker",StringComparison.OrdinalIgnoreCase);
     internal static Result Raise(nint window,bool allowInput=true,Calls? calls=null) {
         calls??=Native;
         if(window==0)return new(false,false,false);
@@ -39,6 +51,7 @@ internal static class Tab5DesktopActivation
     [StructLayout(LayoutKind.Sequential)]private struct KeyboardInput {public ushort Vk,Scan;public uint Flags,Time;public UIntPtr Extra;}
     [StructLayout(LayoutKind.Sequential)]private struct MouseInput {public int X,Y;public uint Data,Flags,Time;public UIntPtr Extra;}
     [DllImport("user32.dll")]private static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")]private static extern uint GetWindowThreadProcessId(nint window,out uint pid);
     [DllImport("kernel32.dll")]private static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")]private static extern nint GetThreadDesktop(uint threadId);
     [DllImport("user32.dll",EntryPoint="GetUserObjectInformationW")]private static extern bool GetUserObjectInformation(nint desktop,int index,out int value,int length,out int needed);

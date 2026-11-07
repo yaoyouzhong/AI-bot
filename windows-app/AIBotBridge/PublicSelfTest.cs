@@ -5,7 +5,9 @@ internal static class PublicSelfTest
     internal static void Run()
     {
         if (!AppPaths.IsPublicSelfTest) throw new InvalidOperationException("Fresh profile required.");
-        ClaudeSessionIndexSelfTest.Run();ClaudeHistorySelfTest.Run();Tab5UIAutomationSelfTest.Run();
+        ClaudeSessionIndexSelfTest.Run();ClaudeHistorySelfTest.Run();ClaudeNativeReceiptSelfTest.Run();Tab5UIAutomationSelfTest.Run();
+        ClaudeNativeSendSelfTest.RunAsync().GetAwaiter().GetResult();
+        ClaudeNativeWorkspaceSelfTest.RunAsync().GetAwaiter().GetResult();
         ClaudeWorkspaceSelfTest.RunAsync().GetAwaiter().GetResult();
         MigratedDomestic.DomesticQuotaAuthForm.BackgroundFocusSelfTest();
         // No refresh workers, serial connection, production HTTP port or browser login.

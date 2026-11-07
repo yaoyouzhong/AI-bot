@@ -27,7 +27,7 @@ final class MacTab5WorkspaceAcceptance {
         self.root = resolved
         let key = Data(0..<32), store = MacTab5PrivateStore(root:resolved.appendingPathComponent("sealed"),key:{key})
         let backend = MacClaudeWorkspaceBackend(root:resolved.appendingPathComponent(".claude/projects"),store:store,key:{key},executable:{executable},environment:environment,
-            arguments:["--model","claude-sonnet-4-6","--setting-sources","user","--strict-mcp-config","--tools","","--disable-slash-commands","--max-budget-usd","0.05"])
+            arguments:["--model","claude-sonnet-4-6","--setting-sources","user","--strict-mcp-config","--tools","","--disable-slash-commands","--max-budget-usd","0.05"],legacyFixture:true)
         // Capture a standalone locked set, avoiding a self/let initialization cycle.
         let visibility = Visibility(); self.visibility = visibility
         claude = MacClaudeWorkspace(store:store,backend:backend,enabled:{visibility.has("claude")})
