@@ -32,13 +32,14 @@ enum MacClaudeHistory {
                   let type = row["type"] as? String,
                   row["isSidechain"] as? Bool != true else { return }
             let subtype = row["subtype"] as? String
-            let link = type == "attachment" || (type == "system" && (subtype == "turn_duration" || subtype == "away_summary"))
+            let link = type == "attachment" || (type == "system" && (["turn_duration", "away_summary", "informational", "api_error"].contains(subtype ?? "")))
             guard link || ["user","assistant"].contains(type) else { return }
             for flag in ["isSidechain","isMeta"] { if let v = row[flag], !MacTab5Protocol.isBoolean(v) { return } }
             // Context nodes preserve ancestry only; never expose their payload
             // or let a late attachment select an older conversation branch.
             if link {
-                guard let uuid = row["uuid"] as? String, UUID(uuidString:uuid) != nil, row["parentUuid"] != nil else { return }
+                guard let uuid = row["uuid"] as? String, UUID(uuidString:uuid) != nil,
+                      let parent = row["parentUuid"] as? String, UUID(uuidString:parent) != nil else { return }
             }
             ordinal += 1
             let id = (row["uuid"] as? String).flatMap(UUID.init(uuidString:))?.uuidString.lowercased() ?? "legacy-\(ordinal)"

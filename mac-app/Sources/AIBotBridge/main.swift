@@ -7,6 +7,28 @@ if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--claude-hook"
     MacClaudeHook.run(port:port); exit(0)
 }
 
+if Array(CommandLine.arguments.dropFirst()) == ["--inspect-claude-native-clients"] {
+    // Report aggregate identity and capability only. No drafts, paths, IDs,
+    // permissions prompts, subprocess launches of Claude, or device writes.
+    let registry = MacClaudeHarnesses.standard
+    var counts: [String: Int] = [:], writable: [String: Int] = [:]
+    for id in registry.liveSessions() {
+        switch registry.owner(id) {
+        case .verified(let client):
+            counts[client.source.id, default: 0] += 1
+            if client.allows("send", images: false) { writable[client.source.id, default: 0] += 1 }
+        case .conflict: counts["multiple", default: 0] += 1
+        case .invalid, .unavailable: counts["unverified", default: 0] += 1
+        }
+    }
+    let result = ["verifiedBySource": counts.filter { $0.key != "unverified" }, "canSendBySource": writable,
+                  "unverified": ["count": counts["unverified", default: 0]]]
+    if let bytes = try? MacTab5Protocol.json(result) {
+        FileHandle.standardOutput.write(bytes + Data([10])); exit(0)
+    }
+    exit(1)
+}
+
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--check-codex-delivery-baseline" {
     do { try MacCodexBaselineCheck.run(URL(fileURLWithPath: CommandLine.arguments[2])); exit(0) }
     catch { fputs("Codex read-only delivery baseline incomplete; no submission attempted.\n", stderr); exit(1) }

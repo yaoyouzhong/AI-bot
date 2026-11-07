@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import ApplicationServices
 import Foundation
 import SQLite3
@@ -9,13 +10,13 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
     let session: UUID
     private let pid: Int32, start: String, record: URL, host: NSRunningApplication, hostStart: String, entrypoint: String
     private let database: URL?
-    private var stagedImages: [String] = []
+    var source: MacClaudeSessionSource { entrypoint == "cli" ? .terminal : .vscode }
     private struct UI { let window: AXUIElement, frame: AXUIElement, editor: AXUIElement, composer: AXUIElement, button: AXUIElement?, view: MacClaudeNativeView }
     private init(session:UUID,pid:Int32,start:String,record:URL,host:NSRunningApplication,hostStart:String,entrypoint:String,database:URL?) {
         self.session=session;self.pid=pid;self.start=start;self.record=record;self.host=host;self.hostStart=hostStart;self.entrypoint=entrypoint;self.database=database
     }
     static func ps(_ pid:Int32,_ field:String) throws -> String {
-        guard pid>0,["lstart=","ppid=","comm=","tty="].contains(field) else { throw MacTab5Error.unconfirmed }
+        guard pid>0,["lstart=","ppid=","comm=","tty=","pgid=,tpgid=","uid="].contains(field) else { throw MacTab5Error.unconfirmed }
         let process=Process(),pipe=Pipe();process.executableURL=URL(fileURLWithPath:"/bin/ps");process.arguments=["-o",field,"-p",String(pid)]
         var environment=ProcessInfo.processInfo.environment;environment["LC_ALL"]="C";environment["TZ"]="UTC";process.environment=environment
         process.standardOutput=pipe;process.standardError=FileHandle.nullDevice;try process.run()
@@ -26,28 +27,29 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
     }
     private static func metadata(_ file:URL) throws -> [String:Any] {
         let info=try file.resourceValues(forKeys:[.isRegularFileKey,.isSymbolicLinkKey,.fileSizeKey])
-        guard info.isRegularFile==true,info.isSymbolicLink!=true,(info.fileSize ?? 20000)<16384 else { throw MacTab5Error.unconfirmed }
+        guard info.isRegularFile==true,info.isSymbolicLink != true,(info.fileSize ?? 20000)<16384 else { throw MacTab5Error.unconfirmed }
         return try MacTab5Protocol.object(Data(contentsOf:file))
     }
-    static func live() -> Set<UUID> {
+    static func live(entrypoint: String) -> Set<UUID> {
         let root=FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/sessions")
         let files=(try? FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil)) ?? []
         return Set(files.prefix(2048).compactMap { file -> UUID? in
-            guard let row=try? metadata(file),let id=row["sessionId"] as? String else{return nil}
+            guard let row=try? metadata(file),row["entrypoint"] as? String == entrypoint,let id=row["sessionId"] as? String else{return nil}
             return UUID(uuidString:id)
         })
     }
-    static func find(_ session:UUID) -> (any MacClaudeNativeSession)? {
+    static func find(_ session:UUID, entrypoint: String) -> (any MacClaudeNativeSession)? {
         do {
             let root=FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/sessions")
             let files=try FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil).filter { $0.pathExtension=="json" }
             guard files.count<=2048 else { return nil }
-            let matches=files.compactMap { file -> (URL,[String:Any])? in guard let row=try? metadata(file),UUID(uuidString:row["sessionId"] as? String ?? "")==session else { return nil };return(file,row) }
+            let matches=files.compactMap { file -> (URL,[String:Any])? in guard let row=try? metadata(file),row["entrypoint"] as? String == entrypoint,UUID(uuidString:row["sessionId"] as? String ?? "")==session else { return nil };return(file,row) }
             guard matches.count==1,let (record,row)=matches.first,let rawPid=row["pid"] as? Int,let pid=Int32(exactly:rawPid),pid>0,
                   Int32(record.deletingPathExtension().lastPathComponent)==pid,row["kind"] as? String=="interactive",
                   let entry=row["entrypoint"] as? String,["cli","claude-vscode"].contains(entry),
                   ["2.1.314","2.1.318"].contains(row["version"] as? String ?? ""),let start=row["procStart"] as? String,
-                  try ps(pid,"lstart=")==start,URL(fileURLWithPath:try ps(pid,"comm=")).lastPathComponent=="claude" else { return nil }
+                  try ps(pid,"lstart=")==start, try ps(pid,"uid=")==String(getuid()),
+                  URL(fileURLWithPath:try ps(pid,"comm=")).lastPathComponent=="claude" else { return nil }
             var parent=pid,app:NSRunningApplication?
             for _ in 0..<12 { guard let next=Int32(try ps(parent,"ppid=")),next>1 else { break };parent=next
                 if let candidate=NSRunningApplication(processIdentifier:parent),["com.microsoft.VSCode","com.apple.Terminal","com.googlecode.iterm2"].contains(candidate.bundleIdentifier ?? "") {app=candidate;break} }
@@ -92,23 +94,57 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
               let state=tab["state"] as? String,let detail=try? MacTab5Protocol.object(Data(state.utf8)),UUID(uuidString:detail["sessionID"] as? String ?? "")==session else {throw MacTab5Error.unconfirmed}
         return UUID(uuidString:detail["sessionWithNoTranscript"] as? String ?? "") == session
     }
-    func isNewPanel() -> Bool {
+    func isVerifiedBlank() -> Bool {
         guard entrypoint=="claude-vscode",(try? state())=="idle" else{return false}
         return (try? selectedCode()) == true
     }
     static func newPanels() -> [MacClaudeSessionObservation] {
-        live().compactMap { id in
-            guard let client=find(id) as? MacClaudeNativeClient,client.isNewPanel(),
+        live(entrypoint: "claude-vscode").compactMap { id in
+            guard let client=find(id, entrypoint: "claude-vscode") as? MacClaudeNativeClient,client.isVerifiedBlank(),
                   let row=try? metadata(client.record),
                   let date=try? client.record.resourceValues(forKeys:[.creationDateKey]).creationDate else{return nil}
             return MacClaudeSessionObservation(sessionID:id,lastActivity:date,title:"Claude Code",directory:row["cwd"] as? String)
         }
     }
     private func terminalTTY() throws {
-        let tty=try Self.ps(pid,"tty=");guard tty.hasPrefix("ttys"),let bundle=host.bundleIdentifier else {throw MacTab5Error.unconfirmed}
-        let script=bundle=="com.apple.Terminal" ? "tell application id \"com.apple.Terminal\" to get tty of selected tab of front window" : "tell application id \"com.googlecode.iterm2\" to get tty of current session of current window"
-        var error:NSDictionary?;let value=NSAppleScript(source:script)?.executeAndReturnError(&error).stringValue
-        guard error==nil,value=="/dev/"+tty else {throw MacCodexDesktopError.rejected("native_terminal_tab_unconfirmed")}
+        let tty = try Self.ps(pid, "tty=")
+        let groups = try Self.ps(pid, "pgid=,tpgid=").split(whereSeparator: \.isWhitespace).compactMap { Int($0) }
+        guard groups.count == 2, groups[0] > 0, groups[0] == groups[1], tty.hasPrefix("ttys"),
+              let bundle = host.bundleIdentifier else { throw MacTab5Error.unconfirmed }
+        // Polling must never request Automation permission.
+        let target = NSAppleEventDescriptor(processIdentifier: host.processIdentifier)
+        guard AEDeterminePermissionToAutomateTarget(target.aeDesc, typeWildCard, typeWildCard, false) == noErr,
+              !host.isTerminated else { throw MacTab5Error.unconfirmed }
+        let script = bundle == "com.apple.Terminal"
+            ? "tell application id \"com.apple.Terminal\" to get tty of selected tab of front window"
+            : "tell application id \"com.googlecode.iterm2\" to get tty of current session of current window"
+        var error: NSDictionary?
+        let value = NSAppleScript(source: "with timeout of 1 second\n" + script + "\nend timeout")?
+            .executeAndReturnError(&error).stringValue
+        guard error == nil, value == "/dev/" + tty, !host.isTerminated else {
+            throw MacCodexDesktopError.rejected("native_terminal_tab_unconfirmed")
+        }
+    }
+    private var isFrontmost: Bool { NSWorkspace.shared.frontmostApplication?.processIdentifier == host.processIdentifier }
+    private var hasDefaultTerminalBindings: Bool {
+        !FileManager.default.fileExists(atPath: record.deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("keybindings.json").path)
+    }
+    func allows(_ operation: String, images: Bool) -> Bool {
+        guard isFrontmost, CGPreflightPostEventAccess(), AXIsProcessTrusted() else { return false }
+        if entrypoint == "cli" {
+            guard !images, hasDefaultTerminalBindings, ["send", "steer", "interrupt"].contains(operation) else { return false }
+        } else {
+            // The ordinary extension's Stop button is not a queue interface.
+            guard ["send", "interrupt"].contains(operation) else { return false }
+        }
+        guard let target = try? ui(operation), target.view.ready else { return false }
+        // Until each host's stop behavior is accepted, do not risk its draft.
+        if operation == "interrupt", !target.view.empty { return false }
+        if operation == "interrupt", entrypoint != "cli" {
+            return target.button.map { Self.label($0) == "Stop" && Self.value($0, "AXEnabled") as? Bool == true } ?? false
+        }
+        return true
     }
     private static func value(_ node:AXUIElement,_ key:String)->CFTypeRef?{var v:CFTypeRef?;return AXUIElementCopyAttributeValue(node,key as CFString,&v) == .success ? v:nil}
     private static func element(_ node:AXUIElement,_ key:String)->AXUIElement?{guard let raw=value(node,key),CFGetTypeID(raw)==AXUIElementGetTypeID() else{return nil};return unsafeBitCast(raw,to:AXUIElement.self)}
@@ -124,40 +160,58 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
         if entrypoint=="cli" {
             try terminalTTY();let editor=try Self.unique(Self.descendants(window).filter{Self.value($0,"AXRole") as? String=="AXTextArea"})
             guard let output=Self.value(editor,"AXValue") as? String,output.utf8.count<=2_000_000 else{throw MacTab5Error.unconfirmed}
-            let lines=output.components(separatedBy:"\n")
-            func divider(_ line:String)->Bool{let v=line.trimmingCharacters(in:.whitespaces);return v.count>=8 && v.allSatisfy{$0=="─" || $0=="━" || $0==" "}}
-            guard let index=lines.lastIndex(where:{$0=="❯" || $0==">" || $0.hasPrefix("❯ ")||$0.hasPrefix("> ")||$0.hasPrefix("❯\u{a0}")||$0.hasPrefix(">\u{a0}")}),index>0,divider(lines[index-1]) else{throw MacTab5Error.unconfirmed}
-            // Do not overwrite hidden continuation rows when the caret is on
-            // an empty first row. Require a complete single-line composer.
-            guard let boundary=lines.dropFirst(index+1).first(where:{!$0.trimmingCharacters(in:.whitespaces).isEmpty}),
-                  divider(boundary) else{throw MacTab5Error.unconfirmed}
-            var text=String(lines[index].dropFirst(2))
-            // AX text alone cannot distinguish a suggestion from an identical
-            // user draft. Keep it as nonempty until native evidence says otherwise.
-            let regex=try NSRegularExpression(pattern:#"\[Image #\d+\] ?"#),range=NSRange(text.startIndex...,in:text),count=regex.numberOfMatches(in:text,range:range)
-            text=regex.stringByReplacingMatches(in:text,range:range,withTemplate:"")
-            let images=count==stagedImages.count ? stagedImages:Array(repeating:"unowned-image",count:count)
-            return UI(window:window,frame:editor,editor:editor,composer:editor,button:nil,view:MacClaudeNativeView(target:"\(host.processIdentifier):\(CFHash(editor))",text:text,images:images,empty:text.isEmpty&&count==0,ready:ready,canSubmit:true))
+            guard let text = Self.terminalComposer(output),
+                  Self.value(editor, "AXFocused") as? Bool == true else { throw MacTab5Error.unconfirmed }
+            return UI(window:window,frame:editor,editor:editor,composer:editor,button:nil,view:MacClaudeNativeView(
+                target:"\(host.processIdentifier):\(CFHash(editor))",text:text,images:[],empty:text.isEmpty,ready:ready,canSubmit:!text.isEmpty))
         }
         try selectedCode()
-        let frame=try Self.unique(Self.descendants(window).filter{Self.value($0,"AXRole") as? String=="AXWebArea" && ((Self.value($0,"AXIdentifier") as? String)=="active-frame" || (Self.value($0,"AXDOMIdentifier") as? String)=="active-frame")})
+        // A saved editor UUID and a foreground window do not identify a
+        // composer if the host also exposes another live Claude webview.
+        guard let windows = Self.value(app, "AXWindows") as? [AXUIElement], windows.count <= 16 else { throw MacTab5Error.unconfirmed }
+        func codeFrames(_ window: AXUIElement) -> [AXUIElement] {
+            Self.descendants(window).filter {
+                Self.value($0,"AXRole") as? String == "AXWebArea" &&
+                    (Self.value($0,"AXIdentifier") as? String == "active-frame" || Self.value($0,"AXDOMIdentifier") as? String == "active-frame")
+            }
+        }
+        let frame = try Self.unique(windows.filter { Self.value($0, "AXMinimized") as? Bool != true }.flatMap(codeFrames))
+        guard codeFrames(window).contains(where: { CFEqual($0, frame) }) else { throw MacTab5Error.unconfirmed }
         let nodes=Self.descendants(frame),editor=try Self.unique(nodes.filter{["AXTextArea","AXTextField"].contains(Self.value($0,"AXRole") as? String ?? "")&&Self.label($0)=="Message input"})
         let button=try Self.unique(nodes.filter{Self.value($0,"AXRole") as? String=="AXButton"&&["Send message","Stop"].contains(Self.label($0))})
         var ancestor=Self.element(editor,"AXParent"),composer:AXUIElement?
         for _ in 0..<8 {guard let node=ancestor,!CFEqual(node,frame) else{break};if Self.descendants(node).filter({Self.value($0,"AXRole") as? String=="AXButton"&&Self.label($0)=="Add"}).count==1{composer=node;break};ancestor=Self.element(node,"AXParent")}
         guard let composer,let raw=Self.value(editor,"AXValue") as? String else{throw MacTab5Error.unconfirmed}
         let images=try Self.attachmentNames(composer)
-        let enabled=Self.value(button,"AXEnabled") as? Bool==true,placeholder=["⌘ Esc to focus or unfocus Claude","ctrl esc to focus or unfocus Claude","⌘ Esc to attach selected text","ctrl esc to attach selected text","Ask Claude to edit…","Queue another message…"].contains(raw)
-        let empty=images.isEmpty&&(raw.isEmpty||placeholder)&&(!enabled||Self.label(button)=="Stop")
-        return UI(window:window,frame:frame,editor:editor,composer:composer,button:button,view:MacClaudeNativeView(target:"\(host.processIdentifier):\(CFHash(frame))",text:empty||placeholder && !images.isEmpty ? "":raw,images:images,empty:empty,ready:ready,canSubmit:enabled&&Self.label(button)=="Send message"))
+        let enabled = Self.value(button,"AXEnabled") as? Bool == true
+        let empty = images.isEmpty && raw.isEmpty && (!enabled || Self.label(button) == "Stop")
+        return UI(window:window,frame:frame,editor:editor,composer:composer,button:button,view:MacClaudeNativeView(
+            target:"\(host.processIdentifier):\(CFHash(frame))",text:raw,images:images,empty:empty,ready:ready,
+            canSubmit:enabled && Self.label(button) == "Send message"))
+    }
+    static func terminalComposer(_ output: String) -> String? {
+        let lines = output.components(separatedBy: "\n")
+        func divider(_ line: String) -> Bool {
+            let value = line.trimmingCharacters(in: .whitespaces)
+            return value.count >= 8 && value.allSatisfy { $0 == "─" || $0 == "━" || $0 == " " }
+        }
+        guard let index = lines.lastIndex(where: { ["❯", ">"].contains(String($0.prefix(1))) }),
+              index > 0, index + 1 < lines.count, divider(lines[index - 1]), divider(lines[index + 1]) else { return nil }
+        let line = lines[index]
+        if line.count == 1 { return "" }
+        guard [" ", "\u{a0}"].contains(String(line.dropFirst().prefix(1))) else { return nil }
+        // A suggestion and a real draft can look identical. Treat either as
+        // occupied; never discard a continuation line or an existing image.
+        return String(line.dropFirst(2))
     }
     func view(_ operation:String)throws->MacClaudeNativeView{try ui(operation).view}
-    private func focus(_ request:MacClaudeNativeRequest)throws {
-        guard request.authorized(),try request.current() else{throw MacTab5Error.unconfirmed}
-        let activate={self.host.activate(options:[.activateIgnoringOtherApps])};let active=Thread.isMainThread ? activate():DispatchQueue.main.sync(execute:activate)
-        guard active,NSWorkspace.shared.frontmostApplication?.processIdentifier==host.processIdentifier else{throw MacTab5Error.unconfirmed}
+    private func focus(_ request:MacClaudeNativeRequest,target first: String)throws {
+        guard isFrontmost,request.authorized(),try request.current() else{throw MacTab5Error.unconfirmed}
         let target=try ui(request.operation)
-        if entrypoint!="cli" {guard AXUIElementSetAttributeValue(target.editor,kAXFocusedAttribute as CFString,kCFBooleanTrue) == .success else{throw MacTab5Error.unconfirmed}}
+        guard target.view.target == first, target.view.empty else { throw MacTab5Error.unconfirmed }
+        if entrypoint != "cli" {
+            guard AXUIElementSetAttributeValue(target.editor,kAXFocusedAttribute as CFString,kCFBooleanTrue) == .success else{throw MacTab5Error.unconfirmed}
+        }
     }
     private func key(_ code:CGKeyCode,flags:CGEventFlags=[])throws {
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier==host.processIdentifier,let down=CGEvent(keyboardEventSource:nil,virtualKey:code,keyDown:true),let up=CGEvent(keyboardEventSource:nil,virtualKey:code,keyDown:false) else{throw MacTab5Error.unconfirmed}
@@ -204,47 +258,19 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
         let held=CGEventSource.flagsState(.combinedSessionState).intersection([.maskShift,.maskControl,.maskAlternate,.maskCommand,.maskSecondaryFn])
         guard held.isEmpty else{throw MacTab5Error.unconfirmed}
         try terminalBindings(request)
-        let first=try ui(request.operation);guard first.view.empty else{throw MacCodexDesktopError.rejected("desktop_draft_present")};try focus(request)
+        let first=try ui(request.operation);guard first.view.empty else{throw MacCodexDesktopError.rejected("desktop_draft_present")};try focus(request,target:first.view.target)
         for (index,path) in request.paths.enumerated() {
             guard request.authorized(),try request.current(),try MacClaudeNativeContent.image(Data(contentsOf:path))==request.imageDigests[index] else{throw MacTab5Error.unconfirmed}
-            if entrypoint=="cli" {
-                let pasteboard=NSPasteboard.general
-                let originalChange=pasteboard.changeCount
-                let old=pasteboard.pasteboardItems ?? []
-                var saved:[NSPasteboardItem]=[]
-                for item in old {
-                    let copy=NSPasteboardItem()
-                    for type in item.types {
-                        guard let data=item.data(forType:type),data.count<=20_000_000,copy.setData(data,forType:type) else{throw MacTab5Error.unconfirmed}
-                    }
-                    saved.append(copy)
-                }
-                guard let image=NSImage(contentsOf:path),let data=image.tiffRepresentation else{throw MacTab5Error.invalidPacket}
-                guard pasteboard.changeCount==originalChange else{throw MacTab5Error.unconfirmed}
-                var change=pasteboard.clearContents()
-                defer{
-                    if pasteboard.changeCount==change {
-                        pasteboard.clearContents()
-                        if !saved.isEmpty{pasteboard.writeObjects(saved)}
-                    }
-                }
-                guard pasteboard.changeCount==change,pasteboard.setData(data,forType:.tiff) else{throw MacTab5Error.unconfirmed}
-                change=pasteboard.changeCount
-                try key(9,flags:.maskControl);stagedImages.append(path.lastPathComponent)
-                // Keep our clipboard image until the original terminal has
-                // consumed it, then restore only if no other app changed it.
-                try awaitImages(request,index:index,target:first.view.target){pasteboard.changeCount==change}
-            } else {
-                try attach(path,request:request)
-                try awaitImages(request,index:index,target:first.view.target)
-            }
+            guard entrypoint != "cli", isFrontmost else { throw MacTab5Error.unconfirmed }
+            try attach(path,request:request)
+            try awaitImages(request,index:index,target:first.view.target)
         }
         if request.text.isEmpty{return};let target=try ui(request.operation);guard target.view.text.isEmpty else{throw MacTab5Error.unconfirmed}
-        if entrypoint!="cli"{_ = AXUIElementSetAttributeValue(target.editor,kAXFocusedAttribute as CFString,kCFBooleanTrue)}
+        if entrypoint != "cli"{_ = AXUIElementSetAttributeValue(target.editor,kAXFocusedAttribute as CFString,kCFBooleanTrue)}
         let chars=Array(request.text.utf16);var offset=0
         while offset<chars.count {
             let current=try ui(request.operation)
-            guard request.authorized(),try request.current(),current.view.target==first.view.target,
+            guard request.authorized(),current.view.target==first.view.target,
                   current.view.text==String(decoding:chars.prefix(offset),as:UTF16.self),
                   Self.value(current.editor,"AXFocused") as? Bool==true else{throw MacTab5Error.unconfirmed}
             var end=min(offset+20,chars.count);if end<chars.count,(0xD800...0xDBFF).contains(chars[end-1]){end-=1}
@@ -271,16 +297,45 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
     }
     func submit(_ request:MacClaudeNativeRequest)throws {
         try terminalBindings(request)
-        guard request.authorized(),try request.current() else{throw MacTab5Error.unconfirmed}
-        let target=try ui(request.operation);guard target.view.text==request.text,target.view.images==request.paths.map(\.lastPathComponent),target.view.canSubmit else{throw MacTab5Error.unconfirmed}
-        if entrypoint=="cli" {guard !request.text.hasPrefix("/"),!request.text.hasPrefix("!"),!FileManager.default.fileExists(atPath:FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/keybindings.json").path) else{throw MacTab5Error.unconfirmed};try key(7,flags:.maskControl);try key(request.operation=="steer" ? 36:1,flags:request.operation=="steer" ? []:.maskControl)}
-        else {guard let button=target.button,Self.label(button)=="Send message" else{throw MacTab5Error.unconfirmed};try press(button)}
+        guard isFrontmost,request.authorized(),try request.current() else{throw MacTab5Error.unconfirmed}
+        let target=try ui(request.operation);guard target.view.ready,target.view.text==request.text,target.view.images==request.paths.map(\.lastPathComponent),target.view.canSubmit else{throw MacTab5Error.unconfirmed}
+        if entrypoint == "cli" {
+            // queueSubmit also sends from idle without forcing older queued
+            // messages to interrupt a turn that started during preflight.
+            try key(7, flags: .maskControl)
+            try terminalBindings(request)
+            let current = try ui(request.operation)
+            guard request.authorized(), try request.current(), current.view == target.view else { throw MacTab5Error.unconfirmed }
+            try key(36)
+        } else {
+            guard let button = target.button, Self.label(button) == "Send message" else { throw MacTab5Error.unconfirmed }
+            try press(button)
+        }
     }
-    func interrupt(_ request:MacClaudeNativeRequest)throws -> Bool { throw MacTab5Error.unconfirmed }
+    func interrupt(_ request:MacClaudeNativeRequest)throws -> Bool {
+        guard allows("interrupt", images: false), request.authorized(), try request.current() else { throw MacTab5Error.unconfirmed }
+        let target = try ui("interrupt")
+        guard target.view.empty else { throw MacTab5Error.unconfirmed }
+        if entrypoint == "cli" {
+            guard hasDefaultTerminalBindings else { throw MacTab5Error.unconfirmed }
+            try key(8, flags: .maskControl)
+        } else {
+            guard isFrontmost, let button = target.button, Self.label(button) == "Stop",
+                  Self.value(button, "AXEnabled") as? Bool == true else { throw MacTab5Error.unconfirmed }
+            try press(button)
+        }
+        for _ in 0..<40 {
+            guard request.authorized() else { return false }
+            if try request.interrupted() { return try request.current() }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        return false
+    }
     private func terminalBindings(_ request:MacClaudeNativeRequest)throws {
-        if entrypoint=="cli" {
-            guard !request.text.hasPrefix("/"),!request.text.hasPrefix("!"),
-                  !FileManager.default.fileExists(atPath:FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/keybindings.json").path) else{throw MacTab5Error.unconfirmed}
+        if entrypoint == "cli" {
+            let text = request.text.trimmingCharacters(in: .whitespaces)
+            guard !text.hasPrefix("/"), !text.hasPrefix("!"), hasDefaultTerminalBindings,
+                  request.paths.isEmpty else { throw MacTab5Error.unconfirmed }
         }
     }
     private func awaitImages(_ request:MacClaudeNativeRequest,index:Int,target:String,owned:()->Bool={true})throws {

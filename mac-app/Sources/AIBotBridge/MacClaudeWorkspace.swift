@@ -44,16 +44,21 @@ final class MacClaudeWorkspaceBackend {
     private var cancelledMessages: [String:Bool] = [:]
     private var lastLive: [[String:Any]] = [], liveAt = Date.distantPast
     private let native: MacClaudeNativeBackend?
+    private let discoverNativePanels: Bool
     var nativeAuthorization: () -> Bool = {false} { didSet { native?.authorized = nativeAuthorization } }
     init(root: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects"), store: MacTab5PrivateStore,
          key: @escaping () throws -> Data = MacTab5PrivateStore.keychainKey,
          executable: @escaping () -> URL? = MacClaudeWorkspaceBackend.locate, live: (() throws -> [[String:Any]])? = nil,
           environment: [String:String]? = nil, arguments: [String] = [], legacyFixture: Bool = false,
-          nativeFactory: @escaping (UUID) -> (any MacClaudeNativeSession)? = MacClaudeNativeClient.find) {
+          harnesses: MacClaudeHarnesses? = nil,
+          nativeFactory: ((UUID) -> (any MacClaudeNativeSession)?)? = nil) {
         self.root = root; self.store = store; self.key = key; self.executable = executable; self.live = live
         self.environment = environment; self.arguments = arguments
         catalog = MacClaudeCatalog(root:root,key:key)
-        native = legacyFixture ? nil : MacClaudeNativeBackend(root:root,store:store,key:key,factory:nativeFactory)
+        let normalRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects").standardizedFileURL
+        discoverNativePanels = harnesses != nil || root.standardizedFileURL.path == normalRoot.path
+        native = legacyFixture ? nil : MacClaudeNativeBackend(root:root,store:store,key:key,harnesses:harnesses ?? .standard,
+            factory:nativeFactory ?? (discoverNativePanels ? nil : { _ in nil }))
         settled = (try? store.read("terminal-results").map(MacTab5Protocol.object)) as? [String:String] ?? [:]
         cancelledMessages = (try? store.read("cancelled-messages").map(MacTab5Protocol.object)) as? [String:Bool] ?? [:]
     }
@@ -119,14 +124,18 @@ final class MacClaudeWorkspaceBackend {
     }
     func call(_ method: String, _ params: [String:Any]) throws -> [String:Any] {
         if method == "thread/list" {
-            let normalRoot=FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects").standardizedFileURL
-            try catalog.refresh(newPanels:native != nil && root.standardizedFileURL.path==normalRoot.path ? MacClaudeNativeClient.newPanels():[])
+            if params["cursor"] == nil {
+                try catalog.refresh(newPanels: discoverNativePanels ? native?.discover() ?? [] : [])
+            }
             let rows = catalog.snapshot(), cursor = Int(params["cursor"] as? String ?? "0") ?? 0
             guard cursor >= 0, cursor <= rows.count else { throw MacTab5Error.invalidPacket }
             let slice = rows.dropFirst(cursor).prefix(64)
+            let live = native?.liveSessions()
             return ["data":slice.map { entry -> [String:Any] in
-                let status = (try? thread(entry,history:false)["status"]) ?? ["type":"notLoaded"]
-                return ["id":entry.alias,"name":entry.title,"cwd":entry.directory.isEmpty ? "/项目待确认":entry.directory,"projectId":entry.project,"updatedAt":entry.updated,"status":status]
+                let info = (try? native?.thread(entry, includeHistory: false, live: live)) ?? (try? thread(entry,history:false)) ?? [:]
+                var row: [String: Any] = ["id":entry.alias,"name":entry.title,"cwd":entry.directory.isEmpty ? "/项目待确认":entry.directory,"projectId":entry.project,"updatedAt":entry.updated,"status":info["status"] ?? ["type":"notLoaded"]]
+                row["source"] = info["source"]; row["nativeControl"] = info["nativeControl"]
+                return row
             },"nextCursor":cursor+slice.count < rows.count ? String(cursor+slice.count) as Any:NSNull()]
         }
         guard let task = params["threadId"] as? String, let entry = catalog.resolve(task) else { throw MacTab5Error.unavailable }

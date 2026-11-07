@@ -48,6 +48,27 @@ final class MacClaudeHistoryTests: XCTestCase {
         XCTAssertFalse(resumed.limited)
         XCTAssertEqual(resumed.accepted,linked.accepted)
         XCTAssertFalse(String(decoding:try JSONSerialization.data(withJSONObject:resumed.turns),as:UTF8.self).contains("private"))
+        for subtype in ["informational", "api_error"] {
+            var context = link(duration,reply,subtype)
+            rows[rows.count-3] = context
+            rows.append(row("assistant",UUID(),next,[["type":"text","text":"Retry completed"]]))
+            try write()
+            let retried = try MacClaudeHistory.read(root:root,session:session,key:Data(0..<32))
+            XCTAssertFalse(retried.limited)
+            XCTAssertEqual(retried.accepted, linked.accepted)
+            XCTAssertEqual(retried.turns.last?["status"] as? String, "completed")
+            XCTAssertFalse(String(decoding:try JSONSerialization.data(withJSONObject:retried.turns),as:UTF8.self).contains("private"))
+            for field in ["sessionId", "parentUuid", "isSidechain"] {
+                var invalid = context
+                invalid[field] = field == "isSidechain" ? true as Any : "invalid"
+                rows[rows.count-4] = invalid
+                try write()
+                XCTAssertTrue(try MacClaudeHistory.read(root:root,session:session,key:Data(0..<32)).limited)
+            }
+            rows.removeLast()
+            context["subtype"] = "unknown_subtype"
+            rows[rows.count-3] = context
+        }
         rows[rows.count-3]=link(duration,reply,"unknown_subtype");try write()
         XCTAssertTrue(try MacClaudeHistory.read(root:root,session:session,key:Data(0..<32)).limited)
     }

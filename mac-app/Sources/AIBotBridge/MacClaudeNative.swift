@@ -58,9 +58,12 @@ struct MacClaudeNativeView: Equatable {
 struct MacClaudeNativeRequest {
     let operation: String, text: String, paths: [URL], imageDigests: [String]
     let authorized: () -> Bool, current: () throws -> Bool
+    var interrupted: () throws -> Bool = { false }
 }
 protocol MacClaudeNativeSession {
-    var hasSessionAPI: Bool { get }
+    var source: MacClaudeSessionSource { get }
+    func allows(_ operation: String, images: Bool) -> Bool
+    func isVerifiedBlank() -> Bool
     var session: UUID { get }
     func scope() throws -> String
     func state() throws -> String
@@ -70,7 +73,11 @@ protocol MacClaudeNativeSession {
     /// True only after the client confirms interruption of the requested turn.
     func interrupt(_ request: MacClaudeNativeRequest) throws -> Bool
 }
-extension MacClaudeNativeSession { var hasSessionAPI: Bool { false } }
+extension MacClaudeNativeSession {
+    var source: MacClaudeSessionSource { .unknown }
+    func allows(_ operation: String, images: Bool) -> Bool { false }
+    func isVerifiedBlank() -> Bool { false }
+}
 
 enum MacClaudeNativeOperation {
     struct Result {
@@ -81,7 +88,7 @@ enum MacClaudeNativeOperation {
                     history: () throws -> MacClaudeHistory.Value, dispatch: (MacClaudeNativeReceipt) throws -> Void,
                     wait: () -> Void = { Thread.sleep(forTimeInterval:0.1) }) throws -> Result {
         guard request.authorized(), try request.current() else { throw MacCodexDesktopError.rejected("native_session_changed") }
-        guard client.hasSessionAPI else { throw MacCodexDesktopError.rejected("native_session_api_unavailable") }
+        guard client.allows(request.operation, images: !request.paths.isEmpty) else { throw MacCodexDesktopError.rejected("native_input_unavailable") }
         let scope = try client.scope(), first = try client.view(request.operation)
         let baseline = MacClaudeNativeReceipt.capture(try history(),session:client.session,scope:scope,text:request.text,images:request.imageDigests)
         guard !baseline.limited, first.ready else { throw MacCodexDesktopError.rejected("native_history_or_state_unconfirmed") }

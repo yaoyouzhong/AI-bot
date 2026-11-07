@@ -1556,15 +1556,15 @@ including macOS, may omit it. No additional client tab is implied.
 显示“来源未知”；多个已核验承载端同时认领同一会话时显示“多端打开”并禁用输入。
 字段随会话一起裁剪，旧客户端忽略，未实现该字段的桌面端可省略。
 
-The Windows compiled `IClaudeHarnessAdapter` seam provides discovery, live IDs
-and exact-session resolution; returned `IClaudeNativeSession` supplies supported
-capabilities and dispatch. It currently covers Claude-compatible sessions and
+The Windows `IClaudeHarnessAdapter` and macOS `MacClaudeHarnessAdapter` compiled
+interfaces provide discovery, live IDs and exact-session resolution. The native
+session supplies its supported capabilities and dispatch. This covers Claude-compatible sessions and
 history. A different transcript/identity system requires an explicit adapter;
 this is not automatic support for every Harness or a dynamic plugin loader.
 See [adapter contract](development/CLAUDE-HARNESS-ADAPTERS.md).
 
-中文：Windows 通过编译期 `IClaudeHarnessAdapter` 注册发现、存活身份和精确会话解析，
-通过 `IClaudeNativeSession` 声明能力并执行。当前面向 Claude 兼容会话和历史；其他格式
+中文：Windows 的 `IClaudeHarnessAdapter` 和 macOS 的 `MacClaudeHarnessAdapter`
+在编译期注册发现、存活身份和精确会话解析，由原生会话声明能力并执行。当前面向 Claude 兼容会话和历史；其他格式
 需另写适配层，不代表已接通所有第三方 Harness，也不加载任意插件代码。
 
 Optional `data.claudeTasks` uses the existing `codexTasks` project/task, replyView,
@@ -1576,7 +1576,7 @@ explicit project pages. Shrinking a transport catalog retains the Overview and
 viewed sessions. A failed scan/read retains successful data and revokes stale
 controls.
 
-Windows native Claude candidates may additionally publish `claudeTasks.controls`,
+Windows and macOS native Claude candidates may additionally publish `claudeTasks.controls`,
 an optional map keyed by the task aliases in the transported catalog. Each value
 is the existing control shape (`taskId`, `turnId`, `running`, `waiting`, `canSend`,
 `canSteer`, `canInterrupt`), or null when that session is unavailable or its
@@ -1588,9 +1588,9 @@ the legacy viewed-task `control`. Hosts without a map retain legacy behavior.
 This metadata only controls UI availability: host dispatch still revalidates
 native identity, input availability and the expected turn. Receipt recovery and
 draft/load/save isolation are unchanged. Other desktop producers may omit this
-optional map; no macOS implementation or native validation is implied.
+optional map. The advertised capabilities depend on the local adapter and session.
 
-中文：Windows 原生 Claude 候选可选发布按会话别名索引的 `controls`，值沿用既有控制结构，
+中文：Windows 和 macOS 原生 Claude 候选可选发布按会话别名索引的 `controls`，值沿用既有控制结构，
 不可用或超过 30 秒的观察为 null，随实际传输的 `tasks` 裁剪。设备切换会话时直接使用
 六秒内已认证状态帧中的对应项；映射存在但对应项缺失/null 时禁用新发送，不借用上次
 查看会话的控制状态。无此映射的旧桥接保持原路径。它仅用于按钮状态，不代替主机派发前
