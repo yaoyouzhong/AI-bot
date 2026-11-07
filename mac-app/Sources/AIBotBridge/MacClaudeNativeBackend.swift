@@ -27,7 +27,7 @@ final class MacClaudeNativeBackend {
     }
     private func history(_ entry:MacClaudeCatalog.Entry, client: (any MacClaudeNativeSession)?)throws->MacClaudeHistory.Value {
         let secret=try key();guard secret.count==32 else{throw MacTab5Error.keychain}
-        return try MacClaudeHistory.read(root:root,session:entry.session,key:secret,backgroundImages:client is MacClaudeBackground || client is MacClaudeTerminalSession){
+        return try MacClaudeHistory.read(root:root,session:entry.session,key:secret,backgroundImages:client?.usesFileImageReferences == true){
             client?.isVerifiedBlank() == true
         }
     }
@@ -105,12 +105,12 @@ final class MacClaudeNativeBackend {
             throw MacTab5Error.timeout
         }
         guard let client=owner(entry.session).client,client.session==entry.session else{throw MacCodexDesktopError.rejected("native_session_unavailable")}
-        let inputs=params["input"] as? [[String:Any]] ?? [],text=inputs.filter{$0["type"] as? String=="text"}.compactMap{$0["text"] as? String}.joined(separator:"\n")
+        let inputs=params["input"] as? [[String:Any]] ?? [],text=client.normalizedInput(inputs.filter{$0["type"] as? String=="text"}.compactMap{$0["text"] as? String}.joined(separator:"\n"))
         let images = inputs.filter { $0["type"] as? String == "image" }
         guard images.count <= MacTab5Photos.maxCount, client.allows(operation, images: !images.isEmpty) else {
             throw MacCodexDesktopError.rejected("native_input_unavailable")
         }
-        let fileImages = client is MacClaudeBackground || client is MacClaudeTerminalSession
+        let fileImages = client.usesFileImageReferences
         let photoDirectory = fileImages && !images.isEmpty ? try MacClaudeBackgroundPhotos.makeDirectory() : nil
         var photoDeliveryUnknown = false
         defer {

@@ -15,6 +15,17 @@ if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--claude-hook"
     MacClaudeHook.run(port:port); exit(0)
 }
 
+if Array(CommandLine.arguments.dropFirst()) == ["--setup-claude-window-permissions"] {
+    _ = NSApplication.shared
+    NSApp.setActivationPolicy(.accessory)
+    var done = false
+    MacClaudeWindowPermissions.configure { done = true }
+    let until = Date(timeIntervalSinceNow: 120)
+    while !done && Date() < until { RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.1)) }
+    print(MacClaudeWindowPermissions.summary())
+    exit(done ? 0 : 1)
+}
+
 if Array(CommandLine.arguments.dropFirst()) == ["--inspect-claude-native-clients"] {
     // Report aggregate identity and capability only. No drafts, paths, IDs,
     // permissions prompts, subprocess launches of Claude, or device writes.
@@ -53,7 +64,7 @@ if Array(CommandLine.arguments.dropFirst()) == ["--inspect-claude-native-clients
         }
         return ["live": liveSources, "other": offlineSources]
     }
-    let result: [String: Any] = ["verifiedBySource": counts.filter { $0.key != "unverified" }, "canSendBySource": writable,
+    let result: [String: Any] = ["windowPermissions": MacClaudeWindowPermissions.summary(), "verifiedBySource": counts.filter { $0.key != "unverified" }, "canSendBySource": writable,
                                  "unverified": ["count": counts["unverified", default: 0]],
                                  "catalog": (try? catalogSummary()) as Any? ?? NSNull()]
     if let bytes = try? MacTab5Protocol.json(result) {

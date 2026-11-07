@@ -9,20 +9,36 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
     let session: UUID
     private let pid: Int32, start: String, record: URL, host: NSRunningApplication, hostStart: String, entrypoint: String
     private let database: URL?
+    private let registeredAt: Double
     var source: MacClaudeSessionSource { entrypoint == "cli" ? .terminal : .vscode }
     private struct UI { let window: AXUIElement, frame: AXUIElement, editor: AXUIElement, composer: AXUIElement, button: AXUIElement?, view: MacClaudeNativeView }
-    private init(session:UUID,pid:Int32,start:String,record:URL,host:NSRunningApplication,hostStart:String,entrypoint:String,database:URL?) {
-        self.session=session;self.pid=pid;self.start=start;self.record=record;self.host=host;self.hostStart=hostStart;self.entrypoint=entrypoint;self.database=database
+    private init(session:UUID,pid:Int32,start:String,record:URL,host:NSRunningApplication,hostStart:String,entrypoint:String,database:URL?,registeredAt:Double) {
+        self.session=session;self.pid=pid;self.start=start;self.record=record;self.host=host;self.hostStart=hostStart;self.entrypoint=entrypoint;self.database=database;self.registeredAt=registeredAt
     }
-    static func ps(_ pid:Int32,_ field:String) throws -> String {
-        guard pid>0,["lstart=","ppid=","comm=","uid="].contains(field) else { throw MacTab5Error.unconfirmed }
-        let process=Process(),pipe=Pipe();process.executableURL=URL(fileURLWithPath:"/bin/ps");process.arguments=["-o",field,"-p",String(pid)]
-        var environment=ProcessInfo.processInfo.environment;environment["LC_ALL"]="C";environment["TZ"]="UTC";process.environment=environment
-        process.standardOutput=pipe;process.standardError=FileHandle.nullDevice;try process.run()
-        let deadline=DispatchWorkItem{if process.isRunning { process.terminate() }};DispatchQueue.global().asyncAfter(deadline:.now()+2,execute:deadline)
-        let bytes=pipe.fileHandleForReading.readDataToEndOfFile();process.waitUntilExit();deadline.cancel()
-        guard process.terminationStatus==0,bytes.count<8192 else { throw MacTab5Error.unavailable }
-        return String(decoding:bytes,as:UTF8.self).trimmingCharacters(in:.whitespacesAndNewlines)
+    private static let ttyLock = NSLock()
+    private static func process(_ pid: Int32) throws -> proc_bsdinfo {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        guard pid > 0, proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size,
+              info.pbi_pid == UInt32(pid) else { throw MacTab5Error.unconfirmed }
+        return info
+    }
+    private static func parentID(_ pid: Int32) throws -> Int32 {
+        var info = kinfo_proc(), mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        var size = MemoryLayout<kinfo_proc>.size
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0, size == MemoryLayout<kinfo_proc>.size,
+              info.kp_proc.p_pid == pid else { throw MacTab5Error.unconfirmed }
+        return info.kp_eproc.e_ppid
+    }
+    private static func fingerprint(_ info: proc_bsdinfo) -> String {
+        "\(info.pbi_start_tvsec).\(info.pbi_start_tvusec)"
+    }
+    private static func executable(_ pid: Int32, version: String) -> Bool {
+        var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+        guard proc_pidpath(pid, &path, UInt32(path.count)) > 0 else { return false }
+        let url = URL(fileURLWithPath: String(cString: path))
+        return url.lastPathComponent == "claude" ||
+            url.lastPathComponent == version && url.deletingLastPathComponent().lastPathComponent == "versions"
     }
     private static func metadata(_ file:URL) throws -> [String:Any] {
         let info=try file.resourceValues(forKeys:[.isRegularFileKey,.isSymbolicLinkKey,.fileSizeKey])
@@ -37,20 +53,21 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
             return UUID(uuidString:id)
         })
     }
-    static func find(_ session:UUID, entrypoint: String) -> (any MacClaudeNativeSession)? {
+    static func find(_ session:UUID, entrypoint: String, config: URL = MacClaudeTerminalRegistration.defaultConfig) -> (any MacClaudeNativeSession)? {
         do {
-            let root=FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/sessions")
+            let root=config.appendingPathComponent("sessions")
             let files=try FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil).filter { $0.pathExtension=="json" }
             guard files.count<=2048 else { return nil }
             let matches=files.compactMap { file -> (URL,[String:Any])? in guard let row=try? metadata(file),row["entrypoint"] as? String == entrypoint,row["kind"] as? String == "interactive",UUID(uuidString:row["sessionId"] as? String ?? "")==session else { return nil };return(file,row) }
             guard matches.count==1,let (record,row)=matches.first,let rawPid=row["pid"] as? Int,let pid=Int32(exactly:rawPid),pid>0,
                   Int32(record.deletingPathExtension().lastPathComponent)==pid,row["kind"] as? String=="interactive",
                   let entry=row["entrypoint"] as? String,["cli","claude-vscode"].contains(entry),
-                  ["2.1.314","2.1.318"].contains(row["version"] as? String ?? ""),let start=row["procStart"] as? String,
-                  try ps(pid,"lstart=")==start, try ps(pid,"uid=")==String(getuid()),
-                  URL(fileURLWithPath:try ps(pid,"comm=")).lastPathComponent=="claude" else { return nil }
+                  ["2.1.314","2.1.318"].contains(row["version"] as? String ?? ""),let registeredAt=row["startedAt"] as? Double,
+                  executable(pid, version: row["version"] as? String ?? "") else { return nil }
+            let info = try process(pid), start = fingerprint(info)
+            guard info.pbi_uid == getuid(), validStart(Double(info.pbi_start_tvsec), registeredAt: registeredAt) else { return nil }
             var parent=pid,app:NSRunningApplication?
-            for _ in 0..<12 { guard let next=Int32(try ps(parent,"ppid=")),next>1 else { break };parent=next
+            for _ in 0..<12 { let next=try parentID(parent); guard next>1 else { break };parent=next
                 if let candidate=NSRunningApplication(processIdentifier:parent),["com.microsoft.VSCode","com.apple.Terminal","com.googlecode.iterm2"].contains(candidate.bundleIdentifier ?? "") {app=candidate;break} }
             guard let host=app else { return nil }
             var database:URL?
@@ -62,17 +79,34 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
                 let found=folders.compactMap { folder -> URL? in let file=folder.appendingPathComponent("state.vscdb");guard let object=try? readDatabase(file,"Anthropic.claude-code"),let panels=object["panelTabSessions"] as? [[String:Any]],panels.contains(where:{ UUID(uuidString:$0["sessionId"] as? String ?? "")==session }) else { return nil };return file }
                 guard found.count==1 else { return nil };database=found[0]
             } else if !["com.apple.Terminal","com.googlecode.iterm2"].contains(host.bundleIdentifier ?? "") { return nil }
-            return MacClaudeNativeClient(session:session,pid:pid,start:start,record:record,host:host,hostStart:try ps(host.processIdentifier,"lstart="),entrypoint:entry,database:database)
+            return MacClaudeNativeClient(session:session,pid:pid,start:start,record:record,host:host,hostStart:fingerprint(try process(host.processIdentifier)),entrypoint:entry,database:database,registeredAt:registeredAt)
         }catch{return nil}
+    }
+    static func validStart(_ seconds: Double, registeredAt: Double) -> Bool {
+        let delay = registeredAt / 1000 - seconds
+        return delay.isFinite && delay >= 0 && delay < 60
     }
     func state() throws -> String {
         let row=try Self.metadata(record)
-        guard !host.isTerminated,UUID(uuidString:row["sessionId"] as? String ?? "")==session,row["procStart"] as? String==start,row["entrypoint"] as? String==entrypoint,
+        guard !host.isTerminated,UUID(uuidString:row["sessionId"] as? String ?? "")==session,row["startedAt"] as? Double==registeredAt,row["entrypoint"] as? String==entrypoint,
               row["pid"] as? Int==Int(pid),row["kind"] as? String=="interactive",["2.1.314","2.1.318"].contains(row["version"] as? String ?? ""),
-              try Self.ps(pid,"lstart=")==start,try Self.ps(host.processIdentifier,"lstart=")==hostStart else {throw MacTab5Error.unconfirmed}
+              Self.fingerprint(try Self.process(pid))==start,Self.fingerprint(try Self.process(host.processIdentifier))==hostStart else {throw MacTab5Error.unconfirmed}
         return row["status"] as? String ?? "unknown"
     }
     func scope() throws -> String { _ = try state();return MacClaudeNativeContent.hash(Data("\(session)|\(pid)|\(start)|\(host.processIdentifier)|\(hostStart)".utf8)) }
+    func terminalTarget() throws -> (host: NSRunningApplication, tty: String) {
+        _ = try state()
+        let info = try Self.process(pid)
+        Self.ttyLock.lock()
+        let tty = devname(dev_t(bitPattern: info.e_tdev), S_IFCHR).map { String(cString: $0) }
+        Self.ttyLock.unlock()
+        guard entrypoint == "cli", let tty, tty.hasPrefix("ttys"),
+              tty.utf8.allSatisfy({ (48...57).contains($0) || (97...122).contains($0) }),
+              info.pbi_pgid > 1, info.pbi_pgid == info.e_tpgid else {
+            throw MacTab5Error.unconfirmed
+        }
+        return (host, "/dev/" + tty)
+    }
     private static func readDatabase(_ file:URL,_ key:String) throws -> [String:Any] {
         guard ["Anthropic.claude-code","memento/workbench.parts.editor"].contains(key),try file.resourceValues(forKeys:[.isSymbolicLinkKey]).isSymbolicLink != true else {throw MacTab5Error.unconfirmed}
         var db:OpaquePointer?,statement:OpaquePointer?;defer{sqlite3_finalize(statement);sqlite3_close(db)}

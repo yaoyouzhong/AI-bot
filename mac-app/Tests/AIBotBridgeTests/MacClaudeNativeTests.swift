@@ -156,12 +156,25 @@ final class MacClaudeNativeTests: XCTestCase {
     }
 
     private struct DirectFixture: MacClaudeDirectSession {
+        var preparationFails = false
         let session = UUID()
         let source = MacClaudeSessionSource.background
         func allows(_ operation: String, images: Bool) -> Bool { operation == "send" && !images }
         func scope() throws -> String { "fixture-scope" }
         func state() throws -> String { "idle" }
-        func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool { request.authorized }
+        func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool {
+            if preparationFails { throw MacTab5Error.unconfirmed }
+            return request.authorized
+        }
+    }
+
+    func testPreparationFailureIsDefiniteRejectionWithoutDispatch() throws {
+        var dispatched = false
+        XCTAssertThrowsError(try MacClaudeNativeOperation.run(client:DirectFixture(preparationFails:true),request:request(),
+            history:{.init(turns:[],limited:false,accepted:[])},dispatch:{_ in dispatched=true},wait:{})) { error in
+            guard case MacCodexDesktopError.rejected("native_input_unavailable") = error else { return XCTFail("Unexpected error") }
+        }
+        XCTAssertFalse(dispatched)
     }
 
     func testDirectSubmissionAbortedAfterJournalDoesNotClaimAnotherInput() throws {

@@ -4,6 +4,7 @@ import Foundation
 /// Claude Code's local supervisor can address an existing background job
 /// directly. Discovery and dispatch never start or attach a job.
 final class MacClaudeBackground: MacClaudeDirectSession {
+    let usesFileImageReferences = true
     private static let version = "2.1.318"
     private static let defaultRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
     private static let socketRoot = URL(fileURLWithPath: "/private/tmp/cc-daemon-\(getuid())", isDirectory: true)

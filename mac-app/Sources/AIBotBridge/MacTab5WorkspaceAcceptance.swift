@@ -15,7 +15,7 @@ final class MacTab5WorkspaceAcceptance {
         let temporary = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().standardizedFileURL.path+"/"
         guard resolved.path.hasPrefix(temporary) else { throw Failure.temporaryRoot }
         guard let mode = try? String(contentsOf:resolved.appendingPathComponent(".aibot-synthetic-claude"),encoding:.utf8),
-              ["1\n", "terminal\n"].contains(mode),
+              ["1\n", "terminal\n", "window\n"].contains(mode),
               let bytes = try? Data(contentsOf:resolved.appendingPathComponent("environment.json")),
               let environment = try JSONSerialization.jsonObject(with:bytes) as? [String:String] else { throw Failure.fixtureFiles }
         func sameDirectory(_ value: String?) -> Bool {
@@ -29,16 +29,20 @@ final class MacTab5WorkspaceAcceptance {
         self.root = resolved
         let key = Data(0..<32), store = MacTab5PrivateStore(root:resolved.appendingPathComponent("sealed"),key:{key})
         let harnesses: MacClaudeHarnesses?
-        if mode == "terminal\n" {
+        if mode == "terminal\n" || mode == "window\n" {
             let config = resolved.appendingPathComponent(".claude",isDirectory:true)
             guard config.resolvingSymlinksInPath().path == config.path,
                   let text = try? String(contentsOf:resolved.appendingPathComponent("terminal-session"),encoding:.utf8),
-                  let session = UUID(uuidString:text.trimmingCharacters(in:.whitespacesAndNewlines)),
-                  MacClaudeTerminalSession.find(session,config:config) != nil else { throw Failure.fixtureFiles }
+                  let session = UUID(uuidString:text.trimmingCharacters(in:.whitespacesAndNewlines)) else { throw Failure.fixtureFiles }
+            func client(_ id: UUID) -> (any MacClaudeNativeSession)? {
+                if mode == "window\n" { return MacClaudeTerminalWindow.find(id, config: config) }
+                return MacClaudeTerminalSession.find(id, config: config)
+            }
+            guard client(session) != nil else { throw Failure.fixtureFiles }
             terminalSession = session
             harnesses = try MacClaudeHarnesses([
                 .init(source:.terminal,discover:{[]},live:{[session]},resolve:{
-                    $0 == session ? MacClaudeTerminalSession.find($0,config:config) : nil
+                    $0 == session ? client($0) : nil
                 })
             ])
         } else { terminalSession = nil; harnesses = nil }

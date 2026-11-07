@@ -16,6 +16,8 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
     private let musicState = NSTextField(wrappingLabelWithString: "")
     private let desktopState = NSTextField(wrappingLabelWithString: "")
     private let accessibilityState = NSTextField(wrappingLabelWithString: "")
+    private let terminalPermissions = NSTextField(wrappingLabelWithString: "")
+    private let terminalSetup = NSButton(title: "设置会话权限…", target: nil, action: nil)
     private let accessibilityTrusted: () -> Bool
     private var timer: Timer?
     private var deliveryRecoveryBusy = false
@@ -70,8 +72,10 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
             NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)),
             NSButton(title: "处理待确认发送…", target: self, action: #selector(recoverDelivery))]))
         codexPage.section("Claude 会话")
-        codexPage.add(MacBridgeSettingsStyle.note("在 Terminal 或 iTerm2 运行启动命令，即可从 TAB5 发送文字、图片、追加或停止。"))
-        codexPage.add(MacBridgeSettingsStyle.row([NSButton(title: "复制终端启动命令", target: self, action: #selector(copyClaudeTerminalCommand))]))
+        codexPage.add(MacBridgeSettingsStyle.note("操作 Terminal 中已打开的 Claude Code 会话，支持文字、图片、追加和停止。发送时会切到对应标签页，已有电脑草稿时暂停。"))
+        terminalSetup.target = self; terminalSetup.action = #selector(configureTerminalPermissions)
+        codexPage.add(MacBridgeSettingsStyle.row([terminalSetup]))
+        codexPage.add(terminalPermissions)
         codexPage.section("桌面直达")
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop)
         codexPage.add(desktop)
@@ -80,7 +84,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         codexPage.add(MacBridgeSettingsStyle.row([NSButton(title: "打开系统辅助功能设置…", target: self, action: #selector(openAccessibilitySettings))]))
         codexPage.section("连接与诊断"); codexPage.add(codexState); codexPage.add(desktopState)
 
-        for label in [codexState, desktopState, musicState, accessibilityState] { label.font = .systemFont(ofSize: 12); label.textColor = .secondaryLabelColor }
+        for label in [codexState, desktopState, musicState, accessibilityState, terminalPermissions] { label.font = .systemFont(ofSize: 12); label.textColor = .secondaryLabelColor }
         reload()
         resizeDocument()
         refreshCodexState()
@@ -96,16 +100,18 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         let playback = UserDefaults.standard.bool(forKey: MacMusicService.enabledKey) ? service.musicDiagnostics : "音乐：尚未启用"
         let direct = "直达：" + service.desktop.summary
         let access = accessibilityTrusted() ? "系统辅助功能：可用" : "系统辅助功能：未启用。仍可查看任务和回复。"
-        guard codexState.stringValue != text || musicState.stringValue != playback || desktopState.stringValue != direct || accessibilityState.stringValue != access else { return }
-        codexState.stringValue = text; musicState.stringValue = playback; desktopState.stringValue = direct; accessibilityState.stringValue = access; resizeDocument()
+        let terminal = MacClaudeWindowPermissions.summary()
+        guard codexState.stringValue != text || musicState.stringValue != playback || desktopState.stringValue != direct || accessibilityState.stringValue != access || terminalPermissions.stringValue != terminal else { return }
+        codexState.stringValue = text; musicState.stringValue = playback; desktopState.stringValue = direct; accessibilityState.stringValue = access; terminalPermissions.stringValue = terminal; resizeDocument()
     }
     func open(section: Section? = nil) { if let section { sections.select(section.rawValue) }; reload(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
-    @objc private func copyClaudeTerminalCommand() {
-        guard let path = Bundle.main.executableURL?.path else { return }
-        let quoted = "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
-        NSPasteboard.general.clearContents()
-        if NSPasteboard.general.setString(quoted + " --claude-terminal", forType: .string) {
-            result.stringValue = "已复制。请在 Terminal 或 iTerm2 的项目目录中粘贴运行。"
+    @objc private func configureTerminalPermissions() {
+        guard terminalSetup.isEnabled else { return }
+        terminalSetup.isEnabled = false
+        result.stringValue = "请完成 macOS 的系统权限确认，已就绪的权限会自动复用。"
+        MacClaudeWindowPermissions.configure { [weak self] in
+            self?.terminalSetup.isEnabled = true
+            self?.refreshCodexState()
         }
     }
     @objc private func toggleComputer() { UserDefaults.standard.set(computer.state == .on, forKey: MacTab5Computer.enabledKey) }

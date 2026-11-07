@@ -53,6 +53,7 @@ struct MacClaudeHarnesses {
               live: { MacClaudeNativeClient.live(entrypoint: "cli") },
               resolve: {
                   if let terminal = MacClaudeTerminalSession.find($0) { return terminal }
+                  if let window = MacClaudeTerminalWindow.find($0) { return window }
                   return MacClaudeNativeClient.find($0, entrypoint: "cli")
               }),
         .init(source: .background, discover: { [] },

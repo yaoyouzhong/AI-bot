@@ -101,6 +101,7 @@ struct MacClaudeTerminalRegistration: Codable {
 }
 
 final class MacClaudeTerminalSession: MacClaudeDirectSession {
+    let usesFileImageReferences = true
     let source = MacClaudeSessionSource.terminal
     let session: UUID
     private let registration: MacClaudeTerminalRegistration

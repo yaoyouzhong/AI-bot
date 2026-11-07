@@ -63,6 +63,8 @@ struct MacClaudeNativeRequest {
 }
 protocol MacClaudeNativeSession {
     var source: MacClaudeSessionSource { get }
+    var usesFileImageReferences: Bool { get }
+    func normalizedInput(_ text: String) -> String
     func allows(_ operation: String, images: Bool) -> Bool
     func isVerifiedBlank() -> Bool
     var session: UUID { get }
@@ -76,6 +78,8 @@ protocol MacClaudeNativeSession {
 }
 extension MacClaudeNativeSession {
     var source: MacClaudeSessionSource { .unknown }
+    var usesFileImageReferences: Bool { false }
+    func normalizedInput(_ text: String) -> String { text }
     func allows(_ operation: String, images: Bool) -> Bool { false }
     func isVerifiedBlank() -> Bool { false }
 }
@@ -125,7 +129,14 @@ enum MacClaudeNativeOperation {
             return Result(attempted: true, user: nil, stopped: false)
         }
         if let direct {
-            let submit = try direct.prepareSubmission(request)
+            let submit: () throws -> Bool
+            do { submit = try direct.prepareSubmission(request) }
+            catch let error as MacCodexDesktopError { throw error }
+            catch {
+                // Preparation may focus/inspect the target, but never invokes
+                // input. Preserve the draft as a definite rejection.
+                throw MacCodexDesktopError.rejected("native_input_unavailable")
+            }
             guard request.authorized(), try request.current(), try client.scope() == scope else {
                 throw MacCodexDesktopError.rejected("native_session_changed")
             }

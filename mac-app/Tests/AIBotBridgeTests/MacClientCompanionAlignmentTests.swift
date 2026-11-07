@@ -51,6 +51,28 @@ final class MacClientCompanionAlignmentTests: XCTestCase {
         XCTAssertGreaterThan(captured.claude.ageSeconds.map { Int64(now.timeIntervalSince1970)-$0 } ?? 0, captured.domestic?.providers?["deepseek"]?.lastActivity ?? 0)
     }
 
+    func testMidnightKeepsRecentActivityButResetsDailyUsage() throws {
+        let home=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let directory=home.appendingPathComponent(".claude/projects/test")
+        try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
+        defer { try? FileManager.default.removeItem(at:home) }
+        let midnight=Calendar.current.startOfDay(for:Date()), before=midnight.addingTimeInterval(-10), now=midnight.addingTimeInterval(5)
+        let row="{\"type\":\"assistant\",\"timestamp\":\"\(ISO8601DateFormatter().string(from:before))\",\"message\":{\"model\":\"deepseek-chat\",\"usage\":{\"input_tokens\":123}}}\n"
+        let file=directory.appendingPathComponent("session.jsonl")
+        try row.write(to:file,atomically:true,encoding:.utf8)
+        try FileManager.default.setAttributes([.modificationDate:before],ofItemAtPath:file.path)
+        let sampler=MacActivityMetadata(home:home), current=sampler.capture(now:now)
+        XCTAssertEqual(current.claude.state,"working")
+        XCTAssertEqual(current.claude.ageSeconds,15)
+        XCTAssertEqual(current.domestic?.activeProvider,"deepseek")
+        XCTAssertEqual(current.domestic?.tokensToday,0)
+        XCTAssertEqual(current.claude.tokensToday,0)
+        XCTAssertEqual(sampler.capture(now:midnight.addingTimeInterval(901)).claude.state,"offline")
+        let codex=MacActivityMetadata.parse(["{\"timestamp\":\"\(ISO8601DateFormatter().string(from:before))\",\"payload\":{\"type\":\"token_count\",\"info\":{\"total_token_usage\":{\"total_tokens\":123}}}}"],codex:true,now:now)
+        XCTAssertNil(codex.usage["codex"])
+        XCTAssertEqual(codex.latest["codex"],before)
+    }
+
     func testRealProviderTimestampSurvivesTab5WireAndESPCompactExcludesIt() throws {
         let now = Date(), earlier = Int64(now.timeIntervalSince1970) - 13
         let state = ToolState(state:"working",ageSeconds:13)

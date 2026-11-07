@@ -3,11 +3,23 @@ import Foundation
 // Main-branch public assistant text grouped by user turn. Raw prompt/tool data
 // is neither retained in nodes nor included in returned dictionaries.
 enum MacClaudeHistory {
-    struct Value { let turns: [[String:Any]]; let limited: Bool; let accepted: Set<String>; var inputDigests: [String:String] = [:] }
+    struct Value { let turns: [[String:Any]]; let limited: Bool; let accepted: Set<String>; var inputDigests: [String:String] = [:]; var restoreDigests: [String:String] = [:] }
     private struct Node {
         let id: String, parent: String?, human: Bool, text: String, at: Int64, assistant: Bool, ended: Bool
-        let inputDigest: String?, prompt: UUID?, stopNotice: Bool
+        let inputDigest: String?, restoreDigest: String?, prompt: UUID?, stopNotice: Bool
         let photoPrompt: String?, photo: MacClaudeBackgroundPhotos.Attachment?
+    }
+    // A restored terminal draft has soft wraps. Keep only a digest of its
+    // visible characters; never retain or export the original user prompt.
+    static func restoreDigest(_ content: Any?) -> String? {
+        let text: String
+        if let value = content as? String { text = value }
+        else if let blocks = content as? [[String: Any]], !blocks.isEmpty,
+                blocks.allSatisfy({ $0["type"] as? String == "text" && $0["text"] is String }) {
+            text = blocks.compactMap { $0["text"] as? String }.joined()
+        } else { return nil }
+        let visible = String(text.filter { !$0.isWhitespace })
+        return visible.isEmpty ? nil : MacClaudeNativeContent.digest(visible)
     }
     static func read(root: URL, session: UUID, key: Data, backgroundImages: Bool = false, verifiedNewPanel: () -> Bool = {false}) throws -> Value {
         var scanFailed=false
@@ -74,7 +86,7 @@ enum MacClaudeHistory {
             let photo = backgroundImages && type == "attachment" ? MacClaudeBackgroundPhotos.attachment(row) : nil
             nodes[id] = Node(id:id,parent:parent,human:human,text:text,at:date.map { Int64($0.timeIntervalSince1970) } ?? 0,
                              assistant:assistant,ended:ended,inputDigest:human ? MacClaudeNativeContent.message(message["content"]):nil,
-                             prompt:prompt,stopNotice:stopNotice,photoPrompt:photoPrompt,photo:photo)
+                             restoreDigest:human ? restoreDigest(message["content"]):nil, prompt:prompt,stopNotice:stopNotice,photoPrompt:photoPrompt,photo:photo)
             if backgroundImages {
                 if !link { attachmentTail = [] }
                 else if let previous = attachmentTail?.last ?? leaf, previous == parent {
@@ -101,7 +113,7 @@ enum MacClaudeHistory {
         }
         guard !branch.isEmpty else { throw MacTab5Error.unavailable }
         var turns: [[String:Any]] = [], items: [[String:Any]] = [], start: Node?, complete = false, interrupted = false, endedAt: Int64 = 0
-        var accepted=Set<String>(),digests=[String:String]()
+        var accepted=Set<String>(),digests=[String:String](),restored=[String:String]()
         var photos: [MacClaudeBackgroundPhotos.Attachment] = [], sawAssistant = false
         func collectPhoto(_ node: Node) {
             guard !sawAssistant, start?.photoPrompt != nil, photos.count <= MacTab5Photos.maxCount,
@@ -122,7 +134,7 @@ enum MacClaudeHistory {
             if node.stopNotice,let prompt=node.prompt,prompt.uuidString != "00000000-0000-0000-0000-000000000000",start?.human==true,prompt==start?.prompt {
                 interrupted=true;endedAt=node.at;continue
             }
-            if node.human { finish(); start = node; complete = false; interrupted=false; endedAt = 0; accepted.insert(node.id);digests[node.id]=node.inputDigest }
+            if node.human { finish(); start = node; complete = false; interrupted=false; endedAt = 0; accepted.insert(node.id);digests[node.id]=node.inputDigest;restored[node.id]=node.restoreDigest }
             if start == nil { start = node }
             collectPhoto(node)
             if node.assistant { sawAssistant = true; complete = node.ended; endedAt = complete ? node.at:0 }
@@ -137,6 +149,6 @@ enum MacClaudeHistory {
         for id in attachmentTail ?? [] {
             if let node = nodes[id] { collectPhoto(node) }
         }
-        finish(); return Value(turns:turns,limited:limited,accepted:accepted,inputDigests:digests)
+        finish(); return Value(turns:turns,limited:limited,accepted:accepted,inputDigests:digests,restoreDigests:restored)
     }
 }

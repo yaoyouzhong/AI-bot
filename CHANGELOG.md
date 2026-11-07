@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Existing Mac Claude terminal windows (in development)
+- Add window input for already-open native Claude Code sessions in Terminal, including text, images, queued follow-ups and exact-turn interruption; retain public replies and delivery receipts from the original session.
+- Preserve recent client activity across midnight while resetting daily usage; reject window input while macOS is locked and keep drafts after preparation failures.
+- Centralize required system permissions in session settings while protecting desktop drafts, checking the target and never replaying uncertain delivery. Signed-bundle, terminal-specific and TAB5 hardware results are tracked separately; this is not a release.
+
 ## 0.6.18 - 2026-11-05
 
 ### Automatic microphones and returned dictation

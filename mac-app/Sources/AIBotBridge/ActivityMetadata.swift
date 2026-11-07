@@ -158,7 +158,7 @@ final class MacActivityMetadata {
             guard let files = manager.enumerator(at: root, includingPropertiesForKeys: [.contentModificationDateKey,.fileSizeKey,.isRegularFileKey,.isSymbolicLinkKey], options: [.skipsHiddenFiles]) else { continue }
             for case let file as URL in files where file.pathExtension == "jsonl" {
                 guard let attributes = try? file.resourceValues(forKeys: [.contentModificationDateKey,.fileSizeKey,.isRegularFileKey,.isSymbolicLinkKey]), attributes.isRegularFile == true, attributes.isSymbolicLink != true,
-                      let modified = attributes.contentModificationDate, modified >= day else { continue }
+                      let modified = attributes.contentModificationDate, modified >= min(day,now.addingTimeInterval(-900)) else { continue }
                 seen.insert(file)
                 if cache[file]?.modified != modified || cache[file]?.size != attributes.fileSize || cache[file]?.day != day {
                     // Bounded line reader; a partial trailing JSON line is ignored and retried after append.
@@ -212,14 +212,17 @@ final class MacActivityMetadata {
             guard let data=line.data(using:.utf8),let root=(try? JSONSerialization.jsonObject(with:data)) as? [String:Any] else {continue}
             let payload=root["payload"] as? [String:Any] ?? [:]
             if root["type"] as? String == "session_meta" { let source=payload["source"]; subagent = (source as? [String:Any])?["subagent"] != nil || (source as? String)?.contains("subagent") == true }
-            guard let stamp=root["timestamp"] as? String,let date=formatter.date(from:stamp) ?? plain.date(from:stamp),Calendar.current.isDate(date,inSameDayAs:now),date<=now.addingTimeInterval(60) else {continue}
+            guard let stamp=root["timestamp"] as? String,let date=formatter.date(from:stamp) ?? plain.date(from:stamp),date<=now.addingTimeInterval(60) else {continue}
+            let today = Calendar.current.isDate(date,inSameDayAs:now)
+            // Midnight resets usage, not a recently active client's identity.
+            guard today || now.timeIntervalSince(date) <= 900 else { continue }
             if codex {
-                if payload["type"] as? String == "token_count",let info=payload["info"] as? [String:Any],let total=info["total_token_usage"] as? [String:Any] { usage["codex"]=max(usage["codex"] ?? 0,(total["total_tokens"] as? NSNumber)?.int64Value ?? 0); latest["codex"]=max(latest["codex"] ?? .distantPast,date) }
+                if payload["type"] as? String == "token_count",let info=payload["info"] as? [String:Any],let total=info["total_token_usage"] as? [String:Any] { if today { usage["codex"]=max(usage["codex"] ?? 0,(total["total_tokens"] as? NSNumber)?.int64Value ?? 0) }; latest["codex"]=max(latest["codex"] ?? .distantPast,date) }
                 if !subagent,let kind=payload["type"] as? String,["task_started","task_complete","task_aborted"].contains(kind),date>=eventAt {eventAt=date;state=kind=="task_started" ? "working":"idle";if kind=="task_complete" {completed=max(completed,Int64(date.timeIntervalSince1970))}}
             } else if let message=root["message"] as? [String:Any],let value=message["usage"] as? [String:Any],let model=message["model"] as? String {
                 if root["isSidechain"] as? Bool != true, root["type"] == nil || root["type"] as? String == "assistant" { clientAt = max(clientAt,date) }
                 guard let provider = provider(model) else { continue }
-                usage[provider,default:0] += ["input_tokens","output_tokens","cache_creation_input_tokens","cache_read_input_tokens"].reduce(Int64(0)){$0+max(0,(value[$1] as? NSNumber)?.int64Value ?? 0)}
+                if today { usage[provider,default:0] += ["input_tokens","output_tokens","cache_creation_input_tokens","cache_read_input_tokens"].reduce(Int64(0)){$0+max(0,(value[$1] as? NSNumber)?.int64Value ?? 0)} }
                 latest[provider]=max(latest[provider] ?? .distantPast,date)
             }
         }
