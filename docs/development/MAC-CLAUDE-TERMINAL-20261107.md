@@ -105,3 +105,13 @@ Terminal 本机脚本字典提供标签 `tty`、`contents` 和目标标签参数
 本地证据目录：`artifacts/mac-native-alignment-20261107/window-acceptance/`。`terminal-radio-acceptance/runner.jsonl` 记录真实通道与响应，`captures/` 保存合成会话画面；`ui-final/` 为实际 UI 渲染。早期 `terminal-usb-*` 保留失败记录，最终结果不能覆盖这些失败。前一次合成请求在发送准备阶段失败，原生 dispatch 日志不存在；仅对该隔离夹具的回执作确定未提交的复位，未修改用户会话和草稿。
 
 USB 桥接与原生窗口均未对 ESP8266 作改动，本轮未做 ESP8266 真机验证。设备读数曾出现累计 1 次 LCD 欠载、显示错误 0，尚不能宣称此前屏闪问题完全根治；本轮不以刷固件试错。
+
+### 最终开发包与收尾
+
+- 源码：`39d66d06a35a4950c548a2beccd8cbe48d4f757f`，分支 `codex/mac-native-claude-alignment-20261107`，仅本地提交。后续本节属于纯验收记录补充，不重建此包。
+- `swift test --package-path mac-app`：493 项，4 项按条件跳过，0 失败；内置隔离对齐检查 29068 项通过。
+- `swift build -c release --package-path mac-app` 与 `scripts/build_macos_app.sh` 均通过；固定本机签名及深层严格校验通过，未做公证或正式发布。
+- 原包：`artifacts/mac-native-alignment-20261107/window-acceptance/package4/AIBotBridge.app`，已原样安装到 `/Applications/AIBotBridge.app`；全部文件摘要一致，`SOURCE_SHA.txt` 与源码提交一致。可执行文件 13822448 字节，SHA-256 `80a5384d79d554780e13e09845371665ad1d71071e4d880fe629bc09d6287b2c`；完整文件摘要见同目录 `FILES-SHA256.json`。
+- 由 LaunchServices 启动实际安装包，再次确认「窗口输入权限已就绪」「Terminal 自动化权限已就绪」及当前 Mac 锁定状态；未要求重新授权。最终签名包的离屏 UI 渲染也通过，已查看实际输出。
+- 日常桥接已后台运行并重新持有 TAB5 串口；设备基础页面为总览，随后按原设置自然进入屏保。用户配对、连接模式、展示设置及日常 Claude 进程保留。专用隔离 Terminal 与回环测试服务保留，供解锁后继续剩余发送验收。
+- 发布阻断：最终签名包经 TAB5 的原生窗口写操作及设备相机图片完整链路仍待实测；本轮不能标记「全部对齐／全链路通过」。
