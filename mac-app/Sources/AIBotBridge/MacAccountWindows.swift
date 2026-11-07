@@ -102,7 +102,6 @@ private final class MacQuotaChart: NSView {
     override init(frame: NSRect) {
         super.init(frame: frame)
         percent.locale = Locale(identifier: "en_US_POSIX")
-        percent.maximumFractionDigits = 2
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -112,17 +111,37 @@ private final class MacQuotaChart: NSView {
         let maxValue = points ? 100 : max(1, days.compactMap(\.used).max() ?? 1)
         let step = (bounds.width - 24) / CGFloat(max(1, days.count))
         guard step > 0 else { return }
-        let valueFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        let valueFont = NSFont.systemFont(ofSize: 11)
         let dateStyle: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.secondaryLabelColor]
-        let labels = points ? [] : days.map { day -> NSAttributedString in
-            let text = day.used.flatMap { percent.string(from: NSNumber(value: $0)) }.map { $0 + "%" } ?? "—"
-            return NSAttributedString(string: text, attributes: [.font: valueFont,
-                .foregroundColor: day.used == nil ? NSColor.secondaryLabelColor : NSColor.labelColor])
+        func formattedLabels(decimals: Int, suffix: String) -> [NSAttributedString] {
+            percent.maximumFractionDigits = decimals
+            let minimum = decimals == 0 ? 1.0 : 0.1
+            let belowMinimum = decimals == 0 ? "<1" : "<0.1"
+            return days.map { day in
+                let value = day.used.flatMap { amount in
+                    amount > 0 && amount < minimum ? belowMinimum : percent.string(from: NSNumber(value: amount))
+                }
+                return NSAttributedString(string: value.map { $0 + suffix } ?? "—", attributes: [.font: valueFont,
+                    .foregroundColor: day.used == nil ? NSColor.secondaryLabelColor : NSColor.labelColor])
+            }
         }
+        func needsMoreRoom(_ labels: [NSAttributedString]) -> Bool { labels.contains { $0.size().width + 2 > step } }
+
+        var labels = points ? [] : formattedLabels(decimals: 1, suffix: "%")
+        var unit: NSAttributedString?
+        if needsMoreRoom(labels) {
+            labels = formattedLabels(decimals: 0, suffix: "%")
+            if needsMoreRoom(labels) {
+                labels = formattedLabels(decimals: 0, suffix: "")
+                unit = NSAttributedString(string: "周额度（%）", attributes: dateStyle)
+            }
+        }
+        let vertical = needsMoreRoom(labels)
         let sizes = labels.map { $0.size() }
-        let vertical = sizes.contains { $0.width + 4 > step }
         let labelHeight = sizes.map { vertical ? $0.width : $0.height }.max() ?? 0
-        let plotHeight = max(1, bounds.height - max(62, 42 + labelHeight))
+        let headerHeight = unit == nil ? CGFloat(0) : 16
+        let plotHeight = max(1, bounds.height - max(62, 42 + labelHeight) - headerHeight)
+        unit?.draw(at: NSPoint(x: 12, y: bounds.height - 18))
         let line = NSBezierPath()
         for (index, day) in days.enumerated() {
             let x = 12 + CGFloat(index) * step, center = x + step / 2
