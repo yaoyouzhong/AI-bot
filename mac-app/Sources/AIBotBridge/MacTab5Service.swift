@@ -20,6 +20,8 @@ final class MacTab5Service {
     private var pairingReadable = true
     private var snapshot: MacStatusSnapshot?
     private var sequence: Int64 = 0
+    private var inputActivity = MacTab5InputActivity()
+    private let hostInput: () -> (uptime: TimeInterval, idle: TimeInterval)
     private var musicFrames = 0, unavailableMusicFrames = 0
     private var usbConfirmedSessions = 0, usbInterruptions = 0
     private var usbRecentFailures: [(TimeInterval,String)] = []
@@ -68,8 +70,11 @@ final class MacTab5Service {
          music: @escaping () -> (snapshot: MusicSnapshot?, cover: Data?)? = { nil },
          enabled: @escaping () -> Bool = { true }, sourceEnabled: @escaping (String) -> Bool = { _ in true }, claudeSessions: MacClaudeSessionSampler? = nil, claudeIdentity: MacClaudeIdentity? = nil, claudeReplies: MacClaudeReplyReader? = nil,
          load: @escaping () throws -> MacTab5Pairing? = { try MacTab5PairingStore().load() },
-         save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }, diagnostics: MacTab5LocalDiagnostics? = nil, claudeWorkspace: MacClaudeWorkspace? = nil) {
-        self.localDiagnostics = diagnostics
+         save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }, diagnostics: MacTab5LocalDiagnostics? = nil, claudeWorkspace: MacClaudeWorkspace? = nil,
+         hostInput: @escaping () -> (uptime: TimeInterval, idle: TimeInterval) = {
+             (ProcessInfo.processInfo.systemUptime, MacIdleTime.seconds())
+         }) {
+        self.localDiagnostics = diagnostics; self.hostInput = hostInput
         self.port = port; self.host = host; self.latestMusic = music; self.gallery = gallery; self.computer = computer; self.codex = codex; self.voice = voice; loadPairing = load; savePairing = save
         self.networkDiagnostics = networkDiagnostics; self.unlock = unlock
         self.deviceEnabled = enabled; self.sourceEnabled = sourceEnabled; self.claudeSessions = claudeSessions
@@ -342,6 +347,10 @@ final class MacTab5Service {
         let now = Date()
         if let media { assets.updateCover(media.cover, jpegSupported: MacTab5Asset.supportsJPEG(firmware)) }
         var additions = assets.projection(includeResource: includeResources && benchmarkMode == 0)
+        let input = hostInput()
+        if let tick = inputActivity.sample(uptime: input.uptime, idle: input.idle) {
+            additions["pcInput"] = ["session": session, "sequence": sequence, "lastInputTickMs": tick]
+        }
         var calendar = MacTab5Calendar.snapshot(epoch: snapshot.epochUtc, offset: snapshot.utcOffsetSeconds)
         var calendarDetail = calendar["detail"] as? [String: Any] ?? [:]
         // An unreadable local profile is omitted, never replaced with an empty list.

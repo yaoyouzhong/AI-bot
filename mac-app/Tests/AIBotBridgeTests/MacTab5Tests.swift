@@ -31,6 +31,32 @@ final class MacTab5Tests: XCTestCase {
         let service = MacTab5Service(port: 8765, host: { "192.168.1.20" }, computer: computer, load: { pair }, save: { _ in })
         service.publish(snapshot()); service.usbState("fixture", confirmed: true); return service
     }
+    func testHostInputTimestampAdvancesOnlyForNewInput() throws {
+        let pair = MacTab5Pairing(deviceId: device, usbPath: "/dev/cu.fixture", key: key, confirmed: true)
+        var input: (uptime: TimeInterval, idle: TimeInterval) = (100, 60)
+        let service = MacTab5Service(port: 8765, load: { pair }, save: { _ in }, hostInput: { input })
+        service.publish(snapshot())
+        func report() throws -> [String: Any]? {
+            let frame = try MacTab5Protocol.object(service.frame(includeResources: false))
+            let data = try XCTUnwrap(frame["data"] as? [String: Any])
+            let report = data["pcInput"] as? [String: Any]
+            if let report {
+                XCTAssertEqual(report["session"] as? String, service.session)
+                XCTAssertEqual(report["sequence"] as? Int64, frame["sequence"] as? Int64)
+            }
+            return report
+        }
+        XCTAssertEqual(try report()?["lastInputTickMs"] as? Int64, 40000)
+        input = (101.003, 61)
+        XCTAssertEqual(try report()?["lastInputTickMs"] as? Int64, 40000)
+        input = (102, .infinity)
+        XCTAssertNil(try report()?["lastInputTickMs"])
+        input = (103, 0.25)
+        XCTAssertEqual(try report()?["lastInputTickMs"] as? Int64, 102750)
+        input = (104, 1.249)
+        XCTAssertEqual(try report()?["lastInputTickMs"] as? Int64, 102750)
+    }
+
     private func send(_ root: [String: Any], to service: MacTab5Service, nonce: String = MacTab5Protocol.identifier()) throws -> (Int, [String: Any]) {
         let packet = try MacTab5Protocol.encrypt(MacTab5Protocol.json(root), key: key, challenge: nonce)
         let proof = MacTab5Protocol.proof(key: key, message: "POST|/tab5/v1/rpc|\(device)|\(nonce)|\(MacTab5Protocol.sha256(packet))")
