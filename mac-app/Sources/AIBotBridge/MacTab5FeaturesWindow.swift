@@ -70,7 +70,7 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
             NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)),
             NSButton(title: "处理待确认发送…", target: self, action: #selector(recoverDelivery))]))
         codexPage.section("Claude 会话")
-        codexPage.add(MacBridgeSettingsStyle.note("在 TAB5 可查看 Claude 原会话和回复。发送时需要核对电脑上的原会话与输入框；macOS 不允许控制时仍可查看。工具审批在原客户端完成。"))
+        codexPage.add(MacBridgeSettingsStyle.note("TAB5 可查看 Claude 会话和回复。后台会话可发送文字，普通终端会话仅可查看。工具审批在 Claude 内完成。"))
         codexPage.section("桌面直达")
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop)
         codexPage.add(desktop)

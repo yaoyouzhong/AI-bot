@@ -30,7 +30,7 @@
         <true/>
     </dict>
     <key>NSAppleEventsUsageDescription</key>
-    <string>AI-bot checks the selected Terminal or iTerm2 tab for Claude, reads and controls Music or Spotify when enabled, and uses System Events for explicit lock requests from your paired TAB5.</string>
+    <string>When enabled, AI-bot reads the current track and controls playback in Music or Spotify for your paired TAB5. Explicit lock requests use System Events.</string>
     <key>NSLocalNetworkUsageDescription</key>
     <string>AI-bot connects to your paired clock and provides authenticated Wi-Fi fallback on your local network.</string>
     <key>NSBluetoothAlwaysUsageDescription</key>

@@ -44,3 +44,15 @@ The local Mac branch follows Windows source 23c5924. Native tests and offscreen 
 - 发送预检发现 Terminal Apple Events 未授权；已在功能设置内增加由用户主动点选的 Terminal/iTerm2 自动化授权入口，后台不弹授权。终端标签查询继续检查实际 TTY 和前台宿主；按 [Apple 的线程限制](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Multithreading/ThreadSafetySummary/ThreadSafetySummary.html) 在主线程执行 AppleScript，后台调用有等待上限。TAB5 → Terminal 的真实送达及新开发包验收单独记录，不能引用第一份 ZIP 冒充。
 
 用户随后明确不进行系统授权，并要求右键菜单移除「完成 Codex 直达授权…」。最终变更撤回前述 Terminal/iTerm2 授权按钮，移除 Codex 的右键入口及桥接主动弹出的桌面授权引导。普通功能默认开启，本机音乐采集/控制、Codex 读/发/直达、电脑控制和蓝牙七项读回均为开启，未写用户偏好。无权限时保持只读；未从 TAB5 发送第二条请求，未修改 macOS 权限。正常模式互切与 Terminal → TAB5 仍保留各自已验收范围，反向送达、VS Code 及发布原包尚未验收。
+
+## 11 月 7 日 Mac 原生后台接入
+
+本地 Mac 对齐分支继续以 Windows `23c5924371ae7e40e85b93d08d7999cbacd1837c` 为来源。此轮范围为 Mac 0.6.18 的开发与本机开发包，沿用 TAB5 v1 的 `claude.background` 来源和每会话能力，发布负责人待定。
+
+| 项目 | Windows 来源 | Mac 接收端 | 状态与证据 | 剩余 |
+| --- | --- | --- | --- | --- |
+| 原 Claude 会话文字收发 | `ClaudeBackgroundApi.cs` | `MacClaudeBackground.swift` 与既有 workspace | 已完成代码与隔离 Claude 2.1.318 回归。相同 UUID 的真实原生记录只新增一次，TAB5 读取接口返回完成回复 | 真实 TAB5 后台发送待验证 |
+| 窗口及系统授权 | `ClaudeNativeConsole.cs` | Claude 后台服务走 Unix socket，普通 Terminal/iTerm2 会话保持可读 | 已完成代码，派发路径与系统自动化无关 | 未迁移用户正在运行的会话 |
+| 来源、能力及界面 | TAB5 已有后台徽标 | `MacClaudeHarness.swift` 与 Mac 设置说明 | 已完成实际 AppKit/LVGL 离屏预览。已核对徽标与按钮状态、最小窗口的说明 | 设备运行新包待验证 |
+
+开发包、诊断及预览留在 `artifacts/mac-native-alignment-20261107/`。复测步骤见 [Mac Claude Code 后台会话接入](MAC-CLAUDE-BACKGROUND-20261107.md)。隔离回归使用本机模拟模型，没有真实账户请求。先前 Terminal → TAB5 阅读和两个页签切换仍是各自的实机记录。

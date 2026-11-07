@@ -6,6 +6,7 @@ struct MacClaudeSessionSource: Codable, Equatable {
     static let multiple = Self(id: "multiple", label: "多端打开", kind: "unknown")
     static let vscode = Self(id: "claude.vscode", label: "VS Code", kind: "ide")
     static let terminal = Self(id: "claude.terminal", label: "原生终端", kind: "terminal")
+    static let background = Self(id: "claude.background", label: "后台会话", kind: "harness")
 
     var valid: Bool {
         (1...64).contains(id.utf8.count) && id.utf8.allSatisfy {
@@ -50,7 +51,10 @@ struct MacClaudeHarnesses {
               resolve: { MacClaudeNativeClient.find($0, entrypoint: "claude-vscode") }),
         .init(source: .terminal, discover: { [] },
               live: { MacClaudeNativeClient.live(entrypoint: "cli") },
-              resolve: { MacClaudeNativeClient.find($0, entrypoint: "cli") })
+              resolve: { MacClaudeNativeClient.find($0, entrypoint: "cli") }),
+        .init(source: .background, discover: { [] },
+              live: { MacClaudeBackground.live() },
+              resolve: { MacClaudeBackground.find($0) })
     ])
 
     func adding(_ adapter: MacClaudeHarnessAdapter) throws -> Self { try Self(adapters + [adapter]) }

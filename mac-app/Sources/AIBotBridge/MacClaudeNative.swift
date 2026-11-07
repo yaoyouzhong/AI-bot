@@ -79,6 +79,20 @@ extension MacClaudeNativeSession {
     func isVerifiedBlank() -> Bool { false }
 }
 
+protocol MacClaudeDirectSession: MacClaudeNativeSession {
+    /// Prepare a verified connection without sending input. The caller journals
+    /// the request before invoking the returned submission once. False means
+    /// a final preflight failed before any input was sent.
+    func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool
+}
+
+extension MacClaudeDirectSession {
+    func view(_ operation: String) throws -> MacClaudeNativeView { throw MacTab5Error.unavailable }
+    func stage(_ request: MacClaudeNativeRequest) throws { throw MacTab5Error.unavailable }
+    func submit(_ request: MacClaudeNativeRequest) throws { throw MacTab5Error.unavailable }
+    func interrupt(_ request: MacClaudeNativeRequest) throws -> Bool { false }
+}
+
 enum MacClaudeNativeOperation {
     struct Result {
         let attempted: Bool, user: String?, stopped: Bool
@@ -89,9 +103,34 @@ enum MacClaudeNativeOperation {
                     wait: () -> Void = { Thread.sleep(forTimeInterval:0.1) }) throws -> Result {
         guard request.authorized(), try request.current() else { throw MacCodexDesktopError.rejected("native_session_changed") }
         guard client.allows(request.operation, images: !request.paths.isEmpty) else { throw MacCodexDesktopError.rejected("native_input_unavailable") }
-        let scope = try client.scope(), first = try client.view(request.operation)
+        let scope = try client.scope()
+        let direct = client as? any MacClaudeDirectSession
+        let first = direct == nil ? try client.view(request.operation) : nil
         let baseline = MacClaudeNativeReceipt.capture(try history(),session:client.session,scope:scope,text:request.text,images:request.imageDigests)
-        guard !baseline.limited, first.ready else { throw MacCodexDesktopError.rejected("native_history_or_state_unconfirmed") }
+        guard !baseline.limited else { throw MacCodexDesktopError.rejected("native_history_or_state_unconfirmed") }
+        let notSubmitted = Result(attempted:true,user:nil,stopped:false,submissionNotInvoked:true)
+        func submitAndConfirm(_ submit: () throws -> Bool) -> Result {
+            do {
+                do { if try !submit() { return notSubmitted } }
+                catch { /* Input may already have reached the original client. */ }
+                for _ in 0..<50 {
+                    if let id = baseline.confirm(try history(), scope: try client.scope()) {
+                        return Result(attempted: true, user: id, stopped: false)
+                    }
+                    wait()
+                }
+            } catch { /* Recover via the existing request receipt. */ }
+            return Result(attempted: true, user: nil, stopped: false)
+        }
+        if let direct {
+            let submit = try direct.prepareSubmission(request)
+            guard request.authorized(), try request.current(), try client.scope() == scope else {
+                throw MacCodexDesktopError.rejected("native_session_changed")
+            }
+            try dispatch(baseline)
+            return submitAndConfirm(submit)
+        }
+        guard let first, first.ready else { throw MacCodexDesktopError.rejected("native_history_or_state_unconfirmed") }
         func same(_ view: MacClaudeNativeView) throws -> Bool {
             guard view.target == first.target, view.ready, try client.scope() == scope else { return false }
             return try request.current()
@@ -111,7 +150,6 @@ enum MacClaudeNativeOperation {
         guard first.empty, first.text.isEmpty else { throw MacCodexDesktopError.rejected("desktop_draft_present") }
         guard request.authorized(), try same(client.view(request.operation)) else { throw MacCodexDesktopError.rejected("native_session_changed") }
         try dispatch(baseline)
-        let notSubmitted = Result(attempted:true,user:nil,stopped:false,submissionNotInvoked:true)
         do {
             try client.stage(request)
             var staged = false
@@ -124,12 +162,9 @@ enum MacClaudeNativeOperation {
             let final = try client.view(request.operation)
             guard try same(final), final.text == request.text, final.images == request.paths.map(\.lastPathComponent), final.canSubmit else { return notSubmitted }
         } catch { return notSubmitted }
-        do {
-            do { try client.submit(request) } catch { /* Invocation may already have reached the original client. */ }
-            for _ in 0..<50 {
-                if let id = baseline.confirm(try history(),scope:try client.scope()) { return Result(attempted:true,user:id,stopped:false) }; wait()
-            }
-        } catch { return Result(attempted:true,user:nil,stopped:false) }
-        return Result(attempted:true,user:nil,stopped:false)
+        return submitAndConfirm {
+            try client.submit(request)
+            return true
+        }
     }
 }

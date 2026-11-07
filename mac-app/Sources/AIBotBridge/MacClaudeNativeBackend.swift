@@ -141,7 +141,7 @@ final class MacClaudeNativeBackend {
         if result.submissionNotInvoked,var record=saved {
             record.submissionNotInvoked=true
             try save(id,record)
-            throw MacCodexDesktopError.rejected("composer_changed")
+            throw MacCodexDesktopError.rejected(client is any MacClaudeDirectSession ? "native_session_changed" : "composer_changed")
         }
         throw MacTab5Error.timeout
     }

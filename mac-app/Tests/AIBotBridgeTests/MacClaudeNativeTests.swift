@@ -9,6 +9,87 @@ final class MacClaudeNativeTests: XCTestCase {
         XCTAssertNil(MacClaudeNativeClient.attachmentName("ctrl esc to focus or unfocus Claude"))
         XCTAssertNil(MacClaudeNativeClient.attachmentName("test.png 0×96 Remove attachment"))
     }
+
+    func testBackgroundDaemonFixture() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let path = env["AIBOT_CLAUDE_BG_FIXTURE"],
+              let session = env["AIBOT_CLAUDE_BG_SESSION"].flatMap(UUID.init(uuidString:)) else {
+            throw XCTSkip("Requires the isolated Claude daemon and loopback model fixture")
+        }
+        let config = URL(fileURLWithPath: path).resolvingSymlinksInPath()
+        let fixture = config.deletingLastPathComponent()
+        let temp = URL(fileURLWithPath: "/private/tmp", isDirectory: true).resolvingSymlinksInPath()
+        XCTAssertEqual(config.lastPathComponent, "cfg")
+        guard config.lastPathComponent == "cfg", fixture.deletingLastPathComponent().path == temp.path,
+              fixture.lastPathComponent.hasPrefix("aibg-") else { return XCTFail("Unrecognized fixture profile") }
+        let projects = config.appendingPathComponent("projects")
+        let key = Data(0..<32)
+        let store = MacTab5PrivateStore(root: fixture.appendingPathComponent("bridge"), key: { key })
+        let registry = try MacClaudeHarnesses([
+            .init(source: .background, discover: { [] }, live: { MacClaudeBackground.live(root: config) },
+                  resolve: { MacClaudeBackground.find($0, root: config) })
+        ])
+        let client = try XCTUnwrap(registry.owner(session).client)
+        XCTAssertEqual(client.source, .background)
+        XCTAssertNil(MacClaudeBackground.find(UUID(), root: config))
+        XCTAssertFalse(client.allows("send", images: true))
+        XCTAssertFalse(client.allows("interrupt", images: false))
+        let backend = MacClaudeWorkspaceBackend(root: projects, store: store, key: { key }, harnesses: registry)
+        let workspace = MacClaudeWorkspace(store: store, backend: backend, enabled: { true })
+        defer { workspace.stop() }
+        workspace.tasks.refresh()
+        let alias = try XCTUnwrap(backend.alias(session: session))
+        let snapshot = try XCTUnwrap(workspace.tasks.snapshot())
+        let rows = try XCTUnwrap(snapshot["tasks"] as? [[String: Any]])
+        XCTAssertEqual((rows.first?["source"] as? [String: String])?["id"], "claude.background")
+        let controls = try XCTUnwrap(snapshot["controls"] as? [String: Any])
+        XCTAssertEqual((controls[alias] as? [String: Any])?["canSend"] as? Bool, true)
+        let message = "fixture followup"
+        let before = try MacClaudeHistory.read(root: projects, session: session, key: key)
+        let request: [String: Any] = ["op": "send", "taskId": alias, "message": message, "expectedTurn": "",
+                                     "requestId": UUID().uuidString.lowercased()]
+        XCTAssertEqual(workspace.tasks.handle(request, device: "daemon-fixture").status, 202)
+        XCTAssertEqual(workspace.tasks.handle(request, device: "daemon-fixture").status, 202)
+        let after = try MacClaudeHistory.read(root: projects, session: session, key: key)
+        let added = after.accepted.subtracting(before.accepted)
+        XCTAssertEqual(added.count, 1)
+        XCTAssertEqual(added.first.flatMap { after.inputDigests[$0] }, MacClaudeNativeContent.digest(message))
+
+        let read: [String: Any] = ["op": "read", "taskId": alias]
+        let deadline = ProcessInfo.processInfo.systemUptime + 8
+        repeat {
+            XCTAssertEqual(workspace.tasks.handle(read, device: "daemon-fixture").status, 200)
+            let snapshot = workspace.tasks.snapshot()
+            let reply = snapshot?["replyView"] as? [String: Any]
+            if reply?["state"] as? String == "completed",
+               (snapshot?["responses"] as? [String: String])?[alias] == "fixture response" {
+                return
+            }
+            Thread.sleep(forTimeInterval: 0.1)
+        } while ProcessInfo.processInfo.systemUptime < deadline
+        XCTFail("No completed native reply on TAB5")
+    }
+    private struct DirectFixture: MacClaudeDirectSession {
+        let session = UUID()
+        let source = MacClaudeSessionSource.background
+        func allows(_ operation: String, images: Bool) -> Bool { operation == "send" && !images }
+        func scope() throws -> String { "fixture-scope" }
+        func state() throws -> String { "idle" }
+        func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool { request.authorized }
+    }
+
+    func testDirectSubmissionAbortedAfterJournalDoesNotClaimAnotherInput() throws {
+        var authorized = true, historyReads = 0
+        let result = try MacClaudeNativeOperation.run(client: DirectFixture(), request: request(authorized: { authorized }),
+            history: {
+                historyReads += 1
+                return .init(turns: [], limited: false, accepted: [])
+            }, dispatch: { _ in authorized = false }, wait: {})
+        XCTAssertTrue(result.submissionNotInvoked)
+        XCTAssertNil(result.user)
+        XCTAssertEqual(historyReads, 1)
+    }
+
     private final class Client: MacClaudeNativeSession {
         var permitted = true
         func allows(_ operation: String, images: Bool) -> Bool { permitted }
@@ -40,14 +121,6 @@ final class MacClaudeNativeTests: XCTestCase {
             if throwAfterSubmit{throw MacTab5Error.unavailable}
         }
         func interrupt(_ request:MacClaudeNativeRequest)throws -> Bool {stops += 1;runtime="idle";if changeDraftOnStop{text="later draft"};return confirmsStop}
-    }
-    func testTerminalComposerNeverTreatsSuggestionOrMultilineAsEmpty() {
-        let rule = "────────────────"
-        XCTAssertEqual(MacClaudeNativeClient.terminalComposer("\(rule)\n❯ \n\(rule)"), "")
-        XCTAssertEqual(MacClaudeNativeClient.terminalComposer("\(rule)\n❯ Try this\n\(rule)"), "Try this")
-        XCTAssertEqual(MacClaudeNativeClient.terminalComposer("\(rule)\n❯ [Image #1]\n\(rule)"), "[Image #1]")
-        XCTAssertNil(MacClaudeNativeClient.terminalComposer("\(rule)\n❯ \n\nsecond line\n\(rule)"))
-        XCTAssertNil(MacClaudeNativeClient.terminalComposer("\(rule)\n❯ \n\(rule)\n❯ ambiguous"))
     }
     func testHarnessControlsFollowExactOwnersAndTransportLimit() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
