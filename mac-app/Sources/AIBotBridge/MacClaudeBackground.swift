@@ -197,9 +197,9 @@ final class MacClaudeBackground: MacClaudeDirectSession {
         }
         guard imagesUnchanged() else { throw MacCodexDesktopError.rejected("native_image_changed") }
         let deadline = ProcessInfo.processInfo.systemUptime + 1.5
-        var peer: MacClaudeDaemonSocket?
+        var peer: MacClaudeLocalSocket?
         for path in Self.sockets() {
-            if let connection = try? MacClaudeDaemonSocket(path: path, peerPID: daemon.pid, until: deadline) {
+            if let connection = try? MacClaudeLocalSocket(path: path, peerPID: daemon.pid, until: deadline) {
                 peer = connection
                 break
             }
@@ -228,16 +228,53 @@ final class MacClaudeBackground: MacClaudeDirectSession {
     }
 }
 
-private final class MacClaudeDaemonSocket {
+final class MacClaudeLocalSocket {
     private let fd: Int32
 
-    init(path: URL, peerPID: pid_t, until: TimeInterval) throws {
+    private static func address(_ path: URL) throws -> sockaddr_un {
         var address = sockaddr_un()
         let bytes = Array(path.path.utf8) + [0]
         guard bytes.count <= MemoryLayout.size(ofValue: address.sun_path) else { throw MacTab5Error.unavailable }
         address.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
         address.sun_family = sa_family_t(AF_UNIX)
         withUnsafeMutableBytes(of: &address.sun_path) { $0.copyBytes(from: bytes) }
+        return address
+    }
+
+    static func listen(at path: URL) throws -> Int32 {
+        var address = try address(path)
+        let fd = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { throw MacTab5Error.unavailable }
+        let result = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        guard result == 0, fcntl(fd, F_SETFD, FD_CLOEXEC) == 0, chmod(path.path, 0o600) == 0,
+              Darwin.listen(fd, 4) == 0 else {
+            Darwin.close(fd)
+            throw MacTab5Error.unavailable
+        }
+        return fd
+    }
+
+    init(accepting listener: Int32) throws {
+        let socket = Darwin.accept(listener, nil, nil)
+        guard socket >= 0 else { throw MacTab5Error.unavailable }
+        var accepted = false
+        defer { if !accepted { Darwin.close(socket) } }
+        var uid: uid_t = 0, gid: gid_t = 0, yes: Int32 = 1
+        guard getpeereid(socket, &uid, &gid) == 0, uid == getuid(),
+              fcntl(socket, F_SETFL, O_NONBLOCK) == 0, fcntl(socket, F_SETFD, FD_CLOEXEC) == 0,
+              setsockopt(socket, SOL_SOCKET, SO_NOSIGPIPE, &yes, socklen_t(MemoryLayout<Int32>.size)) == 0 else {
+            throw MacTab5Error.unconfirmed
+        }
+        fd = socket
+        accepted = true
+    }
+
+    init(path: URL, peerPID: pid_t, until: TimeInterval) throws {
+        var address = try Self.address(path)
         let socket = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
         guard socket >= 0 else { throw MacTab5Error.unavailable }
         fd = socket

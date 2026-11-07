@@ -59,6 +59,7 @@ struct MacClaudeNativeRequest {
     let operation: String, text: String, paths: [URL], imageDigests: [String]
     let authorized: () -> Bool, current: () throws -> Bool
     var interrupted: () throws -> Bool = { false }
+    var expectedUser: String? = nil
 }
 protocol MacClaudeNativeSession {
     var source: MacClaudeSessionSource { get }
@@ -82,7 +83,8 @@ extension MacClaudeNativeSession {
 protocol MacClaudeDirectSession: MacClaudeNativeSession {
     /// Prepare a verified connection without sending input. The caller journals
     /// the request before invoking the returned submission once. False means
-    /// a final preflight failed before any input was sent.
+    /// a final preflight failed before any submission. For interruption,
+    /// true requires terminal evidence of the targeted stop.
     func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool
 }
 
@@ -128,6 +130,21 @@ enum MacClaudeNativeOperation {
                 throw MacCodexDesktopError.rejected("native_session_changed")
             }
             try dispatch(baseline)
+            if request.operation == "interrupt" {
+                var observed = false
+                do {
+                    if try !submit() { return notSubmitted }
+                    observed = true
+                } catch { /* The terminal may already have consumed the control byte. */ }
+                for _ in 0..<50 {
+                    if (try? client.scope()) == scope, (try? client.state()) == "idle",
+                       (try? request.current()) == true, observed || (try? request.interrupted()) == true {
+                        return Result(attempted: true, user: nil, stopped: true)
+                    }
+                    wait()
+                }
+                return Result(attempted: true, user: nil, stopped: false)
+            }
             return submitAndConfirm(submit)
         }
         guard let first, first.ready else { throw MacCodexDesktopError.rejected("native_history_or_state_unconfirmed") }

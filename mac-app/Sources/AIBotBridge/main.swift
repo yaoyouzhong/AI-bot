@@ -1,5 +1,13 @@
 import AppKit
 import MacKeychainSupport
+if CommandLine.arguments.dropFirst().first == "--claude-terminal" {
+    do { exit(try MacClaudeTerminalRelay.run(Array(CommandLine.arguments.dropFirst(2)))) }
+    catch {
+        fputs("Claude terminal could not start. Run in a terminal tab with optional --resume <session UUID>.\n", stderr)
+        exit(1)
+    }
+}
+
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--self-test-claude-events-server", let port = UInt16(CommandLine.arguments[2]), port > 0 {
     do { try MacClaudeEventValidation.serve(port:port); exit(0) } catch { exit(1) }
 }

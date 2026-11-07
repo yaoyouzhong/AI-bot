@@ -54,6 +54,29 @@ enum MacClaudeBackgroundPhotos {
         return path.contains(where: \.isWhitespace) ? "@\"\(path)\"" : "@\(path)"
     }
 
+    static func input(text: String, paths: [String], digests: [String]) throws -> String {
+        let literal = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard paths.count == digests.count, paths.count <= MacTab5Photos.maxCount,
+              !literal.isEmpty || !paths.isEmpty, !literal.hasPrefix("/"), !literal.hasPrefix("!"),
+              text.utf8.count <= 2000, !text.unicodeScalars.contains(where: { $0.value != 10 && CharacterSet.controlCharacters.contains($0) }) else {
+            throw MacCodexDesktopError.rejected("native_input_unsupported")
+        }
+        let references = try zip(paths, digests).map { path, digest -> String in
+            guard let reference = reference(path) else { throw MacTab5Error.invalidPacket }
+            let fd = Darwin.open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
+            guard fd >= 0 else { throw MacTab5Error.unavailable }
+            let file = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+            defer { try? file.close() }
+            var info = stat()
+            guard fstat(fd, &info) == 0, info.st_uid == getuid(), info.st_mode & S_IFMT == S_IFREG,
+                  info.st_mode & 0o077 == 0, (32...MacTab5Photos.maxBytes).contains(Int(info.st_size)),
+                  let data = try file.read(upToCount: MacTab5Photos.maxBytes + 1), data.count == info.st_size,
+                  MacTab5Protocol.sha256(data) == digest else { throw MacTab5Error.unconfirmed }
+            return reference
+        }
+        return (references + (text.isEmpty ? [] : [text])).joined(separator: " ")
+    }
+
     static func prompt(_ content: Any?) -> String? {
         let blocks = content as? [[String: Any]]
         let text = content as? String ?? (blocks?.count == 1 && blocks?.first?["type"] as? String == "text"

@@ -65,7 +65,8 @@ enum MacClaudeHistory {
             } else if !meta, type == "user", (row["origin"] as? [String:Any])?["kind"] as? String != "peer", row["toolUseResult"] == nil || row["toolUseResult"] is NSNull {
                 let content = message["content"] as? [[String:Any]] ?? []
                 human = message["content"] is String || (!content.isEmpty && content.allSatisfy { ["text","image"].contains($0["type"] as? String ?? "") })
-                stopNotice = content.count == 1 && content[0]["type"] as? String == "text" && content[0]["text"] as? String == "[Request interrupted by user]"
+                stopNotice = content.count == 1 && content[0]["type"] as? String == "text" &&
+                    ["[Request interrupted by user]", "[Request interrupted by user for tool use]"].contains(content[0]["text"] as? String ?? "")
             }
             let stamp = row["timestamp"] as? String ?? "", date = dates.date(from:stamp) ?? plain.date(from:stamp)
             let prompt=(row["promptId"] as? String).flatMap(UUID.init(uuidString:))

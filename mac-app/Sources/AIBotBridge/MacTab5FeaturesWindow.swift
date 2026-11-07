@@ -70,7 +70,8 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
             NSButton(title: "选择 Codex CLI…", target: self, action: #selector(chooseCLI)),
             NSButton(title: "处理待确认发送…", target: self, action: #selector(recoverDelivery))]))
         codexPage.section("Claude 会话")
-        codexPage.add(MacBridgeSettingsStyle.note("后台会话支持从 TAB5 发送文字和图片。普通终端可查看会话和回复。工具审批在 Claude 内完成。"))
+        codexPage.add(MacBridgeSettingsStyle.note("在 Terminal 或 iTerm2 运行启动命令，即可从 TAB5 发送文字、图片、追加或停止。"))
+        codexPage.add(MacBridgeSettingsStyle.row([NSButton(title: "复制终端启动命令", target: self, action: #selector(copyClaudeTerminalCommand))]))
         codexPage.section("桌面直达")
         desktop.state = UserDefaults.standard.bool(forKey: MacTab5Desktop.enabledKey) ? .on : .off; desktop.target = self; desktop.action = #selector(toggleDesktop)
         codexPage.add(desktop)
@@ -99,6 +100,14 @@ final class MacTab5FeaturesWindow: NSWindowController, NSWindowDelegate {
         codexState.stringValue = text; musicState.stringValue = playback; desktopState.stringValue = direct; accessibilityState.stringValue = access; resizeDocument()
     }
     func open(section: Section? = nil) { if let section { sections.select(section.rawValue) }; reload(); showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
+    @objc private func copyClaudeTerminalCommand() {
+        guard let path = Bundle.main.executableURL?.path else { return }
+        let quoted = "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        NSPasteboard.general.clearContents()
+        if NSPasteboard.general.setString(quoted + " --claude-terminal", forType: .string) {
+            result.stringValue = "已复制。请在 Terminal 或 iTerm2 的项目目录中粘贴运行。"
+        }
+    }
     @objc private func toggleComputer() { UserDefaults.standard.set(computer.state == .on, forKey: MacTab5Computer.enabledKey) }
     @objc private func toggleMusic() {
         UserDefaults.standard.set(music.state == .on, forKey: MacMusicService.enabledKey)

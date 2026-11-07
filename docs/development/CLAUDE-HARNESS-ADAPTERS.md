@@ -1,6 +1,6 @@
 # Claude Harness adapter contract
 
-The Windows candidate uses `ClaudeHarnessAdapters.cs` for VS Code, native terminal and explicit background-session implementations. macOS uses `MacClaudeHarness.swift` for VS Code, read-only native terminals, and Claude Code background sessions. The Mac background adapter enables text and photo sends to a verified idle job on Claude Code 2.1.318. The TAB5 source badge is passive metadata, independent of the actual model/provider, project and control availability.
+The Windows candidate uses `ClaudeHarnessAdapters.cs` for VS Code, native terminal and explicit background-session implementations. macOS uses `MacClaudeHarness.swift` for VS Code, native terminals, and Claude Code background sessions. Its explicit terminal launcher enables text, photos, append, and interrupt in a live Terminal or iTerm2 tab. Sessions launched through the ordinary entry remain readable from history. The Mac background adapter enables text and photo sends to a verified idle job on Claude Code 2.1.318. The TAB5 source badge is passive metadata, independent of the actual model/provider, project and control availability.
 
 To integrate another Claude-compatible Harness:
 
@@ -18,4 +18,4 @@ Confirmed source descriptors are cached in the user's private DPAPI-protected `s
 
 未来接入时新增一个编译期适配器：登记稳定来源名，发现会话，校验真实承载端身份，再按实际支持情况实现发送、运行中追加和停止。默认仅查看；显示某个 Harness 标签不意味着具备发送能力。已有草稿、送达未知保护与派发前校验继续复用。
 
-macOS 使用 `MacClaudeHarnessAdapter` 和现有钥匙串加密存储，遵循相同的来源、能力和冲突约束。已验证的 Claude Code 2.1.318 后台会话在空闲时可以从 TAB5 发送文字和图片。普通 Terminal/iTerm2 会话可以查看历史。后台接入的操作和回归方法见 [Mac Claude Code 后台会话接入](MAC-CLAUDE-BACKGROUND-20261107.md)。当前入口覆盖 Claude 兼容会话。使用不同历史格式或身份体系的第三方工具还需要对应的数据映射。此次未接入实际第三方工具，也未提供通用插件安装器。ESP8266 协议与显示未修改。
+macOS 使用 `MacClaudeHarnessAdapter` 和现有钥匙串加密存储，遵循相同的来源、能力和冲突约束。已验证的 Claude Code 2.1.318 后台会话在空闲时可以从 TAB5 发送文字和图片。普通入口启动的 Terminal/iTerm2 会话可以查看历史。通过 [Mac 原生终端启动命令](MAC-CLAUDE-TERMINAL-20261107.md) 启动或续接的会话支持文字、图片、追加和中断。后台接入的操作和回归方法见 [Mac Claude Code 后台会话接入](MAC-CLAUDE-BACKGROUND-20261107.md)。当前入口覆盖 Claude 兼容会话。使用不同历史格式或身份体系的第三方工具还需要对应的数据映射。此次未接入实际第三方工具，也未提供通用插件安装器。ESP8266 协议与显示未修改。

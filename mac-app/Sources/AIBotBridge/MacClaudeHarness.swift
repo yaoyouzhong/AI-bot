@@ -49,9 +49,12 @@ struct MacClaudeHarnesses {
         .init(source: .vscode, discover: MacClaudeNativeClient.newPanels,
               live: { MacClaudeNativeClient.live(entrypoint: "claude-vscode") },
               resolve: { MacClaudeNativeClient.find($0, entrypoint: "claude-vscode") }),
-        .init(source: .terminal, discover: { [] },
+        .init(source: .terminal, discover: MacClaudeTerminalSession.newSessions,
               live: { MacClaudeNativeClient.live(entrypoint: "cli") },
-              resolve: { MacClaudeNativeClient.find($0, entrypoint: "cli") }),
+              resolve: {
+                  if let terminal = MacClaudeTerminalSession.find($0) { return terminal }
+                  return MacClaudeNativeClient.find($0, entrypoint: "cli")
+              }),
         .init(source: .background, discover: { [] },
               live: { MacClaudeBackground.live() },
               resolve: { MacClaudeBackground.find($0) })

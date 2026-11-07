@@ -27,7 +27,7 @@ final class MacClaudeNativeBackend {
     }
     private func history(_ entry:MacClaudeCatalog.Entry, client: (any MacClaudeNativeSession)?)throws->MacClaudeHistory.Value {
         let secret=try key();guard secret.count==32 else{throw MacTab5Error.keychain}
-        return try MacClaudeHistory.read(root:root,session:entry.session,key:secret,backgroundImages:client is MacClaudeBackground){
+        return try MacClaudeHistory.read(root:root,session:entry.session,key:secret,backgroundImages:client is MacClaudeBackground || client is MacClaudeTerminalSession){
             client?.isVerifiedBlank() == true
         }
     }
@@ -110,7 +110,8 @@ final class MacClaudeNativeBackend {
         guard images.count <= MacTab5Photos.maxCount, client.allows(operation, images: !images.isEmpty) else {
             throw MacCodexDesktopError.rejected("native_input_unavailable")
         }
-        let photoDirectory = client is MacClaudeBackground && !images.isEmpty ? try MacClaudeBackgroundPhotos.makeDirectory() : nil
+        let fileImages = client is MacClaudeBackground || client is MacClaudeTerminalSession
+        let photoDirectory = fileImages && !images.isEmpty ? try MacClaudeBackgroundPhotos.makeDirectory() : nil
         var photoDeliveryUnknown = false
         defer {
             if let photoDirectory { MacClaudeBackgroundPhotos.remove(photoDirectory, deliveryUnknown: photoDeliveryUnknown) }
@@ -130,8 +131,9 @@ final class MacClaudeNativeBackend {
         }
         let scope=try client.scope(),original=try history(entry, client: client),before=original.turns.last?["id"] as? String ?? "",epoch=currentGeneration()
         let state = try client.state()
+        let currentUser = original.accepted.first { UUID(uuidString: $0) != nil && (try? turn(entry, $0)) == before }
         let exactTurn = !expected.isEmpty && expected == before && original.turns.last?["status"] as? String == "unknown"
-            && original.accepted.contains { UUID(uuidString: $0) != nil && (try? turn(entry, $0)) == before }
+            && currentUser != nil
         guard operation == "send" ? state == "idle" : exactTurn && ["busy","working"].contains(state) else {
             throw MacCodexDesktopError.rejected("turn_changed")
         }
@@ -144,7 +146,7 @@ final class MacClaudeNativeBackend {
             }, interrupted: {
                 let latest = try self.history(entry, client: client).turns.last
                 return latest?["id"] as? String == expected && latest?["status"] as? String == "interrupted"
-            })
+            }, expectedUser: operation == "send" ? nil : currentUser)
         var saved:Record?
         let result=try MacClaudeNativeOperation.run(client:client,request:request,history:{try self.history(entry, client: client)},dispatch:{baseline in
             guard request.authorized(),try request.current() else{throw MacTab5Error.unconfirmed}
