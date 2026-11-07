@@ -1,0 +1,83 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2890,7 +2890,7 @@
+     if(next_input<=last_input) return;
+     last_input=next_input;
+     lv_display_trigger_activity(NULL);
+-    if(saver&&!saver_preview) {tab5_pc_wakes++;saver_leave();}
++    if(saver) {tab5_pc_wakes++;saver_leave();}
+ }
+ 
+ static void clock_tick(lv_timer_t *timer) {
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2044,6 +2044,61 @@
+ #include "session_source_test.h"
+ #include "cancelled_draft_refresh_test.h"
+ #include "project_dropdown_navigation_test.h"
++static void saver_test_tap(lv_indev_t *touch,lv_point_t point) {
++    camera_touch_point=point;camera_touch_state=LV_INDEV_STATE_PRESSED;
++    lv_indev_read(touch);lv_tick_inc(32);
++    camera_touch_state=LV_INDEV_STATE_RELEASED;lv_indev_read(touch);
++}
++static void check_saver_wake_inputs(void) {
++    int previous_style=saver_style;
++    saver_style=UI_SAVER_CLAUDE;
++    page(9);settings_select(1);
++    lv_obj_update_layout(lv_screen_active());
++    lv_area_t button_area;lv_obj_get_coords(saver_preview_button,&button_area);
++    lv_point_t preview_button={(button_area.x1+button_area.x2)/2,(button_area.y1+button_area.y2)/2};
++    lv_indev_t *touch=lv_indev_create();
++    lv_indev_set_type(touch,LV_INDEV_TYPE_POINTER);
++    lv_indev_set_read_cb(touch,camera_touch_read);
++    const lv_point_t targets[]={{48,48},{640,320},{1216,640}};
++    for(unsigned i=0;i<sizeof(targets)/sizeof(targets[0]);i++) {
++        saver_test_tap(touch,preview_button);
++        assert(saver&&saver_preview);
++        tick(NULL);assert(saver&&saver_preview);
++        lv_obj_update_layout(lv_screen_active());
++        if(i==0) {
++            claude_pet_tick(&saver_claude,CODEX_COMPANION_IDLE,preview_now_us/1000,true);
++            capture("claude-saver-preview-wake-ready");
++        }
++        saver_test_tap(touch,targets[i]);
++        assert(!saver&&!saver_preview&&current_page==9);
++    }
++    lv_indev_delete(touch);
++    puts("CLAUDE_SAVER_POINTER_OK left edge, animation center, right edge; returns to settings");
++    fflush(stdout);
++
++    cJSON *frame=cJSON_Parse("{\"pcInput\":{\"session\":\"fixture\",\"sequence\":1,\"lastInputTickMs\":100}}");
++    assert(frame);
++    cJSON *input=item(frame,"pcInput"),*seq=item(input,"sequence"),*stamp=item(input,"lastInputTickMs");
++    pc_input_update(frame);
++    unsigned wakes=tab5_pc_wakes;
++    saver_preview_clicked(NULL);
++    tick(NULL);
++    assert(saver&&saver_preview);
++    cJSON_SetNumberValue(seq,2);pc_input_update(frame);
++    assert(saver&&tab5_pc_wakes==wakes);
++    cJSON_SetNumberValue(seq,1);cJSON_SetNumberValue(stamp,101);pc_input_update(frame);
++    assert(saver&&tab5_pc_wakes==wakes);
++    cJSON_SetNumberValue(seq,3);pc_input_update(frame);
++    assert(!saver&&!saver_preview&&tab5_pc_wakes==wakes+1);
++    capture("claude-saver-preview-wake-return");
++    saver_enter(false);
++    cJSON_SetNumberValue(seq,4);cJSON_SetNumberValue(stamp,102);pc_input_update(frame);
++    assert(!saver&&tab5_pc_wakes==wakes+2);
++    cJSON_Delete(frame);
++    saver_style=previous_style;
++    puts("CLAUDE_SAVER_HOST_WAKE_OK preview and automatic wake only on newer host input");
++}
++
+ int main(void) {
+ #ifdef _WIN32
+     // A failed offline test must return failure to the runner instead of
+@@ -2063,6 +2118,7 @@
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++    if(getenv("TAB5_SAVER_WAKE_ONLY")){check_saver_wake_inputs();return 0;}
+     if(getenv("TAB5_REPLY_OPEN_STATE_ONLY")){check_reply_open_state();return 0;}
+     if(getenv("TAB5_WORKSPACE_CONTROLS_ONLY")){check_workspace_controls();return 0;}
+     if(getenv("TAB5_SESSION_SOURCE_ONLY")){check_session_source();return 0;}

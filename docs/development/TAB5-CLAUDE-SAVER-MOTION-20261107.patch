@@ -1,0 +1,81 @@
+--- a/firmware/main/claude_companion.c
++++ b/firmware/main/claude_companion.c
+@@ -30,13 +30,18 @@
+     unsigned frame=claude_pet_groups[group].first+local;
+     result=(claude_companion_frame_info){frame,claude_pet_frames[frame].width,claude_pet_frames[frame].height,
+         claude_pet_groups[group].anchor_x2,group==0?1472u:group==3?1408u:1344u,
+-        claude_pet_groups[group].anchor_y2,group==0?15u:(group==3||group==5)?14u:12u,0};
++        claude_pet_groups[group].anchor_y2,group==0?15u:(group==3||group==5)?14u:12u,0,0};
+     result.saver_scale_q8=result.saver_scale*256u;
+     if(state==CODEX_COMPANION_IDLE) {
+         unsigned phase=(unsigned)((uint64_t)(elapsed>0?elapsed:0)%3600u);
+         unsigned breath=phase<=1800u?phase:3600u-phase;
+         result.scale_q8=1472u+16u*breath/1800u;
+-        result.saver_scale_q8=3840u+42u*breath/1800u;
++        // Quantize the visible idle motion to avoid redrawing the large sprite
++        // for tiny scale changes on each UI tick.
++        static const uint8_t pulse[]={0,1,2,4,6,8,10,12,14,15,16,16,16,15,14,12,10,8,6,4,2,1,0,0};
++        unsigned amount=pulse[phase/150u];
++        result.saver_scale_q8+=8u*amount;
++        result.saver_lift=(3u*amount+2u)/4u;
+     }
+ #else
+     (void)state;(void)elapsed;(void)repeat_completion;
+--- a/firmware/main/claude_companion.h
++++ b/firmware/main/claude_companion.h
+@@ -2,7 +2,7 @@
+ #include "codex_companion.h"
+ #define CLAUDE_COMPANION_FRAME_BYTES (40 * 33 * 3)
+ typedef struct {
+-    unsigned frame, width, height, anchor_x2, scale_q8, anchor_y2, saver_scale, saver_scale_q8;
++    unsigned frame, width, height, anchor_x2, scale_q8, anchor_y2, saver_scale, saver_scale_q8, saver_lift;
+ } claude_companion_frame_info;
+ bool claude_companion_asset_available(void);
+ unsigned claude_companion_frame_count(void);
+--- a/firmware/main/ui_claude_companion.h
++++ b/firmware/main/ui_claude_companion.h
+@@ -3,7 +3,7 @@
+ #define CLAUDE_PET_AVAILABLE claude_companion_asset_available()
+ typedef struct {
+     lv_obj_t *root,*image;
+-    int x,y,width,height,last_frame,last_scale;
++    int x,y,width,height,last_frame,last_scale,last_lift;
+ } claude_pet_view;
+ static claude_pet_view home_claude,saver_claude;
+ static uint8_t *claude_pixels;
+@@ -96,14 +96,15 @@
+         claude_rendered_frame=info.frame;
+     }
+     int scale=view==&home_claude?(int)info.scale_q8:(int)info.saver_scale_q8;
+-    if(view->last_frame!=(int)info.frame||view->last_scale!=scale) {
++    int lift=view==&saver_claude?(int)info.saver_lift:0;
++    if(view->last_frame!=(int)info.frame||view->last_scale!=scale||view->last_lift!=lift) {
+         // Match the Codex overview actor center. Fixed clip anchors preserve
+         // the original motion; transparent canvas size does not set alignment.
+         int anchor=view==&home_claude?152:view->width/2;
+         int center=view==&home_claude?134:322;
+-        int top=center-view->y-((int)info.anchor_y2*scale+256)/512;
++        int top=center-view->y-((int)info.anchor_y2*scale+256)/512-lift;
+         lv_obj_set_pos(view->image,anchor-((int)info.anchor_x2*scale+256)/512,top);
+         if(view->last_scale!=scale)lv_image_set_scale(view->image,scale);
+-        view->last_frame=(int)info.frame;view->last_scale=scale;
++        view->last_frame=(int)info.frame;view->last_scale=scale;view->last_lift=lift;
+     }
+ }
+--- a/tests/ui-preview/claude_companion_test.c
++++ b/tests/ui-preview/claude_companion_test.c
+@@ -15,7 +15,13 @@
+     claude_companion_frame_info relaxed=claude_companion_frame(CODEX_COMPANION_IDLE,0,false),inhale=claude_companion_frame(CODEX_COMPANION_IDLE,1800,false),loop=claude_companion_frame(CODEX_COMPANION_IDLE,3600,false);
+     assert(relaxed.frame==work&&inhale.frame==work&&loop.frame==work);
+     assert(inhale.scale_q8>relaxed.scale_q8&&inhale.scale_q8-relaxed.scale_q8<=16&&loop.scale_q8==relaxed.scale_q8);
+-    assert(inhale.saver_scale_q8>relaxed.saver_scale_q8&&loop.saver_scale_q8==relaxed.saver_scale_q8);
++    assert(inhale.saver_scale_q8-relaxed.saver_scale_q8==128&&loop.saver_scale_q8==relaxed.saver_scale_q8);
++    assert(relaxed.saver_lift==0&&inhale.saver_lift==12&&loop.saver_lift==0);
++    for(unsigned t=0;t<3600;t+=150) {
++        claude_companion_frame_info first=claude_companion_frame(CODEX_COMPANION_IDLE,t,true);
++        claude_companion_frame_info last=claude_companion_frame(CODEX_COMPANION_IDLE,t+149,true);
++        assert(first.frame==relaxed.frame&&last.saver_scale_q8==first.saver_scale_q8&&last.saver_lift==first.saver_lift);
++    }
+     FILE *dump=argc>1?fopen(argv[1],"wb"):NULL;
+     if(argc>1)assert(dump);
+     unsigned char buffer[CLAUDE_COMPANION_FRAME_BYTES];
