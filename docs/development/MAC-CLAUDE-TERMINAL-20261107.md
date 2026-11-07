@@ -36,3 +36,19 @@ Claude Code 2.1.318 的隔离普通交互会话能被 `claude agents --json` 识
 安装版本公布的消息 socket 将入站内容标记为 peer 消息，并应用会话间消息接收策略。核对到的控制操作包括重命名、消息状态和空闲通知，缺少当前轮次的中断操作。此接口尚无满足完整验收条件的实现。
 
 iTerm2 的 Coprocess 可以在目标标签页内手动启用，Claude Remote Control 可以在现有会话里启用并确认。这两条路径均包含额外操作。现阶段无感接入的产品验收继续保持未通过。[iTerm2 Coprocess 文档](https://iterm2.com/documentation-coprocesses.html) · [Claude Remote Control 文档](https://code.claude.com/docs/en/remote-control)
+
+## 后续窗口接入方案的可行性
+
+用户随后要求评估与 Codex 类似的终端窗口接入。此方案可操作已打开的普通 Claude 进程，已有会话和日常启动入口可作为目标。技术路径具备实现依据，状态为待实现及实机验收。
+
+- 通过原生会话 UUID、进程代次、控制 TTY 和前台进程组核对目标，再匹配 Terminal 标签页或 iTerm2 分屏。每次输入前重新核对，目标变化或已有电脑草稿时保留设备草稿。
+- 回复沿用现有原会话公开历史读取。发送和追加使用窗口输入，在原会话中核对新增用户轮次及送达回执。中断发送一次默认 Ctrl+C，并核对被指定轮次的停止状态。
+- 图片可沿用已验证的本地图片引用输入路径，匹配原生记录中的图片回执。终端窗口中的照片输入、多图、追加及恢复剪贴板方案须分别验收后确定。
+- 窗口输入使用辅助功能权限。通过 Apple Events 读取标签信息还需要对 Terminal 或 iTerm2 的自动化授权。macOS 按桥接签名身份和目标应用管理授权，普通会话可复用已授予的权限。权限是否已满足须在实际签名桥接中核对。
+- 产品操作可定位或激活目标窗口后输入，前台切换行为须明确验收。自动化诊断遵循仓库后台要求，涉及实际窗口切换时由用户打开测试界面。
+
+本机只读探针已获得 Terminal 窗口列表、标签 TTY 与文本区域结构，检查前后的前台应用一致。当前选中标签未匹配到已核实的前台 Claude 进程，未验证发送操作。本次诊断进程拥有的权限不能代替签名桥接的权限结论。iTerm2 当前未运行，本次只完成官方接口核对。
+
+可复用本仓库 `ba7ef1b` 中的终端身份校验和窗口适配思路，以及当前 Codex 的辅助功能输入和回执保护。早期终端代码不支持图片，输入区识别也仅覆盖保守的单行情况，恢复这段代码仍需补齐完整交互。
+
+Terminal 本机脚本字典提供标签 `tty`、`contents` 和目标标签参数。iTerm2 提供会话 `tty`、`unique id`、`contents` 和可指定换行的 `write text`。上述接口支持目标定位及输入的技术判断，实际前台行为和各版本兼容性继续由真机验证。[Apple Terminal 脚本说明](https://support.apple.com/en-om/guide/terminal/trml1003/mac) · [iTerm2 脚本接口](https://iterm2.com/documentation-scripting.html)
