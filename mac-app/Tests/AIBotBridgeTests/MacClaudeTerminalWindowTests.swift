@@ -39,6 +39,59 @@ final class MacClaudeTerminalWindowTests: XCTestCase {
         XCTAssertFalse(MacClaudeNativeClient.validStart(1, registeredAt: 100500))
     }
 
+    func testQueueEvidenceRequiresTheLiveSingleLineQueuePresentation() {
+        let prompt = rule + "\n❯\u{a0}Press up to edit queued messages\n" + rule
+        let valid = "❯ old message\n\n❯ q   \n  ctrl+x ctrl+s to send now\n\n✢ Processing… (51s)\n\n" + prompt
+        XCTAssertEqual(MacClaudeTerminalQueue.singleMessage(in: valid), "q")
+        XCTAssertNil(MacClaudeTerminalQueue.singleMessage(in: valid.replacingOccurrences(of: "Press up to edit queued messages", with: "")))
+        XCTAssertNil(MacClaudeTerminalQueue.singleMessage(in: valid.replacingOccurrences(of: "ctrl+x ctrl+s to send now", with: "other shortcut")))
+        XCTAssertNil(MacClaudeTerminalQueue.singleMessage(in: valid.replacingOccurrences(of: "❯ q   ", with: "  q   ")))
+        XCTAssertNil(MacClaudeTerminalQueue.singleMessage(in: valid.replacingOccurrences(of: "✢ Processing…", with: "❯ another queued message\n✢ Processing…")))
+        XCTAssertNil(MacClaudeTerminalQueue.singleMessage(in: valid.replacingOccurrences(of: "  ctrl+x", with: "  wrapped continuation\n  ctrl+x")))
+        XCTAssertNil(MacClaudeTerminalQueue.singleMessage(in: "❯ q\n  ctrl+x ctrl+s to send now\n" + rule + "\n❯ ordinary draft\n" + rule))
+        XCTAssertNil(MacClaudeTerminalQueue.singleMessage(in: valid + "\n" + rule + "\n❯ ordinary draft\n" + rule))
+        XCTAssertNil(MacClaudeTerminalQueue.singleMessage(in: valid.replacingOccurrences(of: prompt, with: rule + "\n❯\u{a0}Press up to edit queued messages\nnot a divider")))
+    }
+
+    func testTargetRecoveryRetriesOnlyWhileRequestIsAuthorized() throws {
+        enum Failure: Error { case initial, retry }
+        var initialCalls = 0, checks = 0, retries = 0, waits = 0
+        let target = try MacClaudeWindowTargetRecovery.resolve(initial: {
+            initialCalls += 1; throw Failure.initial
+        }, allowed: {
+            checks += 1; return true
+        }, retry: {
+            retries += 1
+            if retries == 1 { throw Failure.retry }
+            return "same-target"
+        }, wait: { waits += 1 })
+        XCTAssertEqual(target, "same-target")
+        XCTAssertEqual(initialCalls, 1); XCTAssertEqual(checks, 2)
+        XCTAssertEqual(retries, 2); XCTAssertEqual(waits, 1)
+
+        retries = 0; checks = 0
+        XCTAssertThrowsError(try MacClaudeWindowTargetRecovery.resolve(initial: { throw Failure.initial }, allowed: {
+            checks += 1; return checks == 1
+        }, retry: { retries += 1; throw Failure.retry }, wait: {})) { error in
+            guard case Failure.initial = error else { return XCTFail("Original failure must remain a rejection") }
+        }
+        XCTAssertEqual(checks, 2); XCTAssertEqual(retries, 1)
+
+        retries = 0; checks = 0
+        XCTAssertThrowsError(try MacClaudeWindowTargetRecovery.resolve(initial: { throw Failure.initial }, allowed: {
+            checks += 1; return true
+        }, retry: { retries += 1; throw Failure.retry }, wait: {})) { error in
+            guard case Failure.initial = error else { return XCTFail("Recovery must preserve the original rejection") }
+        }
+        XCTAssertEqual(checks, 2); XCTAssertEqual(retries, 2)
+
+        retries = 0
+        XCTAssertEqual(try MacClaudeWindowTargetRecovery.resolve(initial: { "ready" }, allowed: {
+            XCTFail("A successful locate must not enter recovery"); return false
+        }, retry: { retries += 1; return "unexpected" }), "ready")
+        XCTAssertEqual(retries, 0)
+    }
+
     // Explicitly enabled only after the user opens the disposable native
     // session in a terminal. No production account or USB is used here.
     func testExistingWindowFixture() throws {

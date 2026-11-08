@@ -190,6 +190,60 @@ final class MacClaudeNativeTests: XCTestCase {
         }
     }
 
+    private final class QueueFixture: MacClaudeQueueReceiptSession {
+        let session = UUID()
+        var submissions = 0, queueConfirmed = true
+        var failLocate = false, recoveryAllowed = true, recoveryReads = 0
+        func allows(_ operation: String, images: Bool) -> Bool { operation == "steer" }
+        func scope() throws -> String { "fixture-scope" }
+        func state() throws -> String { "working" }
+        func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool {
+            if failLocate {
+                _ = try MacClaudeWindowTargetRecovery.resolve(initial: { throw MacTab5Error.unconfirmed },
+                    allowed: { self.recoveryAllowed }, retry: { self.recoveryReads += 1; return "fixture-target" }, wait: {})
+            }
+            return { self.submissions += 1; return true }
+        }
+        func queuedSubmissionConfirmed(_ request: MacClaudeNativeRequest) throws -> Bool { queueConfirmed }
+    }
+
+    func testLocateRecoveryDispatchesOnceAndUnsafeRecoveryNeverDispatches() throws {
+        for allowed in [true, false] {
+            let client = QueueFixture(); client.failLocate = true; client.recoveryAllowed = allowed
+            var dispatched = 0
+            let action = {
+                try MacClaudeNativeOperation.run(client: client, request: self.request("steer"),
+                    history: { .init(turns: [], limited: false, accepted: []) }, dispatch: { _ in dispatched += 1 }, wait: {})
+            }
+            if allowed {
+                XCTAssertTrue(try action().queued)
+                XCTAssertEqual(client.recoveryReads, 1); XCTAssertEqual(dispatched, 1); XCTAssertEqual(client.submissions, 1)
+            } else {
+                XCTAssertThrowsError(try action()) { error in
+                    guard case MacCodexDesktopError.rejected("native_input_unavailable") = error else { return XCTFail("Unexpected rejection") }
+                }
+                XCTAssertEqual(client.recoveryReads, 0); XCTAssertEqual(dispatched, 0); XCTAssertEqual(client.submissions, 0)
+            }
+        }
+    }
+
+    func testQueuedEvidenceAcknowledgesOnceAndKeepsUnknownWithoutEvidence() throws {
+        for confirmed in [true, false] {
+            let client = QueueFixture(); client.queueConfirmed = confirmed
+            var dispatched = 0
+            let result = try MacClaudeNativeOperation.run(client: client, request: request("steer"),
+                history: { .init(turns: [], limited: false, accepted: []) }, dispatch: { _ in dispatched += 1 }, wait: {})
+            XCTAssertEqual(result.queued, confirmed)
+            XCTAssertNil(result.user)
+            XCTAssertEqual(client.submissions, 1)
+            XCTAssertEqual(dispatched, 1)
+        }
+        let photo = QueueFixture()
+        let result = try MacClaudeNativeOperation.run(client: photo, request: request("steer", images: ["photo"]),
+            history: { .init(turns: [], limited: false, accepted: []) }, dispatch: { _ in }, wait: {})
+        XCTAssertFalse(result.queued)
+    }
+
     func testPreparationFailureIsDefiniteRejectionWithoutDispatch() throws {
         var dispatched = false
         XCTAssertThrowsError(try MacClaudeNativeOperation.run(client:DirectFixture(preparationFails:true),request:request(),

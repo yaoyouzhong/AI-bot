@@ -1,5 +1,33 @@
 import AppKit
 
+struct MacTab5AutomationRoute {
+    let requestedRadio: String, usb: Bool, wifi: Bool, bluetooth: Bool
+    var captureTransport: String { usb ? "USB" : requestedRadio }
+    var requestedRPC: String { usb && requestedRadio != "USB" ? "auto" : requestedRadio }
+
+    init(_ selected: String, isolated: Bool) throws {
+        guard ["USB", "Wi-Fi", "BLE"].contains(selected) else { throw MacTab5Error.invalidPacket }
+        requestedRadio = selected
+        usb = selected == "USB" || !isolated
+        wifi = selected == "Wi-Fi"
+        bluetooth = selected == "BLE"
+    }
+}
+
+final class MacTab5AutomationInput {
+    private let lock = NSLock()
+    private var synthetic: TimeInterval?
+    func wake(now: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        lock.lock(); synthetic = now; lock.unlock()
+    }
+    func sample(now: TimeInterval, idle: TimeInterval) -> (uptime: TimeInterval, idle: TimeInterval) {
+        lock.lock(); defer { lock.unlock() }
+        guard let tick = synthetic, tick.isFinite, now.isFinite, now >= tick,
+              idle.isFinite, idle >= 0 else { return (now, idle) }
+        return (now, min(idle, now - tick))
+    }
+}
+
 // Explicit development session. JSON lines on stdin; one response per action.
 // It never creates a window or sends an action without a caller request.
 enum MacTab5AutomationRunner {
@@ -26,20 +54,26 @@ enum MacTab5AutomationRunner {
         guard let address = LocalNetworkIdentity.privateIPv4() else { throw MacTab5Error.unavailable }
         let identity = MacClaudeIdentity()
         let acceptance = try fixture.map { try MacTab5WorkspaceAcceptance(root:$0) }
+        let automationInput = MacTab5AutomationInput()
         if acceptance != nil {
             MacClaudeTerminalWindow.diagnostic = { phase in
                 try? FileHandle.standardError.write(contentsOf:Data("WINDOW \(phase)\n".utf8))
             }
         }
-        defer { MacClaudeTerminalWindow.diagnostic = nil }
+        defer {
+            MacClaudeTerminalWindow.diagnostic = nil
+            MacClaudeTerminalWindow.fixtureFailNextLocate(false)
+        }
         let service = MacTab5Service(port:port,codex:acceptance?.codex ?? MacTab5Codex(),voice:acceptance?.voice() ?? MacTab5Voice(),enabled:{registry.enabled("tab5")},sourceEnabled:{registry.source($0,kind:"tab5")},
             claudeSessions:MacClaudeSessionSampler(root:acceptance?.projects ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/projects")),claudeIdentity:identity,
-            diagnostics:MacTab5LocalDiagnostics(directory:directory),claudeWorkspace:acceptance?.claude)
+            diagnostics:MacTab5LocalDiagnostics(directory:directory),claudeWorkspace:acceptance?.claude,
+            hostInput:{ automationInput.sample(now:ProcessInfo.processInfo.systemUptime,idle:MacIdleTime.seconds()) })
         guard service.currentPairing?.confirmed == true else { throw MacTab5Error.pairingRequired }
-        var phase = "connect", route = "USB"
+        var phase = "connect"
+        var route = try MacTab5AutomationRoute("USB", isolated: false)
         func diagnostic() -> [String:Any] {
             let status = service.connectionStatus
-            return ["phase":phase,"requestedRPC":route,"usb":status.usb,"wifi":status.wifi,
+            return ["phase":phase,"requestedRPC":route.requestedRPC,"requestedRadio":route.requestedRadio,"usb":status.usb,"wifi":status.wifi,
                 "bluetooth":status.bluetooth,"usbOwnsDisplay":service.usbOwnsActiveState,
                 "usbDiagnostics":service.usbDiagnosticSummary,"interactions":service.interactionDiagnostics.summary,
                 "deviceDiagnostics":service.deviceDiagnosticSummary]
@@ -114,18 +148,29 @@ enum MacTab5AutomationRunner {
                     guard preserved else { throw MacTab5Error.unconfirmed }; return
                 }
                 if op == "diagnostic" { try emit(diagnostic()); continue }
+                if op == "fixture-terminal-locate-failure", acceptance != nil {
+                    MacClaudeTerminalWindow.fixtureFailNextLocate(true)
+                    try emit(["status":"fixture-locate-failure-armed"]); continue
+                }
+                if op == "wake" || (op == "fixture-wake" && acceptance != nil) {
+                    automationInput.wake()
+                    let until = ProcessInfo.processInfo.systemUptime + 1.5
+                    while ProcessInfo.processInfo.systemUptime < until { pump() }
+                    try emit(["status":op == "wake" ? "wake-requested" : "fixture-wake-requested"]); continue
+                }
                 if op == "fixture-rpc-route", acceptance != nil, let selected = value["transport"] as? String,
                    ["USB","Wi-Fi","BLE"].contains(selected) {
-                    usb.stopAndWait()
-                    bluetooth.setEnabled(selected == "BLE")
+                    if let isolated = value["isolate"], !MacTab5Protocol.isBoolean(isolated) { throw MacTab5Error.invalidPacket }
+                    let next = try MacTab5AutomationRoute(selected, isolated: value["isolate"] as? Bool == true)
+                    if next.usb { usb.start() } else { usb.stopAndWait() }
+                    bluetooth.setEnabled(next.bluetooth)
                     server.stop(); service.setLANReady(false)
-                    if selected == "Wi-Fi" { try server.start(); service.setLANReady(true) }
-                    if selected == "USB" { usb.start() }
-                    route = selected
+                    if next.wifi { try server.start(); service.setLANReady(true) }
+                    route = next
                     // Let prior status/mailbox leases expire before any action.
                     let settle = ProcessInfo.processInfo.systemUptime+10
                     while ProcessInfo.processInfo.systemUptime < settle { pump() }
-                    if selected == "BLE" {
+                    if !next.usb, selected == "BLE" {
                         let deadline = ProcessInfo.processInfo.systemUptime+45
                         while service.bootTransport != "BLE", ProcessInfo.processInfo.systemUptime < deadline { pump() }
                         guard service.bootTransport == "BLE" else { throw MacTab5Error.unavailable }
@@ -147,7 +192,7 @@ enum MacTab5AutomationRunner {
                           !file.hasPrefix(".") else { throw MacTab5Error.invalidPacket }
                     func previewContext() -> MacTab5ScreenPreview.Context? {
                         var context = service.screenPreviewContext
-                        if route != "USB" { context?.transports = [route] }
+                        if route.captureTransport != "USB" { context?.transports = [route.captureTransport] }
                         return context
                     }
                     let token = service.screenPreview.start(previewContext())

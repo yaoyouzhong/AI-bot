@@ -3,10 +3,19 @@ import ApplicationServices
 
 // The existing native process remains the owner of the conversation.
 // Only explicit device operations may select a tab or post input.
-final class MacClaudeTerminalWindow: MacClaudeDirectSession {
+final class MacClaudeTerminalWindow: MacClaudeQueueReceiptSession {
     private struct KeyNotPosted: Error {}
     // Development acceptance receives fixed phase labels only, never UI text.
     static var diagnostic: ((String) -> Void)?
+    private static let fixtureLock = NSLock()
+    private static var fixtureLocateFailure = false
+    static func fixtureFailNextLocate(_ enabled: Bool) {
+        fixtureLock.lock(); defer { fixtureLock.unlock() }; fixtureLocateFailure = enabled
+    }
+    private static func consumeFixtureLocateFailure() -> Bool {
+        fixtureLock.lock(); defer { fixtureLock.unlock() }
+        let value = fixtureLocateFailure; fixtureLocateFailure = false; return value
+    }
     let source = MacClaudeSessionSource.terminal
     let usesFileImageReferences = true
     func normalizedInput(_ text: String) -> String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -15,6 +24,7 @@ final class MacClaudeTerminalWindow: MacClaudeDirectSession {
     private let host: NSRunningApplication
     private let tty: String
     private let config: URL
+    private var queueReceiptTarget: String?
 
     private init(_ native: MacClaudeNativeClient, host: NSRunningApplication, tty: String, config: URL) {
         self.native = native; self.host = host; self.tty = tty; session = native.session
@@ -95,7 +105,12 @@ final class MacClaudeTerminalWindow: MacClaudeDirectSession {
         func execute() throws -> String {
             var error: NSDictionary?
             let answer = NSAppleScript(source: source)?.executeAndReturnError(&error).stringValue
-            guard error == nil, let answer else { throw MacTab5Error.unconfirmed }
+            guard error == nil, let answer else {
+                if let code = error?[NSAppleScript.errorNumber] as? Int, (-100_000...100_000).contains(code) {
+                    diagnostic?("applescript:error:\(code)")
+                } else { diagnostic?("applescript:unconfirmed") }
+                throw MacTab5Error.unconfirmed
+            }
             return answer
         }
         return try Thread.isMainThread ? execute() : DispatchQueue.main.sync(execute: execute)
@@ -106,7 +121,7 @@ final class MacClaudeTerminalWindow: MacClaudeDirectSession {
         return AXUIElementCopyAttributeValue(node, key as CFString, &result) == .success ? result : nil
     }
 
-    private func composer(target: String) throws -> MacClaudeWindowComposer {
+    private func screen(target: String) throws -> (String, Int) {
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == host.processIdentifier,
               try locate(activate: false) == target, let bundle = host.bundleIdentifier else {
             Self.diagnostic?("composer:target-unconfirmed")
@@ -139,9 +154,30 @@ final class MacClaudeTerminalWindow: MacClaudeDirectSession {
               let output = Self.value(editor, "AXValue") as? String, output.utf8.count <= 2_000_000,
               let rawCursor = Self.value(editor, "AXSelectedTextRange"), CFGetTypeID(rawCursor) == AXValueGetTypeID() else { Self.diagnostic?("composer:attributes-unavailable"); throw MacTab5Error.unconfirmed }
         var cursor = CFRange()
-        guard AXValueGetValue(unsafeBitCast(rawCursor, to: AXValue.self), .cfRange, &cursor), cursor.length == 0,
-              let result = MacClaudeWindowComposer(output, cursor: cursor.location) else { Self.diagnostic?("composer:prompt-unconfirmed"); throw MacTab5Error.unconfirmed }
+        guard AXValueGetValue(unsafeBitCast(rawCursor, to: AXValue.self), .cfRange, &cursor), cursor.length == 0 else {
+            Self.diagnostic?("composer:prompt-unconfirmed"); throw MacTab5Error.unconfirmed
+        }
+        return (output, cursor.location)
+    }
+
+    private func composer(target: String) throws -> MacClaudeWindowComposer {
+        let (output, cursor) = try screen(target: target)
+        guard let result = MacClaudeWindowComposer(output, cursor: cursor) else {
+            Self.diagnostic?("composer:prompt-unconfirmed"); throw MacTab5Error.unconfirmed
+        }
         return result
+    }
+
+    private func mayRecoverTarget(_ request: MacClaudeNativeRequest) -> Bool {
+        guard request.authorized(), (try? request.current()) == true,
+              allows(request.operation, images: !request.paths.isEmpty) else { return false }
+        return request.authorized() && (try? request.current()) == true
+    }
+
+    func queuedSubmissionConfirmed(_ request: MacClaudeNativeRequest) throws -> Bool {
+        guard request.operation == "steer", request.paths.isEmpty, request.authorized(),
+              try request.current(), let target = queueReceiptTarget else { return false }
+        return MacClaudeTerminalQueue.singleMessage(in: try screen(target: target).0) == request.text
     }
 
     private func key(_ code: CGKeyCode, flags: CGEventFlags = [], text: String? = nil) throws {
@@ -163,6 +199,7 @@ final class MacClaudeTerminalWindow: MacClaudeDirectSession {
     }
 
     func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool {
+        queueReceiptTarget = nil
         var phase = "prepare-check", prepared = false
         defer { Self.diagnostic?("\(request.operation):\(phase):\(prepared ? "ready" : "not-invoked")") }
         guard request.authorized(), try request.current(), allows(request.operation, images: !request.paths.isEmpty) else {
@@ -171,13 +208,35 @@ final class MacClaudeTerminalWindow: MacClaudeDirectSession {
         let input = request.operation == "interrupt" ? "" : try MacClaudeBackgroundPhotos.input(
             text: request.text, paths: request.paths.map(\.path), digests: request.imageDigests)
         phase = "prepare-locate"
-        let target = try locate(activate: true)
+        let target = try MacClaudeWindowTargetRecovery.resolve(
+            initial: {
+                if request.operation == "steer", Self.consumeFixtureLocateFailure() {
+                    Self.diagnostic?("locate:fixture-failure"); throw MacTab5Error.unconfirmed
+                }
+                return try locate(activate: true)
+            },
+            allowed: { mayRecoverTarget(request) },
+            retry: {
+                let value = try locate(activate: true)
+                Self.diagnostic?("locate:activation-recovered"); return value
+            })
         for _ in 0..<20 {
             if NSWorkspace.shared.frontmostApplication?.processIdentifier == host.processIdentifier { break }
             Thread.sleep(forTimeInterval: 0.05)
         }
         phase = "prepare-composer"
-        guard try composer(target: target).empty else { throw MacCodexDesktopError.rejected("desktop_draft_present") }
+        let (output, cursor) = try screen(target: target)
+        guard let initial = MacClaudeWindowComposer(output, cursor: cursor), initial.empty else {
+            throw MacCodexDesktopError.rejected("desktop_draft_present")
+        }
+        // A single short text can be checked against the terminal's explicit
+        // queue display. Unknown/pre-existing queues and images stay uncertain.
+        if request.operation == "steer", request.paths.isEmpty, !request.text.isEmpty,
+           request.text.utf8.count <= 40, !request.text.contains("\n"),
+           !output.contains("Press up to edit queued messages"),
+           !output.contains("ctrl+x ctrl+s to send now") {
+            queueReceiptTarget = target
+        }
         prepared = true
         return {
             var phase = "recheck", finished = false
@@ -246,6 +305,54 @@ final class MacClaudeTerminalWindow: MacClaudeDirectSession {
             finished = true
             return true
         }
+    }
+}
+
+enum MacClaudeWindowTargetRecovery {
+    // Preparation has not posted input or recorded dispatch. On a transient
+    // locate failure, revalidate the request and locate the same session by
+    // TTY again. Retrying selection does not replay any submitted input.
+    static func resolve(initial: () throws -> String, allowed: () -> Bool,
+                        retry: () throws -> String,
+                        wait: () -> Void = { Thread.sleep(forTimeInterval: 0.1) }) throws -> String {
+        do { return try initial() }
+        catch {
+            let original = error
+            for attempt in 0..<2 {
+                guard allowed() else { throw original }
+                do { return try retry() }
+                catch { if attempt == 0 { wait() } }
+            }
+            throw original
+        }
+    }
+}
+
+enum MacClaudeTerminalQueue {
+    // Recognize only the single-line queue presentation observed in the
+    // original terminal. All other layouts intentionally remain unconfirmed.
+    static func singleMessage(in output: String) -> String? {
+        let lines = output.components(separatedBy: "\n")
+        guard let prompt = lines.lastIndex(where: { $0.hasPrefix("❯ ") || $0.hasPrefix("❯\u{a0}") }),
+              prompt > 1, prompt + 1 < lines.count else { return nil }
+        let placeholder = lines[prompt].trimmingCharacters(in: .whitespaces)
+        guard placeholder == "❯\u{a0}Press up to edit queued messages"
+                || placeholder == "❯ Press up to edit queued messages" else { return nil }
+        let divider = lines[prompt - 1].trimmingCharacters(in: .whitespaces)
+        let after = lines[prompt + 1].trimmingCharacters(in: .whitespaces)
+        guard divider.hasPrefix(String(repeating: "─", count: 16)), divider.hasSuffix("─"),
+              after.hasPrefix(String(repeating: "─", count: 16)), after.hasSuffix("─") else { return nil }
+        let start = max(0, prompt - 12)
+        let hints = (start..<(prompt - 1)).filter {
+            lines[$0].trimmingCharacters(in: .whitespaces) == "ctrl+x ctrl+s to send now"
+        }
+        guard hints.count == 1, let hint = hints.first, hint > start else { return nil }
+        let between = lines[(hint + 1)..<(prompt - 1)]
+        guard !between.contains(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("❯") }) else { return nil }
+        let row = lines[hint - 1].trimmingCharacters(in: .whitespaces)
+        guard row.hasPrefix("❯ ") || row.hasPrefix("❯\u{a0}") else { return nil }
+        let text = String(row.dropFirst(2))
+        return text.isEmpty ? nil : text
     }
 }
 

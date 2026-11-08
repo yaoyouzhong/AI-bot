@@ -155,6 +155,11 @@ final class MacClaudeNativeBackend {
         })
         if result.user != nil || result.submissionNotInvoked { photoDeliveryUnknown = false }
         if let user=result.user,var record=saved{let alias=try turn(entry,user);record.confirmed=alias;try save(id,record);return ["turnId":alias]}
+        if result.queued, var record = saved, MacTab5Codex.id(expected) != nil {
+            // The original terminal visibly accepted this exact follow-up into
+            // its queue. This confirms submission, not completion of the turn.
+            record.confirmed = expected; try save(id, record); return ["turnId":expected]
+        }
         if result.stopped,var record=saved{record.confirmed=expected;record.stopAcknowledged=true;try save(id,record);return ["turnId":expected]}
         if result.submissionNotInvoked,var record=saved {
             record.submissionNotInvoked=true

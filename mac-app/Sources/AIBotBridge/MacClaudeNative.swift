@@ -93,6 +93,12 @@ protocol MacClaudeDirectSession: MacClaudeNativeSession {
     func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool
 }
 
+// Optional evidence that the original client accepted a follow-up into its
+// own queue. A posted keystroke or an empty composer alone is not evidence.
+protocol MacClaudeQueueReceiptSession: MacClaudeDirectSession {
+    func queuedSubmissionConfirmed(_ request: MacClaudeNativeRequest) throws -> Bool
+}
+
 extension MacClaudeDirectSession {
     func view(_ operation: String) throws -> MacClaudeNativeView { throw MacTab5Error.unavailable }
     func stage(_ request: MacClaudeNativeRequest) throws { throw MacTab5Error.unavailable }
@@ -104,6 +110,7 @@ enum MacClaudeNativeOperation {
     struct Result {
         let attempted: Bool, user: String?, stopped: Bool
         var submissionNotInvoked = false
+        var queued = false
     }
     static func run(client: any MacClaudeNativeSession, request: MacClaudeNativeRequest,
                     history: () throws -> MacClaudeHistory.Value, dispatch: (MacClaudeNativeReceipt) throws -> Void,
@@ -123,6 +130,11 @@ enum MacClaudeNativeOperation {
                 for _ in 0..<50 {
                     if let id = baseline.confirm(try history(), scope: try client.scope()) {
                         return Result(attempted: true, user: id, stopped: false)
+                    }
+                    if request.operation == "steer", request.paths.isEmpty, request.authorized(), (try? request.current()) == true,
+                       (try? client.scope()) == scope, let queue = client as? any MacClaudeQueueReceiptSession,
+                       (try? queue.queuedSubmissionConfirmed(request)) == true {
+                        return Result(attempted: true, user: nil, stopped: false, queued: true)
                     }
                     wait()
                 }
