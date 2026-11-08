@@ -3,7 +3,7 @@ import Foundation
 // Main-branch public assistant text grouped by user turn. Raw prompt/tool data
 // is neither retained in nodes nor included in returned dictionaries.
 enum MacClaudeHistory {
-    struct Value { let turns: [[String:Any]]; let limited: Bool; let accepted: Set<String>; var inputDigests: [String:String] = [:]; var restoreDigests: [String:String] = [:] }
+    struct Value { let turns: [[String:Any]]; let limited: Bool; let accepted: Set<String>; var inputDigests: [String:String] = [:]; var restoreDigests: [String:String] = [:]; var allAccepted: Set<String>? = nil }
     private struct Node {
         let id: String, parent: String?, human: Bool, text: String, at: Int64, assistant: Bool, ended: Bool
         let inputDigest: String?, restoreDigest: String?, prompt: UUID?, stopNotice: Bool
@@ -149,6 +149,7 @@ enum MacClaudeHistory {
         for id in attachmentTail ?? [] {
             if let node = nodes[id] { collectPhoto(node) }
         }
-        finish(); return Value(turns:turns,limited:limited,accepted:accepted,inputDigests:digests,restoreDigests:restored)
+        finish(); return Value(turns:turns,limited:limited,accepted:accepted,inputDigests:digests,restoreDigests:restored,
+                               allAccepted:Set(nodes.values.filter(\.human).map(\.id)))
     }
 }

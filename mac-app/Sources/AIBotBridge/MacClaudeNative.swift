@@ -42,12 +42,13 @@ enum MacClaudeNativeContent {
 struct MacClaudeNativeReceipt: Codable {
     let session: UUID, scope: String, digest: String, known: Set<String>, limited: Bool
     static func capture(_ history: MacClaudeHistory.Value, session: UUID, scope: String, text: String, images: [String]) -> Self {
-        Self(session:session,scope:scope,digest:MacClaudeNativeContent.digest(text,images:images),known:history.accepted,limited:history.limited)
+        Self(session:session,scope:scope,digest:MacClaudeNativeContent.digest(text,images:images),known:history.allAccepted ?? history.accepted,limited:history.limited)
     }
     func confirm(_ history: MacClaudeHistory.Value, scope current: String) -> String? {
-        guard scope == current, !limited, !history.limited, known.isSubset(of:history.accepted) else { return nil }
-        let added = history.accepted.subtracting(known)
-        guard added.count == 1, let id = added.first, UUID(uuidString:id) != nil, history.inputDigests[id] == digest else { return nil }
+        let all = history.allAccepted ?? history.accepted
+        guard scope == current, !limited, !history.limited, known.isSubset(of:all) else { return nil }
+        let added = all.subtracting(known)
+        guard added.count == 1, let id = added.first, history.accepted.contains(id), UUID(uuidString:id) != nil, history.inputDigests[id] == digest else { return nil }
         return id
     }
 }

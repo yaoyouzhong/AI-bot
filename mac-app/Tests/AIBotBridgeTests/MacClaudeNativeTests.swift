@@ -3,6 +3,28 @@ import AppKit
 @testable import AIBotBridge
 
 final class MacClaudeNativeTests: XCTestCase {
+    func testReceiptSurvivesAbandonedInterruptedBranchWithoutAcceptingAnotherInput() throws {
+        let root=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
+        defer { try? FileManager.default.removeItem(at:root) }
+        let session=UUID(), seed=UUID().uuidString.lowercased(), interrupted=UUID().uuidString.lowercased(), sent=UUID().uuidString.lowercased()
+        let file=root.appendingPathComponent(session.uuidString+".jsonl"), key=Data(0..<32)
+        func user(_ id:String,_ parent:String?,_ text:String)->[String:Any] {
+            ["type":"user","sessionId":session.uuidString,"uuid":id,"parentUuid":parent as Any? ?? NSNull(),"message":["role":"user","content":text]]
+        }
+        func read(_ rows:[[String:Any]]) throws -> MacClaudeHistory.Value {
+            var data=Data(); for row in rows { data.append(try MacTab5Protocol.json(row)); data.append(10) }
+            try data.write(to:file); return try MacClaudeHistory.read(root:root,session:session,key:key)
+        }
+        let original=[user(seed,nil,"seed"),user(interrupted,seed,"interrupted")]
+        let before=try read(original)
+        let baseline=MacClaudeNativeReceipt.capture(before,session:session,scope:"scope",text:"next",images:[])
+        let after=try read(original+[user(sent,seed,"next")])
+        XCTAssertFalse(after.accepted.contains(interrupted))
+        XCTAssertEqual(baseline.confirm(after,scope:"scope"),sent)
+        XCTAssertNil(baseline.confirm(try read(original+[user(UUID().uuidString.lowercased(),seed,"other"),user(sent,seed,"next")]),scope:"scope"))
+        XCTAssertNil(baseline.confirm(try read(original+[user(sent,seed,"next")]),scope:"different"))
+    }
     func testAttachmentAccessibleLabel(){
         XCTAssertEqual(MacClaudeNativeClient.attachmentName("blue-probe.png 96×96 Remove attachment"),"blue-probe.png")
         XCTAssertEqual(MacClaudeNativeClient.attachmentName("设计 图片 96×96.png 1280×720 Remove attachment"),"设计 图片 96×96.png")
