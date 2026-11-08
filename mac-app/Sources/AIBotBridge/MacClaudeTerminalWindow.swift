@@ -4,6 +4,7 @@ import ApplicationServices
 // The existing native process remains the owner of the conversation.
 // Only explicit device operations may select a tab or post input.
 final class MacClaudeTerminalWindow: MacClaudeDirectSession {
+    private struct KeyNotPosted: Error {}
     // Development acceptance receives fixed phase labels only, never UI text.
     static var diagnostic: ((String) -> Void)?
     let source = MacClaudeSessionSource.terminal
@@ -148,7 +149,7 @@ final class MacClaudeTerminalWindow: MacClaudeDirectSession {
         guard held.isEmpty, NSWorkspace.shared.frontmostApplication?.processIdentifier == host.processIdentifier,
               let down = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true),
               let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false) else {
-            throw MacTab5Error.unconfirmed
+            throw KeyNotPosted()
         }
         down.flags = flags; up.flags = flags
         if let text {
@@ -212,12 +213,17 @@ final class MacClaudeTerminalWindow: MacClaudeDirectSession {
                       (try? self.composer(target: target).matches(written)) == true else { return false }
                 let chunk: String
                 phase = "text-post"
-                if remaining.first == "\n" {
-                    chunk = "\n"
-                    try self.key(38, flags: .maskControl)
-                } else {
-                    chunk = String(remaining.prefix(20).prefix(while: { $0 != "\n" }))
-                    try self.key(0, text: chunk)
+                do {
+                    if remaining.first == "\n" {
+                        chunk = "\n"
+                        try self.key(38, flags: .maskControl)
+                    } else {
+                        chunk = String(remaining.prefix(20).prefix(while: { $0 != "\n" }))
+                        try self.key(0, text: chunk)
+                    }
+                } catch is KeyNotPosted where written.isEmpty {
+                    // No input event was posted; the existing draft remains on TAB5.
+                    return false
                 }
                 remaining = remaining.dropFirst(chunk.count)
                 written += chunk
