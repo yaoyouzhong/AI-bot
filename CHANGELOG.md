@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Add window input for already-open native Claude Code sessions in Terminal, including text, images, queued follow-ups and exact-turn interruption; retain public replies and delivery receipts from the original session.
 - Preserve recent client activity across midnight while resetting daily usage; reject window input while macOS is locked and keep drafts after preparation failures.
 - Centralize required system permissions in session settings while protecting desktop drafts, checking the target and never replaying uncertain delivery. Signed-bundle, terminal-specific and TAB5 hardware results are tracked separately; this is not a release.
+- Keep Codex overview activity current during long-running tasks and preserve drafts when the first window keystroke cannot be posted. Isolated Terminal tests over USB, Wi-Fi and Bluetooth and remaining page issues are recorded separately.
 
 ## 0.6.18 - 2026-11-05
 
