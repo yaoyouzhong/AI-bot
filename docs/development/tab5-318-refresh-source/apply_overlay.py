@@ -83,7 +83,7 @@ def main():
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(overlay.read(name))
     print(f"TAB5_OVERLAY_{'VERIFIED' if args.verify else 'APPLIED' if args.apply else 'CHECKED'} {len(changes)} files; {len(base_names)} baseline files")
-    print("The local-only Claude PCM is not included; see README.md before building or distributing.")
+    print("Claude PCM provenance and licensing are documented in README.md.")
 
 
 if __name__ == "__main__":

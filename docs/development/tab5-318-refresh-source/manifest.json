@@ -1,18 +1,19 @@
 {
   "schemaVersion": 1,
   "baselineArchiveSha256": "ddecd2141043e615f904a128ce75a16b2568b3000a7bb3624058b4e75b770895",
-  "overlaySha256": "6a404b48942f397df5a3f962c67329058f7c0a9630163bc979719238903e8505",
-  "excludedAsset": {
-    "path": "firmware/main/assets/claude_notice.pcm",
-    "candidateSha256": "1533c2d5e353d28726cc3fc8cc5108df72b8a42349415a55806c2f0aaee5f023",
-    "reason": "Local generated speech; redistribution rights not confirmed."
-  },
+  "overlaySha256": "9360e68c281143ea5622a879ed7ba5981a02a3fa67d83481ba93c25f37e3aef3",
   "files": [
     {
       "path": "firmware/main/CMakeLists.txt",
       "beforeSha256": "e8b9bcfc44bda6f99a0da2f808222e31bf0ab4ed5b0f595800120ce3ac141d43",
       "afterSha256": "8281063ba1ba31c7f610a0db118e897c6da1e1899268846b0fcad765111b87c6",
       "bytes": 6491
+    },
+    {
+      "path": "firmware/main/assets/claude_notice.pcm",
+      "beforeSha256": null,
+      "afterSha256": "1533c2d5e353d28726cc3fc8cc5108df72b8a42349415a55806c2f0aaee5f023",
+      "bytes": 62802
     },
     {
       "path": "firmware/main/claude_companion.c",
