@@ -51,7 +51,7 @@ enum MacClaudeHistory {
                   let type = row["type"] as? String,
                   row["isSidechain"] as? Bool != true else { return }
             let subtype = row["subtype"] as? String
-            let link = type == "attachment" || (type == "system" && (["turn_duration", "away_summary", "informational", "api_error"].contains(subtype ?? "")))
+            let link = type == "attachment" || (type == "system" && (["turn_duration", "away_summary", "informational", "api_error", "stop_hook_summary"].contains(subtype ?? "")))
             guard link || ["user","assistant"].contains(type) else { return }
             for flag in ["isSidechain","isMeta"] { if let v = row[flag], !MacTab5Protocol.isBoolean(v) { return } }
             // Context nodes preserve ancestry only; never expose their payload

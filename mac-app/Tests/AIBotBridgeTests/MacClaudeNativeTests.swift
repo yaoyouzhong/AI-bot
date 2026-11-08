@@ -175,6 +175,19 @@ final class MacClaudeNativeTests: XCTestCase {
         }
         let complete = try history(pending + [attachment(files[1], id: UUID().uuidString, parent: first, bytes: photo)])
         XCTAssertEqual(baseline.confirm(complete, scope: "fixture"), message.lowercased())
+        // A stop hook summary can be inserted between the baseline and the
+        // photo prompt after dispatch; it is ancestry, never receipt content.
+        let hook = UUID().uuidString
+        var summary = row("system", id: hook, parent: seed)
+        summary["subtype"] = "stop_hook_summary"
+        summary["content"] = "private hook output"
+        prompt["parentUuid"] = hook
+        let throughHook = try history([initial, summary, prompt, attachment(files[0], id: first, parent: message, bytes: photo),
+                                       attachment(files[1], id: UUID().uuidString, parent: first, bytes: photo)])
+        XCTAssertFalse(throughHook.limited)
+        XCTAssertEqual(baseline.confirm(throughHook, scope: "fixture"), message.lowercased())
+        XCTAssertNil(baseline.confirm(throughHook, scope: "different-scope"))
+        XCTAssertFalse(String(decoding: try JSONSerialization.data(withJSONObject: throughHook.turns), as: UTF8.self).contains("private hook output"))
     }
 
     private struct DirectFixture: MacClaudeDirectSession {

@@ -30,6 +30,31 @@ enum MacTab5ReadAheadValidation {
         now = 0
         try check("clock rollback cannot validate a cache entry",cache.response(key:"device/session/page",read:ok).status == 429)
         jobs.removeFirst()()
+        now = 10; jobs.removeAll()
+        let faster = MacTab5ReadAhead(clock: { now }, freshness: 0.5, schedule: { jobs.append($0) })
+        _ = faster.response(key: "claude", read: ok); jobs.removeFirst()()
+        now += 0.4
+        try check("fresh Claude page avoids a duplicate read", faster.response(key: "claude", read: ok).status == 200 && jobs.isEmpty)
+        now += 0.2
+        try check("Claude page refreshes in background after half a second", faster.response(key: "claude", read: ok).status == 200 && jobs.count == 1)
+        jobs.removeFirst()()
+        try check("refreshed page remains bound to its owner", faster.response(key: "other", read: ok).status == 429)
+        jobs.removeFirst()()
+        // Compare a changing reply at the device's 750 ms cadence. A cached
+        // page stays readable while its replacement is fetched asynchronously.
+        now = 100; var slowJobs: [() -> Void] = [], fastJobs: [() -> Void] = [], reply = "old"
+        let normalCadence = MacTab5ReadAhead(clock: { now }, schedule: { slowJobs.append($0) })
+        let claudeCadence = MacTab5ReadAhead(clock: { now }, freshness: 0.5, schedule: { fastJobs.append($0) })
+        let changing = { MacTab5RPCResult(200, ["text": reply]) }
+        _ = normalCadence.response(key: "same", read: changing); slowJobs.removeFirst()()
+        _ = claudeCadence.response(key: "same", read: changing); fastJobs.removeFirst()()
+        reply = "new"; now += 0.75
+        try check("old threshold defers refresh at 750 ms", normalCadence.response(key: "same", read: changing).body["text"] as? String == "old" && slowJobs.isEmpty)
+        try check("Claude schedules a refresh at 750 ms", claudeCadence.response(key: "same", read: changing).body["text"] as? String == "old" && fastJobs.count == 1)
+        fastJobs.removeFirst()(); now += 0.75
+        try check("next Claude poll returns updated reply", claudeCadence.response(key: "same", read: changing).body["text"] as? String == "new")
+        try check("normal threshold still returns old page before its refresh finishes", normalCadence.response(key: "same", read: changing).body["text"] as? String == "old" && slowJobs.count == 1)
+        slowJobs.removeFirst()()
         let entered = DispatchSemaphore(value:0), release = DispatchSemaphore(value:0)
         let async = MacTab5ReadAhead()
         defer { release.signal() }

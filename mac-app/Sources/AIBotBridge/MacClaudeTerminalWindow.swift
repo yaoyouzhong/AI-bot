@@ -63,24 +63,13 @@ final class MacClaudeTerminalWindow: MacClaudeQueueReceiptSession {
     }
 
     // Resolve by TTY, never by title. Enumerate before selecting so duplicate
-    // matches cannot produce an input action.
+    // matches cannot produce an input action. Terminal can expose a stale
+    // window reference that no longer resolves; skip only that missing object,
+    // and still fail closed on any other window or tab read error.
     private func locate(activate: Bool) throws -> String {
         guard MacClaudeWindowPermissions.automation(host, request: false) == noErr,
               let bundle = host.bundleIdentifier else { throw MacTab5Error.unavailable }
-        let scan = """
-        repeat with w in windows
-            set tabIndex to 0
-            repeat with t in tabs of w
-                set tabIndex to tabIndex + 1
-                if tty of t is "\(tty)" then
-                    set hits to hits + 1
-                    set targetTab to contents of t
-                    set targetWindow to contents of w
-                    set targetID to (id of w as text) & "/" & (tabIndex as text)
-                end if
-            end repeat
-        end repeat
-        """
+        let scan = Self.scanScript(tty: tty)
         let select = """
         set selected of targetTab to true
         set index of targetWindow to 1
@@ -99,6 +88,32 @@ final class MacClaudeTerminalWindow: MacClaudeQueueReceiptSession {
         end timeout
         """
         return try Self.script(script)
+    }
+
+    static func scanScript(tty: String) -> String {
+        return """
+        repeat with w in windows
+            set windowExists to true
+            try
+                set windowID to id of w
+            on error number errorCode
+                if errorCode is not -1728 then error number errorCode
+                set windowExists to false
+            end try
+            if windowExists then
+                set tabIndex to 0
+                repeat with t in tabs of w
+                    set tabIndex to tabIndex + 1
+                    if tty of t is "\(tty)" then
+                        set hits to hits + 1
+                        set targetTab to contents of t
+                        set targetWindow to contents of w
+                        set targetID to (windowID as text) & "/" & (tabIndex as text)
+                    end if
+                end repeat
+            end if
+        end repeat
+        """
     }
 
     private static func script(_ source: String) throws -> String {

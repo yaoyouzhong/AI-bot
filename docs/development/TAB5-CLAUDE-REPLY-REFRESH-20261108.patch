@@ -1,0 +1,77 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2001,6 +2001,14 @@
+     codex_navigation_start();
+ }
+ static void codex_reply_open(lv_event_t *e) {codex_reply_open_turn(e,NULL);}
++// A visible, actively generating Claude reply benefits from a shorter poll.
++// Completed, hidden, unknown and history views keep the existing cadence.
++static int codex_success_read_interval(bool running) {
++    if(codex_reply_selected[0]&&!codex_reply_follow)return 15000;
++    if(workspace_client&&codex_reply_follow&&running&&codex_reply_overlay&&
++       !lv_obj_has_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN))return 750;
++    return 3000;
++}
+ static void codex_read_finish(int64_t now) {
+     if(codex_reading) {
+         char read_status[96];int read_code=codex_remote_status(codex_read_task,read_status,sizeof(read_status));
+@@ -2034,6 +2042,8 @@
+                 else if(read_code==200) {
+                     codex_showing_cache=false;codex_refresh_wait_at=0;
+                     codex_nav_pending=false;
++                    bool running=direct&&!strcmp(text(direct,"taskId"),codex_selected)&&
++                        !strcmp(text(item(direct,"replyView"),"state"),"inProgress");
+                     if(direct&&!strcmp(text(direct,"taskId"),codex_selected)) {
+                         cJSON_Delete(codex_inline_reply);codex_inline_reply=direct;direct=NULL;codex_turn_pending=false;
+                         if(!codex_reply_follow)snprintf(codex_reply_selected,sizeof(codex_reply_selected),"%s",text(item(codex_inline_reply,"replyView"),"turnId"));
+@@ -2041,7 +2051,7 @@
+                     cJSON_Delete(direct);codex_turn_offset=0;render_codex();
+                     // Start the refresh interval after completion. A slow BLE
+                     // read must not immediately trigger another read on stale state.
+-                    codex_read_next=now+(codex_reply_selected[0]&&!codex_reply_follow?15000:3000);
++                    codex_read_next=now+codex_success_read_interval(running);
+                 }else {
+                     cJSON_Delete(direct);
+                     if(!codex_refresh_wait_at)codex_refresh_wait_at=now;
+--- a/tests/ui-preview/reply_open_state_test.h
++++ b/tests/ui-preview/reply_open_state_test.h
+@@ -78,3 +78,29 @@
+     assert(preview_submit_count==sends);
+     puts("REPLY_OPEN_STATE_OK both clients; cached completion; direct receipt preservation; history/date/page; cold read; delayed readiness; failed refresh; recovery; timeout/reopen; zero sends");
+ }
++
++static void check_claude_reply_refresh_rate(void) {
++    reply_open_state_setup(1);
++    codex_open_latest=true;codex_reply_open(NULL);
++    preview_usb_connected=true;last_received=preview_now_us/1000;
++    preview_result_code=-1;codex_reply_refresh(NULL);assert(codex_reading);
++    preview_read_view=cJSON_Parse("{\"taskId\":\"11111111-1111-4111-8111-111111111111\",\"receipt\":\"运行中\",\"text\":\"正在生成的公开回复\",\"replyView\":{\"taskId\":\"11111111-1111-4111-8111-111111111111\",\"turnId\":\"running-turn\",\"state\":\"inProgress\",\"page\":0,\"pageCount\":1,\"history\":false,\"hasText\":true}}");
++    preview_result_code=200;codex_read_finish(1000);
++    assert(codex_read_next==1750&&!strcmp(lv_label_get_text(codex_reply_text),"正在生成的公开回复"));
++    capture("claude-fast-running-reply");
++    assert(codex_success_read_interval(false)==3000);
++    lv_obj_add_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN);assert(codex_success_read_interval(true)==3000);
++    lv_obj_remove_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN);
++    workspace_client=0;assert(codex_success_read_interval(true)==3000);workspace_client=1;
++    snprintf(codex_reply_selected,sizeof(codex_reply_selected),"older-turn");codex_reply_follow=false;
++    assert(codex_success_read_interval(true)==15000);
++    codex_reply_selected[0]=0;codex_reply_follow=true;
++    preview_result_code=-1;codex_reply_refresh(NULL);assert(codex_reading);
++    preview_read_view=cJSON_Parse("{\"taskId\":\"11111111-1111-4111-8111-111111111111\",\"receipt\":\"已完成\",\"text\":\"最终公开回复\",\"replyView\":{\"taskId\":\"11111111-1111-4111-8111-111111111111\",\"turnId\":\"running-turn\",\"state\":\"completed\",\"page\":0,\"pageCount\":1,\"history\":false,\"hasText\":true}}");
++    preview_result_code=200;codex_read_finish(2000);
++    assert(codex_read_next==5000&&!strcmp(lv_label_get_text(codex_reply_text),"最终公开回复"));
++    capture("claude-fast-completed-reply");
++    preview_result_code=-1;codex_reply_refresh(NULL);assert(codex_reading);
++    preview_result_code=429;codex_read_finish(3000);assert(codex_read_next==3200);
++    puts("CLAUDE_REPLY_RATE_OK running=750 completed=3000 history=15000 hidden=3000 codex=3000 retry429=200");
++}
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2154,6 +2154,7 @@
+         }
+         return 0;
+     }
++    if(getenv("TAB5_CLAUDE_REPLY_RATE_ONLY")){check_claude_reply_refresh_rate();return 0;}
+     if(getenv("TAB5_REPLY_OPEN_STATE_ONLY")){check_reply_open_state();return 0;}
+     if(getenv("TAB5_WORKSPACE_CONTROLS_ONLY")){check_workspace_controls();return 0;}
+     if(getenv("TAB5_SESSION_SOURCE_ONLY")){check_session_source();return 0;}

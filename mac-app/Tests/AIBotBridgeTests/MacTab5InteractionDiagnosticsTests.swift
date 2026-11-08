@@ -2,6 +2,27 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5InteractionDiagnosticsTests: XCTestCase {
+    func testNativeRejectionUsesFixedReasonWithoutRecordingUntrustedDetails() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let local = MacTab5LocalDiagnostics(directory: directory)
+        let diagnostics = MacTab5InteractionDiagnostics(clock: { 1 })
+        diagnostics.localDiagnostics = local
+        let id = diagnostics.begin(kind: "codex", operation: "send", transport: "USB")
+        diagnostics.finish(id, status: 409, body: ["error":"native_input_unavailable", "message":"private"])
+        local.waitUntilIdle()
+        XCTAssertTrue(diagnostics.summary.contains("未确认"))
+        let file = directory.appendingPathComponent("tab5-desktop-diagnostics.json")
+        let record = try XCTUnwrap(try JSONSerialization.jsonObject(with:Data(contentsOf:file)) as? [String:[String:Any]])
+        XCTAssertEqual(record["request"]?["detail"] as? String, "native_input_unavailable")
+        XCTAssertFalse(String(decoding:try Data(contentsOf:file),as:UTF8.self).contains("private"))
+        let another = diagnostics.begin(kind: "codex", operation: "send", transport: "USB")
+        diagnostics.finish(another, status: 409, body: ["error":"private payload"])
+        local.waitUntilIdle()
+        XCTAssertFalse(diagnostics.summary.contains("private payload"))
+        let updated = try XCTUnwrap(try JSONSerialization.jsonObject(with:Data(contentsOf:file)) as? [String:[String:Any]])
+        XCTAssertEqual(updated["request"]?["detail"] as? String, "unclassified")
+    }
     func testDeviceDisplayCountersSurvivePartialAcknowledgements() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

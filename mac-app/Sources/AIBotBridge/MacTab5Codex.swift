@@ -7,7 +7,7 @@ final class MacTab5Codex {
     typealias CatalogNames = (Set<String>) -> [String: String]?
     private let gate = NSLock(), stateLock = NSLock(), journalGate = NSLock()
     private let queue = DispatchQueue(label: "AI-bot.tab5-codex")
-    private let deviceReads = MacTab5ReadAhead()
+    private let deviceReads: MacTab5ReadAhead
     private let desktopReads: MacCodexReadState
     private let call: Call, enabled: () -> Bool, sendEnabled: () -> Bool, mutable: () -> Bool
     private let mutationAllowed: () -> Bool
@@ -54,6 +54,7 @@ final class MacTab5Codex {
 
     init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, desktop: MacCodexDesktopIPC? = nil, controlMonitor: MacTab5LiveControl? = nil, catalogNames: CatalogNames? = nil, call: Call? = nil, taskPins: MacTaskPins? = nil, readState: MacCodexReadState? = nil, taskActivity: MacTaskActivity? = nil, provider: String = "Codex") {
         self.provider = provider
+        self.deviceReads = MacTab5ReadAhead(freshness: provider == "Claude" ? 0.5 : 1)
         self.desktopReads = readState ?? MacCodexReadState(load: call == nil ? { MacCodexReadState.local() } : { nil }, clock: clock)
         self.taskPins = taskPins ?? (call == nil ? .shared : nil)
         self.taskActivity = taskActivity ?? (call == nil ? .shared : nil)

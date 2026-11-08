@@ -8,6 +8,45 @@ final class MacClaudeTerminalWindowTests: XCTestCase {
         try XCTUnwrap(MacClaudeWindowComposer(([rule] + rows + [rule]).joined(separator: "\n")))
     }
 
+    func testScannerSkipsMissingWindowButFailsClosedOnUnreadableTabs() throws {
+        func scan(_ windowList: String) throws -> String {
+            let source = """
+            script tabOne
+                property tty : "/dev/fixture"
+            end script
+            script good
+                property id : 42
+                property tabs : {tabOne}
+            end script
+            script secondWindow
+                property id : 43
+                property tabs : {tabOne}
+            end script
+            script missingWindow
+            end script
+            script unreadableTabs
+                property id : 44
+            end script
+            set fixtureWindows to \(windowList)
+            set hits to 0
+            set targetID to ""
+            try
+                \(MacClaudeTerminalWindow.scanScript(tty: "/dev/fixture").replacingOccurrences(of: "repeat with w in windows", with: "repeat with w in fixtureWindows").replacingOccurrences(of: "set windowID to id of w", with: "if contents of w is missingWindow then error number -1728\nset windowID to id of w"))
+                return (hits as text) & ":" & targetID
+            on error number n
+                return "error:" & (n as text)
+            end try
+            """
+            var error: NSDictionary?
+            let result = NSAppleScript(source: source)?.executeAndReturnError(&error).stringValue
+            XCTAssertNil(error)
+            return try XCTUnwrap(result)
+        }
+        XCTAssertEqual(try scan("{missingWindow, good}"), "1:42/1")
+        XCTAssertEqual(try scan("{good, secondWindow}"), "2:43/1")
+        XCTAssertEqual(try scan("{good, unreadableTabs}"), "error:-1708")
+    }
+
     func testComposerRequiresCompleteInputRegion() throws {
         XCTAssertTrue(try composer(["❯ "]).empty)
         XCTAssertFalse(try composer(["❯ user draft"]).empty)
@@ -92,8 +131,8 @@ final class MacClaudeTerminalWindowTests: XCTestCase {
         XCTAssertEqual(retries, 0)
     }
 
-    // Explicitly enabled only after the user opens the disposable native
-    // session in a terminal. No production account or USB is used here.
+    // Explicitly enabled only for the disposable native terminal fixture.
+    // No production account or USB is used here.
     func testExistingWindowFixture() throws {
         guard let folder = ProcessInfo.processInfo.environment["AIBOT_WINDOW_FIXTURE"] else {
             throw XCTSkip("Requires the dedicated ordinary terminal window fixture")
