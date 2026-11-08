@@ -73,6 +73,29 @@ final class MacClientCompanionAlignmentTests: XCTestCase {
         XCTAssertEqual(codex.latest["codex"],before)
     }
 
+    func testLongRunningCodexRemainsActiveWhileSameSessionReportsTokens() throws {
+        let home=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder=home.appendingPathComponent(".codex/sessions/test")
+        try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
+        defer { try? FileManager.default.removeItem(at:home) }
+        let now=Calendar.current.startOfDay(for:Date()).addingTimeInterval(12*3600)
+        func row(_ seconds:Double,_ payload:[String:Any]) throws -> String {
+            let object:[String:Any] = ["timestamp":ISO8601DateFormatter().string(from:now.addingTimeInterval(seconds)),"payload":payload]
+            return String(decoding:try JSONSerialization.data(withJSONObject:object),as:UTF8.self)+"\n"
+        }
+        let start=try row(-1800,["type":"task_started"])
+        let token=try row(-5,["type":"token_count","info":["total_token_usage":["total_tokens":123]]])
+        let file=folder.appendingPathComponent("session.jsonl")
+        try (start+token).write(to:file,atomically:true,encoding:.utf8)
+        let running=MacActivityMetadata(home:home).capture(now:now)
+        XCTAssertEqual(running.codex.state,"working")
+        XCTAssertEqual(running.codex.ageSeconds,5)
+        XCTAssertEqual(running.codex.tokensToday,123)
+        let end=try row(-1700,["type":"task_complete"])
+        try (start+end+token).write(to:file,atomically:true,encoding:.utf8)
+        XCTAssertEqual(MacActivityMetadata(home:home).capture(now:now).codex.state,"offline")
+    }
+
     func testRealProviderTimestampSurvivesTab5WireAndESPCompactExcludesIt() throws {
         let now = Date(), earlier = Int64(now.timeIntervalSince1970) - 13
         let state = ToolState(state:"working",ageSeconds:13)

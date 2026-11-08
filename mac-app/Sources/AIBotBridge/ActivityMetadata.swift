@@ -179,7 +179,14 @@ final class MacActivityMetadata {
                 guard let value = cache[file] else { continue }
                 for (provider, count) in value.usage { usage[provider, default:0] += count }
                 for (provider, date) in value.latest { latest[provider] = max(latest[provider] ?? .distantPast, date) }
-                if codex, value.eventAt > newest { newest = value.eventAt; codexState = value.state }
+                if codex {
+                    // Long-running tasks can emit token updates long after the
+                    // start event. Only that same still-running session may
+                    // renew its activity time; a completed task cannot.
+                    let at = value.state == "working" && value.eventAt != .distantPast
+                        ? max(value.eventAt,value.latest["codex"] ?? .distantPast) : value.eventAt
+                    if at > newest { newest = at; codexState = value.state }
+                }
                 if !codex && !file.pathComponents.contains("subagents") { claudeAt = max(claudeAt, value.clientAt) }
                 completion = max(completion, value.completed)
             }
