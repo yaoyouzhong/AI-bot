@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Centralize required system permissions in session settings while protecting desktop drafts, checking the target and never replaying uncertain delivery. Signed-bundle, terminal-specific and TAB5 hardware results are tracked separately; this is not a release.
 - Keep Codex overview activity current during long-running tasks and preserve drafts when the first window keystroke cannot be posted. Isolated Terminal tests over USB, Wi-Fi and Bluetooth and remaining page issues are recorded separately.
 - Stabilize TAB5 follow-up receipt checking and repaint stale conversation snapshots when page animation ends. Restore input after confirmed delivery; preserve the original draft and never resend an uncertain request.
+- Continue checking the original receipt at a low rate after the first three checks for long-running tasks, with backoff when the connection is unavailable.
 
 ## 0.6.18 - 2026-11-05
 

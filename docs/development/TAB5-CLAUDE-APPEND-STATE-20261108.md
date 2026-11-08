@@ -1,5 +1,7 @@
 # TAB5 追加状态与页面刷新（2026-11-08）
 
+后续长任务补测发现前三次核对结束后不再自动查询，已在[补测记录](TAB5-CLAUDE-LONG-APPEND-20261108.md)中修复并登记新的设备候选及无线验收；本文保留当时的候选与结果。
+
 ## 范围和源码
 
 - Mac 与 TAB5 联调，Windows 不变，协议未变。iTerm2、VS Code 仍按用户要求暂缓。基线为 [上一次 Mac Terminal 验收记录](MAC-TERMINAL-ACCEPTANCE-20261108.md)中已安装的 TAB5 `0.2.318-ui` 候选 `858fb5c5f3fab2e51494aad99c9b1bc270159b43a9ccfa677b5770566154ca7d`。
