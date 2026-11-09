@@ -9,6 +9,11 @@ final class MacClaudeTerminalWindowTests: XCTestCase {
         try XCTUnwrap(MacClaudeWindowComposer(([rule] + rows + [rule]).joined(separator: "\n")))
     }
 
+    func testNativePatchVersionDoesNotWidenIDEOrUnknownVersionSupport() {
+        XCTAssertTrue(MacClaudeNativeClient.supportsVersion("2.1.319", entrypoint: "cli"))
+        XCTAssertFalse(MacClaudeNativeClient.supportsVersion("2.1.319", entrypoint: "claude-vscode"))
+        XCTAssertFalse(MacClaudeNativeClient.supportsVersion("2.1.320", entrypoint: "cli"))
+    }
     func testTerminalSuggestionDoesNotConsumeAnIdenticalRealDraft() throws {
         final class Delegate: TerminalDelegate {
             func send(source: Terminal, data: ArraySlice<UInt8>) {}

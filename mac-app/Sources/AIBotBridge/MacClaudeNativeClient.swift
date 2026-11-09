@@ -40,6 +40,13 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
         return url.lastPathComponent == "claude" ||
             url.lastPathComponent == version && url.deletingLastPathComponent().lastPathComponent == "versions"
     }
+    static func supportsVersion(_ version: String, entrypoint: String) -> Bool {
+        switch entrypoint {
+        case "cli": return version == "2.1.314" || MacClaudeTerminalRegistration.supportedVersions.contains(version)
+        case "claude-vscode": return ["2.1.314", "2.1.318"].contains(version)
+        default: return false
+        }
+    }
     private static func metadata(_ file:URL) throws -> [String:Any] {
         let info=try file.resourceValues(forKeys:[.isRegularFileKey,.isSymbolicLinkKey,.fileSizeKey])
         guard info.isRegularFile==true,info.isSymbolicLink != true,(info.fileSize ?? 20000)<16384 else { throw MacTab5Error.unconfirmed }
@@ -62,8 +69,8 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
             guard matches.count==1,let (record,row)=matches.first,let rawPid=row["pid"] as? Int,let pid=Int32(exactly:rawPid),pid>0,
                   Int32(record.deletingPathExtension().lastPathComponent)==pid,row["kind"] as? String=="interactive",
                   let entry=row["entrypoint"] as? String,["cli","claude-vscode"].contains(entry),
-                  ["2.1.314","2.1.318"].contains(row["version"] as? String ?? ""),let registeredAt=row["startedAt"] as? Double,
-                  executable(pid, version: row["version"] as? String ?? "") else { return nil }
+                  let version = row["version"] as? String, supportsVersion(version, entrypoint: entry),
+                  let registeredAt=row["startedAt"] as? Double, executable(pid, version: version) else { return nil }
             let info = try process(pid), start = fingerprint(info)
             guard info.pbi_uid == getuid(), validStart(Double(info.pbi_start_tvsec), registeredAt: registeredAt) else { return nil }
             var parent=pid,app:NSRunningApplication?
@@ -89,7 +96,8 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
     func state() throws -> String {
         let row=try Self.metadata(record)
         guard !host.isTerminated,UUID(uuidString:row["sessionId"] as? String ?? "")==session,row["startedAt"] as? Double==registeredAt,row["entrypoint"] as? String==entrypoint,
-              row["pid"] as? Int==Int(pid),row["kind"] as? String=="interactive",["2.1.314","2.1.318"].contains(row["version"] as? String ?? ""),
+              row["pid"] as? Int==Int(pid),row["kind"] as? String=="interactive",
+              Self.supportsVersion(row["version"] as? String ?? "", entrypoint: entrypoint),
               Self.fingerprint(try Self.process(pid))==start,Self.fingerprint(try Self.process(host.processIdentifier))==hostStart else {throw MacTab5Error.unconfirmed}
         return row["status"] as? String ?? "unknown"
     }

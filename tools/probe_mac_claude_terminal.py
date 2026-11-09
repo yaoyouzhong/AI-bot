@@ -50,7 +50,7 @@ class InteractiveModel(Model):
 def probe(root, api, terminal_program):
     cli = shutil.which("claude")
     if sys.platform != "darwin" or not cli:
-        raise RuntimeError("macOS and native Claude Code 2.1.318 are required")
+        raise RuntimeError("macOS and native Claude Code 2.1.318 or 2.1.319 are required")
     profile = '(version 1)(allow default)(deny network-outbound (remote ip "*:*"))(allow network-outbound (remote ip "localhost:*"))'
     cfg, cwd = (root / p for p in ("cfg", "project"))
     for directory in (cfg, cwd):

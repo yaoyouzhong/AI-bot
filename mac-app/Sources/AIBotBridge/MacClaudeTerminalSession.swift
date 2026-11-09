@@ -41,7 +41,7 @@ struct MacClaudeTerminalRegistration: Codable {
     let newSession: Bool
 
     static let directory = URL(fileURLWithPath: "/private/tmp/aibot-claude-tty-\(getuid())", isDirectory: true)
-    static let version = "2.1.318"
+    static let supportedVersions: Set<String> = ["2.1.318", "2.1.319"]
     static let defaultConfig = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
 
     static func privateDirectory(_ path: URL) -> Bool {
@@ -92,7 +92,7 @@ struct MacClaudeTerminalRegistration: Codable {
         }
         guard matching.count == 1, let (process, info, row) = matching.first,
               process.executable == executable, row["kind"] as? String == "interactive",
-              row["entrypoint"] as? String == "cli", row["version"] as? String == Self.version,
+              row["entrypoint"] as? String == "cli", Self.supportedVersions.contains(row["version"] as? String ?? ""),
               MacClaudeTerminalProcess.child(process.pid, of: child),
               info.pbi_pgid > 0, info.e_tpgid == info.pbi_pgid,
               let state = row["status"] as? String else { return nil }
