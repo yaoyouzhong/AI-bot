@@ -14,15 +14,39 @@ internal static class ClaudeNativeConsole
 {
     internal static void Run() {
         using var output=Console.OpenStandardOutput();
+        using var input=new StreamReader(Console.OpenStandardInput(),Encoding.UTF8);
+        (Guid Session,string Scope)? binding=null;
+        // One bounded worker per send. Every command still attaches afresh and
+        // verifies identity, console ownership, raw mode and the exact snapshot.
+        for(int i=0;i<64;i++){
+            string? raw;
+            try{raw=input.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(15)).GetAwaiter().GetResult();}
+            catch(TimeoutException){return;}
+            if(raw is null)return;
+            RunCommand(raw,output,ref binding);
+            output.Flush();
+            if(Environment.ExitCode!=0)return; // Never continue after uncertain input.
+        }
+    }
+    private static void RunCommand(string raw,Stream output,ref (Guid Session,string Scope)? binding) {
         string stage="profile";
         try {
             AppProfileGuard.EnsureDesktopProfile();
-            string raw=Console.ReadLine()??"";if(raw.Length>16000)throw new IOException("Invalid native request");
+            if(raw.Length>16000)throw new IOException("Invalid native request");
             var ticket=JsonSerializer.Deserialize<ClaudeNativeTerminal.Ticket>(raw)??throw new IOException("Invalid native request");
             stage="identity";
+            if(binding is {} original&&(original.Session!=ticket.Session||original.Scope!=ticket.Scope))throw new IOException("Native terminal changed");
+            binding??=(ticket.Session,ticket.Scope);
             var native=ClaudeNativeTerminal.Find(ticket.Session)??throw new IOException("Native terminal unavailable");
             void Identity(){if(native.Scope()!=ticket.Scope||native.State is not ("idle" or "busy" or "working"))throw new IOException("Native terminal changed");}
-            Identity();stage="integrity";if(Integrity((uint)native.Pid)!=Integrity((uint)Environment.ProcessId))throw new IOException("Native terminal integrity differs");
+            Identity();stage="integrity";
+            using(var target=Process.GetProcessById(native.Pid))using(var self=Process.GetCurrentProcess()){
+                if(!ClaudeConsoleOwners.CanAccess(Integrity((uint)self.Id),Integrity((uint)target.Id))||
+                    target.SessionId!=self.SessionId||BridgeElevation.ProcessSid(target)!=BridgeElevation.Owner)
+                    throw new IOException("Native terminal identity or integrity differs");
+            }
+            stage="probe_lock";
+            using var consoleLease=ClaudeConsoleLease.Acquire(ticket.Scope);
             stage="attach";
             FreeConsole();if(!AttachConsole((uint)native.Pid))throw new Win32Exception(Marshal.GetLastWin32Error());
             try {
@@ -39,7 +63,7 @@ internal static class ClaudeNativeConsole
                     if(!GetConsoleMode(input,out uint mode)||(mode&7)!=0)throw new IOException("Native raw input unavailable");
                     if(exclusive){
                         uint owners=GetConsoleProcessList(pids,128);
-                        if(owners!=2||!pids.Take(2).Contains((uint)native.Pid)||!pids.Take(2).Contains((uint)Environment.ProcessId))
+                        if(owners>128||!ClaudeConsoleOwners.Matches(pids.Take((int)owners).ToArray(),native.Pid))
                             throw new IOException("Native console is shared");
                     }
                 }
@@ -126,57 +150,104 @@ internal static class ClaudeNativeConsole
                 "Native snapshot changed"=>"snapshot",
                 "Native modifier active"=>"modifier",
                 "Native turn changed"=>"turn",
+                "Native console is shared"=>"owners",
+                "Native console owners changed"=>"owners",
+                "Native console probe busy"=>"probe_busy",
+                "Native suggestion changed before probe"=>"suggestion_before",
+                "Native suggestion target changed"=>"suggestion_target",
+                "Native suggestion cursor unconfirmed"=>"suggestion_cursor",
+                "Native suggestion insertion unconfirmed"=>"suggestion_insert",
+                "Native suggestion changed before undo"=>"suggestion_undo",
+                "Native suggestion restore unconfirmed"=>"suggestion_restore",
+                "Native suggestion snapshot unconfirmed"=>"suggestion_snapshot",
                 _=>stage
             };
-            output.Write(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new{error="native_console_"+reason+"_unconfirmed"})+"\n"));Environment.ExitCode=1;
+            string failure=e.Message=="Native draft preserved"?"native_console_draft_preserved":"native_console_"+reason+"_unconfirmed";
+            output.Write(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new{error=failure})+"\n"));Environment.ExitCode=1;
         }
     }
     private static void VerifyWrappedSpace(SafeFileHandle input,SafeFileHandle screen,ClaudeNativeTerminal.View before,string expected,Action ready){
         if(!GetConsoleScreenBufferInfo(screen,out var info))throw new IOException("Native console layout unavailable");
         var end=info.Cursor;
         if(end.X!=before.CursorColumn||Snapshot(screen)!=before)throw new IOException("Native input changed");
-        int distance=expected.Length-1;
-        void Move(ushort key){
-            ready();
-            Write(input,Enumerable.Range(0,distance).SelectMany(_=>new[]{Key('\0',key,0x100,true),Key('\0',key,0x100,false)}).ToArray());
-        }
+        int boundary=before.WrappedText.IndexOf('\n');
+        if(boundary<=1)throw new IOException("Native input changed");
+        static int Width(ReadOnlySpan<char> text){int width=0;foreach(char c in text)width+=c>='\u3000'?2:1;return width;}
+        (int X,int Y) Position(int index)=>index<=boundary?(2+Width(expected.AsSpan(0,index)),end.Y-1):
+            (2+Width(expected.AsSpan(boundary+1,index-boundary-1)),end.Y);
         bool At(int x,int y){
-            for(int i=0;i<40;i++){
+            for(int i=0;i<200;i++){
                 if(!GetConsoleScreenBufferInfo(screen,out var current))break;
                 if(current.Cursor.X==x&&current.Cursor.Y==y)return true;
-                Thread.Sleep(25);
+                Thread.Sleep(5);
             }
             return false;
         }
         // In this two-row projection every glyph except the boundary space
         // matches. From the end, N-1 Lefts must leave the caret immediately
         // after the first ASCII glyph. A missing space takes it to column 2.
-        Move(0x25);
-        bool lengthMatches=At(3,end.Y-1);
-        Move(0x27);
-        if(!At(end.X,end.Y)||Snapshot(screen)!=before||!lengthMatches)throw new IOException("Native input changed");
+        if(Position(expected.Length)!=(end.X,end.Y))throw new IOException("Native input changed");
+        int position=expected.Length;
+        bool Move(int destination,ushort key){
+            int direction=Math.Sign(destination-position);
+            while(position!=destination){
+                int next=position+direction*Math.Min(8,Math.Abs(destination-position));
+                // The hidden separator itself has no unambiguous visual caret.
+                while(next==boundary||next==boundary+1)next+=direction;
+                ready();
+                int count=Math.Abs(next-position);
+                Write(input,Enumerable.Range(0,count).SelectMany(_=>new[]{Key('\0',key,0x100,true),Key('\0',key,0x100,false)}).ToArray());
+                var target=Position(next);
+                // Small bursts, each fully consumed before the next burst.
+                // This also proves the movement count without hundreds of
+                // per-character screen refreshes.
+                if(!At(target.X,target.Y))return false;
+                position=next;
+            }
+            return true;
+        }
+        bool lengthMatches=Move(1,0x25)&&At(3,end.Y-1);
+        bool restored=lengthMatches&&Move(expected.Length,0x27);
+        if(!restored||!At(end.X,end.Y)||Snapshot(screen)!=before)throw new IOException("Native input changed");
     }
-    private static void CheckPlaceholder(SafeFileHandle input,SafeFileHandle screen,ClaudeNativeTerminal.View original,Action ready){
+    private static void CheckPlaceholder(SafeFileHandle input,SafeFileHandle screen,ClaudeNativeTerminal.View original,Action ready)=>
+        CheckPlaceholder(original,ready,()=>Snapshot(screen),c=>Write(input,[Key(c,c=='\b'?(ushort)0x08:(ushort)0x5A,0,true),Key(c,c=='\b'?(ushort)0x08:(ushort)0x5A,0,false)]),()=>Environment.TickCount64,Thread.Sleep);
+    internal static void CheckPlaceholder(ClaudeNativeTerminal.View original,Action ready,Func<ClaudeNativeTerminal.View> observe,
+        Action<char> type,Func<long> clock,Action<int> wait){
         // Determine whether the faint suffix is a suggestion or actual text at
         // the start of a draft. Undo only our one proven insertion.
-        ready();if(Snapshot(screen)!=original)throw new IOException("Native input changed");
-        Write(input,[Key('z',0x5A,0,true),Key('z',0x5A,0,false)]);
-        var deadline=Environment.TickCount64+900;ClaudeNativeTerminal.View changed;
-        do{changed=Snapshot(screen);if(changed!=original)break;Thread.Sleep(25);}while(Environment.TickCount64<deadline);
-        if(changed.Target!=original.Target||changed.Images!=0||changed.CursorColumn!=3||
-            changed.Text!="z"&&changed.Text!="z"+original.Text)throw new IOException("Native input changed");
-        ready();if(Snapshot(screen)!=changed)throw new IOException("Native input changed");
-        Write(input,[Key('\b',0x08,0,true),Key('\b',0x08,0,false)]);
-        deadline=Environment.TickCount64+900;
+        ClaudeNativeTerminal.View Stable(long until){
+            ClaudeNativeTerminal.View? previous=null;
+            do{
+                try{var current=observe();if(current==previous)return current;previous=current;}
+                catch(IOException e) when(e.Message is "Native prompt unavailable" or "Native composer boundary unavailable") {previous=null;}
+                wait(25);
+            }while(clock()<until);
+            throw new IOException("Native suggestion snapshot unconfirmed");
+        }
+        // A terminal paints glyphs and the caret separately. Observe a stable
+        // frame before deciding whether our insertion is safe to undo. Never
+        // repeat the insertion or erase an unrecognized intervening edit.
+        ready();if(Stable(clock()+900)!=original)throw new IOException("Native suggestion changed before probe");
+        type('z');
+        var deadline=clock()+900;ClaudeNativeTerminal.View changed;
+        do{changed=Stable(deadline);if(changed!=original)break;wait(25);}while(clock()<deadline);
+        if(changed.Target!=original.Target||changed.Images!=0)throw new IOException("Native suggestion target changed");
+        if(changed.CursorColumn!=3)throw new IOException("Native suggestion cursor unconfirmed");
+        if(changed.Text!="z"&&changed.Text!="z"+original.Text)throw new IOException("Native suggestion insertion unconfirmed");
+        ready();if(Stable(clock()+900)!=changed)throw new IOException("Native suggestion changed before undo");
+        type('\b');
+        deadline=clock()+900;
         do{
-            var restored=Snapshot(screen);
+            var restored=Stable(deadline);
             if(restored==original||restored.Target==original.Target&&restored.Empty){
                 if(changed.Text=="z")return;
+                if(restored==original)throw new IOException("Native draft preserved");
                 break;
             }
-            Thread.Sleep(25);
-        }while(Environment.TickCount64<deadline);
-        throw new IOException("Native input changed");
+            wait(25);
+        }while(clock()<deadline);
+        throw new IOException("Native suggestion restore unconfirmed");
     }
     internal static ClaudeNativeTerminal.View WaitForPaste(ClaudeNativeTerminal.View before,
         Func<ClaudeNativeTerminal.View> observe,Action verify,Func<long> clock,Action<int> wait){
@@ -205,9 +276,16 @@ internal static class ClaudeNativeConsole
         var cells=new Cell[width*height];var rect=new Rect{Left=0,Top=top,Right=(short)(width-1),Bottom=bottom};
         if(!ReadConsoleOutputW(handle,cells,new(){X=(short)width,Y=(short)height},new(),ref rect))throw new IOException("Native console read unavailable");
         string Row(int y){var text=new StringBuilder();for(int x=0;x<width;x++){var c=cells[(y-top)*width+x];if((c.Attributes&0x200)==0)text.Append(c.Character=='\0'?' ':c.Character);}return text.ToString();}
-        bool Dim(int y,int len)=>Enumerable.Range(2,Math.Min(len,width-2)).All(x=>char.IsWhiteSpace(cells[(y-top)*width+x].Character)||(cells[(y-top)*width+x].Attributes&15)==8);
+        // Color attributes belong to display cells, not UTF-16 characters.
+        // Inspect the whole suffix so wide Chinese glyphs cannot hide a
+        // normally colored tail beyond the text's shorter character count.
+        bool Dim(int y,int _)=>DimSuffix(Enumerable.Range(2,width-2).Select(x=>{
+            var cell=cells[(y-top)*width+x];return(cell.Character,cell.Attributes);
+        }));
         return ParseRows(Row,Dim,top,bottom,info.Cursor.Y,info.Cursor.X,GetConsoleWindow()+":"+width);
     }
+    internal static bool DimSuffix(IEnumerable<(char Character,ushort Attributes)> cells)=>cells.All(cell=>
+        cell.Character=='\0'||char.IsWhiteSpace(cell.Character)||(cell.Attributes&0x200)!=0||(cell.Attributes&15)==8);
     internal static ClaudeNativeTerminal.View ParseRows(Func<int,string> Row,Func<int,int,bool> gray,int top,int bottom,int cursorY,int cursorX,string target){
         static bool Divider(string row){string v=row.TrimEnd();return v.Length>=8&&v.All(c=>c is '─' or '━' or ' ');}
         int first=cursorY;
@@ -231,8 +309,14 @@ internal static class ClaudeNativeConsole
         if(!border)throw new IOException("Native composer boundary unavailable");
         int images=Regex.Matches(value,@"\[Image #\d+\]").Count;
         string text=images>0?Regex.Replace(value,@"\[Image #\d+\] ?",""):value;
-        bool candidate=first==cursorY&&cursorX==2&&images==0&&text.StartsWith("Try ",StringComparison.Ordinal);
-        return new(text,images,target,text.Length==0&&images==0&&first==cursorY&&cursorX==2,cursorX,candidate&&gray(first,value.Length),candidate,string.Join('\n',rows));
+        bool dim=first==cursorY&&text.Length>0&&gray(first,value.Length);
+        // Generated suggestions can use any language. ConPTY's legacy cell
+        // attributes also lose SGR 2 faint styling, so neither color nor an
+        // English prefix identifies editable input. This remains a candidate,
+        // never Empty: CheckPlaceholder proves and undoes its single insertion
+        // before staging the message, or reports a fully restored real draft.
+        bool candidate=first==cursorY&&cursorX==2&&images==0&&text.Length>0;
+        return new(text,images,target,text.Length==0&&images==0&&first==cursorY&&cursorX==2,cursorX,candidate&&dim,candidate,string.Join('\n',rows));
     }
     private sealed class ClipboardImage:IDisposable {
         private readonly DataObject _previous=new();
@@ -283,7 +367,7 @@ internal static class ClaudeNativeConsole
     }
     private static void Write(SafeFileHandle input,InputRecord[] keys){if(keys.Length>0&&(!WriteConsoleInputW(input,keys,(uint)keys.Length,out uint written)||written!=keys.Length))throw new IOException("Native input uncertain");}
     private static InputRecord Key(char character,ushort vk,uint flags,bool down)=>new(){Type=1,Down=down?1:0,Repeat=1,Vk=vk,Character=character,Flags=flags};
-    private static int Integrity(uint pid){
+    internal static int Integrity(uint pid){
         nint p=OpenProcess(0x1000,false,pid);if(p==0)throw new IOException("Native process unavailable");
         try{if(!OpenProcessToken(p,8,out var token))throw new IOException("Native token unavailable");try{GetTokenInformation(token,25,0,0,out uint size);nint b=Marshal.AllocHGlobal((int)size);try{if(!GetTokenInformation(token,25,b,size,out _))throw new IOException("Native token unavailable");nint sid=Marshal.ReadIntPtr(b);return Marshal.ReadInt32(GetSidSubAuthority(sid,(uint)(Marshal.ReadByte(GetSidSubAuthorityCount(sid))-1)));}finally{Marshal.FreeHGlobal(b);}}finally{CloseHandle(token);}}finally{CloseHandle(p);}
     }

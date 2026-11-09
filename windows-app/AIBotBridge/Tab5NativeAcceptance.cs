@@ -313,8 +313,16 @@ internal sealed class Tab5NativeAcceptance : Tab5UsbDiagnostic
         string message=Text(root,"message");var images=Images(root);
         if(op=="draft-save")return (message is "" or "q" or "w" && images.Length==0)||(_freshKeyboard is not null&&message==(_apiRun||_foregroundRun?ApiPrompt:CountPrompt)&&images.Length==0)||(message==PhotoPrompt&&images.SequenceEqual([_image]));
         lock(_gate){
-            if(_armed is not {} step||_request!=null||!step.Matches(op,root)||
-                !Guid.TryParse(Text(root,"requestId"),out var id)||!Original(_session))return false;
+            if(_armed is not {} step||_request!=null)return false;
+            if(!step.Matches(op,root)){
+                // Metadata only, bound to this isolated fixture. Distinguish a
+                // stale device turn from a touch that never produced an RPC.
+                _events.Add(new{step=step.Name,op,status=409,diagnostic="fixture_request_mismatch",
+                    operationMatches=op==step.Operation,messageMatches=Text(root,"message")==step.Text,
+                    turnMatches=Text(root,"expectedTurn")==step.ExpectedTurn,imagesMatch=Images(root).SequenceEqual(step.Images),utc=DateTime.UtcNow});
+                _failure="fixture_request_mismatch";return false;
+            }
+            if(!Guid.TryParse(Text(root,"requestId"),out var id)||!Original(_session))return false;
             // Reserve before native input. Never reissue an uncertain mutation.
             string mark=Attempt(step.Name);
             Directory.CreateDirectory(Path.GetDirectoryName(mark)!);
@@ -358,7 +366,24 @@ internal sealed class Tab5NativeAcceptance : Tab5UsbDiagnostic
     }
     private async Task<string> Submit(Tab5NativeScreen screen,Step step,string button,CancellationToken token,Point? located=null){
         lock(_gate){_armed=step;_request=null;_confirmed=null;_failure=null;}
-        if(located is {} point)await screen.TapLocated(point,token);else await screen.ActionButton(button,token);
+        Point tapped;
+        if(located is {} point){tapped=point;await screen.TapLocated(point,token);}else tapped=await screen.ActionButton(button,token);
+        // Background reply reads temporarily disable the firmware's stop
+        // button without changing its label. A touch acknowledgement alone
+        // therefore does not prove an interrupt request was produced.
+        // Only this isolated diagnostic may repeat the touch, and only while
+        // no request has been reserved. Allows still accepts exactly one
+        // original request before any native input; a late first touch cannot
+        // cause a second interrupt, even if it races the following capture.
+        // Reuse the freshly located, stationary control for this short burst.
+        // Re-capturing the whole screen between touches adds seconds and can
+        // repeatedly align with the next 750 ms background read.
+        if(step.Operation=="interrupt")for(int retry=0;retry<6;retry++){
+            await Task.Delay(200,token);
+            lock(_gate){if(_request is not null||_failure is not null)break;}
+            _evidence["interruptTouchRetries"]=(retry+1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            await screen.TapLocated(tapped,token);
+        }
         await Until(()=>{lock(_gate)return _confirmed!=null;},65,step.Name+"_device_receipt_missing",token);
         lock(_gate){string turn=_confirmed!;_armed=null;_evidence[step.Name]=turn;return turn;}
     }

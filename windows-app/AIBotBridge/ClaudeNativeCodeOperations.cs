@@ -73,15 +73,55 @@ internal sealed partial class ClaudeNativeCode
         if(Held.Any(k=>(GetAsyncKeyState(k)&0x8000)!=0))return new(false,false,null,"desktop_input_active");
         for(int i=0;i<request.Images.Length;i++)Require(ClaudeNativeContent.FileDigest(request.Images[i])==request.ImageDigests[i],"native_image_changed");
         if(!authorized())return new(false,false,null,"unauthorized");
+        long? desktopInput=SystemIdleTime.LastInputTickMilliseconds();
+        bool waitedForForeground=false;
+        async Task<Tab5DesktopActivation.InputAvailability> CheckDesktopAsync(Func<bool>? targetReady=null){
+            var state=Tab5DesktopActivation.ReadInputAvailability();
+            if(!waitedForForeground&&(state==Tab5DesktopActivation.InputAvailability.ForegroundPending||
+                state==Tab5DesktopActivation.InputAvailability.Ready&&targetReady is not null&&!targetReady())){
+                waitedForForeground=true;
+                state=await ClaudeNativeFocusPreparation.WaitForForegroundAsync(Tab5DesktopActivation.ReadInputAvailability,
+                    SystemIdleTime.LastInputTickMilliseconds,desktopInput,authorized,token,targetReady:targetReady);
+            }
+            return state;
+        }
+        ClaudeNativeSend.Result ForegroundFailure(Tab5DesktopActivation.InputAvailability state){
+            string reason=state==Tab5DesktopActivation.InputAvailability.Ready?"TargetNotForeground":state.ToString();
+            Tab5LocalDiagnostics.Write($"CLAUDE_VSCODE_FOCUS blocked={reason} waited={waitedForForeground}");
+            return new(false,false,null,state==Tab5DesktopActivation.InputAvailability.InputActive?"desktop_input_active":"desktop_foreground_unconfirmed");
+        }
+        var desktop=await CheckDesktopAsync();
+        if(desktop!=Tab5DesktopActivation.InputAvailability.Ready)return ForegroundFailure(desktop);
+        if(!await RestoreForInputAsync(first.Window,()=>authorized()&&request.Current(),token))return new(false,false,null,"native_window_restore_unconfirmed");
+        desktop=await CheckDesktopAsync();
+        if(desktop!=Tab5DesktopActivation.InputAvailability.Ready)return ForegroundFailure(desktop);
+        var restored=Read(idle);
+        if(!Same(restored)||!restored.Empty)return new(false,false,null,"composer_changed");
+        if(!authorized()||!request.Current())return new(false,false,null,"turn_changed");
+        if(waitedForForeground&&SystemIdleTime.LastInputTickMilliseconds()!=desktopInput)return ForegroundFailure(Tab5DesktopActivation.InputAvailability.InputActive);
+        first=restored;
         var activation=Tab5DesktopActivation.Raise(first.Window);
+        if(!activation.Foreground&&activation.InputBlocked){
+            // SetForegroundWindow can take effect after its first readback.
+            // Never replay the activation or Alt input; watch this target only.
+            desktop=await CheckDesktopAsync(()=>GetForegroundWindow()==first.Window);
+            if(desktop!=Tab5DesktopActivation.InputAvailability.Ready||GetForegroundWindow()!=first.Window)return ForegroundFailure(desktop);
+            if(SystemIdleTime.LastInputTickMilliseconds()!=desktopInput||desktopInput is null)return ForegroundFailure(Tab5DesktopActivation.InputAvailability.InputActive);
+            var current=Read(idle);
+            if(!Same(current)||!current.Empty)return new(false,false,null,"composer_changed");
+            if(!authorized()||!request.Current())return new(false,false,null,"turn_changed");
+            if(SystemIdleTime.LastInputTickMilliseconds()!=desktopInput)return ForegroundFailure(Tab5DesktopActivation.InputAvailability.InputActive);
+            first=current;
+        }
         if(!activation.Foreground&&!activation.InputBlocked&&!activation.PartialTap){
             for(int i=0;i<6&&GetForegroundWindow()!=first.Window;i++){
                 if(!authorized()||!request.Current()||Held.Any(k=>(GetAsyncKeyState(k)&0x8000)!=0))break;
                 await Task.Delay(50,token);
             }
         }
-        if(GetForegroundWindow()!=first.Window)return new(false,false,null,
-            activation.InputBlocked?"native_foreground_input_blocked":"native_foreground_unconfirmed");
+        if(GetForegroundWindow()!=first.Window)return ForegroundFailure(Tab5DesktopActivation.ReadInputAvailability());
+        desktop=Tab5DesktopActivation.ReadInputAvailability();
+        if(desktop!=Tab5DesktopActivation.InputAvailability.Ready)return ForegroundFailure(desktop);
         // Chromium may acknowledge SetFocus before its webview actually receives
         // keyboard focus. Confirm the same empty composer before sealing a send.
         if(!Focused(first))first.Editor.SetFocus();
@@ -95,7 +135,10 @@ internal sealed partial class ClaudeNativeCode
             if(Focused(current)){focusReady=true;break;}
             if(attempt<9)await Task.Delay(50,token);
         }
-        if(!focusReady)return new(false,false,null,"desktop_foreground_unconfirmed");
+        if(!focusReady){
+            Tab5LocalDiagnostics.Write($"CLAUDE_VSCODE_FOCUS blocked=EditorNotFocused waited={waitedForForeground}");
+            return new(false,false,null,"desktop_foreground_unconfirmed");
+        }
         string[] names=request.Images.Select(Path.GetFileName).Select(n=>n!).ToArray();
         var calls=new ClaudeNativeSend.Calls(
             ()=>{var v=Read(idle);return new(_session,Scope(),string.Join(",",v.Frame.GetRuntimeId()),v.Text,v.Empty,
@@ -117,7 +160,7 @@ internal sealed partial class ClaudeNativeCode
             ()=>{var v=Read(idle);Require(Same(v)&&Focused(v)&&authorized()&&request.Current()&&v.Text==request.Text&&v.Images.SequenceEqual(names)&&v.Button.Current.Name=="Send message"&&v.Button.Current.IsEnabled,"native_composer_changed");
                 // Native VS Code sends typed input to its existing queue while
                 // busy; never invoke the separate Stop control for an append.
-                ((InvokePattern)v.Button.GetCurrentPattern(InvokePattern.Pattern)).Invoke();},history,authorized,dispatch,ct=>Task.Delay(100,ct),request.ImageDigests,request.Current);
+                ((InvokePattern)v.Button.GetCurrentPattern(InvokePattern.Pattern)).Invoke();},history,authorized,dispatch,ct=>Task.Delay(100,ct),request.ImageDigests,request.Current,PreflightAttempts:3);
         return await ClaudeNativeSend.SendAsync(calls,request.Text,token);
     }
     private void TypeText(View expected,string text,Func<bool> current,bool idle){

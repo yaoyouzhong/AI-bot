@@ -65,6 +65,31 @@ internal static class ClaudeHistorySelfTest
             if(fallback.Limited||!fallback.Accepted.SetEquals([nativeUser.ToString(),nextUser.ToString()])||JsonSerializer.Serialize(fallback.Turns).Contains("Excluded"))throw new InvalidOperationException("Native informational link broke ancestry or leaked content");
             AppendLinked("api_error");var retried=ClaudeHistory.Read(root,session,key);
             if(retried.Limited||!retried.Accepted.SetEquals([nativeUser.ToString(),nextUser.ToString()])||JsonSerializer.Serialize(retried.Turns).Contains("Excluded"))throw new InvalidOperationException("Native API retry metadata broke ancestry or leaked content");
+            AppendLinked("stop_hook_summary");var hooked=ClaudeHistory.Read(root,session,key);
+            var beforeHook=ClaudeNativeReceipt.Capture(completed,session,"host-a","Excluded next prompt");
+            if(hooked.Limited||hooked.Turns.Count!=2||JsonSerializer.Serialize(hooked.Turns).Contains("Excluded")||
+                ClaudeNativeReceipt.Observe(hooked,beforeHook,"host-a").Confirm(beforeHook)!=nextUser||
+                ClaudeNativeReceipt.Observe(hooked,beforeHook,"host-b").Confirm(beforeHook)!=null)
+                throw new InvalidOperationException("Stop hook broke exact receipt ancestry, scope or privacy");
+            AppendLinked("local_command");var localCommand=ClaudeHistory.Read(root,session,key);
+            if(localCommand.Limited||localCommand.Turns.Count!=2||JsonSerializer.Serialize(localCommand.Turns).Contains("Excluded")||
+                ClaudeNativeReceipt.Observe(localCommand,beforeHook,"host-a").Confirm(beforeHook)!=nextUser||
+                ClaudeNativeReceipt.Observe(localCommand,beforeHook,"host-b").Confirm(beforeHook)!=null)
+                throw new InvalidOperationException("Local command metadata broke exact receipt ancestry, scope or privacy");
+            foreach(object badLink in new object[]{
+                new{type="system",subtype="stop_hook_summary",uuid=duration,parentUuid=finished,sessionId=Guid.NewGuid()},
+                new{type="system",subtype="stop_hook_summary",uuid=duration,parentUuid=finished,sessionId=session,isSidechain=true},
+                new{type="system",subtype="stop_hook_summary",uuid=duration,parentUuid=Guid.NewGuid(),sessionId=session},
+                new{type="system",subtype="local_command",uuid=duration,parentUuid=finished,sessionId=Guid.NewGuid()},
+                new{type="system",subtype="local_command",uuid=duration,parentUuid=finished,sessionId=session,isSidechain=true},
+                new{type="system",subtype="local_command",uuid=duration,parentUuid=Guid.NewGuid(),sessionId=session},
+                new{type="system",subtype="unknown_subtype",uuid=duration,parentUuid=finished,sessionId=session}
+            }){
+                File.WriteAllText(historyPath,prefix+JsonSerializer.Serialize(badLink)+"\n"+JsonSerializer.Serialize(Row("user",nextUser,duration,"Excluded next prompt"))+"\n");
+                var bad=ClaudeHistory.Read(root,session,key);
+                if(!bad.Limited||ClaudeNativeReceipt.Observe(bad,beforeHook,"host-a").Confirm(beforeHook)!=null)
+                    throw new InvalidOperationException("Invalid hook ancestor confirmed a receipt");
+            }
             Guid retryOne=Guid.NewGuid(),retryTwo=Guid.NewGuid();
             File.WriteAllText(historyPath,JsonSerializer.Serialize(Row("user",nativeUser,null,"Excluded original prompt"))+"\n"+
                 JsonSerializer.Serialize(Link(retryOne,nativeUser,"api_error"))+"\n"+JsonSerializer.Serialize(Link(retryTwo,retryOne,"api_error"))+"\n"+
@@ -102,6 +127,24 @@ internal static class ClaudeHistorySelfTest
             if(ClaudeHistory.Read(root,session,key,backgroundImages:true).InputDigests[nativeUser.ToString()]!=expected)throw new InvalidOperationException("Native terminal image not bound to its user row");
             File.WriteAllText(historyPath,photoUser+ImageRow(Path.Combine(root,"different.png"))+photoReply);
             if(ClaudeHistory.Read(root,session,key,backgroundImages:true).InputDigests[nativeUser.ToString()]==expected)throw new InvalidOperationException("Wrong terminal image counted as delivered");
+            // The hook connects the old baseline to a new photo-bearing input;
+            // only a complete matching image attachment proves delivery.
+            Guid photoHook=Guid.NewGuid(),photoInput=Guid.NewGuid(),photoAttachment=Guid.NewGuid();
+            string baseline=JsonSerializer.Serialize(Row("user",nativeUser,null,"old"))+"\n";
+            File.WriteAllText(historyPath,baseline);
+            var photoBaseline=ClaudeNativeReceipt.Capture(ClaudeHistory.Read(root,session,key,backgroundImages:true),session,"host-a","check",[ClaudeNativeContent.ImageDigest(bytes)]);
+            string photoPrefix=baseline+JsonSerializer.Serialize(Link(photoHook,nativeUser,"stop_hook_summary"))+"\n"+
+                JsonSerializer.Serialize(User(photoInput,photoHook,prompt,imagePrompt))+"\n";
+            string Attachment(string file)=>JsonSerializer.Serialize(new{type="attachment",uuid=photoAttachment,parentUuid=photoInput,sessionId=session,
+                attachment=new{type="file",filename=file,content=new{type="image",file=new{type="image/png",base64=Convert.ToBase64String(bytes)}}}})+"\n";
+            string end=JsonSerializer.Serialize(End(nativeReply,photoAttachment,"text","Blue"))+"\n";
+            File.WriteAllText(historyPath,photoPrefix+Attachment(materialized)+end);
+            var photoHistory=ClaudeHistory.Read(root,session,key,backgroundImages:true);
+            if(ClaudeNativeReceipt.Observe(photoHistory,photoBaseline,"host-a").Confirm(photoBaseline)!=photoInput||JsonSerializer.Serialize(photoHistory.Turns).Contains("Excluded"))
+                throw new InvalidOperationException("Stop hook broke exact photo receipt or leaked content");
+            File.WriteAllText(historyPath,photoPrefix+Attachment(Path.Combine(root,"different.png"))+end);
+            if(ClaudeNativeReceipt.Observe(ClaudeHistory.Read(root,session,key,backgroundImages:true),photoBaseline,"host-a").Confirm(photoBaseline)!=null)
+                throw new InvalidOperationException("Stop hook bypassed photo identity checks");
             Console.WriteLine("CLAUDE_HISTORY_SELF_TEST_OK selected_branch_public_text_opaque_aliases_exact_submission_proof_failed_scan_retention_native_context_links_peer_isolation_public_completion_only");
         }finally{Directory.Delete(root,true);}}
 }

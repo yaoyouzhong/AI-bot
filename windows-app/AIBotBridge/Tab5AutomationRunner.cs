@@ -8,14 +8,46 @@ internal static class Tab5AutomationRunner
 {
     internal sealed record Backend(Func<JsonElement,CancellationToken,Task<Tab5UIAutomation.Result>> Action,
         Func<CancellationToken,Task<Tab5ScreenPreview.Frame>> Capture,
-        Func<CancellationToken,Task<Tab5DisplaySettings>> Settings);
+        Func<CancellationToken,Task<Tab5DisplaySettings>> Settings,Func<CancellationToken,Task> Wake);
+
+    internal sealed class InputActivity(Func<long?> actual,Func<long> clock) {
+        private long _synthetic=-1;
+        internal void Wake()=>Interlocked.Exchange(ref _synthetic,clock());
+        internal long? Read(){
+            long now=clock(),synthetic=Interlocked.Read(ref _synthetic);long? real=actual();
+            if(synthetic<0||synthetic>now)return real;
+            return real is {} value?Math.Max(value,synthetic):synthetic;
+        }
+    }
 
     internal static void Run(string directory,Tab5UsbDiagnostic? suite=null,string? screenCheck=null)
     {
         using var instance=new Mutex(false,@"Local\AIBotBridge.Instance."+System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value);
         bool owned;try{owned=instance.WaitOne(0);}catch(AbandonedMutexException){owned=true;}
         if(!owned)throw new InvalidOperationException("Normally exit the resident bridge before USB diagnostics.");
-        try{RunAsync(Path.GetFullPath(directory),suite,screenCheck).GetAwaiter().GetResult();}finally{instance.ReleaseMutex();}
+        try{
+            if(suite is null&&screenCheck is null)RunWithMessageLoop(()=>RunAsync(Path.GetFullPath(directory),suite,screenCheck));
+            else RunAsync(Path.GetFullPath(directory),suite,screenCheck).GetAwaiter().GetResult();
+        }finally{instance.ReleaseMutex();}
+    }
+    // The voice dispatcher and its timers require a pumping STA even when the
+    // diagnostic host has no window. Blocking this thread strands both the
+    // first async continuation and later voice commands.
+    internal static void RunWithMessageLoop(Func<Task> run)
+    {
+        var previous=SynchronizationContext.Current;
+        using var loop=new ApplicationContext();
+        using var start=new System.Windows.Forms.Timer{Interval=1};
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo? failure=null;
+        start.Tick+=async(_,_)=>{
+            start.Stop();
+            try{await run();}
+            catch(Exception error){failure=System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error);}
+            finally{loop.ExitThread();}
+        };
+        try{start.Start();Application.Run(loop);}
+        finally{SynchronizationContext.SetSynchronizationContext(previous);}
+        failure?.Throw();
     }
     private static async Task RunAsync(string directory,Tab5UsbDiagnostic? suite,string? screenCheck)
     {
@@ -28,7 +60,9 @@ internal static class Tab5AutomationRunner
         using var stop=new CancellationTokenSource(TimeSpan.FromMinutes(10));
         using var runtime=new BridgeRuntime(startRefresh:false);
         var observed=new List<object>();
+        var activity=new InputActivity(SystemIdleTime.LastInputTickMilliseconds,()=>Environment.TickCount64);
         using var service=new Tab5Service(store,acceptance:suite){
+            DiagnosticInputClock=activity.Read,
             ActivitySourceEnabled=device.Sources.Contains("activity"),
             DraftObservation=screenCheck is "prepare" or "sync"?(client,op,task,request,status)=>{
                 lock(observed)if(observed.Count<128)observed.Add(new{client,op,task,request,status});
@@ -73,7 +107,7 @@ internal static class Tab5AutomationRunner
             }
             using var input=new StreamReader(Console.OpenStandardInput(),Encoding.UTF8);
             using var output=new StreamWriter(Console.OpenStandardOutput(),new UTF8Encoding(false)){AutoFlush=true};
-            var backend=new Backend(Action,Capture,t=>ReadSettingsAsync(ct=>service.DisplaySettingsAsync(null,ct),()=>service.Busy,t));
+            var backend=new Backend(Action,Capture,t=>ReadSettingsAsync(ct=>service.DisplaySettingsAsync(null,ct),()=>service.Busy,t),async t=>{activity.Wake();await Task.Delay(1500,t);});
             if(screenCheck is not null){
                 var before=await backend.Settings(stop.Token);
                 var viewport=await Action(JsonSerializer.SerializeToElement(new{op="probe"}),stop.Token);
@@ -127,6 +161,11 @@ internal static class Tab5AutomationRunner
                 if(value.ValueKind!=JsonValueKind.Object||!value.TryGetProperty("op",out var op)||op.ValueKind!=JsonValueKind.String)throw new ArgumentException("Invalid command");
                 string operation=op.GetString()!;
                 if(operation=="stop"){stopped=true;break;}
+                if(operation=="wake"){
+                    await backend.Wake(token);
+                    await Emit(new{status="wake-requested"});
+                    continue;
+                }
                 if(operation=="capture"){
                     string file=value.TryGetProperty("file",out var f)&&f.ValueKind==JsonValueKind.String?f.GetString()!:"";
                     string path=CapturePath(directory,file);

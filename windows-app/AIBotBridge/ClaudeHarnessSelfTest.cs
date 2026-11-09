@@ -24,6 +24,14 @@ internal static class ClaudeHarnessSelfTest
         string marker=Guid.NewGuid().ToString();Directory.CreateDirectory(root);File.WriteAllText(Path.Combine(root,".owned"),marker);
         int checks=0;void Check(bool value,string message){checks++;if(!value)throw new InvalidOperationException(message);}
         try{
+            using(var process=System.Diagnostics.Process.GetCurrentProcess()){
+                string image=Environment.ProcessPath??throw new InvalidOperationException("Process image unavailable");
+                string start=process.StartTime.ToUniversalTime().ToFileTimeUtc().ToString(System.Globalization.CultureInfo.InvariantCulture);
+                Check(ClaudeNativeTerminal.ProcessIdentityMatches(process.Id,image,start),"Live limited-query process identity was not recognized");
+                Check(!ClaudeNativeTerminal.ProcessIdentityMatches(process.Id,image+".other",start)&&
+                    !ClaudeNativeTerminal.ProcessIdentityMatches(process.Id,image,"0")&&
+                    !ClaudeNativeTerminal.ProcessIdentityMatches(int.MaxValue,image,start),"Wrong process image, generation or PID was accepted");
+            }
             Guid sid=Guid.NewGuid();var custom=new ClaudeSessionSource("example.workflow","Example Harness","harness");
             var native=new Session(custom);var adapter=new Adapter(custom,sid,root,native);var registry=new ClaudeHarnessAdapters([adapter]);
             Check(registry.Discover().Single().Id==sid&&registry.LiveSessions().SetEquals([sid])&&ReferenceEquals(registry.Resolve(sid),native),"Custom discovery/identity was not retained");

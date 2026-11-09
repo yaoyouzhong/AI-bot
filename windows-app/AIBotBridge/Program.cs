@@ -8,6 +8,20 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if(args.Length>=2&&args[0]=="--elevated-tray"){
+            if(!BridgeElevation.IsAdministrator||args[1]!=BridgeElevation.Owner){Environment.ExitCode=1;return;}
+            Main(args.Skip(2).ToArray());return;
+        }
+        if(args is ["--self-test-bridge-admin"]){AppPaths.BeginPublicSelfTest();BridgeAdminSelfTest.Run();return;}
+        if(args is ["--inspect-codex-desktop-read"]){BridgeAdminSelfTest.ReadDesktopAsync().GetAwaiter().GetResult();return;}
+        if(args is ["--install-admin-bridge"]){
+            try{Console.WriteLine(JsonSerializer.Serialize(new{path=BridgeInstallation.Configure(),administrator=BridgeElevation.IsAdministrator}));}
+            catch(Exception ex){Console.Error.WriteLine("BRIDGE_ADMIN_INSTALL_FAILED "+ex.GetType().Name+": "+ex.Message);Environment.ExitCode=1;}return;
+        }
+        if(args is ["--remove-admin-bridge"]){
+            if(!BridgeElevation.IsAdministrator){Environment.ExitCode=BridgeElevation.Start(Environment.ProcessPath!,args,true,true);return;}
+            BridgeInstallation.Remove();return;
+        }
         if(args.Length>=1&&ClaudeSessionHost.Vendor(args[0])){
             try{Environment.ExitCode=ClaudeSessionHost.Run(args).GetAwaiter().GetResult();}
             catch(Exception){Environment.ExitCode=2;}
@@ -782,6 +796,10 @@ internal static class Program
 
     private static void RunTray(bool authorizeZhipu = false, bool showTab5 = false, string? otaPath = null,bool showDevices=false)
     {
+        try{if(!BridgeElevation.EnsureTray())return;}
+        catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or System.Runtime.InteropServices.COMException){
+            Console.Error.WriteLine("BRIDGE_ADMIN_START_FAILED "+ex.GetType().Name+": "+ex.Message);Environment.ExitCode=1;return;
+        }
         using var instance = new Mutex(false, @"Local\AIBotBridge.Instance." +
             System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value);
         bool acquired;

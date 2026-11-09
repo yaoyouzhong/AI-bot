@@ -12,8 +12,9 @@ internal sealed class ClaudeSessionApi(Guid session,int childPid,long childStart
     public ClaudeSessionSource Source=>ClaudeSessionSource.VSCode;
     internal Guid Session=>session;
     internal static IEnumerable<ClaudeSessionObservation> NewPanels()=>ClaudeHarnessAdapters.Default.Discover();
-    internal static IEnumerable<ClaudeSessionObservation> NewCodePanels(){
+    internal static IEnumerable<ClaudeSessionObservation> NewCodePanels(IReadOnlySet<Guid>? known=null){
         foreach(var id in ClaudeNativeCode.LiveSessions()){
+            if(known?.Contains(id)==true)continue;
             var api=Find(id);
             if(api is not null&&api.IsFresh()){
                 ClaudeSessionObservation? row=null;
@@ -25,7 +26,7 @@ internal sealed class ClaudeSessionApi(Guid session,int childPid,long childStart
         // Ordinary extension panels do not have a session API wrapper. Keep
         // their verified empty composers discoverable through the native path
         // used by Resolve as well. ClaudeCatalog deduplicates session IDs.
-        foreach(var row in ClaudeNativeCode.NewPanels())yield return row;
+        foreach(var row in ClaudeNativeCode.NewPanels(known))yield return row;
     }
     private int Child=>childPid;
     private long Start=>childStart;

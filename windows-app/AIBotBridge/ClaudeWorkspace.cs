@@ -22,13 +22,15 @@ internal sealed partial class ClaudeWorkspace:IDisposable
     private readonly Dictionary<string,(string Device,string Task,string Turn)> _readReceipts=[];
     private readonly Dictionary<string,object> _responses=[];
     private readonly Dictionary<string,string> _receipts=[];
-    private object? _view,_control,_draft;private string? _viewTask,_draftDevice;
-    private readonly System.Threading.Timer _timer;private long _catalogAt;private byte[]? _key;private bool _disposed;
+    private object? _view,_control,_draft;private string? _viewTask,_draftDevice,_draftTask;
+    private readonly System.Threading.Timer _timer;private long _catalogAt;private byte[]? _key;private volatile bool _disposed;
+    private int _catalogRefreshing;
     internal ClaudeWorkspace(Func<bool> enabled,string? root=null,string? directory=null,Func<string?>? executable=null,Func<CancellationToken,Task<JsonElement>>? live=null,Func<ClaudeCatalog.Entry,Action<JsonElement>,ClaudeStream>? streamFactory=null,Func<Guid,IClaudeNativeSession?>? nativeFactory=null,Func<IEnumerable<ClaudeSessionObservation>>? newPanels=null,ClaudeHarnessAdapters? harnesses=null){
         _enabled=enabled;_root=root??Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile),".claude","projects");
         _private=directory??Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData),"AI-bot","tab5-claude");
         _harnesses=harnesses??ClaudeHarnessAdapters.Default;_sources=new(_private);
-        _images=new(Path.Combine(_private,"images"));_catalog=new(_root,Key,newPanels??(streamFactory is null&&(root is null||harnesses is not null)?_harnesses.Discover:null));_executable=executable??Locate;_live=live;
+        _images=new(Path.Combine(_private,"images"));_catalog=new(_root,Key,newPanels,
+            newPanels is null&&streamFactory is null&&(root is null||harnesses is not null)?_harnesses.DiscoverMissing:null);_executable=executable??Locate;_live=live;
         _streamFactory=streamFactory;
         _nativeClients=streamFactory is null;_customNativeFactory=nativeFactory is not null;_nativeFactory=nativeFactory??_harnesses.Resolve;
         _timer=new(_=>Refresh(),null,Timeout.Infinite,Timeout.Infinite);
@@ -40,7 +42,16 @@ internal sealed partial class ClaudeWorkspace:IDisposable
         try{using var file=new FileStream(path,FileMode.CreateNew,FileAccess.Write,FileShare.None);file.Write(sealedKey);file.Flush(true);}catch(IOException) when(File.Exists(path)){key=ProtectedData.Unprotect(File.ReadAllBytes(path),null,DataProtectionScope.CurrentUser);}
         if(key.Length!=32)throw new IOException("Private key unavailable");return _key=key;}}
     private static string? Locate(){var paths=new[]{Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),".local","bin","claude.exe"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","Claude","claude.exe")}.Concat((Environment.GetEnvironmentVariable("PATH")??"").Split(Path.PathSeparator).Where(p=>p.Length>0).Select(p=>Path.Combine(p,"claude.exe")));return paths.FirstOrDefault(File.Exists);}
-    private void Refresh(){if(!_enabled()||_disposed||!_gate.Wait(0))return;try{_catalog.Refresh();_catalogAt=Environment.TickCount64;if(_nativeClients)RefreshNative();}catch(Exception e) when(e is IOException or UnauthorizedAccessException or CryptographicException){}finally{_gate.Release();}}
+    private void Refresh(){
+        if(!_enabled()||_disposed||Interlocked.Exchange(ref _catalogRefreshing,1)!=0)return;
+        long started=Environment.TickCount64;
+        try{_catalog.Refresh();Volatile.Write(ref _catalogAt,Environment.TickCount64);}
+        catch(Exception e) when(e is IOException or UnauthorizedAccessException or CryptographicException){return;}
+        finally{Volatile.Write(ref _catalogRefreshing,0);}
+        long elapsed=Environment.TickCount64-started;
+        if(elapsed>=1000)Tab5LocalDiagnostics.Write($"CLAUDE_CATALOG elapsedMs={elapsed}");
+        if(_nativeClients)RefreshNative();
+    }
     internal string? Alias(Guid session)=>_catalog.Snapshot().FirstOrDefault(e=>e.Session==session)?.Alias;
     internal ClaudeIdentity.Selection? Selection(ClaudeIdentity.Selection? bound,DateTimeOffset now){
         if(_nativeClients)return NativeSelection(bound,now);
@@ -57,7 +68,7 @@ internal sealed partial class ClaudeWorkspace:IDisposable
         if(DiagnosticSession is {} selected)full=full.Where(e=>e.Session==selected).ToArray();
         lock(_sync){
             var entries=full.Take(Math.Max(1,limit)).ToList();var pinned=new HashSet<string>();
-            foreach(string? id in new[]{requiredTask,_viewTask})if(id is not null&&full.FirstOrDefault(e=>e.Alias==id) is {} entry){
+            foreach(string? id in new[]{device==_draftDevice?_draftTask:null,requiredTask,_viewTask})if(id is not null&&full.FirstOrDefault(e=>e.Alias==id) is {} entry){
                 if(!entries.Any(e=>e.Alias==id)){int replace=entries.FindLastIndex(e=>!pinned.Contains(e.Alias));if(replace>=0)entries[replace]=entry;}pinned.Add(id);
             }
             var positions=new Dictionary<string,int>();var counts=entries.GroupBy(e=>e.Project).ToDictionary(g=>g.Key,g=>g.Count());
@@ -138,12 +149,13 @@ internal sealed partial class ClaudeWorkspace:IDisposable
             if(images.Length>3||Encoding.UTF8.GetByteCount(text)>2000)return(400,new{error="invalid_request"});
             if(op is "draft-save" or "draft-load"){
                 if(op=="draft-save"){_images.Resolve(device,task,images,false);journal.SaveDraft(task,text,images,device);}
-                else{var pending=journal.Pending(task);lock(_sync){_draftDevice=device;_draft=new{taskId=task,requestId=request,text=journal.Draft(task),images=journal.Images(task),pendingRequest=pending?.Id??"",operation=pending?.Operation??"",expectedTurn=pending?.ExpectedTurn??""};}}
-                if(op=="draft-load"&&_nativeClients&&_nativeFactory(entry.Session) is {CanAddressInput:true} api&&api.IsVerifiedBlank()){
-                    lock(_sync)_control=new{taskId=task,turnId="",running=false,waiting=false,canSend=true,canSteer=false,canInterrupt=false};
+                else{
+                    var pending=journal.Pending(task);
+                    lock(_sync){_draftDevice=device;_draftTask=task;_draft=new{taskId=task,requestId=request,text=journal.Draft(task),images=journal.Images(task),pendingRequest=pending?.Id??"",operation=pending?.Operation??"",expectedTurn=pending?.ExpectedTurn??""};}
+                    if(_nativeClients)QueueSelectedProbe(entry);
                 }
                 return(200,new{status="saved",taskId=task,requestId=request});}
-            if(op=="read-ack"){lock(_sync){if(!_readReceipts.TryGetValue(request,out var receipt)||receipt.Device!=device||receipt.Task!=task||receipt.Turn!=Text(root,"turnId")||_ready.GetValueOrDefault(task)!=receipt.Turn)return(409,new{error="read_receipt_expired"});_read[task]=receipt.Turn;}return(200,new{accepted=true});}
+            if(op=="read-ack"){lock(_sync){if(!_readReceipts.TryGetValue(request,out var receipt)||receipt.Device!=device||receipt.Task!=task||receipt.Turn!=Text(root,"turnId")||_ready.TryGetValue(task,out var ready)&&ready!=receipt.Turn)return(409,new{error="read_receipt_expired"});_read[task]=receipt.Turn;}return(200,new{accepted=true});}
             var record=journal.Find(request);
             if(op=="receipt-confirm"&&_nativeClients){
                 var confirmed=journal.ConfirmDelivered(request,task,device,text,expected,images);
@@ -162,7 +174,11 @@ internal sealed partial class ClaudeWorkspace:IDisposable
             if(op is not ("send" or "steer" or "interrupt")||op!="interrupt"&&string.IsNullOrWhiteSpace(text)&&images.Length==0||op!="send"&&!Guid.TryParse(expected,out _))return(400,new{error="invalid_request"});
             if(Environment.TickCount64-_catalogAt>30000)return(503,new{error="claude_catalog_stale"});
             if(op!="interrupt"&&journal.Pending(task) is not null)return(409,new{error="pending_delivery_requires_receipt"});
-            if(_nativeClients)return await SendNativeAsync(entry,journal,device,request,op,text,expected,images,token,authorized);
+            if(_nativeClients){
+                lock(_sync)_nativeWriteTask=task;
+                try{return await SendNativeAsync(entry,journal,device,request,op,text,expected,images,token,authorized);}
+                finally{lock(_sync)_nativeWriteTask=null;}
+            }
             Owner? owner;lock(_sync)_owners.TryGetValue(task,out owner);
             Message? active;lock(_sync)active=owner?.Messages.LastOrDefault(m=>m.Status=="inProgress");
             if(op=="send"?active is not null:active?.Turn!=expected)return(409,new{error="turn_changed"});
@@ -200,10 +216,16 @@ internal sealed partial class ClaudeWorkspace:IDisposable
         }catch(Exception e) when(e is IOException or UnauthorizedAccessException or CryptographicException or JsonException or ArgumentException){return(503,new{error="claude_or_private_storage_unavailable"});}finally{_gate.Release();}
     }
     private async Task<(int Status,object Body)> ReadAsync(ClaudeCatalog.Entry entry,JsonElement root,string device,CancellationToken token){
+        long observation=NextNativeObservation();
         var nativeClient=_nativeClients?_nativeFactory(entry.Session):null;
         var history=nativeClient is null?ClaudeHistory.Read(_root,entry.Session,Key()):ReadNativeHistory(entry,nativeClient);var turns=history.Turns;Owner? owner;lock(_sync)_owners.TryGetValue(entry.Alias,out owner);
         lock(_sync){var owned=owner?.Messages??[];var ids=owned.Select(m=>m.Turn).ToHashSet();var persisted=turns.Where(t=>ids.Contains((string)t["id"])).ToDictionary(t=>(string)t["id"]);turns.RemoveAll(t=>ids.Contains((string)t["id"]));foreach(var m in owned){var row=new Dictionary<string,object>{{"id",m.Turn},{"status",m.Status},{"startedAt",m.Started},{"items",m.Items.Count==0&&persisted.TryGetValue(m.Turn,out var saved)?saved["items"]:m.Items.ToArray()}};turns.Add(row);}}
-        NativeView? native=null;if(_nativeClients){native=ObserveNative(entry,history,nativeClient);lock(_sync){if(native is null)_nativeViews.Remove(entry.Alias);else _nativeViews[entry.Alias]=native;}if(turns.Count>0&&native is {Running:true})turns[^1]["status"]="inProgress";}
+        NativeView? native=null;if(_nativeClients){
+            ClaudeSessionSource? source=null;
+            if(nativeClient is not null)native=ObserveNative(entry,out source,history,nativeClient);
+            PublishNativeObservation(entry,native,observation,trackCompletion:false,source);
+            if(turns.Count>0&&native is {Running:true})turns[^1]["status"]="inProgress";
+        }
         if(turns.Count==0){
             if(native is not null)lock(_sync)_control=new{taskId=entry.Alias,turnId="",running=native.Running,waiting=native.Waiting,canSend=native.CanSend,canSteer=false,canInterrupt=false};
             return(404,new{error="reply_unavailable"});
@@ -219,7 +241,23 @@ internal sealed partial class ClaudeWorkspace:IDisposable
         bool external=!_nativeClients&&(owner is null||owner.Ended);try{if(external)external=await ExternalAsync(entry,token);}catch(Exception e) when(e is IOException or JsonException or OperationCanceledException){external=true;}
         lock(_sync){string readReceipt="";bool running=owner?.Messages.Any(m=>m.Status=="inProgress")==true,waiting=owner?.Approvals.Count>0;
             if(_nativeClients){running=native?.Running==true;waiting=native?.Waiting==true;external=native is not {CanSend:true};}
-            if(hasText&&index==turns.Count-1&&state is "completed" or "failed" or "interrupted"){_ready[entry.Alias]=turnId;if(_readReceipts.Count<80){readReceipt=Guid.NewGuid().ToString();_readReceipts[readReceipt]=new(device,entry.Alias,turnId);}}
+            // The latest completed public reply can precede a new empty/running
+            // prompt. Reading that exact unread turn must still acknowledge it.
+            if(hasText&&state is "completed" or "failed" or "interrupted"){
+                bool newerReply=turns.Skip(index+1).Any(t=>t["status"] is "completed" or "failed" or "interrupted"&&
+                    JsonSerializer.SerializeToElement(t["items"]).EnumerateArray().Any(i=>Text(i,"type")=="agentMessage"&&Text(i,"text").Length>0));
+                if(!newerReply){
+                    // Reading an existing reply is not a new-reply event. In
+                    // particular, after a bridge restart it must not recreate
+                    // an unread notice for an already-read historical turn.
+                    var target=(Device:device,Task:entry.Alias,Turn:turnId);
+                    readReceipt=_readReceipts.FirstOrDefault(p=>p.Value==target).Key??"";
+                    if(readReceipt.Length==0){
+                        if(_readReceipts.Count>=80)_readReceipts.Remove(_readReceipts.Keys.First());
+                        readReceipt=Guid.NewGuid().ToString();_readReceipts[readReceipt]=target;
+                    }
+                }
+            }
             long started=Convert.ToInt64(turn["startedAt"]);
             var view=new{taskId=entry.Alias,turnId,page,pageCount=pages.Count,hasText,readReceipt,history=index!=turns.Count-1,hasPrevious=index>0,hasNext=index+1<turns.Count,previousTurnId=index>0?(string)turns[index-1]["id"]:"",nextTurnId=index+1<turns.Count?(string)turns[index+1]["id"]:"",state,startedAt=started,startedLabel=started>0?DateTimeOffset.FromUnixTimeSeconds(started).ToLocalTime().ToString("MM-dd HH:mm"):""};
             _view=view;_viewTask=entry.Alias;_responses.Clear();_responses[entry.Alias]=pages[page];_control=new{taskId=entry.Alias,turnId=_nativeClients?native?.Turn??"":owner?.Messages.LastOrDefault(m=>m.Status=="inProgress")?.Turn??"",running,waiting,canSend=!external&&!running,canSteer=_nativeClients?native?.CanAppend==true&&running&&!waiting:!external&&running&&!waiting,canInterrupt=_nativeClients?native?.CanInterrupt==true&&running&&!waiting:!external&&running};

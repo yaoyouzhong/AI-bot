@@ -8,6 +8,8 @@
 
 开发验收的小修复可继续使用同一个待发布版本号，用构建标识及 BIN SHA-256/ELF 指纹区分候选，不为每次编译或小修复递增正式版本号。新候选独立归档，保留之前的原包和验收；同版本更新仍须核对实际运行镜像，不能仅看设备版本文字。正式发布时统一确定对外版本，已有原包不得重新改版本后套用旧验收。
 
+从 2026-11-09 起，新的本地修订同时使用易读的内部编号，例如 `318-R1`、`318-R2`。正式版本源、镜像应用描述和设备协议版本保持 `0.2.318-ui`，不要拼接修订后缀，否则现有 Mac/Windows 桥接会误判能力。内部编号以 `AIBOT_INTERNAL_REVISION=R3` 等独立标记编入镜像，在设备升级页当前版本旁显示。`prepare_tab5_firmware.ps1 -InternalRevision R3` 校验镜像标记后记录 `releaseVersion`、`internalRevision`、`internalVersion`，归档目录包含修订号；不靠改名伪造版本。固件内容改变后递增 R，已冻结原包的复制、验证或安装不递增；旧原包和未安装的 R1/R2 试制包保留摘要与历史记录，不追溯改写。正式发布仍须按最终原包和源码身份验收。
+
 在 AI-bot 根目录用 PowerShell 7 执行：
 
 ```powershell
@@ -27,6 +29,8 @@
 Windows 候选可在 development 目录构建和自检，实际运行沿用固定的 `windows-app/AIBotBridge/bin/Release/net8.0-windows10.0.19041.0/AIBotBridge.exe`。更新前正常退出并备份原运行文件，再部署已核验的二进制、核对哈希及用户资料目录，再从固定路径启动。仅 ESP8266 小屏按项目规则恢复轮播；TAB5 不执行该步骤。每次从新候选目录运行可能再次触发 Windows 网络访问授权；不为测试改动防火墙规则。
 
 ## English
+
+New local revisions use a readable identifier such as `318-R3`, embedded as a separate `AIBOT_INTERNAL_REVISION=R3` marker and displayed beside the installed version. Keep the pending release, application descriptor and wire version at `0.2.318-ui` so existing Mac/Windows capability checks remain compatible. The preparation tool verifies the marker with `-InternalRevision R3` before writing revision metadata and a revision-specific archive. Increment the revision for changed firmware content; copying, verification and installation preserve it. Existing images, including the uninstalled R1/R2 prototypes, remain unchanged.
 
 Small fixes during development acceptance may retain the pending release version. Distinguish candidates by build ID and BIN/ELF fingerprints, archive each original separately, and verify the running image even when the version text is unchanged. Choose the public version for the formal release; never relabel an accepted binary and reuse its prior acceptance.
 

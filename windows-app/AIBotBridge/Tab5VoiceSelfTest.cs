@@ -305,6 +305,7 @@ internal static class Tab5VoiceSelfTest
         await CheckTransientFocusAsync();
         await CheckAudioBackpressureAsync();
         Tab5DoubaoVoiceSelfTest.Run();
+        Tab5VoicePreparationSelfTest.Run();
         RunAgendaOwner();CheckDirectDji();await CheckSharedSourceSwitchAsync();
         CheckQuietCompletion();
         CheckRecognizerEarlyEnd();

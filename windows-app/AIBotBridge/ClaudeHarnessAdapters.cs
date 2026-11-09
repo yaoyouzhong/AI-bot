@@ -13,11 +13,12 @@ internal interface IClaudeHarnessAdapter
 
 internal sealed class ClaudeHarnessAdapters
 {
-    private sealed class BuiltIn(ClaudeSessionSource source,Func<IEnumerable<ClaudeSessionObservation>> discover,
+    private sealed class BuiltIn(ClaudeSessionSource source,Func<IReadOnlySet<Guid>?,IEnumerable<ClaudeSessionObservation>> discover,
         Func<IEnumerable<Guid>> live,Func<Guid,IClaudeNativeSession?> resolve):IClaudeHarnessAdapter
     {
         public ClaudeSessionSource Source=>source;
-        public IEnumerable<ClaudeSessionObservation> Discover()=>discover();
+        public IEnumerable<ClaudeSessionObservation> Discover()=>discover(null);
+        internal IEnumerable<ClaudeSessionObservation> DiscoverMissing(IReadOnlySet<Guid> known)=>discover(known);
         public IEnumerable<Guid> LiveSessions()=>live();
         public IClaudeNativeSession? Resolve(Guid session)=>resolve(session);
     }
@@ -25,7 +26,7 @@ internal sealed class ClaudeHarnessAdapters
     internal static ClaudeHarnessAdapters Default {get;}=new([
         new BuiltIn(ClaudeSessionSource.VSCode,ClaudeSessionApi.NewCodePanels,ClaudeNativeCode.LiveSessions,
             id=>(IClaudeNativeSession?)ClaudeSessionApi.Find(id)??ClaudeNativeCode.Find(id)),
-        new BuiltIn(ClaudeSessionSource.Background,()=>[],ClaudeBackgroundApi.LiveSessions,ClaudeBackgroundApi.Find),
+        new BuiltIn(ClaudeSessionSource.Background,_=>[],ClaudeBackgroundApi.LiveSessions,ClaudeBackgroundApi.Find),
         new BuiltIn(ClaudeSessionSource.Terminal,ClaudeNativeTerminal.NewPanels,ClaudeNativeTerminal.LiveSessions,ClaudeNativeTerminal.Find)]);
     internal ClaudeHarnessAdapters(IEnumerable<IClaudeHarnessAdapter> adapters){
         _adapters=adapters.ToArray();
@@ -34,6 +35,9 @@ internal sealed class ClaudeHarnessAdapters
     }
     internal ClaudeHarnessAdapters With(params IClaudeHarnessAdapter[] additional)=>new(_adapters.Concat(additional));
     internal IEnumerable<ClaudeSessionObservation> Discover()=>_adapters.SelectMany(a=>a.Discover()).DistinctBy(s=>s.Id);
+    internal IEnumerable<ClaudeSessionObservation> DiscoverMissing(IReadOnlySet<Guid> known)=>_adapters
+        .SelectMany(a=>a is BuiltIn builtIn?builtIn.DiscoverMissing(known):a.Discover())
+        .Where(s=>!known.Contains(s.Id)).DistinctBy(s=>s.Id);
     internal HashSet<Guid> LiveSessions()=>_adapters.SelectMany(a=>a.LiveSessions()).ToHashSet();
     internal IClaudeNativeSession? Resolve(Guid session){
         IClaudeNativeSession? found=null;

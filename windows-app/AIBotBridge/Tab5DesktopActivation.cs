@@ -10,6 +10,7 @@ internal static class Tab5DesktopActivation
     internal sealed record Calls(Func<nint,bool> Activate,Func<nint> Foreground,
         Func<bool> InputHeld,Func<uint> TapAlt,Action ReleaseAlt,Func<bool>? Interactive=null);
     internal readonly record struct Result(bool Foreground,bool Tapped,bool InputBlocked,bool PartialTap=false);
+    internal enum InputAvailability { Ready, ForegroundPending, DesktopUnavailable, InputActive }
     private static readonly int[] HeldKeys=[0x10,0x11,0x12,0x5B,0x5C,0x01,0x02];
     private static readonly Calls Native=new(SetForegroundWindow,GetForegroundWindow,
         ()=>HeldKeys.Any(key=>(GetAsyncKeyState(key)&0x8000)!=0),
@@ -17,9 +18,19 @@ internal static class Tab5DesktopActivation
         ()=>SendInput(1,[Key(true)],Marshal.SizeOf<Input>()),IsInteractive);
     // UOI_IO checks whether our desktop currently receives input. Lock screens,
     // secure desktops and disconnected sessions must not trigger activation.
-    internal static bool IsInteractive(){
-        if(!GetUserObjectInformation(GetThreadDesktop(GetCurrentThreadId()),6,out int active,sizeof(int),out _)||active==0)return false;
-        GetWindowThreadProcessId(GetForegroundWindow(),out uint pid);
+    private static bool InputDesktopActive()=>
+        GetUserObjectInformation(GetThreadDesktop(GetCurrentThreadId()),6,out int active,sizeof(int),out _)&&active!=0;
+    internal static bool IsInteractive()=>InputDesktopActive()&&ForegroundAllowed(GetForegroundWindow());
+    internal static InputAvailability ReadInputAvailability(){
+        if(!InputDesktopActive())return InputAvailability.DesktopUnavailable;
+        if(Native.InputHeld())return InputAvailability.InputActive;
+        nint foreground=GetForegroundWindow();
+        return foreground==0?InputAvailability.ForegroundPending:
+            ForegroundAllowed(foreground)?InputAvailability.Ready:InputAvailability.DesktopUnavailable;
+    }
+    private static bool ForegroundAllowed(nint window){
+        if(window==0)return false;
+        GetWindowThreadProcessId(window,out uint pid);
         if(pid==0)return false;
         try{
             using var foreground=Process.GetProcessById((int)pid);

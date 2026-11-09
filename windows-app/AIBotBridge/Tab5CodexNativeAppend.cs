@@ -17,8 +17,7 @@ internal static partial class Tab5CodexComposer
             if(++count>300||depth>48)return false;
             if(IsComposerBodyClass(node.Classes)&&++bodies>1)return false;
             if(HasClass(node.Classes,"@container/request-card"))return false;
-            if(node.Classes.Split(' ').Any(c=>c.StartsWith("_ComposerLayoutAttachments_",StringComparison.Ordinal)||
-                c.StartsWith("_ComposerLayoutReplyContext_",StringComparison.Ordinal)))return EmptySlot(node,depth);
+            if(IsComposerLayoutClass(node.Classes,"Attachments")||IsComposerLayoutClass(node.Classes,"ReplyContext"))return EmptySlot(node,depth);
             if(node.Kind is "Button" or "ComboBox"&&(node.Name.Contains("remove",StringComparison.OrdinalIgnoreCase)||node.Name.Contains("移除")||node.Name.Contains("删除附件")))return false;
             if(node.Kind is "Document" or "Hyperlink" or "Window" or "ListItem")return false;
             bool button=node.Kind is "Button" or "ComboBox";
@@ -38,7 +37,7 @@ internal static partial class Tab5CodexComposer
             cache.Add(AutomationElement.NameProperty);cache.Add(AutomationElement.ClassNameProperty);cache.Add(AutomationElement.ControlTypeProperty);
             var parent=TreeWalker.RawViewWalker.GetParent(target.Container);
             if(parent is null||parent.Current.ControlType!=ControlType.Group&&
-                !parent.Current.ClassName.Split(' ').Any(c=>c.StartsWith("_ComposerLayoutRoot_",StringComparison.Ordinal)))return "desktop_attachments_present";
+                !IsComposerLayoutClass(parent.Current.ClassName,"Root"))return "desktop_attachments_present";
             var root=parent.GetUpdatedCache(cache);int count=0;long began=Environment.TickCount64;
             LayoutNode Convert(AutomationElement node,int depth) {
                 if(++count>300||depth>48||Environment.TickCount64-began>500)throw new InvalidOperationException("uia_scan_limit");
@@ -48,6 +47,15 @@ internal static partial class Tab5CodexComposer
             }
             return AttachmentFree(Convert(root,0))?"":"desktop_attachments_present";
         }catch(Exception ex) when(IsUnavailable(ex)){return "desktop_attachments_present";}
+    }
+    // Diagnostics may contain only fixed reasons, never text or task IDs.
+    internal static string CaptureFailureReason(DraftSnapshot? snapshot,string diagnostic){
+        if(snapshot is not null)return snapshot.Identity.StartsWith("question:",StringComparison.Ordinal)?"question_target":"unrecognized_target";
+        if(diagnostic.StartsWith("main_editor_count=",StringComparison.Ordinal)&&int.TryParse(diagnostic[18..],out int count)&&count is >=0 and <=8000)
+            return "main_editor_count_"+count;
+        return diagnostic is "foreground_not_codex" or "editor_document_mismatch" or "question_structure_unconfirmed" or "uia_scan_limit" or
+            "composer_unavailable" or "target_title_missing_or_duplicate" or "foreground_or_document_changed" or "composer_read_unavailable"
+            ?diagnostic:"target_unavailable";
     }
     internal static async Task<string> AppendTaskAsync(string task,string text,string turn,Action dispatch,
         Func<CancellationToken,Task<bool>> current,Action<Tab5CodexDeliveryReceipt> capture,CancellationToken token,Func<bool>? authorized=null) {
@@ -60,7 +68,10 @@ internal static partial class Tab5CodexComposer
         try {
         if(!await Tab5QuickConsole.OpenAsync(task,token))throw new Tab5CodexDesktop.Rejected("desktop_foreground_unconfirmed");
         var before=Capture(task);
-        if(before is null||!before.Identity.StartsWith("main:",StringComparison.Ordinal))throw new Tab5CodexDesktop.Rejected("composer_changed");
+        if(before is null||!before.Identity.StartsWith("main:",StringComparison.Ordinal)){
+            Tab5LocalDiagnostics.Write("CODEX_SEND stage=preflight_capture reason="+CaptureFailureReason(before,EditorDiagnostic));
+            throw new Tab5CodexDesktop.Rejected("composer_changed");
+        }
         if(before.Text.Length>0)throw new Tab5CodexDesktop.Rejected("desktop_draft_present");
         string Guard()=>authorized?.Invoke()==false?"unauthorized":NativeLayoutGuard(task,before.Identity);
         string guard=Guard();if(guard.Length>0)throw new Tab5CodexDesktop.Rejected(guard);

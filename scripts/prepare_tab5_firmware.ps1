@@ -1,6 +1,7 @@
 #requires -Version 7.0
 param(
     [Parameter(Mandatory)][string]$ImagePath,
+    [string]$InternalRevision='',
     [string]$BridgeDll=(Join-Path $PSScriptRoot '../windows-app/AIBotBridge/bin/Release/net8.0-windows10.0.19041.0/AIBotBridge.dll'),
     [string]$OutputRoot=(Join-Path $PSScriptRoot '../artifacts/firmware/tab5')
 )
@@ -22,11 +23,24 @@ if($notes -notmatch '(?m)^## .+' -or $notes -notmatch '(?m)^- .+'){
 }
 $utf8=[Text.UTF8Encoding]::new($false)
 $notesHash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($utf8.GetBytes($notes))).ToLowerInvariant()
-$archiveRelative='versions/'+$version+'/'+$sha.Substring(0,12)+'-'+$notesHash.Substring(0,8)
+$archiveVersion=$version
+if($InternalRevision){
+    if($InternalRevision -notmatch '^R[1-9]\d*$' -or $version -notmatch '^\d+\.\d+\.\d+-ui$'){throw 'Internal revision requires R1/R2/... and an unchanged public firmware version.'}
+    $marker='AIBOT_INTERNAL_REVISION='+$InternalRevision+[char]0
+    if(![Text.Encoding]::ASCII.GetString($bytes).Contains($marker)){throw 'Internal revision does not match the embedded image marker.'}
+    $archiveVersion+='-'+$InternalRevision.ToLowerInvariant()
+} elseif($version -match '-ui-r\d+$'){throw 'Revision suffixes break existing bridge capability checks; keep the firmware version stable and use -InternalRevision.'}
+$archiveRelative='versions/'+$archiveVersion+'/'+$sha.Substring(0,12)+'-'+$notesHash.Substring(0,8)
 $archive=Join-Path $OutputRoot $archiveRelative
 $latest=Join-Path $OutputRoot 'latest'
 $sidecar=[ordered]@{version=$version;sha256=$sha;notes=$notes} | ConvertTo-Json
-$manifest=[ordered]@{version=$version;sha256=$sha;elfSha256=(PackageValue 'ElfSha256');bytes=$bytes.Length;notesSha256=$notesHash;archive=$archiveRelative;scope='Local OTA candidate; no device write or public release'} | ConvertTo-Json
+$manifestData=[ordered]@{version=$version;sha256=$sha;elfSha256=(PackageValue 'ElfSha256');bytes=$bytes.Length;notesSha256=$notesHash;archive=$archiveRelative;scope='Local OTA candidate; no device write or public release'}
+if($InternalRevision) {
+    $manifestData.releaseVersion=$version
+    $manifestData.internalRevision=$InternalRevision
+    $manifestData.internalVersion=($version -replace '^\d+\.\d+\.(\d+)-ui$','$1')+'-'+$InternalRevision
+}
+$manifest=$manifestData | ConvertTo-Json
 New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 $lockPath=Join-Path $OutputRoot '.prepare.lock'
 $guard=[IO.File]::Open($lockPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)

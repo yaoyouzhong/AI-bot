@@ -8,6 +8,7 @@ internal sealed record Tab5VoiceAvailability(bool CableReady,bool DjiAvailable,s
 internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
 {
     private readonly Tab5AudioEndpointCache _endpoints=new();
+    private readonly object _lifecycle=new();
     internal Task PrefetchAsync(bool forceTab5) {
         string selected=djiId();
         return Task.Run(()=> {
@@ -32,8 +33,9 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
     private volatile bool _captureFailed;
     private volatile bool _outputFailed;
     private string _source="";
+    private string? _inputId;
     private bool _prepared;
-    internal string? ExistingInputId=>_source=="dji"?_inputDevice?.ID:null;
+    internal string? ExistingInputId=>_source=="dji"?_inputId:null;
     public bool CanSwitchToTab5=>_source!="dji";
     public string SourceName {get;private set;}="";
     private bool _hasInputData;
@@ -59,11 +61,13 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
     }
     public void PauseForFocus(bool paused) {
         if(_focusPaused==paused)return;
-        if(_output is not null) {
-            if(paused)_output.Pause();
-            else _output.Play();
-        }
-        _focusPaused=paused;
+        AudioOperation(()=>{
+            if(_output is not null) {
+                if(paused)_output.Pause();
+                else _output.Play();
+            }
+            _focusPaused=paused;
+        });
     }
     public string PlaybackDiagnostic=>$"playbackBufferedMs={(_buffer is null?0:BufferedMs(_buffer))}; playbackPeakMs={_peakBufferedMs}; output={_output?.PlaybackState.ToString()??"closed"}";
     public bool? CapturedSound=>_activity.Sound;
@@ -110,18 +114,29 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
         return new(render&&capture,available,message,missing);
     }
     public string Start(bool forceTab5) {
-        if(_prepared){_prepared=false;return _source;}
-        return StartCore(forceTab5);
+        lock(_lifecycle){if(_prepared){_prepared=false;return _source;}}
+        return AudioOperation(()=>StartCore(forceTab5));
     }
     public void ValidateTab5() {
         var availability=Inspect(Devices(DataFlow.Capture),Devices(DataFlow.Render),djiId());
         if(!availability.CableReady)throw new InvalidOperationException("TAB5 内置麦克风的音频通路未就绪，请检查 VB-CABLE");
     }
-    internal string Prepare(bool forceTab5) {
+    internal string Prepare(bool forceTab5)=>AudioOperation(()=>{
         string source=StartCore(forceTab5);_prepared=true;return source;
+    });
+    // NAudio's IMMDevice cannot be marshalled from the background MTA to the
+    // voice UI's STA on every driver. Keep capture/render calls, including
+    // shutdown, in the MTA. Polling the UI only reads managed capture state.
+    private T AudioOperation<T>(Func<T> operation) {
+        T Run(){lock(_lifecycle)try{return operation();}
+            catch(InvalidCastException ex) when(ex.HResult==unchecked((int)0x80004002)) {
+                throw new InvalidOperationException("Windows 音频设备接口不可用，请检查麦克风连接",ex);
+            }}
+        return Thread.CurrentThread.GetApartmentState()==ApartmentState.MTA?Run():Task.Run(Run).GetAwaiter().GetResult();
     }
+    private void AudioOperation(Action operation)=>AudioOperation(()=>{operation();return true;});
     private string StartCore(bool forceTab5) {
-        Stop();
+        StopCore();
         _activity.Reset();
         _tab5Samples=0;
         _peakBufferedMs=0;
@@ -150,11 +165,11 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
                     Interlocked.Exchange(ref _lastData,Environment.TickCount64);Volatile.Write(ref _hasInputData,true);
                 };
                 _capture.RecordingStopped+=(_,_)=>_captureFailed=true;
-                _capture.StartRecording();_source="dji";SourceName=selected.Name;
+                _capture.StartRecording();_source="dji";_inputId=selected.Id;SourceName=selected.Name;
                 Tab5VoiceTiming.Log("audio-start-physical",phaseStarted);return _source;
             } catch(Exception ex) when(ex is System.Runtime.InteropServices.COMException or InvalidOperationException or NAudio.MmException) {
                 _endpoints.Invalidate();
-                Stop();if(selectedId.Length>0)throw new InvalidOperationException("所选麦克风无法打开，请检查连接和占用状态",ex);
+                StopCore();if(selectedId.Length>0)throw new InvalidOperationException("所选麦克风无法打开，请检查连接和占用状态",ex);
             }
         }
         // A physical input goes straight to the IME and needs no playback
@@ -169,7 +184,7 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
         using(var enumerator=new MMDeviceEnumerator())
         using(var capture=enumerator.GetDevice(inputs.First(d=>IsCableCapture(d.Name)).Id))
             if(capture.State!=DeviceState.Active){_endpoints.Invalidate();throw new InvalidOperationException("虚拟麦克风已断开");}
-        UseTab5();return _source;
+        OpenTab5Output();return _source;
     }
     private void OpenOutput(WaveFormat format) {
         if(_cableOutputId.Length==0)throw new InvalidOperationException("虚拟麦克风未连接");
@@ -184,8 +199,9 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
     public bool DjiHealthy {
         get {
             if(_outputFailed)throw new InvalidOperationException("虚拟麦克风已断开");
-            try{return _source=="dji"&&!_captureFailed&&_inputDevice?.State==DeviceState.Active&&Environment.TickCount64-Interlocked.Read(ref _lastData)<2000;}
-            catch(System.Runtime.InteropServices.COMException){return false;}
+            // RecordingStopped or a missing PCM callback detects a lost input
+            // without querying a live COM endpoint from the UI timer.
+            return _source=="dji"&&!_captureFailed&&Environment.TickCount64-Interlocked.Read(ref _lastData)<2000;
         }
     }
     public bool InputReady {
@@ -194,25 +210,27 @@ internal sealed class Tab5VoiceAudio(Func<string> djiId) : ITab5VoiceAudio
             return !_outputFailed&&_output?.PlaybackState==PlaybackState.Playing&&_source=="tab5";
         }
     }
-    public void UseTab5(){if(_source=="tab5")return;Stop();OpenOutput(new WaveFormat(16000,16,1));_source="tab5";SourceName="TAB5 内置麦克风";}
+    public void UseTab5()=>AudioOperation(()=>{if(_source!="tab5"){StopCore();OpenTab5Output();}});
+    private void OpenTab5Output(){OpenOutput(new WaveFormat(16000,16,1));_source="tab5";SourceName="TAB5 内置麦克风";}
     public void Feed(byte[] pcm){
         if(_outputFailed||_source!="tab5"||_buffer is null)throw new InvalidOperationException("TAB5 音频未就绪");
         if(pcm.Length>_buffer.BufferLength-_buffer.BufferedBytes)throw new InvalidOperationException("电脑音频缓冲已满，本段未完整送达");
         Meter(pcm,pcm.Length,_buffer.WaveFormat,_tab5Samples<16000);_tab5Samples+=pcm.Length/2;
         _buffer.AddSamples(pcm,0,pcm.Length);_peakBufferedMs=Math.Max(_peakBufferedMs,BufferedMs(_buffer));
     }
-    public void Drain(){var capture=_capture;_capture=null;try{capture?.StopRecording();}finally{capture?.Dispose();}}
+    public void Drain()=>AudioOperation(()=>{var capture=_capture;_capture=null;try{capture?.StopRecording();}finally{capture?.Dispose();}});
     public bool Drained {
         get {
             if(_outputFailed)throw new InvalidOperationException("虚拟麦克风已断开");
             return _buffer is null||_buffer.BufferedBytes==0;
         }
     }
-    public void Stop() {
+    public void Stop()=>AudioOperation(StopCore);
+    private void StopCore() {
         // Detach first so a failure disposing one endpoint cannot strand the other
         // endpoint or make the next start reuse half-disposed capture state.
         var capture=_capture;var output=_output;var inputDevice=_inputDevice;var outputDevice=_outputDevice;
-        _capture=null;_output=null;_buffer=null;_inputDevice=null;_outputDevice=null;_source=SourceName="";
+        _capture=null;_output=null;_buffer=null;_inputDevice=null;_outputDevice=null;_inputId=null;_source=SourceName="";
         _hasInputData=false;_prepared=false;_focusPaused=false;
         Volatile.Write(ref _inputLevel,0);Interlocked.Exchange(ref _levelAt,0);
         try {try{capture?.StopRecording();}finally{capture?.Dispose();}}

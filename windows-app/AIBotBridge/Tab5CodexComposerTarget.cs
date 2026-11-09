@@ -133,7 +133,7 @@ internal static partial class Tab5CodexComposer
             if(candidates.Count!=1||cards.Length>1||cards.Length>0&&!candidates[0].Question) {
                 Volatile.Write(ref _editorDiagnostic,cards.Length>0?"question_structure_unconfirmed":$"main_editor_count={candidates.Count}");return null;
             }
-            if(GetForegroundWindow()!=handle||!WindowMatches(handle,title))return null;
+            if(GetForegroundWindow()!=handle||!WindowMatches(handle,title)){Volatile.Write(ref _editorDiagnostic,"foreground_or_document_changed");return null;}
             Volatile.Write(ref _editorDiagnostic,candidates[0].Question?"question_editor_verified":"main_editor_verified");
             return candidates[0];
         }catch(Exception ex) when(IsUnavailable(ex)) {
@@ -152,7 +152,7 @@ internal static partial class Tab5CodexComposer
             began=Environment.TickCount64;var result=new DraftSnapshot(target.Key,IsEmpty(target.Editor)?"":Read(target.Editor));
             Tab5VoiceTiming.Log("binding-text",began);return result;
         }
-        catch(Exception ex) when(IsUnavailable(ex)){return null;}
+        catch(Exception ex) when(IsUnavailable(ex)){Volatile.Write(ref _editorDiagnostic,"composer_read_unavailable");return null;}
     }
     internal static object InspectDraftReadPerformance(string task) {
         var clock=System.Diagnostics.Stopwatch.StartNew();string? title=UniqueTitle(task);long titleMs=clock.ElapsedMilliseconds;

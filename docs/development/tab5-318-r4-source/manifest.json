@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "baselineArchiveSha256": "ddecd2141043e615f904a128ce75a16b2568b3000a7bb3624058b4e75b770895",
+  "overlaySha256": "6d2e51c089358b52c256eea9548406d56ce8a7ec3d33ed2fa48497c06b9b1aeb",
+  "internalVersion": "318-R4",
+  "version": "0.2.318-ui",
+  "firmwareSha256": "33231b1746f6a26baddf96f5c4425257246fcd10d727ee452a4b74e60858886e",
+  "elfSha256": "c07629d9118b2914818536400a4a786cf2cbb4e97a7e127df56b4af94bf5edc9",
+  "localBuildInput": {
+    "path": "firmware/main/assets/claude_notice.pcm",
+    "sha256": "1533c2d5e353d28726cc3fc8cc5108df72b8a42349415a55806c2f0aaee5f023",
+    "included": false
+  },
+  "files": [
+    {
+      "path": "firmware/main/CMakeLists.txt",
+      "beforeSha256": "e8b9bcfc44bda6f99a0da2f808222e31bf0ab4ed5b0f595800120ce3ac141d43",
+      "afterSha256": "8281063ba1ba31c7f610a0db118e897c6da1e1899268846b0fcad765111b87c6",
+      "bytes": 6491
+    },
+    {
+      "path": "firmware/main/build_revision.h",
+      "beforeSha256": null,
+      "afterSha256": "2e795212b1178117e36570937383addcc4cd0c7468fa7a6133f0a0b7d492b22a",
+      "bytes": 305
+    },
+    {
+      "path": "firmware/main/claude_companion.c",
+      "beforeSha256": "8b5e23a876e8e6bc3343995fb8df788f15d9e88d57c279fec9fac45ab350e20e",
+      "afterSha256": "da97883f7edc5b91b04ee29baadace7e80d0d1de43cf35e5b6e7148c1d5a6e18",
+      "bytes": 3180
+    },
+    {
+      "path": "firmware/main/claude_companion.h",
+      "beforeSha256": "7abddb6710be94d5f60511c5c6a6716968095aefb47108d490ec10be37c6d8d3",
+      "afterSha256": "998232d6a3761bc79a1697d6e2540ae433fde97ea7ebf7aedce3814d79992641",
+      "bytes": 576
+    },
+    {
+      "path": "firmware/main/draw_cache.c",
+      "beforeSha256": "b40e21b4b6d5482e2c99434a57239e46d8b6b8e8d49816b40911106d619bbb99",
+      "afterSha256": "3a01949fa46860e501af5f869cb91f5c12056fcc72c78dbdac4062d71e369e84",
+      "bytes": 21002
+    },
+    {
+      "path": "firmware/main/draw_cache.h",
+      "beforeSha256": "48724a53f20848cb26af8ef139e293bfdee915d053120cf3cf018ac25ec03133",
+      "afterSha256": "c6cfe5a003707dee8e7e4181db3aeaf071b3ce6aa18e84c52dd2b113b89d6f5a",
+      "bytes": 2299
+    },
+    {
+      "path": "firmware/main/tab5_source_20.c",
+      "beforeSha256": null,
+      "afterSha256": "2af389c199d55483cd47bd9b2f53e192be4dae6534074f15cde78035f1fb8ee9",
+      "bytes": 38936
+    },
+    {
+      "path": "firmware/main/ui.c",
+      "beforeSha256": "c6e85fa65061801116a2fe0277adf181275d97b47dd6eadb8abe2b12e5e53d27",
+      "afterSha256": "f0ded6a08ea32b6900124cbe6623ce812cd00dc5d89541f1d1f72f093217ac59",
+      "bytes": 309785
+    },
+    {
+      "path": "firmware/main/ui_claude_companion.h",
+      "beforeSha256": "47d9ececf6ba986c45783eab4ac4460dd3d65e7f16b778c8d67206ed511a87a9",
+      "afterSha256": "2f307a26d82c01d6ad13477a2a673263da311c9eb85da44de098a697d499a7ed",
+      "bytes": 7253
+    },
+    {
+      "path": "firmware/main/ui_runtime_health.h",
+      "beforeSha256": "ecec2b7bd33311a712b8cb16b9ece05b6c295fbd89cfdd1d053c610847c5d6ce",
+      "afterSha256": "330b40945dbf1f4e371a94fd87f532fcf8e29b4b40a928868c57b5aa3eb55311",
+      "bytes": 31663
+    },
+    {
+      "path": "firmware/main/ui_session_source.h",
+      "beforeSha256": null,
+      "afterSha256": "94b33997b769950fe8af8d5bd301acfdb037282ceae417d323e25a4f61d4a088",
+      "bytes": 4762
+    },
+    {
+      "path": "firmware/main/ui_session_unread.h",
+      "beforeSha256": null,
+      "afterSha256": "f2abf97bb522a39e5859c485482792442ee55ee8f556ffcdb34955b248ecbd7b",
+      "bytes": 2979
+    },
+    {
+      "path": "firmware/main/voice_remote.c",
+      "beforeSha256": "27ec0c19658eb9a3a2bae76a849eb69a3392f52d063888835fef2d208b3ded33",
+      "afterSha256": "90745bafca0b5155949c5a587e3a5bbcc7c0abadef0575901a784275ab73abf3",
+      "bytes": 33366
+    },
+    {
+      "path": "firmware/main/voice_remote.h",
+      "beforeSha256": "6b3a0cb564d2aa66f4424592e375a09e45299ffb3ea25d8c09cacc9713fd2e16",
+      "afterSha256": "4162ddf7bc6cdc95345f517392c352b72e81174b8a5b04f9bc4a8ee8be5abe39",
+      "bytes": 1314
+    },
+    {
+      "path": "scripts/generate-session-source-font.py",
+      "beforeSha256": null,
+      "afterSha256": "af4928040141622566209df4d63e834ac34f09c7e11c7b7ec4b63f66a7176538",
+      "bytes": 775
+    },
+    {
+      "path": "tests/ui-preview/CMakeLists.txt",
+      "beforeSha256": "8dd9465fd3cb12a043b67e4a4d837697bd9b8849aeeccec51e51ae098f3a0dee",
+      "afterSha256": "5b92d616a82bab803af96a395fa940f6aa718025d6d3792c80d6079b471e4991",
+      "bytes": 82468
+    },
+    {
+      "path": "tests/ui-preview/cache_publication_refresh_test.h",
+      "beforeSha256": "460fe1968c56270f6442f09856bc7eebe307857f90351fd0db30babf2f84167e",
+      "afterSha256": "215e73fe1b6c1974e8c1d19c9ff228186e17adc4d9dd2ab2b42d6cadbd1d3385",
+      "bytes": 3550
+    },
+    {
+      "path": "tests/ui-preview/claude_companion_test.c",
+      "beforeSha256": "ceeddd408feedb301db26bd7ec618d918143ae701a86e9ed2ffb3ee13127759b",
+      "afterSha256": "477214d74f773a80e179b203a888e10ed34ad5b0fe07a88a38d30ebb65795036",
+      "bytes": 3850
+    },
+    {
+      "path": "tests/ui-preview/codex_read_ack_test.c",
+      "beforeSha256": "91e75250169ad893670bf38647e9a034a421d0b9ecd4bca5fb4ba5535e5a7bf4",
+      "afterSha256": "dc1a6dc52af5821becee594d726346be8d6bde58e86375ea25d854c06eca093d",
+      "bytes": 5086
+    },
+    {
+      "path": "tests/ui-preview/preview.c",
+      "beforeSha256": "3ec2344c91ac1f978bfd72408a6701187162325e65f5321ddf662d4e4d4a9c02",
+      "afterSha256": "8b67df13cb5cf9d29da663329b83fa4ff702876a33e963cb4e791cd907a69928",
+      "bytes": 468479
+    },
+    {
+      "path": "tests/ui-preview/reply_open_state_test.h",
+      "beforeSha256": null,
+      "afterSha256": "f0897de54ba6aae64e1d03b0b650384bc73d8bd500724894bf5afaa19c371c86",
+      "bytes": 15231
+    },
+    {
+      "path": "tests/ui-preview/runtime_health_test.h",
+      "beforeSha256": "76ba838dade48a401252177a63f19440d2af1a181cb1e70d8c7d75ebb15c4fe5",
+      "afterSha256": "e0fc47b398b45a3a9b39fe7d94c93e24dbdd1e5f212f57b3434a884777a6ee72",
+      "bytes": 18070
+    },
+    {
+      "path": "tests/ui-preview/session_source_test.h",
+      "beforeSha256": null,
+      "afterSha256": "ac1867afcb5c7eda06794fab66e2f7c4a721193b745ce24c60b8f724555e841e",
+      "bytes": 4585
+    },
+    {
+      "path": "tests/ui-preview/session_unread_test.h",
+      "beforeSha256": null,
+      "afterSha256": "82bcd23d29b4c2eb18a08358bfa8294703bbb41ce0aaec19694d310b60dc919c",
+      "bytes": 8763
+    },
+    {
+      "path": "tests/ui-preview/workspace_controls_test.h",
+      "beforeSha256": null,
+      "afterSha256": "b9ed9aa6ee49a41743769924e56fd966681f4fad0ea3e2654ec503cfa5a092f9",
+      "bytes": 3933
+    },
+    {
+      "path": "tests/ui-preview/workspace_parity_ui_test.h",
+      "beforeSha256": "82879f64d751e4b0ee1365230b72b49fa396444fe4ac24842683302336cd0436",
+      "afterSha256": "c352c22494a865ad5fa13038c1bba26e33f7ace96797609a2d355bad64a1fc82",
+      "bytes": 8399
+    },
+    {
+      "path": "tests/ui-preview/workspace_switch_sync_test.h",
+      "beforeSha256": null,
+      "afterSha256": "be31e03f67181d9ecd5f6a16b50c9e05cc645a653aaf2a63da668625c702ae85",
+      "bytes": 8624
+    }
+  ]
+}

@@ -18,8 +18,9 @@ internal static class ClaudeNativeWorkspaceSelfTest
         internal bool DirectTerminalInput;
         public bool CanAddressInput=>HasSessionApi||DirectTerminalInput;
         public bool CanAppend=>true;public bool CanInterrupt=>true;
-        internal void Deliver(){if(_queued is not {} text)return;_queued=null;LastUser=Guid.NewGuid();var context=Guid.NewGuid();var answer=Guid.NewGuid();
-            object[] rows=[new{type="user",uuid=LastUser,sessionId=session,parentUuid=_leaf,isSidechain=false,origin=new{kind="human"},message=new{role="user",content=new[]{new{type="text",text}}},timestamp=DateTimeOffset.UtcNow.ToString("O")},
+        internal void Deliver(){if(_queued is not {} text)return;_queued=null;LastUser=Guid.NewGuid();var hook=Guid.NewGuid();var context=Guid.NewGuid();var answer=Guid.NewGuid();
+            object[] rows=[new{type="system",subtype="stop_hook_summary",uuid=hook,sessionId=session,parentUuid=_leaf,message=new{role="assistant",content="PRIVATE_NATIVE_CONTEXT"}},
+                new{type="user",uuid=LastUser,sessionId=session,parentUuid=hook,isSidechain=false,origin=new{kind="human"},message=new{role="user",content=new[]{new{type="text",text}}},timestamp=DateTimeOffset.UtcNow.ToString("O")},
                 new{type="attachment",uuid=context,sessionId=session,parentUuid=LastUser,message=new{role="assistant",content=new[]{new{type="text",text="PRIVATE_NATIVE_CONTEXT"}}}},
                 new{type="assistant",uuid=answer,sessionId=session,parentUuid=context,message=new{role="assistant",content=new[]{new{type="text",text="Native public reply"}},stop_reason="end_turn"},timestamp=DateTimeOffset.UtcNow.ToString("O")}];
             File.AppendAllText(path,string.Join("\n",rows.Select(r=>JsonSerializer.Serialize(r)))+"\n",new UTF8Encoding(false));_leaf=answer;
@@ -32,13 +33,16 @@ internal static class ClaudeNativeWorkspaceSelfTest
                 if(!authorized()||!request.Current())return Task.FromResult(new ClaudeNativeSend.Result(false,false,null,"turn_changed"));
                 dispatch();Interrupts++;Runtime="idle";return Task.FromResult(new ClaudeNativeSend.Result(false,true,null,"",true));
             }
-            var calls=new ClaudeNativeSend.Calls(()=>new(session,Epoch,"native-editor",DesktopText,DesktopText.Length==0,true,DesktopText.Length>0),()=>Epoch,
+            bool Ready()=>request.Operation=="steer"?Runtime is "busy" or "working":Runtime=="idle";
+            var calls=new ClaudeNativeSend.Calls(()=>new(session,Epoch,"native-editor",DesktopText,DesktopText.Length==0,Ready(),DesktopText.Length>0),()=>Epoch,
                 value=>{Types++;DesktopText=value;OnType?.Invoke(value);},()=>{Submits++;_queued=DesktopText;DesktopText="";if(Accept)Deliver();},
                 history,authorized,dispatch,_=>Task.CompletedTask,request.ImageDigests,()=>CurrentAtType&&request.Current());
             return ClaudeNativeSend.SendAsync(calls,request.Text,token);
         }
     }
     internal static async Task RunAsync(){
+        await ClaudeReconnectSelfTest.RunAsync();
+        await ClaudeUnreadSelfTest.RunAsync();
         await ClaudeHarnessSelfTest.RunAsync();
         string root=Path.GetFullPath(Path.Combine(Path.GetTempPath(),"aibot-native-workspace-"+Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(root);string marker=Guid.NewGuid().ToString();File.WriteAllText(Path.Combine(root,".owned-fixture"),marker);
@@ -85,9 +89,23 @@ internal static class ClaudeNativeWorkspaceSelfTest
             Check(snapshot.GetProperty("receipts").GetProperty(task).GetString()=="已完成"&&snapshot.GetProperty("responses").GetProperty(task).GetString()=="Native public reply","Periodic snapshot lost the visible reply or its completion receipt");
             Check(snapshot.GetProperty("replyView").GetProperty("startedLabel").GetString() is {Length:11},"Native history date label differs from the Codex reply contract");
             Check(!snapshot.GetRawText().Contains("PRIVATE_NATIVE_CONTEXT")&&!snapshot.GetRawText().Contains(session.ToString()),"Native private context or raw session leaked");
+            native.Runtime="working";
+            for(int i=0;i<4;i++){
+                if(i>0)await Task.Delay(750);
+                var read=await Rpc("read");
+                Check(read.Status==200&&read.Body.GetProperty("replyView").GetProperty("state").GetString()=="inProgress"&&
+                    read.Body.GetProperty("text").GetString()=="Native public reply","Running reply lost its text or status during 750ms polling");
+            }
+            native.Runtime="idle";
+            var settled=await Rpc("read");
+            Check(settled.Status==200&&settled.Body.GetProperty("replyView").GetProperty("state").GetString()=="completed"&&
+                settled.Body.GetProperty("text").GetString()=="Native public reply","Final reply did not remain stable after active polling");
             Check(workspace.Approvals().Length==0,"Native original session was routed to bridge approval");
             native.DesktopText="PC draft";await Rpc("draft-save","Device draft");
-            Check((await Rpc("send","Device draft")).Status==409&&native.DesktopText=="PC draft"&&native.Types==1,"Existing PC draft was overwritten");
+            string draftRequest=Guid.NewGuid().ToString();var draftBlocked=await Rpc("send","Device draft",draftRequest);
+            Check(draftBlocked.Status==409&&draftBlocked.Body.GetProperty("error").GetString()=="desktop_draft_present"&&native.DesktopText=="PC draft"&&native.Types==1,"Existing PC draft was overwritten or its rejection reason lost");
+            var draftReceipt=await Rpc("receipt",request:draftRequest);
+            Check(draftReceipt.Status==409&&draftReceipt.Body.GetProperty("error").GetString()=="desktop_draft_present"&&draftReceipt.Body.GetProperty("deliveryFinal").GetBoolean(),"Polling changed the explicit desktop draft rejection");
             await Rpc("draft-load");Check(JsonSerializer.SerializeToElement(workspace.Snapshot(device:"native-device-a")).GetProperty("draftView").GetProperty("text").GetString()=="Device draft","Rejected native send erased the device draft");
             native.DesktopText="";allowed=false;Check((await Rpc("send","Not authorized")).Status==403&&native.Types==1,"Revoked device authorization reached native input");allowed=true;
             native.Accept=false;string unknown=Guid.NewGuid().ToString();
@@ -155,6 +173,18 @@ internal static class ClaudeNativeWorkspaceSelfTest
             Check(JsonSerializer.SerializeToElement(workspace.Snapshot(device:"native-device-a")).GetProperty("draftView").GetProperty("text").GetString()=="Kept without a session API","Missing API discarded the device draft");
             native.DirectTerminalInput=true;
             Check((await Rpc("send","Direct foreground input")).Status==202&&native.Submits==beforeSubmits+1,"Addressable foreground session did not receive its turn");
+            native.OnType=_=>{native.DesktopText="Restored PC draft";throw new ClaudeNativeTerminal.ConsoleFailure("native_console_draft_preserved");};
+            int preservedSubmits=native.Submits;string preservedRequest=Guid.NewGuid().ToString();
+            await Rpc("draft-save","Preserved device draft");
+            var preserved=await Rpc("send","Preserved device draft",preservedRequest);
+            var preservedReceipt=await Rpc("receipt",request:preservedRequest);
+            Check(preserved.Status==409&&preserved.Body.GetProperty("error").GetString()=="desktop_draft_present"&&
+                preservedReceipt.Body.GetProperty("error").GetString()=="desktop_draft_present"&&preservedReceipt.Body.GetProperty("deliveryFinal").GetBoolean()&&
+                native.DesktopText=="Restored PC draft"&&native.Submits==preservedSubmits,"Proven restored draft lost its rejection reason or was submitted");
+            await Rpc("draft-load");
+            Check(JsonSerializer.SerializeToElement(workspace.Snapshot(device:"native-device-a")).GetProperty("draftView").GetProperty("text").GetString()=="Preserved device draft",
+                "Restored desktop draft rejection discarded the device draft");
+            native.OnType=null;native.DesktopText="";
             native.DirectTerminalInput=false;beforeSubmits=native.Submits;
             await Rpc("draft-save","Kept without a session API");
             var archive=workspace.Journal("native-device-a");

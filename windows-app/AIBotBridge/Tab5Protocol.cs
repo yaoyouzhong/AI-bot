@@ -56,12 +56,12 @@ internal static class Tab5Protocol
         BinaryPrimitives.WriteUInt32LittleEndian(frame,(uint)packet.Length);
         packet.CopyTo(frame,4); return frame;
     }
-    internal static byte[] Snapshot(StatusSnapshot snapshot, string id, string session, long sequence, object? resource=null, string?[]? assetIds=null, object? codexTasks=null, object? ota=null, object? connectionHealth=null, object? claudeSession=null, object? claudeTasks=null) =>
+    internal static byte[] Snapshot(StatusSnapshot snapshot, string id, string session, long sequence, object? resource=null, string?[]? assetIds=null, object? codexTasks=null, object? ota=null, object? connectionHealth=null, object? claudeSession=null, object? claudeTasks=null, Func<long?>? inputClock=null) =>
         JsonSerializer.SerializeToUtf8Bytes(new {
             version=1, type="tab5_status", deviceId=id, session, sequence,
             data=new { aiDialogueVersion=1,imageBinary=1,imageChunkRetry=1,rpcBinary=1,rpcBulk=1,rpcOtaZlib=1,rpcOtaResume=1,rpcOtaBleRadioLease=1,snapshot.Time,snapshot.EpochUtc,epochMilliseconds=snapshot.CapturedAt.ToUnixTimeMilliseconds(),snapshot.UtcOffsetSeconds,snapshot.CapturedAt,
                 snapshot.Codex,snapshot.Claude,
-                pcInput=new {session,sequence,lastInputTickMs=SystemIdleTime.LastInputTickMilliseconds()},
+                pcInput=new {session,sequence,lastInputTickMs=inputClock is null?SystemIdleTime.LastInputTickMilliseconds():inputClock()},
                 quotas=snapshot.Quotas is null?null:new {claude=SummaryQuota(snapshot.Quotas.Claude),codex=SummaryQuota(snapshot.Quotas.Codex,true)},
                 snapshot.Weather,stocks=snapshot.Stocks is null ? null : snapshot.Stocks with {Quotes=snapshot.Stocks.Quotes.Take(20).ToArray()},
                 systemMetrics=snapshot.SystemMetrics is null ? null : snapshot.SystemMetrics with {Samples=(snapshot.SystemMetrics.History??snapshot.SystemMetrics.Samples)?.TakeLast(64).ToArray()},snapshot.Music,

@@ -26,7 +26,7 @@ internal static class ClaudeHistory
                 string type=Text(r,"type")??"";
                 if(Text(r,"sessionId")!=session.ToString()||
                     !(type=="custom-title"&&Text(r,"customTitle") is {Length:>0}||type=="ai-title"&&Text(r,"aiTitle") is {Length:>0}))titleOnly=false;
-                bool link=type=="attachment"||type=="system"&&Text(r,"subtype") is "turn_duration" or "away_summary" or "informational" or "api_error";
+                bool link=type=="attachment"||type=="system"&&Text(r,"subtype") is "turn_duration" or "away_summary" or "informational" or "api_error" or "stop_hook_summary" or "local_command";
                 if(!Guid.TryParse(Text(r,"sessionId"),out var id)||id!=session||(!link&&type is not ("user" or "assistant"))||r.TryGetProperty("isSidechain",out var side)&&side.ValueKind!=JsonValueKind.False)continue;
                 // Native context attachments link the public message graph, but
                 // are never public text, user receipts, or a new selected leaf.

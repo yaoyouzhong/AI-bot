@@ -414,8 +414,15 @@ internal static partial class Tab5CodexComposer
                 lineBreaks=before.Text.Count(c=>c=='\n'),hasFocus=target.Editor.Current.HasKeyboardFocus};
         }catch(Exception ex) when(IsUnavailable(ex)){return new{writeReady="unavailable",error=ex.GetType().Name};}
     }
-    internal static bool IsComposerBodyClass(string classes)=>classes.Split(' ',StringSplitOptions.RemoveEmptyEntries)
-        .Any(name=>name.StartsWith("_ComposerLayoutBody_",StringComparison.Ordinal));
+    // CSS modules use both legacy _Name_hash and current Name-hash tokens.
+    // Match the complete role token, never arbitrary substrings or app versions.
+    internal static bool IsComposerLayoutClass(string classes,string role)=>classes.Split(' ',StringSplitOptions.RemoveEmptyEntries).Any(name=>{
+        string legacy="_ComposerLayout"+role+"_",current="ComposerLayout"+role+"-";
+        int prefix=name.StartsWith(legacy,StringComparison.Ordinal)?legacy.Length:
+            name.StartsWith(current,StringComparison.Ordinal)?current.Length:0;
+        return prefix>0&&name.Length>prefix&&name.AsSpan(prefix).IndexOfAnyExcept("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".AsSpan())<0;
+    });
+    internal static bool IsComposerBodyClass(string classes)=>IsComposerLayoutClass(classes,"Body");
     private static AutomationElement? FindEditor(string title)=>FindTarget(title)?.Editor;
     private static bool IsEmpty(AutomationElement editor) {
         string value=Read(editor);

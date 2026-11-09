@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace AIBotBridge;
 
@@ -27,8 +28,26 @@ internal static class ClaudeNativeSendSelfTest
     }
     internal static async Task RunAsync()
     {
+        await ClaudeNativeFocusPreparation.SelfTestAsync();
         const string text="原生用户输入🙂";int count=0;
         void Require(bool ok,string reason){count++;if(!ok)throw new InvalidOperationException(reason);}
+        if(!AppPaths.IsPublicSelfTest)throw new InvalidOperationException("Native discovery fixture requires an isolated profile");
+        string records=Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile),".claude","sessions");
+        Directory.CreateDirectory(records);
+        Guid codeSession=Guid.NewGuid();
+        string record=Path.Combine(records,codeSession+".json"); // Deliberately not a real process ID.
+        try {
+            foreach(var sample in new[]{
+                (Fields:new {entrypoint="claude-vscode",kind="interactive",version="99.0.0"}, Expected:"native_identity_unconfirmed"),
+                (Fields:new {entrypoint="cli",kind="interactive",version="99.0.0"}, Expected:"native_client_unsupported"),
+                (Fields:new {entrypoint="claude-vscode",kind="background",version="99.0.0"}, Expected:"native_client_unsupported")
+            }) {
+                File.WriteAllText(record,JsonSerializer.Serialize(new{sessionId=codeSession,sample.Fields.entrypoint,sample.Fields.kind,sample.Fields.version}));
+                string error="";
+                try{_=ClaudeNativeCode.Find(codeSession,explain:true);}catch(IOException e){error=e.Message;}
+                Require(error==sample.Expected,"VS Code discovery must check session identity independently of extension version");
+            }
+        } finally { File.Delete(record); }
         Require(ClaudeNativeCode.AttachmentName("blue-probe.png 96×96 Remove attachment")=="blue-probe.png","Actual attachment pill lost its filename");
         Require(ClaudeNativeCode.AttachmentName("设计 图片 96×96.png 1280×720 Remove attachment")=="设计 图片 96×96.png","Attachment filename spaces were truncated");
         Require(ClaudeNativeCode.AttachmentName("ctrl esc to focus or unfocus Claude") is null,"Composer hint was accepted as attachment filename");
@@ -37,10 +56,28 @@ internal static class ClaudeNativeSendSelfTest
         async Task<ClaudeNativeSend.Result> Run(Fixture f,CancellationToken token=default)=>await ClaudeNativeSend.SendAsync(f.Calls(),text,token);
         var success=new Fixture();var result=await Run(success);
         Require(result.Delivered&&result.User==success.User&&success.Types==1&&success.Submits==1&&success.Dispatches==1,"Native single dispatch/receipt failed");
+        {
+            var f=new Fixture();var calls=f.Calls();int reads=0;
+            calls=calls with{PreflightAttempts=3,Read=()=>++reads==1?throw new IOException("transient UI read"):f.Read()};
+            result=await ClaudeNativeSend.SendAsync(calls,text,default);
+            Require(result.Delivered&&f.Dispatches==1&&f.Types==1&&f.Submits==1,"Transient preflight did not recover exactly once");
+        }
+        {
+            var f=new Fixture();int reads=0;var calls=f.Calls() with{PreflightAttempts=3,Read=()=>{reads++;throw new IOException("unavailable");}};
+            result=await ClaudeNativeSend.SendAsync(calls,text,default);
+            Require(reads==3&&!result.SubmitAttempted&&f.Dispatches==0&&f.Types==0,"Persistent preflight failure reached input or was not bounded");
+        }
+        {
+            var f=new Fixture();int reads=0;var calls=f.Calls() with{PreflightAttempts=3,Read=()=>{if(++reads==1){f.Text="new desktop draft";throw new IOException("transient");}return f.Read();}};
+            result=await ClaudeNativeSend.SendAsync(calls,text,default);
+            Require(result.Error=="desktop_draft_present"&&f.Text=="new desktop draft"&&f.Dispatches==0&&f.Types==0,"Preflight retry ignored intervening draft");
+        }
         var cleared=new Fixture{ClearAfterSubmit=true};result=await Run(cleared);
         Require(result.Delivered&&cleared.Text.Length==0&&cleared.Submits==1,"Native composer clearing replaced receipt observation");
         var existing=new Fixture{Text="PC user draft"};result=await Run(existing);
-        Require(!result.StagingAttempted&&existing.Types==0&&existing.Submits==0&&existing.Text=="PC user draft","Existing desktop draft was changed");
+        Require(!result.StagingAttempted&&result.Error=="desktop_draft_present"&&existing.Types==0&&existing.Submits==0&&existing.Text=="PC user draft","Existing desktop draft was changed or incorrectly reported");
+        var busy=new Fixture{Idle=false};result=await Run(busy);
+        Require(!result.StagingAttempted&&result.Error=="task_busy_or_state_unknown"&&busy.Types==0&&busy.Submits==0,"Busy native terminal was written to or incorrectly reported");
         var denied=new Fixture{Allowed=false};result=await Run(denied);
         Require(!result.StagingAttempted&&denied.Reads==0&&denied.Dispatches==0,"Unauthorized request reached native state");
         var changed=new Fixture();changed.BeforeSecondRead=()=>changed.Text="New PC draft";result=await Run(changed);
@@ -76,6 +113,54 @@ internal static class ClaudeNativeSendSelfTest
         Require(Parse("> ").Empty&&Parse("❯\u00a0").Empty,"Cleared console was confused with an earlier transcript prompt");
         Require(!Parse(">   ",4).Empty,"Moved whitespace caret was mistaken for an empty composer");
         Require(!Parse("> Try an actual draft").Empty&&Parse("> Try an actual draft").DimSuggestion,"Dim hint-like words were silently discarded");
+        var chineseHint=Parse("> 读一下 CLAUDE.md 试试");
+        Require(chineseHint.SuggestionCandidate&&chineseHint.DimSuggestion&&!chineseHint.Empty&&chineseHint.Text=="读一下 CLAUDE.md 试试",
+            "Localized ghost text was rejected before placeholder verification or its text was discarded");
+        Require(!Parse("> 读一下 CLAUDE.md 试试",8).SuggestionCandidate,"A caret inside real input was treated as a suggestion");
+        var chineseDraft=ClaudeNativeConsole.ParseRows(y=>y switch{0=>"────────",1=>"> 读一下 CLAUDE.md 试试",_=>"────────"},(_,_)=>false,0,2,1,2,"test");
+        Require(chineseDraft.SuggestionCandidate&&!chineseDraft.Empty&&chineseDraft.Text==chineseHint.Text,
+            "Loss of terminal color bypassed proof or silently erased a potential draft");
+        Require(ClaudeNativeConsole.DimSuffix(new[]{('读',(ushort)8),('\0',(ushort)0x207),(' ',(ushort)7),('\0',(ushort)7)}),
+            "Unused console cells or wide-glyph trailing cells changed the hint color");
+        Require(!ClaudeNativeConsole.DimSuffix(new[]{('读',(ushort)8),('\0',(ushort)0x208),('一',(ushort)8),('\0',(ushort)0x208),('x',(ushort)7)}),
+            "Normally colored input beyond wide Chinese glyphs was ignored");
+        foreach(bool realDraft in new[]{false,true}){
+            var current=chineseHint;var keys=new List<char>();long tick=0;string failure="";
+            void Input(char c){
+                keys.Add(c);
+                current=c=='z'?chineseHint with{Text=realDraft?"z"+chineseHint.Text:"z",CursorColumn=3,SuggestionCandidate=false,DimSuggestion=false}:chineseHint;
+            }
+            try{ClaudeNativeConsole.CheckPlaceholder(chineseHint,()=>{},()=>current,Input,()=>tick,ms=>tick+=ms);}
+            catch(IOException e){failure=e.Message;}
+            Require(failure==(realDraft?"Native draft preserved":"")&&current==chineseHint&&keys.SequenceEqual(new[]{'z','\b'}),
+                "Localized placeholder probe failed to distinguish and restore an identical real draft");
+        }
+        {
+            var fixture=new Fixture();var calls=fixture.Calls() with{Type=_=>throw new ClaudeNativeTerminal.ConsoleFailure("native_console_draft_preserved")};
+            var proofResult=await ClaudeNativeSend.SendAsync(calls,text,CancellationToken.None);
+            Require(proofResult.StagingAttempted&&!proofResult.SubmitAttempted&&proofResult.Error=="desktop_draft_present"&&fixture.Dispatches==1&&fixture.Submits==0,
+                "Restored real draft was reported as an uncertain delivery or submitted");
+        }
+        {
+            var current=chineseHint;var keys=new List<char>();long tick=0;int painting=0;
+            ClaudeNativeTerminal.View ObservePainting(){
+                if(painting==1){painting++;return current with{CursorColumn=2};}
+                if(painting==2){painting++;throw new IOException("Native composer boundary unavailable");}
+                return current;
+            }
+            ClaudeNativeConsole.CheckPlaceholder(chineseHint,()=>{},ObservePainting,c=>{
+                keys.Add(c);current=c=='z'?chineseHint with{Text="z",CursorColumn=3,SuggestionCandidate=false,DimSuggestion=false}:chineseHint;
+                if(c=='z')painting=1;
+            },()=>tick,ms=>tick+=ms);
+            Require(current==chineseHint&&keys.SequenceEqual(new[]{'z','\b'}),
+                "A partial terminal paint stranded the sentinel or replayed native input");
+        }
+        {
+            var current=chineseHint;var keys=new List<char>();bool rejected=false;long tick=0;
+            try{ClaudeNativeConsole.CheckPlaceholder(chineseHint,()=>{},()=>current,c=>{keys.Add(c);current=chineseHint with{Text="new user edit",CursorColumn=8};},()=>tick,ms=>tick+=ms);}
+            catch(IOException){rejected=true;}
+            Require(rejected&&current.Text=="new user edit"&&keys.SequenceEqual(new[]{'z'}),"Placeholder probe erased an intervening user edit");
+        }
         Require(Parse("> ",previous:new string('─',48)+" agents ─").Empty&&
             Parse("> ordinary task",15,previous:new string('─',48)+" agents ─").Text=="ordinary task",
             "Foreground status embedded in the upper border hid the native prompt");

@@ -87,7 +87,7 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
     }
     internal void ShowForSetup() {ShowInTaskbar=true;Opacity=1;Show();ActiveControl=_text;Activate();_text.Select();}
     internal void RevealFailure(string? message=null) {if(Visible){ShowInTaskbar=true;Opacity=1;if(message is not null)_status.Text=message;}}
-    internal async Task PrepareAsync(CancellationToken token,Func<Task<string?>>? prepareInput=null,Func<bool>? leasePhysical=null) {
+    internal async Task PrepareAsync(CancellationToken token,Func<Task<string?>>? prepareInput=null,Func<bool>? leasePhysical=null,Action<bool>? permissionWaiting=null) {
         long prepareStarted=Environment.TickCount64;
         await _microphone.Recovery.WaitAsync(token);
         Tab5VoiceTiming.Log("prepare-recovery",prepareStarted);
@@ -106,34 +106,41 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
         var area=Screen.FromPoint(Cursor.Position).WorkingArea;
         Location=new Point(area.Right-Width-20,area.Bottom-Height-20);
         if(WindowState==FormWindowState.Minimized)WindowState=FormWindowState.Normal;
-        Prepare();
-        // Yield to the message loop: focus and TSF activation are not synchronous
-        // with Show(). Never retry the toggle, which could stop an active recording.
-        long started=Environment.TickCount64;
-        if(await Tab5VoiceFocusPreparation.WaitAsync(
-            ()=>{if(IsDisposed)throw new OperationCanceledException(token);return SafeFocus;},
-            ()=>!Tab5DesktopActivation.Raise(Handle).InputBlocked,
-            ()=>{ActiveControl=_text;Activate();_text.Select();},token,
-            observe:(phase,ms)=>Tab5LocalDiagnostics.Write($"VOICE_FOCUS phase={phase} ms={ms}"))) {
+        using var focus=new Tab5VoiceStartupFocus(Handle,foreground);
+        try {
+            // Initialize audio before the final focus grant. A cold driver or a
+            // permission dialog must not invalidate a grant captured seconds ago.
+            long inputStarted=Environment.TickCount64;
+            string? input=prepareInput is null?null:await prepareInput();bool physical=leasePhysical?.Invoke()==true;
+            Tab5VoiceTiming.Log("prepare-input",inputStarted);
+            long leaseStarted=Environment.TickCount64;
+            await _microphone.AcquireAsync(input,physical);token.ThrowIfCancellationRequested();
+            Tab5VoiceTiming.Log("prepare-microphone-lease",leaseStarted);
+            bool tapped=false;
+            void Restore(){
+                if(IsDisposed)throw new OperationCanceledException(token);
+                focus.Activate(()=>{
+                    if(!Visible)Prepare();
+                    var activation=Tab5DesktopActivation.Raise(Handle,allowInput:!tapped);
+                    tapped|=activation.Tapped||activation.PartialTap;
+                    if(activation.Foreground){ActiveControl=_text;_text.Select();}
+                });
+            }
+            long started=Environment.TickCount64;
+            if(!await focus.RestoreAsync(()=>SafeFocus,Restore,token,permissionWaiting))
+                throw new InvalidOperationException("语音准备已停止：电脑输入目标已变化");
             Tab5VoiceTiming.Log("prepare-focus-stable",started);
             long imeStarted=Environment.TickCount64;
-            if(!Tab5InputMethod.Ensure(()=>SafeFocus,IsDoubaoLayout,()=>Tab5InputMethod.ActivateDoubao(()=>SafeFocus)))throw new InvalidOperationException(Tab5DoubaoAvailability.SwitchInput);
+            _=Tab5InputMethod.Ensure(()=>SafeFocus,IsDoubaoLayout,()=>Tab5InputMethod.ActivateDoubao(()=>SafeFocus));
+            // TSF can open its permission UI asynchronously. Yield and recheck
+            // the same editor before the one and only StartCapture operation.
+            if(!await focus.RestoreAsync(()=>SafeFocus,Restore,token,permissionWaiting))
+                throw new InvalidOperationException("语音准备已停止：电脑输入目标已变化");
+            if(!IsDoubaoLayout())throw new InvalidOperationException(Tab5DoubaoAvailability.SwitchInput);
             Tab5VoiceTiming.Log("prepare-input-method",imeStarted);
             if(!_doubao.IsIdle)throw new InvalidOperationException(_doubao.LastState<0?Tab5DoubaoAvailability.UnavailableMessage():"豆包正在处理其他语音，请先结束后重试");
-            try {
-                long inputStarted=Environment.TickCount64;
-                string? input=prepareInput is null?null:await prepareInput();bool physical=leasePhysical?.Invoke()==true;
-                Tab5VoiceTiming.Log("prepare-input",inputStarted);
-                long leaseStarted=Environment.TickCount64;
-                await _microphone.AcquireAsync(input,physical);token.ThrowIfCancellationRequested();
-                Tab5VoiceTiming.Log("prepare-microphone-lease",leaseStarted);
-            }
-            catch {_microphone.Release();throw;}
-            if(!SafeFocus) {_microphone.Release();throw new InvalidOperationException("语音输入焦点已变化，请重新开始");}
-            return;
-        }
-        RevealFailure();
-        throw new InvalidOperationException("Windows 未允许语音输入获得焦点，请点一下电脑上的语音输入框后重试");
+            Tab5LocalDiagnostics.Write($"VOICE_PREPARE permissionObserved={focus.SawPermission} restored={SafeFocus}");
+        }catch{_microphone.Release();throw;}
     }
     internal async Task PrepareSwitchAsync(CancellationToken token,Func<Task<string?>> prepareInput) {
         if(!SafeFocus||!((ITab5VoiceEditor)this).RecognitionComplete)
@@ -232,6 +239,7 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
     private bool _disposed;
     private readonly bool _usesDraft;
     private bool _preparing;
+    private Tab5VoicePreparation? _preparation;
     internal Tab5VoiceHost(Tab5VoiceSettings? settings=null,ITab5VoiceAudio? audio=null,ITab5VoiceEditor? editor=null,Func<string,bool>? physicalToggle=null) {
         // Retain the legacy field for file compatibility; recording is explicitly
         // initiated by the user and no longer needs a second enable switch.
@@ -244,6 +252,7 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         _session=new(_audio,editor??_draft);
         _timer.Tick+=(_,_)=> {try{
             using var timing=new Tab5UiWorkTiming("voice");
+            _preparation?.Tick();
             _session.Tick();
             timing.Step("session");
             // Keep the selected input until text delivery finishes as well as
@@ -281,8 +290,12 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
         _dispatcher.BeginInvoke(async ()=> {
             if(token.IsCancellationRequested){completion.TrySetCanceled(token);return;}
             bool ownsPreparation=false;
+            Tab5VoicePreparation? preparing=null;
             try {
                 if(request.ValueKind==JsonValueKind.Object&&request.TryGetProperty("op",out var requestOp)&&requestOp.ValueKind==JsonValueKind.String&&requestOp.GetString()=="start")Tab5VoiceTiming.Log("ui-dispatch",queued);
+                if(_preparation is {} pending&&pending.Matches(request)&&(_preparing||pending.Snapshot().State is "error" or "cancelled")){
+                    completion.TrySetResult(pending.Handle(request));return;
+                }
                 if(_preparing)throw new Tab5VoiceRequestException("语音正在准备，请稍候");
                 bool starts=!_session.Active&&request.TryGetProperty("op",out var startOp)&&startOp.GetString()=="start"&&
                     request.TryGetProperty("taskId",out var startTask)&&startTask.ValueKind==JsonValueKind.String&&Guid.TryParseExact(startTask.GetString(),"D",out _);
@@ -298,13 +311,20 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
                 if(_usesDraft&&!_session.Active&&request.TryGetProperty("op",out var op)&&op.GetString()=="start"&&
                     request.TryGetProperty("taskId",out var task)&&task.ValueKind==JsonValueKind.String&&Guid.TryParseExact(task.GetString(),"D",out _)) {
                     _preparing=true;ownsPreparation=true;
+                    _preparation?.Dispose();preparing=_preparation=new(request,token);token=preparing.Token;
+                    // Clone before acknowledging: the transport owns the original
+                    // JsonDocument and may dispose it as soon as the reply returns.
+                    request=request.Clone();
+                    _=PublishPreparingAsync(preparing,completion);
                     long focusStarted=Environment.TickCount64;
                     var metadata=(_audio as Tab5VoiceAudio)?.PrefetchAsync(Tab5VoiceSession.ForceTab5(request))??Task.CompletedTask;
                     await _draft.PrepareAsync(token,async ()=> {
                         await metadata;token.ThrowIfCancellationRequested();
                         if(_audio is not Tab5VoiceAudio actual)return null;
-                        actual.Prepare(Tab5VoiceSession.ForceTab5(request));return actual.ExistingInputId;
-                    },()=>_audio is Tab5VoiceAudio {LeasePhysicalInput:true});
+                        return await Tab5VoicePreparation.RunAudioAsync(()=>{
+                            actual.Prepare(Tab5VoiceSession.ForceTab5(request));return actual.ExistingInputId;
+                        },token);
+                    },()=>_audio is Tab5VoiceAudio {LeasePhysicalInput:true},value=>preparing.PermissionWaiting=value);
                     Tab5VoiceTiming.Log("focus",focusStarted);
                     if(_disposed)throw new OperationCanceledException(token);
                 }
@@ -314,25 +334,30 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
                     await _draft.PrepareSwitchAsync(ct,async ()=> {
                         await metadata;ct.ThrowIfCancellationRequested();
                         if(_audio is not Tab5VoiceAudio actual)return null;
-                        actual.Prepare(true);return actual.ExistingInputId;
+                        return await Tab5VoicePreparation.RunAudioAsync(()=>{
+                            actual.Prepare(true);return actual.ExistingInputId;
+                        },ct);
                     });
                     if(_disposed)throw new OperationCanceledException(ct);
-                }:null,waitForFinal:waitForFinal);
+                }:null,waitForFinal:waitForFinal,preparedVoiceId:preparing?.VoiceId);
                 if(_disposed)throw new OperationCanceledException(token);
                 if(ownsPreparation)Tab5VoiceTiming.Log("audio-and-shortcut",handleStarted);
                 // Restore the owned foreground before releasing a review reply:
                 // automatic staging may arrive before the next 100ms UI tick.
                 if(_usesDraft&&result.State is "review" or "cancelled")_draft.CompleteReview();
+                preparing?.Complete(result);
                 completion.TrySetResult(result);
             }catch(OperationCanceledException){
-                completion.TrySetCanceled();
+                if(preparing is not null){preparing.Cancel("已取消");completion.TrySetResult(preparing.Snapshot());}
+                else completion.TrySetCanceled();
             }catch(Tab5VoiceRequestException ex){
                 // A delayed request for an old voice session must not stop the current one.
                 completion.TrySetResult(new("","","","error",ex.Message,""));
             }catch(Exception ex) when(IsAudioError(ex)||ex is ArgumentException or IOException or JsonException or TimeoutException or UnauthorizedAccessException){
                 _session.Fail(ex is ArgumentException or InvalidOperationException?ex.Message:
                     ex is IOException or JsonException or TimeoutException or UnauthorizedAccessException?"语音音源确认失败，请检查电脑语音设置":"音频设备不可用，请检查电脑");
-                completion.TrySetResult(_session.Snapshot());
+                preparing?.Complete(_session.Snapshot());
+                completion.TrySetResult(preparing?.Snapshot()??_session.Snapshot());
             }finally{
                 if(ownsPreparation) {
                     _preparing=false;
@@ -344,6 +369,12 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
             }
         });
         return completion.Task;
+    }
+    private async Task PublishPreparingAsync(Tab5VoicePreparation pending,TaskCompletionSource<Tab5VoiceReply> completion){
+        await Task.Delay(650);
+        if(!_disposed&&ReferenceEquals(_preparation,pending)&&_preparing&&!pending.Finished){
+            pending.Published();completion.TrySetResult(pending.Snapshot());
+        }
     }
     private Form? _settingsWindow;
     internal Form? SettingsWindowForm=>_settingsWindow is {IsDisposed:false}?_settingsWindow:null;
@@ -357,7 +388,7 @@ internal sealed class Tab5VoiceHost : ITab5VoiceEndpoint
     internal Form CreateSettings(bool preview=false,Form? embeddedOwner=null) => new Tab5VoiceSettingsForm(
         _settings,()=>Busy,Tab5VoiceSettings.Load,value=>{value.Save();_settings=value;},preview,embeddedOwner);
     public void Dispose(){
-        if(_disposed)return;_disposed=true;_timer.Stop();_timer.Dispose();
+        if(_disposed)return;_disposed=true;_preparation?.Cancel("语音服务已关闭");_timer.Stop();_timer.Dispose();
         try{_session.Dispose();}finally{try{_draft.Shutdown();}finally{_dispatcher.Dispose();}}
     }
 }

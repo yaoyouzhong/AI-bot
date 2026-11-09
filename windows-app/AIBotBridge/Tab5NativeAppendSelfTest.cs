@@ -7,9 +7,26 @@ internal static class Tab5NativeAppendSelfTest
     internal static async Task RunAsync() {
         int checks=0;
         void Require(bool ok,string message){checks++;if(!ok)throw new InvalidOperationException("Native append: "+message);}
+        Require(CaptureFailureReason(null,"main_editor_count=0")=="main_editor_count_0"&&
+            CaptureFailureReason(null,"private user text")=="target_unavailable"&&
+            CaptureFailureReason(new("question:fixture","private"),"anything")=="question_target",
+            "preflight diagnostics distinguish target failures without logging user content");
         LayoutNode Node(string kind,string name="",string classes="",params LayoutNode[] children)=>new(kind,name,classes,children);
         var editor=Node("Edit",classes:"ProseMirror");
         LayoutNode Layout(params LayoutNode[] siblings)=>Node("Group",children:[Node("Group",classes:"_ComposerLayoutBody_fixture",children:[editor]),..siblings]);
+        // Structural fixtures for both installed CSS-module naming schemes.
+        // No live desktop, draft content or third-party implementation is used.
+        LayoutNode CurrentLayout(params LayoutNode[] siblings)=>Node("Group",classes:"ComposerLayoutRoot-XCKS7O",
+            children:[Node("Group",classes:"ComposerLayoutBody-uBBf1A",children:[editor]),..siblings]);
+        Require(IsComposerBodyClass("relative ComposerLayoutBody-uBBf1A"),"current installed composer body recognized");
+        Require(!IsComposerBodyClass("OtherComposerLayoutBody-uBBf1A")&&!IsComposerBodyClass("ComposerLayoutBody-")&&
+            !IsComposerBodyClass("_ComposerLayoutBody_")&&!IsComposerBodyClass("ComposerLayoutBody-uBBf1A:focus"),"only complete composer class tokens recognized");
+        Require(AttachmentFree(CurrentLayout(Node("Button","Model",children:[Node("Image","icon")]))),"current empty composer accepted");
+        Require(!AttachmentFree(CurrentLayout(Node("Group",classes:"ComposerLayoutReplyContext-GGuZb3",children:[Node("Text","quote")]))),"current reply context blocked");
+        Require(!AttachmentFree(CurrentLayout(Node("Group",classes:"ComposerLayoutAttachments-bG080e",children:[Node("Text","file")]))),"current attachment content blocked");
+        Require(AttachmentFree(CurrentLayout(Node("Group",classes:"ComposerLayoutAttachments-bG080e",children:[Node("Group")]))),"current empty attachment slot accepted");
+        Require(!AttachmentFree(CurrentLayout(Node("Group",classes:"_ComposerLayoutBody_other",children:[editor]))),"mixed layout duplicate composer blocked");
+        Require(!AttachmentFree(CurrentLayout(Node("Group",classes:"@container/request-card"))),"current question card remains blocked");
         Require(AttachmentFree(Layout(Node("Button","Model",children:[Node("Image","icon")]))),"decorative toolbar icon allowed");
         Require(!AttachmentFree(Layout(Node("Image","attachment"))),"real image blocked");
         Require(!AttachmentFree(Layout(Node("Button","file",children:[Node("Group",children:[Node("Button","Remove file")])]))),"nested removal action inspected");

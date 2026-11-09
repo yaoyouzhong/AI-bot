@@ -107,7 +107,17 @@ internal sealed class Tab5NativeScreen
                 var first=line.Words[i].BoundingRect;
                 for(int j=i;j<line.Words.Count && value.Length<label.Length;j++){
                     value+=line.Words[j].Text.Replace(" ","",StringComparison.Ordinal);
-                    if(value!=label)continue;
+                    // The Chinese OCR engine reads Claude's lowercase l as I
+                    // on actual TAB5 frames. Normalize this exact client name
+                    // only; action labels and arbitrary prefixes stay strict.
+                    if(label=="Claude"&&value.StartsWith("CIaude",StringComparison.Ordinal))
+                        value="Claude"+value[6..];
+                    // OCR can join a client's passive count badge to its name.
+                    // Accept only the bounded selector's exact name + count;
+                    // send/stop and all other action labels remain exact.
+                    bool clientBadge=label is "Claude" or "Codex"&&value.StartsWith(label,StringComparison.Ordinal)&&
+                        value[label.Length..] is "1" or "2" or "3" or "4" or "5" or "6" or "7" or "8" or "9" or "9+";
+                    if(value!=label&&!clientBadge)continue;
                     var last=line.Words[j].BoundingRect;
                     matches.Add(new Point(region.X+(int)((first.X+last.Right)/2),region.Y+(int)((first.Y+last.Bottom)/2)));
                 }
@@ -133,15 +143,16 @@ internal sealed class Tab5NativeScreen
         var action=System.Text.Json.JsonSerializer.SerializeToElement(new{op="tap",width=_viewport.Width,height=_viewport.Height,rotation=_viewport.Rotation,x=point.X,y=point.Y});
         await _backend.Action(action,token);
     }
-    private async Task Labeled(string label,Rectangle region,string evidence,CancellationToken token){
+    private async Task<Point> Labeled(string label,Rectangle region,string evidence,CancellationToken token){
         for(int i=0;i<3;i++){
             using var frame=await Capture(token);
             var point=await Locate(label,region,frame);
             if(point is null&&label=="追加"&&region==Send&&Matches318Append(frame))point=new Point(1146,472);
-            if(point!=null){Write(frame,evidence);await Tap(point.Value,token);return;}
+            if(point!=null){Write(frame,evidence);await Tap(point.Value,token);return point.Value;}
             if(i==2){Write(frame,evidence+"-unavailable");throw new IOException("device_label_unconfirmed_"+evidence);}
             await Task.Delay(300,token);
         }
+        throw new IOException("device_label_unconfirmed_"+evidence);
     }
     internal async Task EnterClaude(CancellationToken token){
         using(var frame=await Capture(token)){
@@ -233,7 +244,7 @@ internal sealed class Tab5NativeScreen
         await Tap(new Point(290,379),token);
         await Tap(new Point(1190,567),token);
     }
-    internal Task ActionButton(string label,CancellationToken token)=>Labeled(label,label=="停止任务"?Stop:Send,"action-"+(label=="停止任务"?"stop":label=="追加"?"append":"send"),token);
+    internal Task<Point> ActionButton(string label,CancellationToken token)=>Labeled(label,label=="停止任务"?Stop:Send,"action-"+(label=="停止任务"?"stop":label=="追加"?"append":"send"),token);
     internal async Task ClearFixture(CancellationToken token){
         using var frame=await Capture(token);
         using var reference=new Bitmap(_keyboardReference!);

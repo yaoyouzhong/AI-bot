@@ -16,7 +16,6 @@ internal sealed partial class ClaudeNativeCode:IClaudeNativeSession
     private readonly Guid _session;private readonly int _pid,_codePid;
     private readonly string _start,_directory,_database,_record,_codeStart;
     private sealed record View(nint Window,AutomationElement Frame,AutomationElement Editor,AutomationElement Button,string Text,bool Empty,AutomationElement Composer,string[] Images,bool Hint=false);
-    private static bool Supported(string version)=>version is "2.1.314" or "2.1.318";
     private ClaudeNativeCode(Guid session,int pid,string start,string directory,int codePid,string codeStart,string database,string record){
         _session=session;_pid=pid;_start=start;_directory=directory;_codePid=codePid;_codeStart=codeStart;_database=database;_record=record;
     }
@@ -60,7 +59,7 @@ internal sealed partial class ClaudeNativeCode:IClaudeNativeSession
                 try {
                     using var doc=JsonDocument.Parse(Regular(path,16384));var row=doc.RootElement;
                     if(!Guid.TryParse(Text(row,"sessionId"),out var id)||id!=session)continue;
-                    Require(Text(row,"entrypoint")=="claude-vscode"&&Text(row,"kind")=="interactive"&&Supported(Text(row,"version")),"native_client_unsupported");
+                    Require(Text(row,"entrypoint")=="claude-vscode"&&Text(row,"kind")=="interactive","native_client_unsupported");
                     Require(int.TryParse(Path.GetFileNameWithoutExtension(path),out int pid)&&pid>0&&Property(row,"pid").TryGetInt32(out int saved)&&saved==pid,"native_identity_unconfirmed");
                     using var process=Process.GetProcessById(pid);string start=Text(row,"procStart"),cwd=Text(row,"cwd");
                     Require(process.ProcessName=="claude"&&!process.HasExited&&Start(process)==start&&Path.IsPathFullyQualified(cwd),"native_identity_unconfirmed");
@@ -90,7 +89,7 @@ internal sealed partial class ClaudeNativeCode:IClaudeNativeSession
         foreach(string path in Directory.EnumerateFiles(root,"*.json")){
             if(++count>2048)break;
             try{using var doc=JsonDocument.Parse(Regular(path,16384));var row=doc.RootElement;
-                if(Text(row,"entrypoint")!="claude-vscode"||!Supported(Text(row,"version"))||!Guid.TryParse(Text(row,"sessionId"),out var id)||!int.TryParse(Path.GetFileNameWithoutExtension(path),out int pid))continue;
+                if(Text(row,"entrypoint")!="claude-vscode"||!Guid.TryParse(Text(row,"sessionId"),out var id)||!int.TryParse(Path.GetFileNameWithoutExtension(path),out int pid))continue;
                 using var process=Process.GetProcessById(pid);if(process.ProcessName=="claude"&&!process.HasExited&&Start(process)==Text(row,"procStart"))ids.Add(id);
             }catch(Exception e) when(e is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception){}
         }
@@ -98,7 +97,7 @@ internal sealed partial class ClaudeNativeCode:IClaudeNativeSession
     }
     private string CheckNative(bool idle=false){
         using var doc=JsonDocument.Parse(Regular(_record,16384));var row=doc.RootElement;
-        Require(Guid.TryParse(Text(row,"sessionId"),out var id)&&id==_session&&Text(row,"procStart")==_start&&Text(row,"entrypoint")=="claude-vscode"&&Supported(Text(row,"version"))&&
+        Require(Guid.TryParse(Text(row,"sessionId"),out var id)&&id==_session&&Text(row,"procStart")==_start&&Text(row,"entrypoint")=="claude-vscode"&&
             string.Equals(Path.GetFullPath(Text(row,"cwd")),_directory,StringComparison.OrdinalIgnoreCase),"native_session_changed");
         using var native=Process.GetProcessById(_pid);using var host=Process.GetProcessById(_codePid);
         Require(native.ProcessName=="claude"&&!native.HasExited&&Start(native)==_start&&CodeRoot(native)==_codePid&&host.ProcessName=="Code"&&Start(host)==_codeStart,"native_session_changed");
@@ -139,8 +138,9 @@ internal sealed partial class ClaudeNativeCode:IClaudeNativeSession
         try{return CheckNative()=="idle"&&CheckSelected();}
         catch(Exception e) when(e is IOException or JsonException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception or UnauthorizedAccessException){return false;}
     }
-    internal static IEnumerable<ClaudeSessionObservation> NewPanels(){
+    internal static IEnumerable<ClaudeSessionObservation> NewPanels(IReadOnlySet<Guid>? known=null){
         foreach(var id in LiveSessions()){
+            if(known?.Contains(id)==true)continue;
             var code=Find(id);if(code is null)continue;
             ClaudeSessionObservation? observation=null;
             try{
@@ -221,10 +221,16 @@ internal sealed partial class ClaudeNativeCode:IClaudeNativeSession
     internal object Inspect(){var view=Read(false);return new{available=true,host="vscode",state=CheckNative(),draftEmpty=view.Empty,nativeSubmitAvailable=true,button=view.Button.Current.Name,buttonEnabled=view.Button.Current.IsEnabled,hint=view.Hint,imageCount=view.Images.Length,hasUnclassifiedText=view.Text.Length>0&&!view.Hint,scope=Scope()};}
     private static bool Focused(View view)=>GetForegroundWindow()==view.Window&&view.Editor.Current.HasKeyboardFocus&&
         AutomationElement.FocusedElement is {} focused&&focused.GetRuntimeId().SequenceEqual(view.Editor.GetRuntimeId());
+    private static Task<bool> RestoreForInputAsync(nint window,Func<bool> current,CancellationToken token)=>
+        ClaudeNativeFocusPreparation.RestoreAsync(()=>IsIconic(window),()=>ShowWindowAsync(window,9),
+            ()=>current()&&Tab5DesktopActivation.IsInteractive()&&!Held.Any(k=>(GetAsyncKeyState(k)&0x8000)!=0),token);
+    [DllImport("user32.dll")]private static extern bool IsIconic(nint window);
+    [DllImport("user32.dll")]private static extern bool ShowWindowAsync(nint window,int command);
     internal async Task<ClaudeNativeSend.Result> SendAsync(string text,Func<ClaudeHistory.Value> history,Action dispatch,Func<bool> authorized,CancellationToken token){
         if(!authorized())return new(false,false,null,"unauthorized");
         if(string.IsNullOrWhiteSpace(text)||new UTF8Encoding(false,true).GetByteCount(text)>2000||text.Any(char.IsControl))return new(false,false,null,"native_input_unsupported");
         var original=Read();if(!original.Empty)return new(false,false,null,"desktop_draft_present");
+        if(!await RestoreForInputAsync(original.Window,authorized,token))return new(false,false,null,"native_window_restore_unconfirmed");
         if(Held.Any(k=>(GetAsyncKeyState(k)&0x8000)!=0))return new(false,false,null,"desktop_input_active");
         // Only an explicit authorized device request reaches this activation.
         if(!authorized()||!Tab5DesktopActivation.Raise(original.Window).Foreground)return new(false,false,null,"native_foreground_unconfirmed");

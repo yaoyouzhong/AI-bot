@@ -97,7 +97,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         root.TryGetProperty("op",out var op)&&op.ValueKind==JsonValueKind.String&&op.GetString()=="tab5"&&
         root.TryGetProperty("voiceId",out var id)&&id.ValueKind==JsonValueKind.String&&id.GetString()==_id;
     internal async Task<Tab5VoiceReply> HandleAsync(JsonElement root,CancellationToken token,Func<CancellationToken,Task>? wait=null,
-        Func<CancellationToken,Task>? prepareTab5=null,bool waitForFinal=false) {
+        Func<CancellationToken,Task>? prepareTab5=null,bool waitForFinal=false,string? preparedVoiceId=null) {
         token.ThrowIfCancellationRequested();
         string requestedClient=root.TryGetProperty("client",out var clientValue)&&clientValue.ValueKind==JsonValueKind.String?clientValue.GetString()!:"codex";
         string requestedOp=root.TryGetProperty("op",out var operation)&&operation.ValueKind==JsonValueKind.String?operation.GetString()!:"";
@@ -128,7 +128,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         }
         if(waited){_audioWaitMs=_clock()-started;_audioWaitPeakMs=Math.Max(_audioWaitPeakMs,_audioWaitMs);}
         token.ThrowIfCancellationRequested();
-        var result=Handle(root);
+        var result=Handle(root,preparedVoiceId);
         if(waitForFinal&&root.TryGetProperty("op",out var op)&&op.GetString()=="poll"&&result.State=="recognizing") {
             long pollStarted=Environment.TickCount64;
             long until=_clock()+350;
@@ -156,7 +156,7 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         foreach(var rune in text.EnumerateRunes()) {if(bytes+rune.Utf8SequenceLength>2000)break;result.Append(rune.ToString());bytes+=rune.Utf8SequenceLength;}
         return result.ToString();
     }
-    internal Tab5VoiceReply Handle(JsonElement root) {
+    internal Tab5VoiceReply Handle(JsonElement root,string? preparedVoiceId=null) {
         Tick();
         string Str(string key)=>root.TryGetProperty(key,out var value)&&value.ValueKind==JsonValueKind.String?value.GetString()!:"";
         var op=Str("op");
@@ -165,7 +165,8 @@ internal sealed class Tab5VoiceSession(ITab5VoiceAudio audio, ITab5VoiceEditor e
         if(op=="start") {
             if(Active)throw new Tab5VoiceRequestException("已有语音输入正在进行");
             if(!Guid.TryParseExact(Str("taskId"),"D",out _))throw new Tab5VoiceRequestException("请选择任务");
-            _id=Guid.NewGuid().ToString("N");_task=Str("taskId");_nextChunk=0;_pcmBytes=0;_ready=false;
+            if(preparedVoiceId is not null&&!Guid.TryParseExact(preparedVoiceId,"N",out _))throw new ArgumentException("语音准备标识无效");
+            _id=preparedVoiceId??Guid.NewGuid().ToString("N");_task=Str("taskId");_nextChunk=0;_pcmBytes=0;_ready=false;
             _client=client;
             _silent=false;_lastSignal=_clock();
             _quietTake=false;_receivedText=false;

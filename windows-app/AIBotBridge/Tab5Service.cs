@@ -27,6 +27,8 @@ internal sealed partial class Tab5Service : IDisposable
     internal Func<IReadOnlyList<FlashUsbDevice>> UsbDevices {get;set;}=FlashDeviceDiscovery.Read;
     private volatile string _hidDiagnostic="未触发";
     internal Tab5UIAutomation UIAutomation {get;}=new();
+    // Only an explicitly constructed diagnostic service injects test activity.
+    internal Func<long?>? DiagnosticInputClock {get;init;}
     private readonly string _session=Guid.NewGuid().ToString("N");
     private byte[]? _frame;
     private bool _frameMayContainResource;
@@ -291,14 +293,14 @@ internal sealed partial class Tab5Service : IDisposable
         int maximum=Volatile.Read(ref _statusMaximum),budget=Tab5StatusCapacity.Budget(maximum);
         byte[] Build(int cap,byte[]? previous,out int initial,out int taskLimit,out bool degraded,out string[] deferredFields) {
             int target=Tab5StatusCapacity.Budget(cap);taskLimit=80;
-            var bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(requiredTask:claudeSession?.GetValueOrDefault("taskId") as string,device:pairing.DeviceId));
+            var bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(requiredTask:claudeSession?.GetValueOrDefault("taskId") as string,device:pairing.DeviceId),DiagnosticInputClock);
             initial=bytes.Length;
             if(bytes.Length>target&&resource is not null)
-                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(requiredTask:claudeSession?.GetValueOrDefault("taskId") as string,device:pairing.DeviceId));
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(requiredTask:claudeSession?.GetValueOrDefault("taskId") as string,device:pairing.DeviceId),DiagnosticInputClock);
             foreach(int limit in new[]{64,56,48,40,32,24,16,8,2}) {
                 if(bytes.Length<=target)break;
                 taskLimit=limit;
-                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(limit,claudeSession?.GetValueOrDefault("taskId") as string,pairing.DeviceId));
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(limit,claudeSession?.GetValueOrDefault("taskId") as string,pairing.DeviceId),DiagnosticInputClock);
             }
             degraded=bytes.Length>target;deferredFields=[];
             return degraded?Tab5StatusRecovery.Build(bytes,previous,out deferredFields,cap):bytes;
