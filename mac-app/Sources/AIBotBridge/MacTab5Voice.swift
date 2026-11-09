@@ -55,6 +55,7 @@ struct MacTab5SpeechBackend {
     var sourceName: () -> String = { "" }
     // Local routing only. Wire replies continue to use pc/tab5.
     var resolveSource: (String, Bool) throws -> String = { source, _ in source }
+    var preparePermission: (String, @escaping () -> Bool, @escaping (Bool) -> Void) -> Bool = { _, _, _ in false }
 }
 
 final class MacTab5Voice {
@@ -95,6 +96,7 @@ final class MacTab5Voice {
     private var isFinal = false
     private var stoppedByUser = false
     private var backendGeneration = UUID()
+    private var pendingPermission: UUID?
     private var lastSpeechFailure = "", endReason = ""
     private var captureRequested: TimeInterval = 0
     private var startupTime: TimeInterval?, captureReadyTime: TimeInterval?, firstResultTime: TimeInterval?, finalTime: TimeInterval?, reviewTime: TimeInterval?
@@ -211,9 +213,10 @@ final class MacTab5Voice {
         }
     }
     private func tick() {
-        if !enabled(), ["recording", "recognizing"].contains(state) { backend.cancel(); state = "cancelled"; text = "" }
+        if !enabled(), ["recording", "recognizing"].contains(state) { cancelTake() }
         let now = clock()
         if state == "recording", now - started > 60 || now - seen > 8 {
+            if pendingPermission != nil { cancelTake(); return }
             forwardPreparedAudio()
             guard state == "recording" else { return }
             if !preparingAudio.isEmpty {
@@ -240,7 +243,7 @@ final class MacTab5Voice {
     private func snapshot() -> MacTab5RPCResult {
         forwardPreparedAudio()
         if state != "recording" && !(state == "recognizing" && finishAfterPreparation) { clearPreparingAudio(); finishAfterPreparation = false }
-        let backendReady = backend.ready()
+        let backendReady = pendingPermission == nil && backend.ready()
         let ready = state == "recording" && (backendReady || (externalRecognition && source == "tab5" && samples > 0))
         if backendReady { captureWasReady = true }
         if ready, captureReadyTime == nil { captureReadyTime = clock() - captureRequested }
@@ -275,6 +278,7 @@ final class MacTab5Voice {
             retainSessionDiagnostics()
             resetTimings()
             externalRecognition = usesDoubao()
+            pendingPermission = nil
             backend.cancel(); id = UUID().uuidString.lowercased(); self.device = device; self.task = task; self.session = session
             client = requestedClient
             source = MacVoiceCaptureSource.resolve(requested: root["source"] as? String, preferred: preferredSource()).rawValue
@@ -287,7 +291,7 @@ final class MacTab5Voice {
             let preparedOwner = id
             lock.unlock(); if requestedClient == "codex" { beforeStart?(task, device) }; lock.lock()
             guard id == preparedOwner, state == "recording", enabled() else { return .error(409, "voice_session_changed") }
-            do { try beginBackend(forceTab5: root["source"] as? String == "tab5"); startupTime = clock() - captureRequested; return snapshot() }
+            do { try beginBackend(forceTab5: root["source"] as? String == "tab5"); return snapshot() }
             catch { state = "error"; message = (error as? MacTab5LocalError)?.localizedDescription ?? (externalRecognition ? "豆包语音未能启动，请检查输入法和辅助功能权限。" : "本地语音不可用，请在 Mac 授权语音识别和麦克风，并确认该语言支持离线识别。"); backend.cancel(); return snapshot() }
         }
         guard !id.isEmpty, requestedClient == client, root["voiceId"] as? String == id, device == self.device, root["session"] as? String == session else { return .error(409, "voice_session_changed") }
@@ -306,8 +310,9 @@ final class MacTab5Voice {
             }
             return snapshot()
         }
-        if op == "cancel" { backend.cancel(); text = ""; state = "cancelled"; message = "已取消"; isFinal = false; wakeFinalWaiter(); return snapshot() }
+        if op == "cancel" { cancelTake(); return snapshot() }
         if op == "stop" {
+            if pendingPermission != nil { cancelTake(); return snapshot() }
             forwardPreparedAudio()
             let bufferedCapture = externalRecognition && source == "tab5" && samples > 0
             if externalRecognition, state == "recording", !captureWasReady, !bufferedCapture {
@@ -344,7 +349,7 @@ final class MacTab5Voice {
         if op == "tab5", state == "recording", source == "pc", samples == 0, text.isEmpty {
             resetTimings()
             backend.cancel(); source = "tab5"; captureName = ""
-            do { try beginBackend(forceTab5: true); startupTime = clock() - captureRequested; return snapshot() } catch { state = "error"; message = "TAB5 收音初始化失败"; return snapshot() }
+            do { try beginBackend(forceTab5: true); return snapshot() } catch { state = "error"; message = "TAB5 收音初始化失败"; return snapshot() }
         }
         guard op == "audio", state == "recording", source == "tab5", let seq64 = MacTab5Protocol.integer(root["seq"]), (0...600).contains(seq64),
               let encoded = root["pcm"] as? String, encoded.utf8.count <= 9000, let bytes = Data(base64Encoded: encoded) else { return .error(400, "invalid_voice_audio") }
@@ -353,6 +358,12 @@ final class MacTab5Voice {
         guard seq == sequence else { return .error(409, "voice_audio_gap") }
         do {
             let pcm = try MacTab5VoiceAudio.decode(bytes, codec: root["codec"] as? String ?? "pcm")
+            if pendingPermission != nil {
+                // R4 starts TAB5 capture before the ready cue. Acknowledge
+                // its sequence without retaining or recognizing pre-consent PCM.
+                sequence += 1; hashes[seq] = hash
+                return snapshot()
+            }
             guard samples + pcm.count <= 60 * 16000 else { return .error(413, "voice_duration_exceeded") }
             if externalRecognition {
                 if !captureWasReady && !backend.ready() { probeSamples += pcm.count }
@@ -371,10 +382,45 @@ final class MacTab5Voice {
             return snapshot()
         } catch { state = "error"; message = "音频无效，本段已停止"; backend.cancel(); return .error(400, "invalid_voice_audio") }
     }
+    private func cancelTake() {
+        pendingPermission = nil; backend.cancel(); text = ""; state = "cancelled"; message = "已取消"; isFinal = false; wakeFinalWaiter()
+    }
     private func beginBackend(forceTab5: Bool = false) throws {
+        pendingPermission = nil
         captureWasReady = false; probeSamples = 0; finishAfterPreparation = false; clearPreparingAudio()
         source = try backend.resolveSource(source, forceTab5)
         guard ["pc", "tab5"].contains(source) else { throw MacTab5Error.unavailable }
+        let owner = id, ticket = UUID()
+        pendingPermission = ticket
+        let current = { [weak self] in
+            guard let self else { return false }
+            self.lock.lock(); defer { self.lock.unlock() }
+            self.tick()
+            return self.id == owner && self.pendingPermission == ticket && self.state == "recording" && self.enabled()
+        }
+        if backend.preparePermission(source, current, { [weak self] allowed in
+            guard let self else { return }
+            self.lock.lock(); defer { self.lock.unlock() }
+            self.tick()
+            guard self.id == owner, self.pendingPermission == ticket, self.state == "recording", self.enabled() else { return }
+            self.pendingPermission = nil
+            guard allowed else {
+                self.state = "error"; self.message = MacTab5SpeechFailure.permission.message; return
+            }
+            do { try self.startCapture() }
+            catch {
+                self.state = "error"
+                self.message = (error as? MacTab5LocalError)?.localizedDescription ?? MacTab5SpeechFailure.unavailable.message
+                self.backend.cancel()
+            }
+        }) {
+            message = "正在准备收音…"
+            return
+        }
+        pendingPermission = nil
+        try startCapture()
+    }
+    private func startCapture() throws {
         let owner = id, generation = UUID(); backendGeneration = generation
         try backend.start(source) { [weak self] result, done, error in
             guard let self else { return }; self.lock.lock(); defer { self.lock.unlock() }
@@ -405,6 +451,8 @@ final class MacTab5Voice {
             }
             if !["recording", "recognizing"].contains(self.state) { self.wakeFinalWaiter() }
         }
+        startupTime = clock() - captureRequested
+        if !externalRecognition, state == "recording" { message = "请开始说话" }
     }
     static func bounded(_ text: String, maximum: Int) -> String { var result = ""; for char in text { let next = String(char); if result.utf8.count + next.utf8.count > maximum { break }; result += next }; return result }
 }

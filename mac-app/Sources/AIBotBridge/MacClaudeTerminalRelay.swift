@@ -246,7 +246,7 @@ enum MacClaudeTerminalRelay {
         return history.inputDigests[user] == MacClaudeNativeContent.digest(draft)
     }
 
-    private static func composer(_ terminal: Terminal) -> String? {
+    static func composer(_ terminal: Terminal) -> String? {
         let cursor = terminal.getCursorLocation()
         guard (40...400).contains(terminal.cols), (12...160).contains(terminal.rows),
               cursor.y > 0, cursor.y + 1 < terminal.rows else { return nil }
@@ -273,7 +273,19 @@ enum MacClaudeTerminalRelay {
             guard next.hasPrefix("  ") else { return nil }
             content += next.dropFirst(2).trimmingCharacters(in: .whitespaces)
         }
-        if content.isEmpty && (first != cursor.y || cursor.x != 2 || end != first + 1) { return nil }
+        let atEmptyPrompt = first == cursor.y && cursor.x == 2 && end == first + 1
+        if content.isEmpty { return atEmptyPrompt ? "" : nil }
+        if atEmptyPrompt {
+            // Accept renderer evidence only. The same words in an editable
+            // draft, even with the caret moved home, must remain protected.
+            let visible = (2..<terminal.cols).filter { column in
+                let ch = terminal.getCharacter(col: column, row: first) ?? " "
+                return ch != "\0" && !ch.isWhitespace
+            }
+            if !visible.isEmpty, visible.allSatisfy({
+                terminal.getCharData(col: $0, row: first)?.attribute.style.contains(.dim) == true
+            }) { return "" }
+        }
         return content
     }
 

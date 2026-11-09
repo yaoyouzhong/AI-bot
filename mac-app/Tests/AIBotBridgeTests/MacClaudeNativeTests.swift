@@ -386,6 +386,143 @@ final class MacClaudeNativeTests: XCTestCase {
         tasks.refresh(); XCTAssertTrue(canSend(idB))
         tasks.stop(); XCTAssertTrue(controls()[idB] is NSNull)
     }
+    func testUnreadTracksNativeCompletionAndReceiptDespiteReadBeforeScan() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let a = Client(), b = Client(), key = Data(0..<32)
+        var clients = [a.session: a, b.session: b], rows: [UUID: [[String: Any]]] = [:]
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        func append(_ client: Client, _ type: String, _ parent: UUID?, _ text: String, side: Bool = false) throws -> UUID {
+            let id = UUID()
+            rows[client.session, default: []].append([
+                "type": type, "uuid": id.uuidString, "sessionId": client.session.uuidString, "cwd": root.path,
+                "parentUuid": parent?.uuidString as Any? ?? NSNull(), "timestamp": stamp, "isSidechain": side,
+                "message": ["role": type, "content": type == "user" ? text as Any : [["type": "text", "text": text]], "stop_reason": "end_turn"]
+            ])
+            var data = Data()
+            for row in rows[client.session] ?? [] { data.append(try MacTab5Protocol.json(row)); data.append(10) }
+            try data.write(to: root.appendingPathComponent(client.session.uuidString + ".jsonl"), options: .atomic)
+            return id
+        }
+        func user(_ client: Client, _ parent: UUID? = nil, _ text: String = "fixture input") throws -> UUID {
+            try append(client, "user", parent, text)
+        }
+        func reply(_ client: Client, _ prompt: UUID, _ text: String = "fixture reply", side: Bool = false) throws -> UUID {
+            try append(client, "assistant", prompt, text, side: side)
+        }
+        let oldA = try reply(a, user(a)), oldB = try reply(b, user(b))
+        let store = MacTab5PrivateStore(root: root.appendingPathComponent("sealed"), key: { key })
+        let backend = MacClaudeWorkspaceBackend(root: root, store: store, key: { key }, nativeFactory: { clients[$0] })
+        let tasks = MacClaudeWorkspace(store: store, backend: backend, enabled: { true }).tasks
+        tasks.refresh()
+        let idA = try XCTUnwrap(backend.alias(session: a.session)), idB = try XCTUnwrap(backend.alias(session: b.session))
+        func projected(_ name: String) -> [String: String] { tasks.snapshot()?[name] as? [String: String] ?? [:] }
+        func read(_ task: String, _ turn: String? = nil, device: String = "fixture-A") -> MacTab5RPCResult {
+            var request = ["op": "read", "taskId": task]; request["turnId"] = turn
+            return tasks.handle(request, device: device)
+        }
+        func receipt(_ result: MacTab5RPCResult) throws -> (id: String, turn: String) {
+            XCTAssertEqual(result.status, 200)
+            let view = try XCTUnwrap(result.body["replyView"] as? [String: Any])
+            return (try XCTUnwrap(view["readReceipt"] as? String), try XCTUnwrap(view["turnId"] as? String))
+        }
+        func ack(_ target: (id: String, turn: String), _ task: String, device: String = "fixture-A") -> Int {
+            tasks.handle(["op": "read-ack", "taskId": task, "requestId": target.id, "turnId": target.turn], device: device).status
+        }
+        let history = try receipt(read(idA))
+        XCTAssertFalse(history.id.isEmpty)
+        XCTAssertTrue(projected("repliesReady").isEmpty, "Reading preexisting history must not publish a completion")
+
+        let firstA = try reply(a, user(a, oldA), "first new reply")
+        _ = try reply(b, user(b, oldB))
+        tasks.refresh()
+        let firstUnread = try XCTUnwrap(projected("repliesUnread")[idA])
+        let otherUnread = try XCTUnwrap(projected("repliesUnread")[idB])
+        XCTAssertTrue(try receipt(read(idA, history.turn)).id.isEmpty)
+        let firstReceipt = try receipt(read(idA, firstUnread))
+        XCTAssertEqual(ack(firstReceipt, idA, device: "fixture-B"), 409)
+        XCTAssertEqual(ack(firstReceipt, idB), 409)
+        // Neither a blank user record nor a side branch accepts a next input.
+        let blank = try user(a, firstA, "  ")
+        _ = try reply(a, blank, "not a main-branch reply", side: true)
+        tasks.refresh()
+        XCTAssertEqual(projected("repliesUnread")[idA], firstUnread)
+
+        let second = try user(a, firstA)
+        a.runtime = "busy"
+        tasks.refresh()
+        XCTAssertEqual(projected("repliesRead")[idA], firstUnread)
+        XCTAssertNil(projected("repliesUnread")[idA])
+        XCTAssertEqual(projected("repliesUnread")[idB], otherUnread)
+        let previous = try receipt(read(idA, firstUnread))
+        XCTAssertFalse(previous.id.isEmpty, "A running successor is not a newer completed public reply")
+        XCTAssertEqual(previous.id, firstReceipt.id)
+        XCTAssertEqual(ack(previous, idA), 200)
+        clients[a.session] = nil; tasks.refresh()
+        XCTAssertNil(projected("repliesUnread")[idA])
+
+        _ = try reply(a, second, "second new reply")
+        a.runtime = "idle"; clients[a.session] = a
+        let ahead = try receipt(read(idA))
+        XCTAssertNil(projected("repliesUnread")[idA], "A fetch cannot advance the background completion edge")
+        tasks.refresh()
+        XCTAssertEqual(projected("repliesUnread")[idA], ahead.turn)
+        XCTAssertEqual(projected("repliesUnread")[idB], otherUnread)
+        XCTAssertEqual(ack(firstReceipt, idA), 409)
+        XCTAssertEqual(ack(ahead, idA), 200)
+        for _ in 0..<85 { XCTAssertEqual(try receipt(read(idA)).id, ahead.id) }
+        for index in 0..<85 { XCTAssertFalse(try receipt(read(idA, device: "fixture-\(index)")).id.isEmpty) }
+        let replacement = try receipt(read(idA))
+        XCTAssertEqual(ack(replacement, idA), 200)
+        tasks.refresh()
+        XCTAssertNil(projected("repliesUnread")[idA])
+        XCTAssertEqual(projected("repliesUnread")[idB], otherUnread)
+    }
+
+    func testSelectedReconnectPublishesWhileUnrelatedCatalogProbeIsBlocked() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let key = Data(0..<32), store = MacTab5PrivateStore(root: root, key: { key })
+        let selected = UUID().uuidString.lowercased(), other = UUID().uuidString.lowercased()
+        let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+        let finished = DispatchSemaphore(value: 0), probe = expectation(description: "Selected session probe")
+        let slow = NSLock()
+        var block = false
+        func control(_ task: String) -> [String: Any] { ["taskId": task, "canSend": true] }
+        let tasks = MacTab5Codex(store: store, enabled: { true }, sendEnabled: { true }, call: { method, params in
+            if method == "thread/read" {
+                return ["thread": ["id": params["threadId"]!, "turns": [], "historyLimited": false]]
+            }
+            let observedAt = ProcessInfo.processInfo.systemUptime
+            slow.lock(); let blocked = block; slow.unlock()
+            if blocked { entered.signal(); _ = release.wait(timeout: .now() + 5) }
+            return ["data": [other, selected].map { ["id": $0, "cwd": "/fixture", "nativeControl": NSNull(), "nativeObservedAt": observedAt] }]
+        }, provider: "Claude")
+        tasks.probeNativeControl = { task in
+            XCTAssertEqual(task, selected); probe.fulfill()
+            return ["nativeControl": control(task), "nativeObservedAt": ProcessInfo.processInfo.systemUptime]
+        }
+        tasks.refresh()
+        slow.lock(); block = true; slow.unlock()
+        DispatchQueue.global().async { tasks.refresh(); finished.signal() }
+        defer { release.signal() }
+        XCTAssertEqual(entered.wait(timeout: .now() + 2), .success)
+        XCTAssertEqual(tasks.handle(["op": "read", "taskId": selected], device: "fixture").status, 404)
+        XCTAssertEqual(tasks.handle(["op": "draft-load", "taskId": selected, "requestId": UUID().uuidString], device: "fixture").status, 200)
+        wait(for: [probe], timeout: 2)
+        func available() -> Bool {
+            let controls = tasks.snapshot(taskLimit: 1, requiredTask: other, device: "fixture")?["controls"] as? [String: Any]
+            return (controls?[selected] as? [String: Any])?["canSend"] as? Bool == true
+        }
+        let deadline = ProcessInfo.processInfo.systemUptime + 1
+        while !available(), ProcessInfo.processInfo.systemUptime < deadline { Thread.sleep(forTimeInterval: 0.005) }
+        XCTAssertTrue(available())
+        release.signal()
+        XCTAssertEqual(finished.wait(timeout: .now() + 2), .success)
+        XCTAssertTrue(available(), "An older disconnected snapshot must not overwrite a newer reconnect")
+    }
+
     private func request(_ operation:String="send",_ text:String="测试🙂",images:[String]=[],authorized:@escaping ()->Bool={true},current:@escaping ()throws->Bool={true})->MacClaudeNativeRequest {
         .init(operation:operation,text:text,paths:images.enumerated().map{URL(fileURLWithPath:"/fixture/\($0.offset).png")},imageDigests:images,authorized:authorized,current:current)
     }

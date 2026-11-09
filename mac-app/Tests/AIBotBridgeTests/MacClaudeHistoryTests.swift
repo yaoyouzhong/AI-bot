@@ -48,7 +48,7 @@ final class MacClaudeHistoryTests: XCTestCase {
         XCTAssertFalse(resumed.limited)
         XCTAssertEqual(resumed.accepted,linked.accepted)
         XCTAssertFalse(String(decoding:try JSONSerialization.data(withJSONObject:resumed.turns),as:UTF8.self).contains("private"))
-        for subtype in ["informational", "api_error", "stop_hook_summary"] {
+        for subtype in ["informational", "api_error", "stop_hook_summary", "local_command"] {
             var context = link(duration,reply,subtype)
             rows[rows.count-3] = context
             rows.append(row("assistant",UUID(),next,[["type":"text","text":"Retry completed"]]))

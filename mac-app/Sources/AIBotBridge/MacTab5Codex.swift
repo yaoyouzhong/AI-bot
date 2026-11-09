@@ -7,6 +7,10 @@ final class MacTab5Codex {
     typealias CatalogNames = (Set<String>) -> [String: String]?
     private let gate = NSLock(), stateLock = NSLock(), journalGate = NSLock()
     private let queue = DispatchQueue(label: "AI-bot.tab5-codex")
+    private let refreshGate = NSLock()
+    private let nativeSelectionQueue = DispatchQueue(label: "AI-bot.tab5-claude.selected", qos: .userInitiated)
+    private var pendingNativeSelection: String?
+    private var nativeSelectionRunning = false
     private let deviceReads: MacTab5ReadAhead
     private let desktopReads: MacCodexReadState
     private let call: Call, enabled: () -> Bool, sendEnabled: () -> Bool, mutable: () -> Bool
@@ -17,10 +21,12 @@ final class MacTab5Codex {
     private var listSortKey = "recency_at"
     private var catalogUpdated: TimeInterval = -.infinity
     // Guarded by stateLock, independent of the last reply viewed.
-    private var nativeControls: [String: (value: Any, at: TimeInterval)] = [:]
+    private typealias NativeControl = (value: Any, at: TimeInterval, observedAt: TimeInterval)
+    private var nativeControls: [String: NativeControl] = [:]
     let store: MacTab5PrivateStore
     let photos: MacTab5Photos
     private var timer: DispatchSourceTimer?
+    private var nativeSelectedTimer: DispatchSourceTimer?
     private var catalog: [[String: Any]] = []
     // Local selection UI only; the bounded device catalog remains unchanged.
     private var pinTitles: [String: String] = [:]
@@ -30,6 +36,9 @@ final class MacTab5Codex {
     private var viewedPage: [String: Any] = [:]
     private var ready: [String: String] = [:], read: [String: String] = [:]
     private var readReceipts: [String: (String, String, String, TimeInterval)] = [:]
+    // Guarded by gate. Only the catalog scan advances completion tracking.
+    private var nativeCompleted: [String: Set<String>] = [:]
+    private var nativeIssued: [String: String] = [:]
     private var journal: [String: Any]?
     // Only request-bound short-lived metadata; never persisted or exported.
     private var pendingBaselines: [String: (MacCodexSubmissionReceipt, TimeInterval)] = [:]
@@ -51,6 +60,7 @@ final class MacTab5Codex {
     var deliveryReceipt: ((String, String, String, String) -> String?)?
     var deliveryCancelled: ((String, String) -> Bool)?
     var onDisable: (() -> Void)?
+    var probeNativeControl: ((String) -> [String: Any]?)?
 
     init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, desktop: MacCodexDesktopIPC? = nil, controlMonitor: MacTab5LiveControl? = nil, catalogNames: CatalogNames? = nil, call: Call? = nil, taskPins: MacTaskPins? = nil, readState: MacCodexReadState? = nil, taskActivity: MacTaskActivity? = nil, provider: String = "Codex") {
         self.provider = provider
@@ -126,7 +136,10 @@ final class MacTab5Codex {
         let ordered = tasks.filter { savedPins.contains($0["id"] as? String ?? "") } + tasks.filter { !savedPins.contains($0["id"] as? String ?? "") }
         var selected = Array(ordered.prefix(max(1, taskLimit)))
         var pinned = Set<String>()
-        for task in [tasks.first(where: { $0["id"] as? String == requiredTask }), tasks.first(where: { $0["id"] as? String == viewed }), Self.overview(tasks)].compactMap({ $0 }) {
+        let draftTask = provider == "Claude" ? (value["draftView"] as? [String: Any])?["taskId"] as? String : nil
+        for task in [tasks.first(where: { $0["id"] as? String == draftTask }),
+                     tasks.first(where: { $0["id"] as? String == requiredTask }),
+                     tasks.first(where: { $0["id"] as? String == viewed }), Self.overview(tasks)].compactMap({ $0 }) {
             guard let id = task["id"] as? String else { continue }
             if !selected.contains(where: { $0["id"] as? String == id }),
                let index = selected.indices.reversed().first(where: { !pinned.contains(selected[$0]["id"] as? String ?? "") }) { selected[index] = task }
@@ -192,21 +205,36 @@ final class MacTab5Codex {
         guard timer == nil else { return }
         let timer = DispatchSource.makeTimerSource(queue: queue); timer.schedule(deadline: .now(), repeating: 4)
         timer.setEventHandler { [weak self] in self?.refresh() }; self.timer = timer; timer.resume()
+        if probeNativeControl != nil {
+            let selected = DispatchSource.makeTimerSource(queue: nativeSelectionQueue)
+            selected.schedule(deadline: .now() + 2, repeating: 2)
+            selected.setEventHandler { [weak self] in self?.refreshSelectedNativeControl() }
+            nativeSelectedTimer = selected; selected.resume()
+        }
         liveControl?.start()
     }
     func stop() {
-        timer?.cancel(); timer = nil; liveControl?.stop(); rpc?.stop(); desktop?.reset()
-        stateLock.lock(); projection["control"] = NSNull(); catalogUpdated = -.infinity; stateLock.unlock()
+        timer?.cancel(); timer = nil
+        nativeSelectedTimer?.cancel(); nativeSelectedTimer = nil
+        liveControl?.stop(); rpc?.stop(); desktop?.reset()
+        stateLock.lock(); projection["control"] = NSNull(); catalogUpdated = -.infinity; pendingNativeSelection = nil; stateLock.unlock()
     }
-    deinit { timer?.cancel() }
+    deinit { timer?.cancel(); nativeSelectedTimer?.cancel() }
     func refresh() {
         guard enabled() else { rpc?.stop(); desktop?.reset(); onDisable?(); stateLock.lock(); projection = [:]; nativeControls = [:]; catalogUpdated = -.infinity; note = "尚未启用"; stateLock.unlock(); return }
-        guard gate.try() else { return }; defer { updateReadState(); gate.unlock() }
+        guard refreshGate.try() else { return }
+        defer { refreshGate.unlock() }
+        // Native owner/transcript scans can take time. Let device RPCs use the
+        // last catalog while the next one is being gathered.
+        var holdsGate = false
+        if provider != "Claude" { guard gate.try() else { return }; holdsGate = true }
+        defer { if holdsGate { updateReadState(); gate.unlock() } }
+        let listStarted = ProcessInfo.processInfo.systemUptime
         do {
             // The API's omitted-source default excludes desktop-created appServer
             // threads. Request user-facing sources explicitly, across providers.
             var threads: [[String: Any]] = [], cursor: String?, seenCursors = Set<String>(), seenTasks = Set<String>()
-            var observedControls: [String: (value: Any, at: TimeInterval)] = [:]
+            var observedControls: [String: NativeControl] = [:]
             for _ in 0..<8 {
                 var params: [String: Any] = ["limit": 64, "archived": false, "sortKey": listSortKey, "sortDirection": "desc",
                                             "sourceKinds": ["cli", "vscode", "appServer"], "modelProviders": [String]()]
@@ -223,7 +251,9 @@ final class MacTab5Codex {
                 for entry in entries {
                     if let id = Self.id(entry["id"]), seenTasks.insert(id).inserted {
                         threads.append(entry)
-                        if provider == "Claude", let control = entry["nativeControl"] { observedControls[id] = (control, clock()) }
+                        if provider == "Claude", let control = entry["nativeControl"] {
+                            observedControls[id] = (control, clock(), entry["nativeObservedAt"] as? TimeInterval ?? listStarted)
+                        }
                     }
                 }
                 guard let next = result["nextCursor"] as? String, !next.isEmpty else { break }
@@ -234,6 +264,14 @@ final class MacTab5Codex {
             // Its private workspace identifies those integration sessions; a
             // normal Codex chat merely discussing OpenClaw remains eligible.
             threads.removeAll { Self.isOpenClawWorkspace($0["cwd"] as? String ?? "") }
+            if !holdsGate { guard gate.try() else { return }; holdsGate = true }
+            guard enabled() else { return }
+            if provider == "Claude" {
+                for thread in threads {
+                    guard let task = Self.id(thread["id"]), let observation = thread["nativeReplyObservation"] as? MacClaudeReplyObservation else { continue }
+                    observeClaudeCompletion(task: task, observation)
+                }
+            }
             let unnamed = Set(threads.compactMap { root -> String? in
                 let name = (root["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 return name.isEmpty ? Self.id(root["id"]) : nil
@@ -301,7 +339,8 @@ final class MacTab5Codex {
             }
             stateLock.lock()
             catalogUpdated = clock()
-            nativeControls = observedControls
+            nativeControls = nativeControls.filter { seenTasks.contains($0.key) }
+            nativeControls.merge(observedControls) { current, next in current.observedAt > next.observedAt ? current : next }
             projection["tasks"] = catalog
             var projects: [[String: Any]] = []; var seen = Set<String>()
             for task in catalog { let id = task["projectId"] as! String; if seen.insert(id).inserted { projects.append(["id": id, "name": task["folder"]!]) } }
@@ -314,7 +353,7 @@ final class MacTab5Codex {
             }
         } catch {
             stateLock.lock(); note = provider == "Claude" ? "Claude 暂不可读，保留最近数据。请检查 CLI、目录与本机私密存储。" : Self.connectionFailure(error); projection["control"] = NSNull()
-            nativeControls = nativeControls.mapValues { _ in (NSNull(), clock()) }
+            nativeControls = nativeControls.mapValues { $0.observedAt > listStarted ? $0 : (NSNull(), clock(), listStarted) }
             if var tasks = projection["tasks"] as? [[String: Any]] {
                 for index in tasks.indices { tasks[index]["companionState"] = "unknown" }
                 projection["tasks"] = tasks
@@ -513,9 +552,47 @@ final class MacTab5Codex {
                 var view = saved; view["taskId"] = task; view["requestId"] = id; view["pendingRequest"] = pending?.key ?? ""
                 if let pending = pending?.value as? [String: Any] { view["operation"] = pending["operation"]; view["expectedTurn"] = pending["expectedTurn"] }
                 stateLock.lock(); projection["draftView"] = view; draftDevice = device; stateLock.unlock()
+                if fresh { selectNativeControl(task) }
             }
             return .init(200, ["status": "saved", "taskId": task, "requestId": id])
         } catch { return .error(503, "codex_or_private_storage_unavailable") }
+    }
+
+    private func refreshSelectedNativeControl() {
+        stateLock.lock()
+        let task = (projection["draftView"] as? [String: Any])?["taskId"] as? String
+        stateLock.unlock()
+        if let task, contains(task) { selectNativeControl(task) }
+    }
+
+    private func selectNativeControl(_ task: String) {
+        guard let probeNativeControl else { return }
+        stateLock.lock()
+        pendingNativeSelection = task
+        guard !nativeSelectionRunning else { stateLock.unlock(); return }
+        nativeSelectionRunning = true
+        stateLock.unlock()
+        nativeSelectionQueue.async { [weak self] in
+            while let self {
+                self.stateLock.lock()
+                guard let task = self.pendingNativeSelection else {
+                    self.nativeSelectionRunning = false; self.stateLock.unlock(); return
+                }
+                self.pendingNativeSelection = nil
+                self.stateLock.unlock()
+                guard self.contains(task), let result = probeNativeControl(task), let value = result["nativeControl"] else { continue }
+                let observed = result["nativeObservedAt"] as? TimeInterval ?? 0
+                guard self.contains(task) else { continue }
+                self.stateLock.lock()
+                self.publishNativeControl(task: task, value: value, observedAt: observed)
+                self.stateLock.unlock()
+            }
+        }
+    }
+    // Called with stateLock held. A delayed probe may not restore stale controls.
+    private func publishNativeControl(task: String, value: Any, observedAt: TimeInterval) {
+        guard observedAt >= (nativeControls[task]?.observedAt ?? 0) else { return }
+        nativeControls[task] = (value, clock(), observedAt)
     }
 
     func handleDevice(_ root: [String: Any], device: String) -> MacTab5RPCResult {
@@ -559,9 +636,19 @@ final class MacTab5Codex {
             guard let id = Self.id(root["requestId"]) else { return .error(400, "invalid_request") }
             if op == "read-ack" {
                 guard let turn = Self.id(root["turnId"]), let receipt = readReceipts[id], receipt.0 == device, receipt.1 == task, receipt.2 == turn,
-                      receipt.3 > ProcessInfo.processInfo.systemUptime, ready[task] == turn else { return .error(409, "read_receipt_expired") }
-                let latest = (try readThread(task)["turns"] as? [[String: Any]])?.last
-                guard latest?["id"] as? String == turn, ["completed", "failed", "interrupted"].contains(latest?["status"] as? String ?? "") else { return .error(409, "read_turn_changed") }
+                      receipt.3 > clock(), provider == "Claude" || ready[task] == turn else { return .error(409, "read_receipt_expired") }
+                let turns = (try readThread(task)["turns"] as? [[String: Any]]) ?? []
+                let latest = provider == "Claude" ? turns.last(where: Self.isPublicTerminalReply) : turns.last
+                guard latest?["id"] as? String == turn, Self.isTerminalReply(latest?["status"] as? String ?? "") else {
+                    return .error(409, "read_turn_changed")
+                }
+                // A lagging transcript must not replace a newer scanned reply's acknowledgement.
+                if provider == "Claude", let announced = ready[task], announced != turn {
+                    guard let old = turns.firstIndex(where: { $0["id"] as? String == announced }),
+                          let current = turns.firstIndex(where: { $0["id"] as? String == turn }), old < current else {
+                        return .error(409, "read_turn_changed")
+                    }
+                }
                 read[task] = turn; updateReadState(); return .init(200, ["accepted": true])
             }
             journalGate.lock()
@@ -582,6 +669,7 @@ final class MacTab5Codex {
                     return receiptResult(receipt)
                 }
                 if let deliveryReceipt, let turn = deliveryReceipt(task, id, receipt["operation"] as? String ?? "", receipt["expectedTurn"] as? String ?? ""), Self.id(turn) != nil {
+                    if provider == "Claude", (receipt["operation"] as? String) != "interrupt" { nativeIssued[task] = turn }
                     receipt["status"] = 202
                     receipt["body"] = ["status":"submitted", "taskId":task, "turnId":turn, "requestId":id]
                     receipts[id] = receipt
@@ -711,7 +799,10 @@ final class MacTab5Codex {
                 data["drafts"] = drafts
                 try saveJournal(data)
                 pendingBaselines.removeValue(forKey: id)
-                if op != "interrupt" { recordUserInteraction(task) }
+                if op != "interrupt" {
+                    if provider == "Claude", let turn = Self.id((receipt["body"] as? [String: Any])?["turnId"]) { nativeIssued[task] = turn }
+                    recordUserInteraction(task)
+                }
                 stateLock.lock(); sendDiagnostic = "已提交"; stateLock.unlock()
                 return receiptResult(receipt)
             } catch MacCodexDesktopError.rejected(let reason) {
@@ -773,6 +864,34 @@ final class MacTab5Codex {
             } else { result.append(item) }
         }
         return result
+    }
+    static func hasPublicText(_ row: [String: Any]) -> Bool {
+        publicItems(row["items"]).contains { ($0["text"] as? String)?.contains(where: { !$0.isWhitespace }) == true }
+    }
+    private static func isTerminalReply(_ status: String) -> Bool {
+        ["completed", "failed", "interrupted"].contains(status)
+    }
+    private static func isPublicTerminalReply(_ row: [String: Any]) -> Bool {
+        isTerminalReply(row["status"] as? String ?? "") && hasPublicText(row)
+    }
+    private func observeClaudeCompletion(task: String, _ observation: MacClaudeReplyObservation) {
+        let baseline = nativeCompleted[task] != nil
+        var seen = nativeCompleted[task] ?? []
+        seen.formUnion(observation.earlierReplies)
+        if let accepted = observation.acceptedTurn, let earlier = observation.earlierReplies.last,
+           read[task] != accepted {
+            if let pending = ready[task] {
+                if observation.earlierReplies.contains(pending) { read[task] = pending }
+            } else if !baseline || read[task] == nil {
+                // Clear a matching notice retained by the device across a restart.
+                read[task] = earlier
+            }
+        }
+        if let completed = observation.completedTurn, seen.insert(completed).inserted {
+            if baseline || nativeIssued[task] == completed { ready[task] = completed }
+            if nativeIssued[task] == completed { nativeIssued.removeValue(forKey: task) }
+        }
+        nativeCompleted[task] = seen
     }
     private func updateReadState() {
         let desktopRead = desktopReads.synchronize(ready)
@@ -842,17 +961,18 @@ final class MacTab5Codex {
         guard requested >= -1, requested < pages.count else { return .error(400, "invalid_page") }
         let page = requested == -1 ? pages.count - 1 : requested, history = index != turns.count - 1
         var receipt = ""
-        if !history, !text.isEmpty, ["completed", "failed", "interrupted"].contains(state) {
-            ready[task] = turnID; let now = ProcessInfo.processInfo.systemUptime
+        let receiptEligible = provider == "Claude"
+            ? Self.isTerminalReply(state) && Self.hasPublicText(turn) && !turns.dropFirst(index + 1).contains(where: Self.isPublicTerminalReply)
+            : !history && !text.isEmpty && Self.isTerminalReply(state)
+        if receiptEligible {
+            if provider != "Claude" { ready[task] = turnID }
+            let now = clock()
             readReceipts = readReceipts.filter { $0.value.3 > now }
-            if silent {
-                stateLock.lock()
-                let existing = (projection["replyView"] as? [String: Any])?["readReceipt"] as? String
-                stateLock.unlock()
-                if let existing, let bound = readReceipts[existing],
-                   bound.0 == device, bound.1 == task, bound.2 == turnID { receipt = existing }
-            }
-            if receipt.isEmpty, readReceipts.count < 80 {
+            receipt = readReceipts.first { $0.value.0 == device && $0.value.1 == task && $0.value.2 == turnID }?.key ?? ""
+            if receipt.isEmpty {
+                if readReceipts.count >= 80, let oldest = readReceipts.min(by: { $0.value.3 < $1.value.3 })?.key {
+                    readReceipts.removeValue(forKey: oldest)
+                }
                 receipt = UUID().uuidString.lowercased(); readReceipts[receipt] = (device, task, turnID, now + 300)
             }
         }
@@ -866,8 +986,8 @@ final class MacTab5Codex {
         stateLock.lock(); projection["replyView"] = view; projection["responses"] = [task: pages[page]]
         projection["receipts"] = [task: statusText]
         if provider == "Claude", let control = thread["nativeControl"] {
-            nativeControls[task] = (control, clock())
-            projection["control"] = control
+            publishNativeControl(task: task, value: control, observedAt: thread["nativeObservedAt"] as? TimeInterval ?? ProcessInfo.processInfo.systemUptime)
+            projection["control"] = nativeControls[task]?.value ?? NSNull()
         } else {
             projection["control"] = ["taskId": task, "turnId": current["id"] as? String ?? "", "running": running,
                                  "canSend": canControl && sendEnabled() && (live?.canSend ?? (!running && Self.threadIdle(controlThread))),

@@ -1,5 +1,13 @@
 import Foundation
 
+// Internal to the bridge. No transcript or real session identifiers leave the
+// backend through the catalog's completion observations.
+struct MacClaudeReplyObservation {
+    let acceptedTurn: String?
+    let completedTurn: String?
+    let earlierReplies: [String]
+}
+
 final class MacClaudeNativeBackend {
     private struct Record: Codable {
         let task:String,operation:String,expected:String,baseline:MacClaudeNativeReceipt
@@ -36,8 +44,10 @@ final class MacClaudeNativeBackend {
     private func save(_ id:String,_ record:Record)throws{recordsGate.lock();defer{recordsGate.unlock()};var values=try records();guard values.count<512||values[id] != nil else{throw MacTab5Error.unavailable};values[id]=record;try store.write("native-requests",JSONEncoder().encode(values))}
     func stop(){generationGate.lock();generation += 1;generationGate.unlock()}
     private func currentGeneration()->Int{generationGate.lock();defer{generationGate.unlock()};return generation}
-    func thread(_ entry: MacClaudeCatalog.Entry, includeHistory: Bool, live: Set<UUID>? = nil) throws -> [String: Any] {
-        let ownership = live?.contains(entry.session) == false ? .unavailable : owner(entry.session)
+    func thread(_ entry: MacClaudeCatalog.Entry, includeHistory: Bool, live: Set<UUID>? = nil, liveObservedAt: TimeInterval? = nil) throws -> [String: Any] {
+        let absent = live?.contains(entry.session) == false
+        let observedAt = (absent ? liveObservedAt : nil) ?? ProcessInfo.processInfo.systemUptime
+        let ownership = absent ? .unavailable : owner(entry.session)
         let client = ownership.client, state = (try? client?.state()) ?? "unknown"
         let running = ["busy", "working", "waiting"].contains(state), waiting = state == "waiting"
         let source: MacClaudeSessionSource
@@ -78,8 +88,24 @@ final class MacClaudeNativeBackend {
                            "running": running, "waiting": waiting, "canSend": canSend, "canSteer": canSteer, "canInterrupt": canInterrupt]
             }
         }
-        return ["id": entry.alias, "turns": includeHistory ? turns : [], "historyLimited": historyValue?.limited ?? true,
-                "status": status, "source": source.wire, "nativeControl": control as Any? ?? NSNull(), "controlUnavailable": control == nil]
+        var result: [String: Any] = ["id": entry.alias, "turns": includeHistory ? turns : [],
+            "historyLimited": historyValue?.limited ?? true, "status": status, "source": source.wire,
+            "nativeControl": control as Any? ?? NSNull(), "controlUnavailable": control == nil, "nativeObservedAt": observedAt]
+        if !includeHistory, let historyValue, !historyValue.limited, state != "unknown" {
+            let accepted = turns.last.flatMap { MacTab5Codex.id($0["id"]) }.flatMap { latest in
+                historyValue.accepted.contains { UUID(uuidString: $0) != nil && (try? turn(entry, $0)) == latest } ? latest : nil
+            }
+            let completed = turns.last.flatMap { row -> String? in
+                guard !running, row["status"] as? String == "completed", MacTab5Codex.hasPublicText(row) else { return nil }
+                return accepted
+            }
+            let earlier = accepted == nil ? [] : turns.dropLast().compactMap { row -> String? in
+                guard row["status"] as? String == "completed", MacTab5Codex.hasPublicText(row) else { return nil }
+                return MacTab5Codex.id(row["id"])
+            }
+            result["nativeReplyObservation"] = MacClaudeReplyObservation(acceptedTurn: accepted, completedTurn: completed, earlierReplies: earlier)
+        }
+        return result
     }
     func selection(_ entries:[MacClaudeCatalog.Entry],bound:MacClaudeIdentity.Selection?,now:Date)->MacClaudeIdentity.Selection? {
         let live=liveSessions()

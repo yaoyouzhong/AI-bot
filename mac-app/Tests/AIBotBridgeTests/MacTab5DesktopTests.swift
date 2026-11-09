@@ -156,6 +156,10 @@ final class MacTab5DesktopTests: XCTestCase {
             MacTab5DesktopAX.structuredComposerCheck(classes: classes, containers: containers, task: task, uniqueFullTitle: title, resources: nil)
         }
         XCTAssertEqual(check([body, page]), .confirmed)
+        XCTAssertEqual(check([Container(role: "AXGroup", classes: ["ComposerLayoutBody-aZ_12-3"]), page]), .confirmed)
+        for token in ["ComposerLayoutBody-", "prefixComposerLayoutBody-x", "ComposerLayoutBody-x.other"] {
+            XCTAssertEqual(check([Container(role: "AXGroup", classes: [token]), page]), .structure)
+        }
         // Exact task routes work without a unique name; a conflicting route
         // rejects even when the accessible document still has the old title.
         XCTAssertEqual(check([body, Container(role: "AXWebArea", address: "app://-/local/" + task)], title: nil), .confirmed)

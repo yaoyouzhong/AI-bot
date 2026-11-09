@@ -51,7 +51,7 @@ enum MacClaudeHistory {
                   let type = row["type"] as? String,
                   row["isSidechain"] as? Bool != true else { return }
             let subtype = row["subtype"] as? String
-            let link = type == "attachment" || (type == "system" && (["turn_duration", "away_summary", "informational", "api_error", "stop_hook_summary"].contains(subtype ?? "")))
+            let link = type == "attachment" || (type == "system" && (["turn_duration", "away_summary", "informational", "api_error", "stop_hook_summary", "local_command"].contains(subtype ?? "")))
             guard link || ["user","assistant"].contains(type) else { return }
             for flag in ["isSidechain","isMeta"] { if let v = row[flag], !MacTab5Protocol.isBoolean(v) { return } }
             // Context nodes preserve ancestry only; never expose their payload
@@ -76,7 +76,10 @@ enum MacClaudeHistory {
                 assistant = true; ended = message["stop_reason"] as? String == "end_turn" && !text.isEmpty
             } else if !meta, type == "user", (row["origin"] as? [String:Any])?["kind"] as? String != "peer", row["toolUseResult"] == nil || row["toolUseResult"] is NSNull {
                 let content = message["content"] as? [[String:Any]] ?? []
-                human = message["content"] is String || (!content.isEmpty && content.allSatisfy { ["text","image"].contains($0["type"] as? String ?? "") })
+                let nonblank: (Any?) -> Bool = { ($0 as? String)?.contains(where: { !$0.isWhitespace }) == true }
+                human = nonblank(message["content"]) || (!content.isEmpty &&
+                    content.allSatisfy { ["text","image"].contains($0["type"] as? String ?? "") } &&
+                    content.contains { $0["type"] as? String == "image" || nonblank($0["text"]) })
                 stopNotice = content.count == 1 && content[0]["type"] as? String == "text" &&
                     ["[Request interrupted by user]", "[Request interrupted by user for tool use]"].contains(content[0]["text"] as? String ?? "")
             }

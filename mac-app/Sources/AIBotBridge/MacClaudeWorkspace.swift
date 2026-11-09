@@ -16,6 +16,7 @@ final class MacClaudeWorkspace {
         tasks.deliveryReceipt = backend.receipt
         tasks.deliveryCancelled = backend.cancelled
         tasks.onDisable = backend.stop
+        tasks.probeNativeControl = backend.probeNativeControl
         backend.nativeAuthorization = { [weak taskWorkspace = tasks] in taskWorkspace?.nativeAuthorized() == true }
     }
     func start() { tasks.start() }
@@ -122,6 +123,10 @@ final class MacClaudeWorkspaceBackend {
     private func turn(_ entry: MacClaudeCatalog.Entry, message: String) throws -> String {
         MacClaudeCatalog.alias("claude:turn:"+entry.session.uuidString.lowercased()+":"+message,key:try key())
     }
+    func probeNativeControl(_ task: String) -> [String: Any]? {
+        guard let entry = catalog.resolve(task), let native else { return nil }
+        return try? native.thread(entry, includeHistory: false)
+    }
     func call(_ method: String, _ params: [String:Any]) throws -> [String:Any] {
         if method == "thread/list" {
             if params["cursor"] == nil {
@@ -130,11 +135,12 @@ final class MacClaudeWorkspaceBackend {
             let rows = catalog.snapshot(), cursor = Int(params["cursor"] as? String ?? "0") ?? 0
             guard cursor >= 0, cursor <= rows.count else { throw MacTab5Error.invalidPacket }
             let slice = rows.dropFirst(cursor).prefix(64)
+            let liveObservedAt = ProcessInfo.processInfo.systemUptime
             let live = native?.liveSessions()
             return ["data":slice.map { entry -> [String:Any] in
-                let info = (try? native?.thread(entry, includeHistory: false, live: live)) ?? (try? thread(entry,history:false)) ?? [:]
+                let info = (try? native?.thread(entry, includeHistory: false, live: live, liveObservedAt: liveObservedAt)) ?? (try? thread(entry,history:false)) ?? [:]
                 var row: [String: Any] = ["id":entry.alias,"name":entry.title,"cwd":entry.directory.isEmpty ? "/项目待确认":entry.directory,"projectId":entry.project,"updatedAt":entry.updated,"status":info["status"] ?? ["type":"notLoaded"]]
-                row["source"] = info["source"]; row["nativeControl"] = info["nativeControl"]
+                for key in ["source", "nativeControl", "nativeObservedAt", "nativeReplyObservation"] { row[key] = info[key] }
                 return row
             },"nextCursor":cursor+slice.count < rows.count ? String(cursor+slice.count) as Any:NSNull()]
         }

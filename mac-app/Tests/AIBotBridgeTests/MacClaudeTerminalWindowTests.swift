@@ -1,4 +1,5 @@
 import AppKit
+import SwiftTerm
 import XCTest
 @testable import AIBotBridge
 
@@ -6,6 +7,28 @@ final class MacClaudeTerminalWindowTests: XCTestCase {
     private let rule = String(repeating: "─", count: 60)
     private func composer(_ rows: [String]) throws -> MacClaudeWindowComposer {
         try XCTUnwrap(MacClaudeWindowComposer(([rule] + rows + [rule]).joined(separator: "\n")))
+    }
+
+    func testTerminalSuggestionDoesNotConsumeAnIdenticalRealDraft() throws {
+        final class Delegate: TerminalDelegate {
+            func send(source: Terminal, data: ArraySlice<UInt8>) {}
+        }
+        let delegate = Delegate()
+        let phrase = "读一下 CLAUDE.md 试试"
+        func composer(style: String, cursor: Int) -> String? {
+            let terminal = Terminal(delegate: delegate, options: .init(cols: 80, rows: 24))
+            let screen = "\u{1b}[1;1H" + rule + "\u{1b}[2;1H> " + style + phrase
+                + "\u{1b}[0m\u{1b}[3;1H" + rule + "\u{1b}[2;\(cursor)H"
+            terminal.feed(byteArray: Array(screen.utf8))
+            return MacClaudeTerminalRelay.composer(terminal)
+        }
+        XCTAssertEqual(composer(style: "\u{1b}[2m", cursor: 3), "")
+        // The terminal grid represents double-width Chinese cells with padding.
+        XCTAssertEqual(composer(style: "", cursor: 3)?.filter { !$0.isWhitespace }, phrase.filter { !$0.isWhitespace })
+        XCTAssertEqual(composer(style: "\u{1b}[2m", cursor: 5)?.filter { !$0.isWhitespace }, phrase.filter { !$0.isWhitespace })
+        let output = [rule, "❯ " + phrase, rule].joined(separator: "\n")
+        // Apple Terminal AX plain text without a style signal is ambiguous.
+        XCTAssertNil(MacClaudeWindowComposer(output, cursor: rule.utf16.count + 3))
     }
 
     func testScannerSkipsMissingWindowButFailsClosedOnUnreadableTabs() throws {

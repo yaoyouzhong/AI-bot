@@ -2,6 +2,46 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5VoiceTests: XCTestCase {
+    func testPermissionResumesOnlyTheOriginalUncancelledTake() {
+        var prompts: [(Bool) -> Void] = [], live: [() -> Bool] = [], starts = 0, chunks = 0
+        var recognize: ((String, Bool, MacTab5SpeechFailure?) -> Void)?
+        let backend = MacTab5SpeechBackend(start: { _, next in starts += 1; recognize = next }, feed: { _ in chunks += 1 },
+            finish: { recognize?("隔离语音识别", true, nil) }, cancel: {},
+            preparePermission: { source, current, callback in
+                XCTAssertEqual(source, "tab5"); live.append(current); prompts.append(callback); return true
+            })
+        let voice = MacTab5Voice(enabled: { true }, backend: backend)
+        let first = start(voice)
+        XCTAssertEqual(voice.handle(request("poll", first), device: "A").body["ready"] as? Bool, false)
+        XCTAssertEqual(starts, 0)
+        _ = voice.handle(request("cancel", first), device: "A")
+        let second = start(voice)
+        XCTAssertFalse(live[0]()); XCTAssertTrue(live[1]())
+        prompts[0](true); XCTAssertEqual(starts, 0)
+        XCTAssertEqual(voice.handle(request("poll", second), device: "B").status, 409)
+        var audio = request("audio", second)
+        audio["seq"] = 0; audio["pcm"] = Data(repeating: 0, count: 640).base64EncodedString()
+        let beforePermission = voice.handle(audio, device: "A")
+        XCTAssertEqual(beforePermission.status, 200)
+        XCTAssertEqual(beforePermission.body["ready"] as? Bool, false)
+        XCTAssertEqual(chunks, 0)
+        prompts[1](true); prompts[1](true)
+        XCTAssertEqual(voice.handle(audio, device: "A").status, 200) // retry of discarded PCM
+        audio["seq"] = 1
+        XCTAssertEqual(voice.handle(audio, device: "A").status, 200)
+        XCTAssertEqual(chunks, 1)
+        let resumed = voice.handle(request("poll", second), device: "A")
+        XCTAssertEqual(resumed.body["voiceId"] as? String, second)
+        XCTAssertEqual(resumed.body["ready"] as? Bool, true)
+        XCTAssertEqual(starts, 1)
+        let final = voice.handle(request("stop", second), device: "A")
+        XCTAssertEqual(final.body["canInsert"] as? Bool, true)
+        XCTAssertEqual(final.body["text"] as? String, "隔离语音识别")
+        let denied = start(voice)
+        prompts[2](false)
+        XCTAssertEqual(voice.handle(request("poll", denied), device: "A").body["state"] as? String, "error")
+        XCTAssertEqual(starts, 1)
+    }
     func testBLEStopCanReturnFastFinalWithoutAnotherPollAndReleasesOwnerLock() {
         for failure: MacTab5SpeechFailure? in [nil, .noSpeech, .serviceInterrupted(1107)] {
             var callback: ((String, Bool, MacTab5SpeechFailure?) -> Void)?
