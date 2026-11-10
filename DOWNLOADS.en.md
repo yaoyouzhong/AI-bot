@@ -2,8 +2,6 @@
 
 [简体中文](DOWNLOADS.md)
 
-All current stable apps, both device firmware packages and optional artwork collections.
-
 <!-- downloads:start -->
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
@@ -17,12 +15,5 @@ All current stable apps, both device firmware packages and optional artwork coll
 | Daily Painting · standard | 2026.1 (package 2026.10.14.1) | [Download · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
 | Daily Painting · complete HD | 2026.1 (package 2026.10.16) | [Download · 1.86 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#painting) |
 
-Install the computer bridge, then choose firmware for your device. Artwork collections are optional. Components update independently; reinstalling an unchanged version is unnecessary.
-
-- **Factory TAB5**: choose the first-install ZIP. **Existing AI-bot**: extract the upgrade ZIP and select `aibot_tab5.bin`, keeping its release-notes file beside it. Firmware is not interchangeable between devices.
-- **Collections**: import ZIPs directly through Windows Software and Firmware Updates → Artwork Collections. App upgrades preserve collections. Requires Windows bridge 0.6.0+ and TAB5 0.2.145-ui+.
-- **Choose an edition**: choose standard or complete HD for each collection. HD includes standard previews and guides, so a separate standard import is unnecessary. Bridge 0.6.7+ displays HD originals; TAB5 uses device previews. Follow the HD size links in the table to download, merge and import. Standard painting is retained.
-- Windows and Apple Silicon Mac support ESP8266 and TAB5; see the installation guide for Mac permissions and speech sources. Windows setup is unsigned; Mac is ad-hoc signed and not notarized.
-
-[Installation guide](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md) · [Collection sizes and licenses](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-PACKS.md) · [Earlier releases](https://github.com/yaoyouzhong/AI-bot/releases)
+[Installation and flashing](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md) · [Artwork guide](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-PACKS.md)
 <!-- downloads:end -->

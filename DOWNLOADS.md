@@ -2,8 +2,6 @@
 
 [English](DOWNLOADS.en.md)
 
-本页集中提供最新正式电脑软件、两种固件与可选图库。
-
 <!-- downloads:start -->
 | 用途 | 版本 | 下载 | SHA-256 |
 | --- | --- | --- | --- |
@@ -17,12 +15,5 @@
 | 每日名画 · 标准版 | 2026.1（包 2026.10.14.1） | [下载 · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
 | 每日名画 · 高清完整版 | 2026.1（包 2026.10.16） | [下载 · 1.86 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#painting) |
 
-先安装电脑桥接，再按设备选择固件；书法、名画按需下载。各组件独立更新，已是所列版本无需重装或重刷。
-
-- **首次使用 TAB5**：选择首刷 ZIP；**已有 AI-bot**：选择升级 ZIP，解压后选择 `aibot_tab5.bin`，保留旁边的更新说明文件。两种硬件的固件不能混用。
-- **图库**：Windows「软件与固件更新 → 屏保图库」直接导入 ZIP，无需解压；升级电脑软件会保留图库。图库要求 Windows 桥接 0.6.0+、TAB5 0.2.145-ui+。
-- **图库版本选择**：同一类别选择标准版或高清完整版即可。高清版含对应标准图和导读，无需重复安装；电脑桥接 0.6.7+ 可浏览高清原作，TAB5 使用适配展示图。点击上表高清版的大小链接，按说明下载、合并后导入；标准名画沿用原包。
-- Windows 与 Apple Silicon Mac 均支持 ESP8266 与 TAB5；Mac 权限、语音来源和安装步骤见安装指南。Windows 安装器未签名；Mac 为临时签名，未公证。
-
-[安装与刷机步骤](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md) · [图库容量与许可](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-PACKS.md) · [历史发布](https://github.com/yaoyouzhong/AI-bot/releases)
+[安装与刷机](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md) · [图库指南](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-PACKS.md)
 <!-- downloads:end -->

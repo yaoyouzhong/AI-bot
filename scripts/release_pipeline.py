@@ -442,7 +442,7 @@ def closeout(*, repository=None, tags=(), commit=False):
         subprocess.run([sys.executable, str(ROOT / "scripts/download_catalog.py"), step], cwd=ROOT, check=True)
     if tags:
         if not repository:
-            raise ValueError("Repository required to refresh Release download tables")
+            raise ValueError("Repository required to refresh Release download links")
         from component_versions import release_target
         from download_catalog import release_intro
         for tag in tags:
@@ -453,8 +453,8 @@ def closeout(*, repository=None, tags=(), commit=False):
             body = release["body"]
             header = re.search(r"^## " + re.escape(version) + r" - \d{4}-\d{2}-\d{2}", body, re.M)
             if not header:
-                raise ValueError("Custom Release body needs an explicit editorial download-table update")
-            updated = release_intro(tag) + body[header.start():]
+                raise ValueError("Custom Release body needs an explicit editorial download-link update")
+            updated = release_intro() + body[header.start():]
             if updated != body:
                 import tempfile
                 with tempfile.TemporaryDirectory(prefix="aibot-release-notes-") as temp:

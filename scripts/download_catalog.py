@@ -233,22 +233,8 @@ def table(data, language="zh", tag=None):
 
 def guidance(language):
     if language == "zh":
-        return f"""先安装电脑桥接，再按设备选择固件；书法、名画按需下载。各组件独立更新，已是所列版本无需重装或重刷。
-
-- **首次使用 TAB5**：选择首刷 ZIP；**已有 AI-bot**：选择升级 ZIP，解压后选择 `aibot_tab5.bin`，保留旁边的更新说明文件。两种硬件的固件不能混用。
-- **图库**：Windows「软件与固件更新 → 屏保图库」直接导入 ZIP，无需解压；升级电脑软件会保留图库。图库要求 Windows 桥接 0.6.0+、TAB5 0.2.145-ui+。
-- **图库版本选择**：同一类别选择标准版或高清完整版即可。高清版含对应标准图和导读，无需重复安装；电脑桥接 0.6.7+ 可浏览高清原作，TAB5 使用适配展示图。点击上表高清版的大小链接，按说明下载、合并后导入；标准名画沿用原包。
-- Windows 与 Apple Silicon Mac 均支持 ESP8266 与 TAB5；Mac 权限、语音来源和安装步骤见安装指南。Windows 安装器未签名；Mac 为临时签名，未公证。
-
-[安装与刷机步骤]({REPO}/blob/main/docs/INSTALL.zh.md) · [图库容量与许可]({REPO}/blob/main/docs/GALLERY-PACKS.md) · [历史发布]({REPO}/releases)"""
-    return f"""Install the computer bridge, then choose firmware for your device. Artwork collections are optional. Components update independently; reinstalling an unchanged version is unnecessary.
-
-- **Factory TAB5**: choose the first-install ZIP. **Existing AI-bot**: extract the upgrade ZIP and select `aibot_tab5.bin`, keeping its release-notes file beside it. Firmware is not interchangeable between devices.
-- **Collections**: import ZIPs directly through Windows Software and Firmware Updates → Artwork Collections. App upgrades preserve collections. Requires Windows bridge 0.6.0+ and TAB5 0.2.145-ui+.
-- **Choose an edition**: choose standard or complete HD for each collection. HD includes standard previews and guides, so a separate standard import is unnecessary. Bridge 0.6.7+ displays HD originals; TAB5 uses device previews. Follow the HD size links in the table to download, merge and import. Standard painting is retained.
-- Windows and Apple Silicon Mac support ESP8266 and TAB5; see the installation guide for Mac permissions and speech sources. Windows setup is unsigned; Mac is ad-hoc signed and not notarized.
-
-[Installation guide]({REPO}/blob/main/docs/INSTALL.zh.md) · [Collection sizes and licenses]({REPO}/blob/main/docs/GALLERY-PACKS.md) · [Earlier releases]({REPO}/releases)"""
+        return f"[安装与刷机]({REPO}/blob/main/docs/INSTALL.zh.md) · [图库指南]({REPO}/blob/main/docs/GALLERY-PACKS.md)"
+    return f"[Installation and flashing]({REPO}/blob/main/docs/INSTALL.zh.md) · [Artwork guide]({REPO}/blob/main/docs/GALLERY-PACKS.md)"
 
 
 def block(data, language):
@@ -258,8 +244,7 @@ def block(data, language):
 def sync(data, check=False):
     for lang, name, readme in (("zh", "DOWNLOADS.md", "README.md"), ("en", "DOWNLOADS.en.md", "README.en.md")):
         title = "# AI-bot 完整下载\n\n[English](DOWNLOADS.en.md)" if lang == "zh" else "# AI-bot downloads\n\n[简体中文](DOWNLOADS.md)"
-        hint = "本页集中提供最新正式电脑软件、两种固件与可选图库。" if lang == "zh" else "All current stable apps, both device firmware packages and optional artwork collections."
-        outputs = {ROOT / name: f"{title}\n\n{hint}\n\n{block(data, lang)}\n"}
+        outputs = {ROOT / name: f"{title}\n\n{block(data, lang)}\n"}
         path = ROOT / readme
         text = path.read_text(encoding="utf-8")
         if text.count(START) != 1 or text.count(END) != 1:
@@ -273,13 +258,8 @@ def sync(data, check=False):
                 path.write_text(content, encoding="utf-8", newline="\n")
 
 
-def release_intro(tag):
-    data = load()
-    return (f"## 完整下载 / All downloads\n\n[始终查看最新完整下载 / Latest complete downloads]({CENTER})\n\n"
-            "标有「本次发布」的是本 Release 对应包，其余沿用已发布版本。草稿中的新包在正式发布后才能公开下载。\n"
-            "Rows marked ‘this release’ refer to this release; other downloads retain published versions. New draft assets become public only after publication.\n\n"
-            + table(data, tag=tag) + "\n\n" + table(data, "en", tag=tag)
-            + "\n\n" + guidance("zh") + "\n\n---\n\n")
+def release_intro():
+    return f"[完整下载中心]({CENTER}) · [Downloads]({REPO}/blob/main/DOWNLOADS.en.md)\n\n"
 
 
 def main():

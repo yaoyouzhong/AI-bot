@@ -76,7 +76,7 @@ python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json 
 
 ## 4. 自动收尾，集中复核
 
-公开后自动刷新并验证 `download-catalog.json`、中英文下载中心、README 下载块和本次 Release 的完整下载表；自动核验实际公开下载大小、摘要及所需抽查，不重复下载完整大包。公开的 `CANDIDATE.json`、`ACCEPTANCE.json`、许可证、第三方声明与 `SHA256SUMS.txt` 留存原包身份；便携包和完整桥接源码继续保留在候选归档。
+公开后自动刷新并验证 `download-catalog.json`、中英文下载中心及 README 下载块。Release 链接到统一下载中心，并保留对应版本的更新说明和附件。自动核验实际公开下载大小、摘要及所需抽查，不重复下载完整大包。公开的 `CANDIDATE.json`、`ACCEPTANCE.json`、许可证、第三方声明与 `SHA256SUMS.txt` 留存原包身份；便携包和完整桥接源码继续保留在候选归档。
 
 默认只更新本地生成文档。在已有推送授权内加 `--commit-closeout`，只暂存并提交这些指定生成文件，拒绝已有相关改动、非空暂存区、落后主干或会夹带其他本地提交的情况；不自动 rebase。Actions 的公开晋级使用此选项，串行执行以减少冲突。如果分支保护不允许机器人直接推送，公开状态和收尾失败会被分别记录；负责人按仓库现有合并方式处理生成文档，不重新构建或验收包。
 

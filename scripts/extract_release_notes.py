@@ -66,7 +66,7 @@ def main() -> None:
             if pending and pending.group(1).strip():
                 raise SystemExit(f"Finalize pending changes in {filename} before tagging")
     notes = bilingual_notes(files, version)
-    args.output.write_text(release_intro(args.tag) + notes, encoding="utf-8")
+    args.output.write_text(release_intro() + notes, encoding="utf-8")
 
 
 if __name__ == "__main__":
