@@ -37,6 +37,19 @@ enum MacFirmwareCommandValidation {
         try check("expired request is withdrawn",command(value) == nil && value.summary.contains("未确认"))
         try check("projection never creates an automatic retry",command(value) == nil)
 
+        for reinstall in [false, true] {
+            value = try model(); try value.start(device:device,reinstall:reinstall)
+            var rejected = command(value)!; rejected["kind"] = "ota-control"; rejected["stage"] = "rejected"; rejected["error"] = "draft_pending"
+            try check("device refusal accepted", value.handle(rejected,device:device,transport:"USB",binary:false,bulk:false).status == 200)
+            let reason = value.summary
+            for _ in 0..<3 { value.observeVersion(image.version); _ = value.projection() }
+            try check("repeated version cannot hide refusal", value.summary == reason && reason.contains("草稿") && !value.busy)
+            try value.select(nil)
+            try check("deselect clears refusal", value.summary == "尚未选择固件")
+            try value.select(image); try value.start(device:device,reinstall:reinstall)
+            try check("explicit retry replaces refusal", value.summary.contains("尚未确认") && command(value) != nil)
+        }
+
         value = try model();try value.start(device:device)
         var ready = command(value)!;ready["kind"] = "ota-control";ready["stage"] = "ready"
         try check("ready still requires matching request",value.handle(ready,device:device,transport:"USB",binary:false,bulk:false).body["commit"] as? Bool == true)
@@ -84,6 +97,40 @@ enum MacFirmwareCommandValidation {
         try check("next deliberate reinstall has new IDs",command(value)?["requestId"] as? String != reinstall["requestId"] as? String && value.projection().offer?["offerId"] as? String != offer["offerId"] as? String)
         var stale = reinstall;stale["kind"] = "ota-control";stale["stage"] = "ready"
         try check("previous reinstall cannot commit again",value.handle(stale,device:device,transport:"USB",binary:false,bulk:false).status == 409)
+        value = try model(); try value.start(device:device,reinstall:true)
+        let selectedUSB = value.selected!
+        let lastUSB: [String:Any] = ["kind":"ota", "offerId":selectedUSB.offerID, "sha256":image.sha256, "offset":0, "count":image.bytes.count]
+        try check("USB final range provided", value.handle(lastUSB,device:device,transport:"USB",binary:true,bulk:true).status == 200)
+        let sentAt = tick, started = sentAt + 10, host = "fixture-host", sequence:Int64 = 17
+        let ack: [String:Any] = ["deviceId":device, "currentHostId":host, "usbHostAuthenticated":true,
+                                  "sequence":sequence, "firmware":image.version, "uptimeMs":5000, "otaDiag":"1,1,0,0"]
+        let notFinal = try model(); try notFinal.start(device:device,reinstall:true)
+        notFinal.observeUSBRestart(ack,device:device,host:host,sequence:sequence,started:started,finished:started+0.1,activeOperations:0)
+        try check("no final transfer cannot use reboot evidence",notFinal.busy && !notFinal.summary.contains("重新启动"))
+        let activeHTTP = try model(); try activeHTTP.start(device:device,reinstall:true)
+        let httpOffer = activeHTTP.selected!
+        let usbRange: [String:Any] = ["kind":"ota", "offerId":httpOffer.offerID, "sha256":image.sha256, "offset":0, "count":image.bytes.count]
+        try check("fixture USB range provided",activeHTTP.handle(usbRange,device:device,transport:"USB",binary:true,bulk:true).status == 200)
+        _ = activeHTTP.bytes(sha:image.sha256)
+        activeHTTP.observeUSBRestart(ack,device:device,host:host,sequence:sequence,started:started,finished:started+0.1,activeOperations:0)
+        try check("ongoing HTTP transfer blocks reboot release",activeHTTP.busy && !activeHTTP.summary.contains("重新启动"))
+        func observe(_ sample:[String:Any], start:TimeInterval? = nil, finished:TimeInterval? = nil, operations:Int = 0) {
+            value.observeUSBRestart(sample,device:device,host:host,sequence:sequence,started:start ?? started,finished:finished ?? started+0.1,activeOperations:operations)
+        }
+        var invalid = ack; invalid["deviceId"] = "112233445566"; observe(invalid)
+        invalid = ack; invalid["currentHostId"] = "wrong"; observe(invalid)
+        invalid = ack; invalid["usbHostAuthenticated"] = false; observe(invalid)
+        invalid = ack; invalid["usbHostAuthenticated"] = 1; observe(invalid)
+        invalid = ack; invalid["sequence"] = sequence+1; observe(invalid)
+        invalid = ack; invalid["firmware"] = "0.2.276-ui"; observe(invalid)
+        invalid = ack; invalid["uptimeMs"] = 10000; observe(invalid)
+        invalid = ack; invalid["otaDiag"] = "1,1,0,1"; observe(invalid)
+        invalid = ack; invalid["otaDiag"] = "bad,1,0,0"; observe(invalid)
+        observe(ack,start:sentAt); observe(ack,finished:started-1); observe(ack,operations:1)
+        try check("untrusted stale busy or in-flight ACK keeps lease", value.busy && !value.summary.contains("重新启动"))
+        tick = started+0.1; now += 10100; observe(ack)
+        try check("bound fresh reboot releases lease without claiming success", !value.busy && value.summary.contains("等待精确") && !value.summary.contains("通过"))
+        try check("exact boot verification starts after reboot proof", value.beginAutomaticBootCheck(device:device,transport:"USB"))
         for version in ["0.2.285-ui","0.2.286","286","0.3.286-ui","bad"] { try check("old or unknown reinstall capability",!MacTab5Service.supportsReinstall(version)) }
         try check("capable reinstall peer",MacTab5Service.supportsReinstall("0.2.286-ui"))
         for transport in ["Wi-Fi", "BLE", "USB"] {

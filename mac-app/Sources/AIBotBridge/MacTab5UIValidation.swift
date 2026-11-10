@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 
 enum MacTab5UIValidation {
     // Fixture-only native rendering: no AppDelegate, listeners, device connection,
@@ -57,6 +58,23 @@ enum MacTab5UIValidation {
         try validateDoubaoDraft()
         try validatePinsAndCancel(root: root, codex: codex, service: service, output: output)
         let quotaHistory = try quotaHistoryFixture(file: root.appendingPathComponent("history.json"))
+        // Render the real upgrade controls with a synthetic refused request;
+        // this creates no device operation or persistent user state.
+        var imageBytes = Data(repeating: 0, count: 1072)
+        imageBytes[0] = 0xe9; imageBytes[1] = 1; imageBytes[12] = 18; imageBytes[23] = 1
+        func word(_ offset: Int, _ value: UInt32) { for i in 0..<4 { imageBytes[offset+i] = UInt8(truncatingIfNeeded: value >> (i*8)) } }
+        word(28, 1024); word(32, 0xabcd5432)
+        for (i, byte) in "0.2.318-ui".utf8.enumerated() { imageBytes[48+i] = byte }
+        for (i, byte) in "aibot_tab5".utf8.enumerated() { imageBytes[80+i] = byte }
+        imageBytes[1071] = imageBytes[32..<1056].reduce(UInt8(0xef), ^)
+        imageBytes.append(Data(SHA256.hash(data: imageBytes)))
+        try service.firmwareControl.select(MacTab5FirmwareImage(bytes: imageBytes))
+        try service.firmwareControl.start(device: "001122334455", reinstall: true)
+        guard var rejection = service.firmwareControl.projection().health["otaCommand"] as? [String: Any] else { throw MacTab5Error.invalidPacket }
+        rejection["kind"] = "ota-control"; rejection["stage"] = "rejected"; rejection["error"] = "draft_pending"
+        guard service.firmwareControl.handle(rejection, device:"001122334455", transport:"USB", binary:false, bulk:false).status == 200 else { throw MacTab5Error.invalidPacket }
+        service.firmwareControl.observeVersion("0.2.318-ui")
+        guard service.firmwareControl.summary.contains("草稿") else { throw MacTab5Error.invalidPacket }
         let windows: [(String, NSWindowController)] = [
             ("device-data",deviceForm),
             ("esp-display",MacESPDisplayWindow(policy:.init(selectedMode:"auto",cycleEnabled:true,intervalSeconds:15,pages:["codex","domestic_kimi","weather"]),apply:{ _ in },brightness:{ _ in true },read:{ $0(.success(70)) })),

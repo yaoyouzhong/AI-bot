@@ -333,6 +333,34 @@ final class MacTab5CodexTests: XCTestCase {
         XCTAssertEqual(codex.handle(["op": "draft-load", "taskId": api.task, "requestId": UUID().uuidString], device: "device").status, 200)
         let draft = codex.snapshot()!["draftView"] as! [String: Any]; XCTAssertEqual(draft["text"] as? String, "保留草稿"); XCTAssertEqual(draft["pendingRequest"] as? String, id.lowercased())
     }
+    func testEvictedSessionDraftRemainsDeviceBoundAndPendingDeliveryCannotBeErased() throws {
+        for provider in ["Codex", "Claude"] {
+            let api = API(); api.failSend = true
+            var now = 0.0, evicted = false
+            let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { true }, clock: { now }, call: { method, params in
+                if method == "thread/list", evicted { return ["data": [["id": UUID().uuidString, "cwd": "/other", "name": "other"]]] }
+                return try api.call(method, params)
+            }, provider: provider)
+            codex.refresh()
+            let id = UUID().uuidString
+            let send: [String: Any] = ["op":"send", "taskId":api.task, "requestId":id, "message":"fixture draft"]
+            XCTAssertEqual(codex.handle(send, device:"A").status, 504)
+            evicted = true; now = 1; codex.refresh()
+            let empty: [String: Any] = ["op":"draft-save", "taskId":api.task, "requestId":UUID().uuidString, "message":""]
+            XCTAssertEqual(codex.handle(empty, device:"A").status, 409)
+            XCTAssertEqual(codex.handle(empty, device:"B").status, 200)
+            let load: [String: Any] = ["op":"draft-load", "taskId":api.task, "requestId":UUID().uuidString]
+            XCTAssertEqual(codex.handle(load, device:"B").status, 200)
+            XCTAssertEqual((codex.snapshot(device:"B")?["draftView"] as? [String:Any])?["text"] as? String, "")
+            XCTAssertEqual(codex.handle(load, device:"A").status, 200)
+            let draft = try XCTUnwrap(codex.snapshot(device:"A")?["draftView"] as? [String:Any])
+            XCTAssertEqual(draft["text"] as? String, "fixture draft")
+            XCTAssertEqual(draft["pendingRequest"] as? String, id.lowercased())
+            XCTAssertEqual(codex.handle(["op":"read", "taskId":api.task], device:"A").status, 404)
+            XCTAssertEqual(codex.handle(["op":"send", "taskId":api.task, "requestId":UUID().uuidString, "message":"no send"], device:"A").status, 404)
+            XCTAssertEqual(api.calls.filter { $0.0 == "turn/start" }.count, 1)
+        }
+    }
     func testActiveTurnBindingAndReadReceiptCannotCrossDevice() throws {
         let api = API(); let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { true }, call: api.call); codex.refresh()
         let page = codex.handle(["op": "read", "taskId": api.task], device: "A")

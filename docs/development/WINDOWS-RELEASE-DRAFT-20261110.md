@@ -53,6 +53,7 @@
 - Codex 和 Claude 使用图标入口；按可用空间排列，入口较多时可横向滚动，未读数字为 14 px。厂商目录短暂缺失时保留当前入口和会话。
 - 将可验证属于同一项目的会话分页合并为一个入口，通过滚动列表查看更早的会话；不同项目保持独立。
 - 当前项目的未读会话优先显示；有新回复时等触控操作结束再带入视野，不切换当前项目或选中会话。
+- 降低后台显示缓存复制峰值，保持滚动时厂商图标边缘一致；清楚显示升级准备和设备拒绝原因，继续保护未同步草稿。
 - 保留 Codex 原完成提示，并使用匹配音色的 Claude 完成提示。
 
 #### 触控与显示
@@ -68,6 +69,7 @@
 - Use provider icons for Codex and Claude, arrange them to fit the available width and allow horizontal scrolling when needed. Unread numbers use 14 px; briefly missing catalogs retain the current entries and session.
 - Merge verified pages belonging to one project into one entry and scroll to older sessions; keep different projects separate.
 - Show unread sessions first in the current project. Reveal a new reply after touch interaction ends without changing the current project or selected session.
+- Reduce background display-cache copy peaks and keep provider icon edges consistent during scrolling. Show upgrade preparation and refusal reasons while protecting unsynchronized drafts.
 - Retain the existing Codex completion prompt and use a matching voice for the Claude completion prompt.
 
 #### Touch and display

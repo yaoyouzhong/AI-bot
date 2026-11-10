@@ -9,8 +9,9 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 - Keep compact unread badges with 14 px numbers. Retain provider entries and the current session through brief missing catalogs, updating after a sustained empty result.
 - Combine verifiably related session pages into one project entry and scroll through more conversations. Keep distinct projects separate; older bridge transport limits still apply.
 - Show unread conversations first within the current project. Bring new unread replies into view once the list is idle, without changing the selected conversation.
+- Reduce background display-cache copy peaks and keep provider icon edges consistent while scrolling. Show upgrade preparation, cancellation and refusal feedback without hiding unsynchronized drafts.
 - Retain the original Codex completion prompt and match its voice in the new Claude completion prompt.
-- Mac USB acceptance confirmed LIST1 boot, one entry for a verified project, scrolling to older sessions, and preserved display settings. Windows later validated R6 boot and the user confirmed unread priority; Mac-to-R6 unread behavior remains to be checked. Public redistribution of the R6 Claude audio remains unresolved.
+- Mac USB acceptance confirmed LIST1 boot, one entry for a verified project, scrolling to older sessions, and preserved display settings. Windows validated the exact R12 image and the user confirmed provider icons and scrolling; Mac-specific paths and the R12 upgrade timing require separate evidence. Public redistribution of the Claude audio remains unresolved.
 
 ## 0.2.318-ui - 2026-11-05
 

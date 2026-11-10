@@ -575,9 +575,8 @@ final class MacTab5Codex {
         // A paired device can still hold a draft from a previous host/catalog.
         // Save it locally before OTA; this never adds a task to the catalog or
         // authorizes reading, desktop navigation or sending to that task.
-        guard known || op == "draft-save" else { return .error(404, "task_not_in_recent_catalog") }
         guard let id = Self.id(root["requestId"]) else { return .error(400, "invalid_request") }
-        if fresh, op == "draft-load" { liveControl?.select(task, issuedAt: MacTab5Protocol.integer(root["issuedAt"])) }
+        if known, fresh, op == "draft-load" { liveControl?.select(task, issuedAt: MacTab5Protocol.integer(root["issuedAt"])) }
         journalGate.lock(); defer { journalGate.unlock() }
         guard enabled() else { return .error(403, "codex_not_enabled") }
         do {
@@ -590,6 +589,10 @@ final class MacTab5Codex {
                     return .error(409, "draft_capacity_reached")
                 }
                 let images = root["images"] as? [String] ?? []; _ = try photos.inputs(images, device: device, task: task)
+                if !known, text.isEmpty, images.isEmpty, receipts.values.contains(where: {
+                    guard let receipt = $0 as? [String: Any] else { return false }
+                    return receipt["binding"] as? String == binding && receipt["status"] as? Int == 504
+                }) { return .error(409, "pending_delivery_requires_receipt") }
                 drafts[binding] = ["text": text, "images": images]; data["drafts"] = drafts; try saveJournal(data)
             } else {
                 let saved = drafts[binding] as? [String: Any] ?? ["text": "", "images": [String]()]
@@ -597,7 +600,7 @@ final class MacTab5Codex {
                 var view = saved; view["taskId"] = task; view["requestId"] = id; view["pendingRequest"] = pending?.key ?? ""
                 if let pending = pending?.value as? [String: Any] { view["operation"] = pending["operation"]; view["expectedTurn"] = pending["expectedTurn"] }
                 stateLock.lock(); projection["draftView"] = view; draftDevice = device; stateLock.unlock()
-                if fresh { selectNativeControl(task) }
+                if known, fresh { selectNativeControl(task) }
             }
             return .init(200, ["status": "saved", "taskId": task, "requestId": id])
         } catch { return .error(503, "codex_or_private_storage_unavailable") }
