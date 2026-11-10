@@ -1,0 +1,255 @@
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R5";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R6";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/firmware/main/ui.c b/firmware/main/ui.c
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -547,6 +547,10 @@
+ static lv_obj_t *codex_task_rows[8],*codex_task_titles[8],*codex_empty;
+ static lv_obj_t *codex_list_extent;
+ static bool codex_list_rebinding;
++static bool codex_list_unread_dirty;
++static int codex_list_unread_client=-1;
++static char codex_list_unread_project[17];
++static unsigned codex_list_revealed;
+ static void codex_list_scrolled(lv_event_t *e);
+ static char codex_task_ids[8][37];
+ static void codex_selected_changed(lv_event_t *e);
+@@ -1554,6 +1558,12 @@
+ #include "ui_project_groups.h"
+ #include "ui_session_source.h"
+ #include "ui_session_unread.h"
++static bool codex_list_can_reveal(void) {
++    return current_page==8&&!saver&&codex_list&&codex_project_picker&&
++        !lv_dropdown_is_open(codex_project_picker)&&
++        (!codex_reply_overlay||lv_obj_has_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN))&&
++        !gesture_active()&&!lv_anim_get(codex_list,NULL);
++}
+ static void render_codex(void) {
+     render_home_task();
+     if(!workspace_update_clients())return;
+@@ -1620,18 +1630,40 @@
+     ui_text(codex_project_caption,options);
+     int selected=-1,visible_count=0;
+     cJSON *visible_tasks[80]={0};
+-    for(int source=0;source<count;source++) {
+-        cJSON *task=cJSON_GetArrayItem(tasks,source);
++    static unsigned priority[80];
++    bool can_reveal=codex_list_can_reveal();
++    bool same_project=codex_list_unread_client==(int)workspace_client&&!strcmp(codex_list_unread_project,codex_project_selected);
++    unsigned revealed=same_project?codex_list_revealed:0,newest=0;
++    cJSON *listed=NULL;
++    cJSON_ArrayForEach(listed,tasks) {
++        if(visible_count==80)break;
++        cJSON *task=listed;
+         if(codex_project_selected[0]&&strcmp(workspace_project_root(text(task,"projectId")),codex_project_selected))continue;
+         const char *id=text(task,"id");
+-        bool valid=task&&strlen(id)==36;
+-        if(!valid)continue;
+-        if(visible_count<80){if(!strcmp(id,codex_selected))selected=visible_count;visible_tasks[visible_count++]=task;}
+-    }
++        if(strlen(id)!=36)continue;
++        unsigned order=session_unread_order(id);
++        if(order>newest)newest=order;
++        // Keep a newly promoted row in its old position until a gesture ends.
++        if(!can_reveal&&order>revealed)order=0;
++        int position=visible_count++;
++        while(position>0&&priority[position-1]<order) {
++            priority[position]=priority[position-1];visible_tasks[position]=visible_tasks[position-1];position--;
++        }
++        priority[position]=order;visible_tasks[position]=task;
++    }
++    for(int i=0;i<visible_count;i++)if(!strcmp(text(visible_tasks[i],"id"),codex_selected)){selected=i;break;}
+     codex_list_rebinding=true;
+     lv_obj_set_height(codex_list_extent,LV_MAX(1,visible_count*88));
+     lv_obj_update_layout(codex_list);
+-    if(restore_location&&selected>=0)lv_obj_scroll_to_y(codex_list,selected*88,LV_ANIM_OFF);
++    if(can_reveal) {
++        codex_list_unread_dirty=false;
++        codex_list_unread_client=(int)workspace_client;
++        snprintf(codex_list_unread_project,sizeof(codex_list_unread_project),"%s",codex_project_selected);
++        codex_list_revealed=LV_MAX(revealed,newest);
++        if(newest>revealed)lv_obj_scroll_to_y(codex_list,0,LV_ANIM_OFF);
++        else if(restore_location&&selected>=0)lv_obj_scroll_to_y(codex_list,selected*88,LV_ANIM_OFF);
++    } else if(newest>revealed)codex_list_unread_dirty=true;
++    else if(restore_location&&selected>=0)lv_obj_scroll_to_y(codex_list,selected*88,LV_ANIM_OFF);
+     int first=LV_MAX(0,lv_obj_get_scroll_y(codex_list)/88-1);
+     for(int i=0;i<8;i++) {
+         int index=first+i;
+@@ -3107,7 +3139,9 @@
+     }
+ }
+ static void codex_notice_read(void) {
+-    if(codex_notices)for(int i=0;i<80;i++)if(!strcmp(codex_notices[i].task,codex_selected))codex_notices[i].unread=false;
++    if(codex_notices)for(int i=0;i<80;i++)if(codex_notices[i].unread&&!strcmp(codex_notices[i].task,codex_selected)) {
++        codex_notices[i].unread=false;codex_list_unread_dirty=true;
++    }
+     codex_notice_style();
+     render_home_task();
+ }
+@@ -3163,7 +3197,9 @@
+         if(!strcmp(notice->turn,entry->valuestring)) {
+             // Restore desktop unread after a delayed initial snapshot, but don't
+             // resurrect a device-local read on every subsequent publication.
+-            if(desktop_unread&&!notice->desktop_unread_seen)notice->unread=true;
++            if(desktop_unread&&!notice->desktop_unread_seen&&!notice->unread) {
++                notice->unread=true;notice->arrived=++codex_notice_sequence;codex_list_unread_dirty=true;
++            }
+             if(desktop_unread)notice->desktop_unread_seen=true;
+             continue;
+         }
+@@ -3172,8 +3208,10 @@
+         // Desktop acknowledgement applies only to this exact completed turn.
+         cJSON *ack=item(read,entry->string);
+         bool desktop_read=cJSON_IsString(ack)&&!strcmp(ack->valuestring,entry->valuestring);
++        codex_list_unread_dirty|=notice->unread;
+         notice->desktop_unread_seen=desktop_unread;
+         notice->unread=(codex_notices_ready||desktop_unread)&&!desktop_read;
++        codex_list_unread_dirty|=notice->unread;
+         notice->arrived=++codex_notice_sequence;
+         if(notice->unread&&codex_notices_ready) {
+             announce=true;snprintf(codex_alert_task,sizeof(codex_alert_task),"%s",entry->string);
+@@ -3186,6 +3224,7 @@
+     for(int i=0;i<80;i++)if(codex_notices[i].task[0]) {
+         cJSON *ack=item(read,codex_notices[i].task);
+         if(cJSON_IsString(ack)&&!strcmp(ack->valuestring,codex_notices[i].turn)) {
++            codex_list_unread_dirty|=codex_notices[i].unread;
+             codex_notices[i].unread=false;codex_notices[i].desktop_unread_seen=false;
+         }
+     }
+@@ -3649,6 +3688,7 @@
+     last_tick = now;
+     alerts(now, changed);
+     codex_notice_tick(now,changed);
++    if(codex_list_unread_dirty&&codex_list_can_reveal())render_codex();
+     codex_voice_tick();date_editor_voice_tick();
+     quick_tick();
+     if(quick_visible)quick_feedback_refresh();
+diff --git a/firmware/main/ui_session_unread.h b/firmware/main/ui_session_unread.h
+--- a/firmware/main/ui_session_unread.h
++++ b/firmware/main/ui_session_unread.h
+@@ -2,11 +2,13 @@
+ // A reduced catalog hides unreachable markers without discarding that queue.
+ static lv_obj_t *session_unread_rows[8],*session_unread_clients[2],*session_project_label;
+ static void workspace_open_task(unsigned client,const char *task,int return_page);
+-static bool session_unread_task(const char *id) {
+-    if(!codex_notices||!id||strlen(id)!=36)return false;
+-    for(int i=0;i<80;i++)if(codex_notices[i].unread&&!strcmp(codex_notices[i].task,id))return true;
+-    return false;
++static unsigned session_unread_order(const char *id) {
++    if(!codex_notices||!id||strlen(id)!=36)return 0;
++    for(int i=0;i<80;i++)if(codex_notices[i].unread&&!strcmp(codex_notices[i].task,id))
++        return LV_MAX(1u,codex_notices[i].arrived);
++    return 0;
+ }
++static bool session_unread_task(const char *id) {return session_unread_order(id)!=0;}
+ static unsigned session_unread_count(unsigned client,const char *project) {
+     unsigned count=0;cJSON *task=NULL;
+     cJSON_ArrayForEach(task,item(item(shown,client?"claudeTasks":"codexTasks"),"tasks"))
+diff --git a/tests/ui-preview/project_virtual_list_test.h b/tests/ui-preview/project_virtual_list_test.h
+--- a/tests/ui-preview/project_virtual_list_test.h
++++ b/tests/ui-preview/project_virtual_list_test.h
+@@ -4,8 +4,8 @@
+     for(int i=0;i<8;i++)snprintf(out+i*2,3,"%02x",digest[i]);
+ }
+ static void check_project_virtual_list(void) {
+-    reply_open_state_setup(0);
+-    cJSON *remote=item(shown,"codexTasks"),*projects=item(remote,"projects"),*tasks=item(remote,"tasks");
++    reply_open_state_setup(1);
++    cJSON *remote=item(shown,"claudeTasks"),*projects=item(remote,"projects"),*tasks=item(remote,"tasks");
+     cJSON_DeleteItemFromArray(projects,0);cJSON_DeleteItemFromArray(tasks,0);
+     const char *root="1111111111111111";char ids[8][17];snprintf(ids[0],17,"%s",root);
+     for(int i=1;i<8;i++)project_page_id(ids[i],root,i);
+@@ -18,19 +18,25 @@
+     cJSON_AddStringToObject(other,"name","2/8 · AI-bot");cJSON_AddItemToArray(projects,other);
+     for(int i=0;i<64;i++) {
+         char id[37],title[40];snprintf(id,sizeof(id),"aaaaaaaa-aaaa-4aaa-8aaa-%012d",i);
+-        snprintf(title,sizeof(title),"会话 %02d",i+1);
++        if(i==0)snprintf(title,sizeof(title),"AI-bot-原生终端");
++        else snprintf(title,sizeof(title),"会话 %02d",i+1);
+         cJSON *task=cJSON_CreateObject();cJSON_AddStringToObject(task,"id",id);cJSON_AddStringToObject(task,"title",title);
+         cJSON_AddStringToObject(task,"projectId",ids[i/8]);cJSON_AddNumberToObject(task,"updatedAt",100-i);
+         cJSON_AddItemToArray(tasks,task);
+     }
+     if(!codex_notices)codex_notices=calloc(80,sizeof(*codex_notices));
+     memset(codex_notices,0,80*sizeof(*codex_notices));
+-    snprintf(codex_notices[0].task,37,"aaaaaaaa-aaaa-4aaa-8aaa-000000000063");codex_notices[0].unread=true;
+-    workspace_client=0;codex_selected[0]=codex_project_selected[0]=0;codex_default_pending=codex_default_all=true;
++    codex_notice_sequence=0;codex_list_unread_client=-1;codex_list_unread_dirty=false;
++    const char *head="aaaaaaaa-aaaa-4aaa-8aaa-000000000000",*tail="aaaaaaaa-aaaa-4aaa-8aaa-000000000063";
++    const char *other_task="bbbbbbbb-bbbb-4bbb-8bbb-000000000001";
++    cJSON *unrelated=cJSON_CreateObject();cJSON_AddStringToObject(unrelated,"id",other_task);
++    cJSON_AddStringToObject(unrelated,"title","其他项目会话");cJSON_AddStringToObject(unrelated,"projectId","4444444444444444");
++    cJSON_AddItemToArray(tasks,unrelated);
++    workspace_client=1;codex_selected[0]=codex_project_selected[0]=0;codex_default_pending=codex_default_all=true;
+     render_codex();render_codex();lv_obj_update_layout(lv_screen_active());
+     assert(codex_project_count==2);
+-    assert(strstr(lv_dropdown_get_options(codex_project_picker),"[1] AI-bot\n2/8 · AI-bot"));
+-    assert(!strcmp(lv_label_get_text(codex_project_caption),"[1] AI-bot"));
++    assert(strstr(lv_dropdown_get_options(codex_project_picker),"AI-bot\n2/8 · AI-bot"));
++    assert(!strcmp(lv_label_get_text(codex_project_caption),"AI-bot"));
+     assert(!strcmp(codex_task_ids[0],"aaaaaaaa-aaaa-4aaa-8aaa-000000000000"));
+     capture("project-virtual-top");
+     lv_indev_t *touch=lv_indev_create();lv_indev_set_type(touch,LV_INDEV_TYPE_POINTER);
+@@ -52,14 +58,43 @@
+     assert(codex_draft_for(codex_selected,false));
+     lv_obj_scroll_to_y(codex_list,LV_COORD_MAX,LV_ANIM_OFF);lv_obj_update_layout(lv_screen_active());
+     assert(!strcmp(codex_task_ids[4],"aaaaaaaa-aaaa-4aaa-8aaa-000000000063"));
+-    assert(!lv_obj_has_flag(session_unread_rows[4],LV_OBJ_FLAG_HIDDEN));
+     assert(!strcmp(codex_selected,"aaaaaaaa-aaaa-4aaa-8aaa-000000000013"));
+     capture("project-virtual-bottom");
+-    // Opening an older unread item from Overview scrolls it into view.
++    cJSON_DeleteItemFromObject(remote,"repliesReady");cJSON *ready=cJSON_AddObjectToObject(remote,"repliesReady");
++    cJSON_DeleteItemFromObject(remote,"repliesRead");cJSON *read=cJSON_AddObjectToObject(remote,"repliesRead");
++    codex_notices_ready=true;
++    cJSON_AddStringToObject(ready,tail,"tail-turn");workspace_notice_tick(100,true,1);render_codex();
++    assert(lv_obj_get_scroll_y(codex_list)==0&&!strcmp(codex_task_ids[0],tail));
++    assert(!lv_obj_has_flag(session_unread_rows[0],LV_OBJ_FLAG_HIDDEN));
++    lv_obj_scroll_to_y(codex_list,LV_COORD_MAX,LV_ANIM_OFF);lv_obj_update_layout(lv_screen_active());
++    int bottom=lv_obj_get_scroll_y(codex_list);
++    assert(bottom>0);
++    // Hold the list's scrollbar gutter. A new reply must not move a row under
++    // a finger, or reselect the current conversation on release.
++    lv_obj_get_coords(codex_list,&area);camera_touch_point=(lv_point_t){area.x2-1,area.y1+32};
++    camera_touch_state=LV_INDEV_STATE_PRESSED;lv_indev_read(touch);
++    cJSON_AddStringToObject(ready,head,"head-turn");workspace_notice_tick(110,true,1);render_codex();
++    assert(lv_obj_get_scroll_y(codex_list)==bottom&&codex_list_unread_dirty);
++    camera_touch_state=LV_INDEV_STATE_RELEASED;lv_indev_read(touch);render_codex();
++    assert(lv_obj_get_scroll_y(codex_list)==0&&!strcmp(codex_task_ids[0],head)&&!strcmp(codex_task_ids[1],tail));
++    assert(!lv_obj_has_flag(session_unread_rows[0],LV_OBJ_FLAG_HIDDEN)&&
++           !lv_obj_has_flag(session_unread_rows[1],LV_OBJ_FLAG_HIDDEN));
++    assert(!strcmp(codex_selected,"aaaaaaaa-aaaa-4aaa-8aaa-000000000013"));
++    capture("project-virtual-unread-first");
++    lv_obj_scroll_to_y(codex_list,LV_COORD_MAX,LV_ANIM_OFF);lv_obj_update_layout(lv_screen_active());
++    bottom=lv_obj_get_scroll_y(codex_list);
++    workspace_notice_tick(120,true,1);render_codex();
++    assert(bottom>0&&lv_obj_get_scroll_y(codex_list)==bottom);
++    cJSON_AddStringToObject(ready,other_task,"unrelated-turn");workspace_notice_tick(130,true,1);render_codex();
++    assert(!strcmp(codex_project_selected,root)&&lv_obj_get_scroll_y(codex_list)==bottom);
++    cJSON_AddStringToObject(read,head,"head-turn");workspace_notice_tick(140,true,1);render_codex();
++    lv_obj_scroll_to_y(codex_list,0,LV_ANIM_OFF);
++    assert(!strcmp(codex_task_ids[0],tail)&&!session_unread_task(head));
++    // Opening a prioritized unread item from Overview keeps its exact target.
+     lv_obj_scroll_to_y(codex_list,0,LV_ANIM_OFF);page(0);
+-    workspace_open_task(0,"aaaaaaaa-aaaa-4aaa-8aaa-000000000063",0);
+-    assert(current_page==8&&!strcmp(codex_selected,"aaaaaaaa-aaaa-4aaa-8aaa-000000000063"));
+-    assert(lv_obj_get_scroll_y(codex_list)>0);
++    workspace_open_task(1,tail,0);
++    assert(current_page==8&&!strcmp(codex_selected,tail)&&!strcmp(codex_task_ids[0],tail));
++    assert(lv_obj_get_scroll_y(codex_list)==0);
+     // Older Windows Claude labels use the suffix form, with the same IDs.
+     for(int i=0;i<8;i++) {
+         char label[80];snprintf(label,sizeof(label),"AI-bot · %d/8",i+1);
+@@ -68,5 +103,5 @@
+     workspace_groups_build(projects);
+     for(int i=0;i<8;i++)assert(!strcmp(workspace_project_root(ids[i]),root));
+     lv_indev_delete(touch);
+-    puts("PROJECT_VIRTUAL_LIST_OK one verified project; unverified distinct; 64 exact sessions; bounded recycled rows; selection survives scroll");
++    puts("PROJECT_VIRTUAL_LIST_OK 64 exact sessions; unread priority and one reveal; touch deferral; stable selection; unrelated project isolated");
+ }

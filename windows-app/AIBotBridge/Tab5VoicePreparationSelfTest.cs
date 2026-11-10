@@ -41,8 +41,9 @@ internal static class Tab5VoicePreparationSelfTest
         Check(policy.Waiting&&!policy.Revoked&&!policy.SawPermission,"dimming window waits without claiming permission");
         policy.Observe(Tab5VoiceStartupFocus.Owner.Permission,true);
         Check(policy.Waiting&&!policy.Revoked,"permission window is observed without activating over it");
-        policy.Observe(Tab5VoiceStartupFocus.Owner.Permission,true);
-        policy.Observe(Tab5VoiceStartupFocus.Owner.Unavailable,false);
+        policy.Observe(Tab5VoiceStartupFocus.Owner.PendingPermission,true);
+        Check(policy.Waiting&&!policy.Revoked&&policy.SawPermission,"blank PickerHost after verified Allow click defers restoration");
+        policy.Observe(Tab5VoiceStartupFocus.Owner.Unavailable,true);
         Check(policy.Waiting&&!policy.Revoked,"temporary empty foreground after owned permission must wait");
         policy.Observe(Tab5VoiceStartupFocus.Owner.Previous,true);
         Check(policy.Waiting&&!policy.Revoked,"permission click must be released before recovery");
@@ -62,13 +63,17 @@ internal static class Tab5VoicePreparationSelfTest
         var unconfirmed=new Tab5VoiceStartupFocus.Policy();unconfirmed.Observe(Tab5VoiceStartupFocus.Owner.PendingPermission,false);unconfirmed.Observe(Tab5VoiceStartupFocus.Owner.Previous,false);
         Check(unconfirmed.Revoked,"unverified dimming window cannot authorize focus restoration");
         var dimClick=new Tab5VoiceStartupFocus.Policy();dimClick.Observe(Tab5VoiceStartupFocus.Owner.PendingPermission,true);
-        Check(dimClick.Revoked,"input in unverified dimming window cannot authorize recovery");
+        Check(dimClick.Revoked&&dimClick.Reason==Tab5VoiceStartupFocus.StopReason.InputBeforeConsent,"input in unverified dimming window cannot authorize recovery");
         var dimTimeout=new Tab5VoiceStartupFocus.Policy();for(int i=0;i<81;i++)dimTimeout.Observe(Tab5VoiceStartupFocus.Owner.PendingPermission,false);
         Check(dimTimeout.Revoked,"unverified dimming window wait is bounded");
         Check(Tab5VoiceStartupFocus.PermissionProcess(@"C:\Windows\System32\RuntimeBroker.exe",@"C:\Windows"),"protected Windows permission host recognized");
         Check(!Tab5VoiceStartupFocus.PermissionProcess(@"C:\Temp\RuntimeBroker.exe",@"C:\Windows"),"lookalike executable not trusted");
         Check(!Tab5VoiceStartupFocus.PermissionProcess(@"C:\Windows\System32\notepad.exe",@"C:\Windows"),"ordinary application not a permission host");
         string picker=@"C:\Windows\System32\PickerHost.exe",win=@"C:\Windows";string[] names=["AIBotBridge"];
+        Check(Tab5VoiceStartupFocus.PendingMicrophonePicker(picker,win,"Shell_SystemDim")&&
+            Tab5VoiceStartupFocus.PendingMicrophonePicker(picker,win,"Shell_SystemDialog")&&
+            !Tab5VoiceStartupFocus.PendingMicrophonePicker(@"C:\Temp\PickerHost.exe",win,"Shell_SystemDialog"),
+            "blank protected picker surfaces allow bounded waiting only");
         Check(Tab5VoiceStartupFocus.OwnedMicrophonePicker(picker,win,"Shell_SystemDialog","允许 AIBotBridge 访问你的麦克风?",names),"observed system microphone prompt recognized");
         Check(!Tab5VoiceStartupFocus.OwnedMicrophonePicker(picker,win,"Shell_SystemDialog","允许 OtherApp 访问你的麦克风?",names),"another app microphone prompt not trusted");
         Check(!Tab5VoiceStartupFocus.OwnedMicrophonePicker(picker,win,"Shell_SystemDialog","允许 AIBotBridge 访问你的位置?",names),"another capability not treated as this authorization");

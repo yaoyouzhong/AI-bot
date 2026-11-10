@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 
 ### Windows bridge upgrade
 - Use one administrator approval to install the bridge and inherit applicable LAN firewall permissions. The resident bridge can update TAB5 directly, without launching SettingsProbe.
+- Keep the same voice recording request through the brief Windows picker transition after microphone approval, then restore focus to the verified draft editor.
 
 ### Existing Mac Claude terminal windows (in development)
 - Add window input for already-open native Claude Code sessions in Terminal, including text, images, queued follow-ups and exact-turn interruption; retain public replies and delivery receipts from the original session.

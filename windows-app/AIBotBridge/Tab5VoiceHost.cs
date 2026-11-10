@@ -126,16 +126,19 @@ internal sealed class Tab5VoiceDraft(Func<string> shortcut,Func<string,bool>? ph
                     if(activation.Foreground){ActiveControl=_text;_text.Select();}
                 });
             }
-            long started=Environment.TickCount64;
-            if(!await focus.RestoreAsync(()=>SafeFocus,Restore,token,permissionWaiting))
+            async Task RestoreSameEditor(string phase) {
+                if(await focus.RestoreAsync(()=>SafeFocus,Restore,token,permissionWaiting))return;
+                Tab5LocalDiagnostics.Write($"VOICE_PREPARE phase={phase} permissionObserved={focus.SawPermission} restored=False reason={focus.Reason}");
                 throw new InvalidOperationException("语音准备已停止：电脑输入目标已变化");
+            }
+            long started=Environment.TickCount64;
+            await RestoreSameEditor("audio-open");
             Tab5VoiceTiming.Log("prepare-focus-stable",started);
             long imeStarted=Environment.TickCount64;
             _=Tab5InputMethod.Ensure(()=>SafeFocus,IsDoubaoLayout,()=>Tab5InputMethod.ActivateDoubao(()=>SafeFocus));
             // TSF can open its permission UI asynchronously. Yield and recheck
             // the same editor before the one and only StartCapture operation.
-            if(!await focus.RestoreAsync(()=>SafeFocus,Restore,token,permissionWaiting))
-                throw new InvalidOperationException("语音准备已停止：电脑输入目标已变化");
+            await RestoreSameEditor("input-method");
             if(!IsDoubaoLayout())throw new InvalidOperationException(Tab5DoubaoAvailability.SwitchInput);
             Tab5VoiceTiming.Log("prepare-input-method",imeStarted);
             if(!_doubao.IsIdle)throw new InvalidOperationException(_doubao.LastState<0?Tab5DoubaoAvailability.UnavailableMessage():"豆包正在处理其他语音，请先结束后重试");

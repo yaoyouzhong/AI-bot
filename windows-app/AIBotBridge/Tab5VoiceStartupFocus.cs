@@ -10,6 +10,7 @@ namespace AIBotBridge;
 internal sealed class Tab5VoiceStartupFocus : IDisposable
 {
     internal enum Owner { Draft, Previous, Permission, PendingPermission, Other, Unavailable }
+    internal enum StopReason { None, NoForeground, PickerTimeout, InputBeforeConsent, UnconfirmedPicker, ForeignWindow, InputChanged }
     internal sealed class Policy
     {
         private bool _permission;
@@ -19,6 +20,8 @@ internal sealed class Tab5VoiceStartupFocus : IDisposable
         internal bool Revoked {get;private set;}
         internal bool Waiting {get;private set;}
         internal bool SawPermission {get;private set;}
+        internal StopReason Reason {get;private set;}
+        private void Revoke(StopReason reason){Reason=reason;Revoked=true;Waiting=false;}
         internal void Observe(Owner owner,bool inputHeld)
         {
             if(Revoked)return;
@@ -27,26 +30,33 @@ internal sealed class Tab5VoiceStartupFocus : IDisposable
                 // out of consent. Never activate while unavailable, and only
                 // wait if a verified permission or its dimmer was observed.
                 if((_permission||_pendingPicker)&&!(_pendingPicker&&inputHeld)&&++_unavailableSamples<=80){Waiting=true;return;}
-                Revoked=true;Waiting=false;return;
+                Revoke(StopReason.NoForeground);return;
             }
             _unavailableSamples=0;
             if(owner==Owner.PendingPermission){
                 // PickerHost first raises an untitled dimming window. It is not
                 // proof of consent: wait briefly without activation until the
                 // owned microphone dialog appears, otherwise fail closed.
-                _pendingPicker=true;Waiting=true;
-                if(inputHeld||++_pendingSamples>80){Revoked=true;Waiting=false;}
+                Waiting=true;
+                if(++_pendingSamples>80){Revoke(StopReason.PickerTimeout);return;}
+                // PickerHost can expose its blank surface again while the
+                // verified Allow click is still held and the dialog closes.
+                if(_permission)return;
+                _pendingPicker=true;
+                if(inputHeld)Revoke(StopReason.InputBeforeConsent);
                 return;
             }
             if(owner==Owner.Permission){SawPermission=true;Waiting=true;_permission=true;_pendingPicker=false;_pendingSamples=0;return;}
-            if(_pendingPicker){Revoked=true;Waiting=false;return;}
+            if(_pendingPicker){Revoke(StopReason.UnconfirmedPicker);return;}
             // Let the approval click finish before activating our editor. Pointer
             // movement alone is not typing and must not revoke an explicit take.
             bool returned=_permission&&owner is Owner.Draft or Owner.Previous;
             if(returned&&inputHeld){Waiting=true;return;}
             Waiting=false;
-            if(owner==Owner.Other||inputHeld)Revoked=true;
+            if(owner==Owner.Other)Revoke(StopReason.ForeignWindow);
+            else if(inputHeld)Revoke(StopReason.InputChanged);
             _permission=false;
+            _pendingSamples=0;
         }
     }
     private readonly nint _draft,_previous;
@@ -59,6 +69,7 @@ internal sealed class Tab5VoiceStartupFocus : IDisposable
     internal bool Waiting {get {lock(_gate)return _policy.Waiting;}}
     internal bool Revoked {get {lock(_gate)return _policy.Revoked;}}
     internal bool SawPermission {get {lock(_gate)return _policy.SawPermission;}}
+    internal StopReason Reason {get {lock(_gate)return _policy.Reason;}}
     internal void Activate(Action activation){
         lock(_gate){
             Sample();
@@ -77,8 +88,8 @@ internal sealed class Tab5VoiceStartupFocus : IDisposable
         lock(_gate){
             if(_disposed)return;
             var foreground=GetForegroundWindow();
-            Owner owner=foreground==_draft?Owner.Draft:foreground==_previous?Owner.Previous:
-                foreground==0?Owner.Unavailable:IsPermission(foreground)?Owner.Permission:
+            Owner owner=foreground==0?Owner.Unavailable:foreground==_draft?Owner.Draft:foreground==_previous?Owner.Previous:
+                IsPermission(foreground)?Owner.Permission:
                     IsPendingPicker(foreground)?Owner.PendingPermission:Owner.Other;
             // Only the pressed/not-pressed state is observed. No key codes or
             // characters are retained. GetLastInputInfo includes harmless motion.
@@ -92,9 +103,12 @@ internal sealed class Tab5VoiceStartupFocus : IDisposable
         using var process=OpenProcess(0x1000,false,pid);if(process.IsInvalid)return false;
         var path=new StringBuilder(1024);int size=path.Capacity;if(!QueryFullProcessImageName(process,0,path,ref size))return false;
         string windows=Environment.GetFolderPath(Environment.SpecialFolder.Windows);var windowClass=new StringBuilder(256);var title=new StringBuilder(512);
-        return !string.IsNullOrEmpty(windows)&&string.Equals(path.ToString(),Path.Combine(windows,"System32","PickerHost.exe"),StringComparison.OrdinalIgnoreCase)&&
-            GetClassName(window,windowClass,windowClass.Capacity)>0&&windowClass.ToString()=="Shell_SystemDim"&&GetWindowText(window,title,title.Capacity)==0;
+        return GetClassName(window,windowClass,windowClass.Capacity)>0&&GetWindowText(window,title,title.Capacity)==0&&
+            PendingMicrophonePicker(path.ToString(),windows,windowClass.ToString());
     }
+    internal static bool PendingMicrophonePicker(string path,string windows,string windowClass)=>
+        !string.IsNullOrEmpty(windows)&&string.Equals(path,Path.Combine(windows,"System32","PickerHost.exe"),StringComparison.OrdinalIgnoreCase)&&
+        windowClass is "Shell_SystemDim" or "Shell_SystemDialog";
     private bool IsPermission(nint window)
     {
         if(_permissionWindow is not null)return _permissionWindow(window);
