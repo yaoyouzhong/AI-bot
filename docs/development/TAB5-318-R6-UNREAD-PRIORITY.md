@@ -8,4 +8,6 @@
 
 从 [.318 R4](tab5-318-r4-source/README.md) 依次重放 [LIST1](TAB5-PROJECT-SCROLL-LIST1-20261110.patch)、[R5](TAB5-318-R5-RELEASE-NOTICE.patch) 和 [R6](TAB5-318-R6-UNREAD-PRIORITY.patch)，继续使用与 R5 完全相同的两段提示音。
 
-R6 补丁 SHA-256 `5ac2b74a3b5d966584f3f45b027b41dcea297ecd24b6749e5b4747a4314e83cd`。Windows 使用同一 ESP-IDF 5.4.2 配置构建；应用 BIN 7,027,136 字节，SHA-256 `de7cfc8515fec52e8990af04c86ca8d767dbe9208dc5e5cdb08606bb28549303`；ELF SHA-256 `40cc39cbe8ba92e2dd763d2fa58cc1409a238fdc28bf320556ef13d70c2af153`。栈预算、渲染后端、镜像校验、实际升级说明和 Claude 列表渲染已核验；未读正文定位、返回触控、厂商草稿隔离与屏保唤醒回归通过。已归档 R5 原包并更新本地 `latest`，未刷入设备。
+R6 补丁 SHA-256 `5ac2b74a3b5d966584f3f45b027b41dcea297ecd24b6749e5b4747a4314e83cd`。Windows 使用同一 ESP-IDF 5.4.2 配置构建；应用 BIN 7,027,136 字节，SHA-256 `de7cfc8515fec52e8990af04c86ca8d767dbe9208dc5e5cdb08606bb28549303`；ELF SHA-256 `40cc39cbe8ba92e2dd763d2fa58cc1409a238fdc28bf320556ef13d70c2af153`。栈预算、渲染后端、镜像校验、实际升级说明和 Claude 列表渲染已核验；未读正文定位、返回触控、厂商草稿隔离与屏保唤醒回归通过。已归档 R5 原包并更新本地 `latest`。
+
+用户已在真实 TAB5 确认未读优先显示。设备经 Wi-Fi 升级后，启动核验确认运行 ELF 与 R6 匹配，`ota_1` 分区为 `VALID`，Wi-Fi 与 USB 均已恢复。电脑自动发起升级未进入传输，实际成功的是从设备面板发起的升级。详细证据及 Mac 复测见[交接记录](MAC-HANDOFF-FROM-WINDOWS-20261110.md)。
