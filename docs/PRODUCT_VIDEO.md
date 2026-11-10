@@ -1,5 +1,13 @@
 # 产品介绍视频 / Product introduction video
 
+2026-11-10 更新了对话界面等受影响的镜头，保留原有展示顺序与音轨；画面使用合成数据的原生界面演示。Updated UI scenes retain the original sequence and soundtrack; native interface scenes use synthetic data.
+
+[观看新版 / Watch updated video](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-web-20261110.mp4) · [下载 1080p / Download 1080p](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-20261110.mp4) · [工程源码 / Source](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-source-20261110.zip)
+
+新版 SHA-256：1080p `0a86972fd08fb7580859f8cf069856adc2098f1479042c6ec19e2d27b17555e1`；网页播放版 `0130c620df5ea9cade397fdbd9faf7591effc1f88967e264f890b25ffea9cd71`；工程 `1461e27b74b94a98b76600ef9ffdd21ce2c5149991ede3101062a382a1defb7c`。
+
+以下为 2026-11-02 历史版本及其来源说明。The following describes the historical November 2 edition and its sources.
+
 本轮媒体复用：经用户确认，小幅变化且通用介绍仍准确时，可保留现有截图和影片。0.6.16 的功能细节通过下方发布补充说明，影片本体、封面及原媒体摘要保持；不将复用描述为重新制作。 / Media reuse: the user allows accurate screenshots and the general overview film to remain for minor changes. The release supplement covers the current details; encoded video, covers and their original hashes are retained and are not claimed as newly produced.
 
 2026-11-03 发布补充：[0.6.16 与两款固件更新](RELEASE-0.6.16.md) 和[小屏股票字形预览](assets/screens/esp8266-stock-058-preview.png)。本页下方影片继续作为带日期的通用项目介绍，本次语音识别选项、精细股票字形和 TAB5 生日窗口以更新说明为准；不将历史镜头称为本次包的验收。为保留有效素材，本次未重编码影片。 / November 3 release supplement: [desktop and firmware changes](RELEASE-0.6.16.md) and [synthetic stock typography preview](assets/screens/esp8266-stock-058-preview.png). The dated film remains a general overview; new speech options, glyph refinements and birthday filtering are documented separately. Historical footage is not acceptance of the current packages; this update retains the original encoded media.

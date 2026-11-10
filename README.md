@@ -4,12 +4,12 @@
 
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
-[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.17.md) · [English](README.en.md)
+[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.18.md) · [English](README.en.md)
 
-**本次更新：** Windows／Mac 桥接 **0.6.17**、TAB5 **0.2.313-ui** 已发布。新增 Codex／Claude 对话工作区、客户端萌宠与两种屏保，并统一图库范围和画质选择；排队取消后恢复草稿，保留后来编辑的新内容。ESP8266 保持 **0.5.8**。[版本与验收说明](docs/RELEASE-0.6.17.md) · [Mac 安装与授权](docs/INSTALL.zh.md#mac)
+**本次更新：** Windows／Mac 桥接 **0.6.18** 和 TAB5 **0.2.318-ui** 改善 Claude Code 原生会话识别、对话和未读回复体验，并优化语音授权后的恢复。TAB5 增加会话滚动和未读优先显示，改进总览显示与固件升级提示。ESP8266 保持 **0.5.8**。[更新说明](docs/RELEASE-0.6.18.md) · [安装指南](docs/INSTALL.zh.md)
 
 <p><img src="docs/assets/screens/tab5-companion-savers-0312-preview.png" width="880" alt="Codex 与 Clawd 两种独立萌宠屏保的原生渲染预览"></p>
-<sub>两个独立屏保的原生渲染，时间为演示数据；设备每次只显示所选的一只萌宠。[来源与验收边界](docs/RELEASE-0.6.17.md)</sub>
+<sub>两个独立屏保的原生渲染，时间为演示数据；设备每次只显示所选的一只萌宠。[来源与验收边界](docs/RELEASE-0.6.18.md)</sub>
 
 ## 选择适合你的桌面屏幕
 
@@ -58,9 +58,9 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 这段项目介绍对照展示 TAB5 大屏与 ESP8266 小屏的共有功能，并单独介绍 TAB5 的总览、会话、语音草稿、相机、电脑控制、日程和艺术屏保。画面使用原生界面演示数据与硬件合成图，非硬件实拍。
 
-https://github.com/user-attachments/assets/b83202d5-70ba-431b-841e-f7f11d8f6892
 
-[独立观看](https://github.com/yaoyouzhong/AI-bot/issues/8) · [下载 1080p MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.14/AI-bot-project-overview-revised-20261102.mp4) · [视频与来源](docs/PRODUCT_VIDEO.md)
+
+[观看新版](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-web-20261110.mp4) · [下载 1080p MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-20261110.mp4) · [视频与来源](docs/PRODUCT_VIDEO.md)
 
 ## 能做什么
 
@@ -101,7 +101,7 @@ https://github.com/user-attachments/assets/b83202d5-70ba-431b-841e-f7f11d8f6892
 
 **日程待办与到期提醒**已包含在 TAB5 210：今日／全部分段筛选与列表对齐，空状态居中新建；本地保存、离线编辑与删除、重连同步，支持时间、重复和提前提醒。最多 16 项；到期事项保留，满额新增时才清理最早结束的过期单次事项。[使用与实机边界](docs/RELEASE-0.6.11.md)
 
-**对话工作区：** 在 Codex／Claude 间选择项目和会话，管理草稿与照片，从总览直接查看同一会话或未读回复。外部活跃 Claude 会话只读，工具请求在电脑确认。[新版原生界面（演示数据）](docs/assets/screens/tab5-dialogue-0313-preview.png)
+**对话工作区：** 在 Codex／Claude 间选择项目和会话，管理草稿与照片，从总览直接查看同一会话或未读回复。支持定位并控制符合条件的 Claude 原生会话，无法确认目标时保护发送；工具请求在电脑确认。[新版原生界面（演示数据）](docs/assets/screens/tab5-dialogue-0318-r13-preview.png)
 
 **Codex 直达：** 从最近会话选择目标，结束录音后文字自动填入电脑；可在电脑校对，再通过 TAB5 确认发送。支持提问题卡、连续录音、失败恢复和长按清空。[使用说明](docs/TAB5-QUICK-CONSOLE.md)
 
@@ -131,11 +131,11 @@ https://github.com/user-attachments/assets/b83202d5-70ba-431b-841e-f7f11d8f6892
 <!-- downloads:start -->
 | 用途 | 版本 | 下载 | SHA-256 |
 | --- | --- | --- | --- |
-| Windows 桥接 · Windows 10/11 x64 | 0.6.17 | [下载 · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.17/AI-bot-bridge-v0.6.17-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.17/SHA256SUMS.txt) |
-| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.17 | [下载 · 18 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.17/AI-bot-bridge-v0.6.17-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.17/SHA256SUMS.txt) |
+| Windows 桥接 · Windows 10/11 x64 | 0.6.18 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-bridge-v0.6.18-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/SHA256SUMS.txt) |
+| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.18 | [下载 · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-bridge-v0.6.18-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/SHA256SUMS.txt) |
 | ESP8266 小屏 · 首刷／升级通用 | 0.5.8 | [下载 · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-firmware.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/SHA256SUMS.txt) |
-| TAB5 · 出厂系统首次安装 | 0.2.313-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.313-ui/AI-bot-tab5-0.2.313-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.313-ui/SHA256SUMS.txt) |
-| TAB5 · 已有 AI-bot 升级 | 0.2.313-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.313-ui/AI-bot-tab5-0.2.313-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.313-ui/SHA256SUMS.txt) |
+| TAB5 · 出厂系统首次安装 | 0.2.318-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
+| TAB5 · 已有 AI-bot 升级 | 0.2.318-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
 | 每日书法 · 标准版 | 2026.1（包 2026.10.15.1） | [下载 · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
 | 每日书法 · 高清完整版 | 2026.1（包 2026.10.16） | [下载 · 2.89 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#calligraphy) |
 | 每日名画 · 标准版 | 2026.1（包 2026.10.14.1） | [下载 · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/AI-bot-DailyPainting-Curated-2026.10.14.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.194-ui/SHA256SUMS.txt) |
@@ -163,7 +163,7 @@ https://github.com/user-attachments/assets/b83202d5-70ba-431b-841e-f7f11d8f6892
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.17.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.18.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](docs/development/TAB5-SOURCE.md) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)
