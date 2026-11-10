@@ -21,3 +21,11 @@ Mac 检测到某个完整回复的桌面未读标记后，该标记在同一账�
 ## 交回 Windows 与发布
 
 本地源码已包含 Windows 最新提交；源码、构建、安装和真机结果应按各自身份登记。Windows 管理员、焦点和防火墙机制不移植到 Mac。首次权限、真实终端投递、R6 未读优先跨平台实测以及桌面已读角标消退耗时不得标记为通过，正式发布仍由唯一发布负责人汇总两端证据。
+
+## Mac 本地候选与设备检查
+
+- macOS 27.3、arm64，产品源码 `2365e94d84a4496abd95f1e8d32abda8b411c86b`。`swift test` 512 项、4 跳过、0 失败；加入跨会话边界后的 `MacModuleParityTests` 通过，共 29081 项隔离检查；`swift build -c release` 通过。首次全量测试在最后两项跨会话检查加入之前完成，后者以定向测试单独覆盖。
+- `AIBotBridge-Windows-R6-Mac.app` 可执行文件 SHA-256 `3c3ad6b952ccb1bb81e406bd87de77eb54abcfa5509f3cd599a91a51c313d561`；本地 ZIP 19,638,533 字节，SHA-256 `d18992eaba58ada2fc3fe959ad25e54968381e507124f76ab2c65cc835b53075`。包内 `SOURCE_SHA.txt` 为上述源码；使用原安装相同的 `AI-bot Local Development` 身份签名并通过完整性检查，未做 Apple 公证，不作为公开发布包。
+- 已安装该候选并后台启动；TAB5 草稿密封文件安装前后摘要相同。接 R6 的后台诊断确认 USB 数据已确认、设备界面心跳正常、显示错误为 0；测试后设置读回一致并恢复日常后台桥接。没有刷机。
+- `tools/probe_mac_claude_terminal.py` 用临时隔离配置、环回模型和当前本机 Claude Code 2.1.319，分别以 `Apple_Terminal` 和 `iTerm.app` 环境通过文字、图片、排队追加和指定轮次中断测试，进程和临时配置已清理。这是无窗口的终端模拟，不能代替真实 Terminal/iTerm 窗口、TAB5 发送与已有草稿保护验收。
+- R6 未读排序：Mac 侧使用 R6 UI 补丁的 LVGL 离屏图及 64 会话触控回归通过；实际设备已核对版本与连接，Mac 接收隔离新回复后的真机排序尚未验证。首次系统授权实测及已读角标消退耗时同样待验证。
