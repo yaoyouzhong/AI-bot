@@ -7,22 +7,40 @@ final class MacCodexReadState {
     private let load: () -> Snapshot?
     private let clock: () -> TimeInterval
     private var scope = ""
-    private var observed: [String: (turn: String, since: TimeInterval)] = [:]
+    private struct Observation {
+        var turn: String, since: TimeInterval, unread: Bool, canAcknowledgeOnClear: Bool
+    }
+    private var observed: [String: Observation] = [:]
     private(set) var read: [String: String] = [:]
     init(load: @escaping () -> Snapshot? = { MacCodexReadState.local() }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.load = load; self.clock = clock
     }
     func synchronize(_ ready: [String: String]) -> [String: String] {
-        observed = observed.filter { ready[$0.key] == $0.value.turn }
+        observed = observed.filter { ready[$0.key] != nil }
         read = read.filter { ready[$0.key] == $0.value }
         guard let snapshot = load() else { observed = [:]; return read }
         if scope != snapshot.scope { observed = [:]; read = [:]; scope = snapshot.scope }
         let now = clock()
         for (task, turn) in ready {
             let prior = observed[task]
-            if prior == nil || now < prior!.since { observed[task] = (turn, now) }
-            if snapshot.unread.contains(task) { observed[task] = (turn, now); read[task] = nil }
-            else if let since = observed[task]?.since, now - since >= 5 { read[task] = turn }
+            let unread = snapshot.unread.contains(task)
+            var current: Observation
+            if prior?.turn != turn || (prior != nil && now < prior!.since) {
+                // A thread-level unread flag carried over from an older turn
+                // does not prove that this new reply has been opened.
+                current = .init(turn: turn, since: now, unread: unread,
+                                canAcknowledgeOnClear: unread && prior?.unread != true)
+            } else {
+                current = prior!
+                if unread {
+                    current.since = now
+                    current.canAcknowledgeOnClear = !current.unread || current.canAcknowledgeOnClear
+                    current.unread = true
+                } else { current.unread = false }
+            }
+            observed[task] = current
+            if unread { read[task] = nil }
+            else if current.canAcknowledgeOnClear || now - current.since >= 5 { read[task] = turn }
         }
         return read
     }

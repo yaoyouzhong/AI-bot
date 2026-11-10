@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 - Keep the last confirmed ready indication during a Mac Terminal automation-permission refresh; explicit denial or timeout restores the unavailable state.
 - Replace TAB5 dialogue labels with provider icons, enlarge common icons and unread numbers, and retain entries, the current session and drafts across brief missing snapshots.
 - On Windows and Mac, group Codex sessions from the same Git repository's main directory and verified worktrees, and distinguish separate projects with the same name. New TAB5 firmware scrolls through more sessions within one project; older firmware displays the same sessions as pages.
-- Windows acknowledges a Codex reply on the next desktop snapshot when the already-observed unread marker for that reply clears. Keep the settling window for a new reply whose unread marker has not been observed.
+- Windows and Mac acknowledge a Codex reply on the next desktop snapshot when the already-observed unread marker for that reply clears. Keep the settling window for a new reply whose unread marker has not been observed.
 
 ### Windows bridge upgrade
 - Use one administrator approval to install the bridge and inherit applicable LAN firewall permissions. The resident bridge can update TAB5 directly, without launching SettingsProbe.

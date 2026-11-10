@@ -10,26 +10,40 @@ enum MacCodexReadStateValidation {
         var now = 100.0, snapshot: MacCodexReadState.Snapshot? = .init(scope: "one", unread: [task])
         let sync = MacCodexReadState(load: { snapshot }, clock: { now })
         try check("desktop unread retained", sync.synchronize([task: turn]).isEmpty)
-        snapshot = .init(scope: "one", unread: []); now += 4.9
-        try check("completion write has settling time", sync.synchronize([task: turn]).isEmpty)
-        now += 0.2
-        try check("desktop read binds exact turn", sync.synchronize([task: turn])[task] == turn)
+        snapshot = .init(scope: "one", unread: []); now += 0.1
+        try check("observed unread clears on first fresh desktop snapshot", sync.synchronize([task: turn])[task] == turn)
+        snapshot = .init(scope: "one", unread: [task]); now += 0.1
+        try check("new unread revokes prior receipt", sync.synchronize([task: turn]).isEmpty)
+        try check("new turn cannot inherit old unread", sync.synchronize([task: next]).isEmpty)
+        snapshot = .init(scope: "one", unread: []); now += 0.1
+        try check("carried unread cannot immediately clear new turn", sync.synchronize([task: next]).isEmpty)
+        snapshot = .init(scope: "one", unread: [task]); now += 0.1
+        try check("new unread edge observed", sync.synchronize([task: next]).isEmpty)
+        snapshot = .init(scope: "one", unread: []); now += 0.1
+        try check("new unread edge clears exact turn immediately", sync.synchronize([task: next])[task] == next)
         snapshot = nil
-        try check("failed read preserves prior success", sync.synchronize([task: turn])[task] == turn)
-        try check("prior turn never acknowledges new turn", sync.synchronize([task: next]).isEmpty)
+        try check("failed read preserves prior success", sync.synchronize([task: next])[task] == next)
+        try check("prior turn never acknowledges new turn", sync.synchronize([task: turn]).isEmpty)
         snapshot = .init(scope: "one", unread: []); now += 10
-        try check("recovery starts a new settle interval", sync.synchronize([task: next]).isEmpty)
+        try check("recovery starts a new settle interval", sync.synchronize([task: turn]).isEmpty)
         now += 6
-        try check("recovered metadata can acknowledge", sync.synchronize([task: next])[task] == next)
+        try check("recovered metadata can acknowledge", sync.synchronize([task: turn])[task] == turn)
         snapshot = .init(scope: "one", unread: [task])
-        try check("desktop unread revokes desktop receipt", sync.synchronize([task: next]).isEmpty)
+        try check("desktop unread revokes desktop receipt", sync.synchronize([task: turn]).isEmpty)
         snapshot = .init(scope: "two", unread: []); now += 20
-        try check("another account cannot inherit observation", sync.synchronize([task: next]).isEmpty)
+        try check("another account cannot inherit observation", sync.synchronize([task: turn]).isEmpty)
         now -= 100
-        try check("clock rollback restarts settling", sync.synchronize([task: next]).isEmpty)
+        try check("clock rollback restarts settling", sync.synchronize([task: turn]).isEmpty)
         now += 6
-        try check("new scope settles", sync.synchronize([task: next])[task] == next)
+        try check("new scope settles", sync.synchronize([task: turn])[task] == turn)
         try check("removed ready entry prunes acknowledgement", sync.synchronize([:]).isEmpty)
+        let neighbor = UUID().uuidString.lowercased()
+        snapshot = .init(scope: "two", unread: [task, neighbor]); now += 1
+        let pair = [task: turn, neighbor: next]
+        try check("independent unread baseline", sync.synchronize(pair).isEmpty)
+        snapshot = .init(scope: "two", unread: [neighbor]); now += 0.1
+        let pairRead = sync.synchronize(pair)
+        try check("reading one session preserves another unread", pairRead[task] == turn && pairRead[neighbor] == nil)
         func json(_ value: Any) throws -> Data { try JSONSerialization.data(withJSONObject: value, options: [.withoutEscapingSlashes]) }
         let claims: [String: Any] = ["exp": 1000, "https://api.openai.com/auth": ["chatgpt_account_id": "fixture-account", "user_id": "fixture-user"]]
         let payload = try json(claims).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
@@ -57,7 +71,7 @@ enum MacCodexReadStateValidation {
         codex.refresh()
         try check("read succeeds", codex.handle(["op": "read", "taskId": task], device: "fixture").status == 200)
         try check("snapshot initially unread", (codex.snapshot()?["repliesUnread"] as? [String: String])?[task] == turn)
-        snapshot = .init(scope: "fixture", unread: []); now += 6; codex.refresh()
+        snapshot = .init(scope: "fixture", unread: []); now += 0.1; codex.refresh()
         try check("regular refresh exports desktop read", (codex.snapshot()?["repliesRead"] as? [String: String])?[task] == turn)
         try check("regular refresh removes unread", (codex.snapshot()?["repliesUnread"] as? [String: String])?[task] == nil)
         let failedSnapshot: [String: Any] = ["id": task, "cwd": "/fixture", "threadRuntimeStatus": ["type": "systemError"], "requests": [],
