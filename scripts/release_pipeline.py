@@ -193,8 +193,10 @@ def verify(directory, *, expected_source=None):
 
 def record(directory, acceptance, check, result, evidence, *, baseline=None, reason=None):
     candidate = verify(directory)
-    if check not in candidate["requiredChecks"] or result not in ("passed", "reused", "failed") or not evidence.strip():
+    if check not in candidate["requiredChecks"] or result not in ("passed", "reused", "failed", "deferred") or not evidence.strip():
         raise ValueError("Record a required check with concrete evidence")
+    if result == "deferred" and (not reason or not reason.strip()):
+        raise ValueError("Deferred acceptance requires explicit authorization and reason")
     if result == "reused" and (not baseline or not reason or not reason.strip()):
         raise ValueError("Reused evidence needs a baseline source and change-scope reason")
     if baseline:
@@ -228,15 +230,17 @@ def readiness(directory, acceptance, *, expected_source=None):
             if not item.get("reason", "").strip():
                 raise ValueError("Reused evidence has no scope justification")
             sha(item.get("baselineSource", ""))
+        if result == "deferred" and (not item.get("reason", "").strip() or not item.get("evidence", "").strip()):
+            raise ValueError("Deferred acceptance requires authorization evidence and reason")
     from check_public_content import findings
     if list(findings("release-acceptance.json", json.dumps(data).encode())):
         raise ValueError("Acceptance contains disallowed public content")
     return candidate, data, pending
 
 
-def stage(directory, acceptance, output):
+def stage(directory, acceptance, output, *, allow_deferred=False):
     candidate, data, pending = readiness(directory, acceptance)
-    if pending:
+    if pending and not (allow_deferred and all(data['checks'].get(c, {}).get('result') == 'deferred' and data['checks'][c].get('reason', '').strip() for c in pending)):
         raise ValueError("Pending or failed acceptance: " + ", ".join(pending))
     directory, output = Path(directory), Path(output)
     build = read(directory / "BUILD.json")
@@ -260,8 +264,9 @@ def stage(directory, acceptance, output):
         if file_record(dest) != candidate['files'][source]:
             raise ValueError('Copied publication asset differs from accepted bytes: ' + target)
     write(output / "CANDIDATE.json", candidate)
-    write(output / "ACCEPTANCE.json", data)
-    expected = set(wanted) | {"CANDIDATE.json", "ACCEPTANCE.json", "SHA256SUMS.txt"}
+    if not pending:
+        write(output / "ACCEPTANCE.json", data)
+    expected = set(wanted) | {"CANDIDATE.json", "SHA256SUMS.txt"} | (set() if pending else {"ACCEPTANCE.json"})
     if {p.name for p in output.iterdir()} - expected:
         raise ValueError("Unexpected publication payload files")
     checksums = "".join(f"{digest(p)}  {p.name}\n" for p in sorted(output.iterdir()) if p.name != "SHA256SUMS.txt")
@@ -319,11 +324,11 @@ def verify_remote(release, manifest):
             raise ValueError("Remote digest mismatch: " + name)
 
 
-def promote(directory, acceptance, repository, *, execute=False, publish=False, expected_source=None, commit_closeout=False, run_closeout=True):
+def promote(directory, acceptance, repository, *, execute=False, publish=False, expected_source=None, commit_closeout=False, run_closeout=True, allow_deferred=False):
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("Invalid GitHub repository")
     candidate, data, pending = readiness(directory, acceptance, expected_source=expected_source)
-    if pending:
+    if pending and not (allow_deferred and all(data['checks'].get(c, {}).get('result') == 'deferred' and data['checks'][c].get('reason', '').strip() for c in pending)):
         raise ValueError("Pending or failed acceptance: " + ", ".join(pending))
     if commit_closeout and not publish:
         raise ValueError("Committing closeout requires public publication")
@@ -334,7 +339,7 @@ def promote(directory, acceptance, repository, *, execute=False, publish=False, 
         check_closeout_workspace()
     directory = Path(directory)
     payload = directory.parent / ("publication-" + candidate["candidateId"][:16])
-    manifest = stage(directory, acceptance, payload)
+    manifest = stage(directory, acceptance, payload, allow_deferred=allow_deferred)
     ensure_tag(repository, candidate)
     existing = run_cli(["release", "view", candidate["tag"], "--repo", repository, "--json", "databaseId"], check=False, timeout=90)
     if existing.returncode:
@@ -370,7 +375,7 @@ def promote(directory, acceptance, repository, *, execute=False, publish=False, 
     return report
 
 
-def promote_set(plan, *, execute=False, publish=False, commit_closeout=False):
+def promote_set(plan, *, execute=False, publish=False, commit_closeout=False, allow_deferred=False):
     """Preflight every selected component, publish original bytes, close out once."""
     plan = Path(plan).resolve()
     data = read(plan)
@@ -380,7 +385,7 @@ def promote_set(plan, *, execute=False, publish=False, commit_closeout=False):
     for item in data['candidates']:
         directory = (plan.parent / item['directory']).resolve()
         acceptance = (plan.parent / item['acceptance']).resolve()
-        args = dict(directory=directory, acceptance=acceptance, repository=data['repository'], expected_source=item.get('sourceCommit'))
+        args = dict(directory=directory, acceptance=acceptance, repository=data['repository'], expected_source=item.get('sourceCommit'), allow_deferred=allow_deferred)
         preflight.append(promote(**args, publish=publish, commit_closeout=commit_closeout))
         entries.append(args)
     tags = [item['tag'] for item in preflight]
@@ -482,16 +487,16 @@ def main():
     p.add_argument("directory", type=Path); p.add_argument("--notes", type=Path); p.add_argument("--tab5-source", type=Path)
     p = sub.add_parser("record")
     p.add_argument("directory", type=Path); p.add_argument("acceptance", type=Path); p.add_argument("--check", required=True)
-    p.add_argument("--result", required=True, choices=("passed", "reused", "failed")); p.add_argument("--evidence", required=True)
+    p.add_argument("--result", required=True, choices=("passed", "reused", "failed", "deferred")); p.add_argument("--evidence", required=True)
     p.add_argument("--baseline"); p.add_argument("--reason")
     for command in ("status", "promote"):
         p = sub.add_parser(command)
         p.add_argument("directory", type=Path); p.add_argument("acceptance", type=Path); p.add_argument("--expected-source")
         if command == "promote":
-            p.add_argument("--repo", required=True); p.add_argument("--execute", action="store_true"); p.add_argument("--publish", action="store_true"); p.add_argument("--commit-closeout", action="store_true")
+            p.add_argument("--repo", required=True); p.add_argument("--execute", action="store_true"); p.add_argument("--publish", action="store_true"); p.add_argument("--commit-closeout", action="store_true"); p.add_argument("--allow-deferred", action="store_true")
     p = sub.add_parser("closeout"); p.add_argument("--execute", action="store_true"); p.add_argument("--repo"); p.add_argument("--tag", action="append", default=[]); p.add_argument("--commit", action="store_true")
     p = sub.add_parser("promote-set"); p.add_argument("plan", type=Path)
-    p.add_argument("--execute", action="store_true"); p.add_argument("--publish", action="store_true"); p.add_argument("--commit-closeout", action="store_true")
+    p.add_argument("--execute", action="store_true"); p.add_argument("--publish", action="store_true"); p.add_argument("--commit-closeout", action="store_true"); p.add_argument("--allow-deferred", action="store_true")
     args = vars(parser.parse_args()); command = args.pop("command")
     if command == "stamp": result = stamp(**args)
     elif command == "assemble": result = assemble(**args)

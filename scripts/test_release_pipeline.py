@@ -111,6 +111,24 @@ class CandidateTests(unittest.TestCase):
         pipeline.record(folder, acceptance, "windows-install-startup", "reused", "Previous native installation record", baseline="b"*40, reason="Installer, runtime dependencies and storage formats unchanged; current package startup observed")
         self.assertFalse(pipeline.readiness(folder, acceptance)[2])
 
+    def test_explicit_deferral_stays_pending_and_private(self):
+        folder, candidate = self.candidate(platform="all")
+        acceptance = self.root / "private-acceptance.json"
+        for check in candidate['requiredChecks']:
+            pipeline.record(folder, acceptance, check, 'passed', 'Observed')
+        check = 'macos-install-startup'
+        with self.assertRaisesRegex(ValueError, 'authorization'):
+            pipeline.record(folder, acceptance, check, 'deferred', 'User approved')
+        pipeline.record(folder, acceptance, check, 'deferred', 'User explicitly approved release', reason='Device unavailable until tomorrow')
+        self.assertEqual([check], pipeline.readiness(folder, acceptance)[2])
+        with self.assertRaisesRegex(ValueError, 'Pending or failed'):
+            pipeline.stage(folder, acceptance, self.root / 'blocked')
+        manifest = pipeline.stage(folder, acceptance, self.root / 'allowed', allow_deferred=True)
+        self.assertNotIn('ACCEPTANCE.json', manifest)
+        pipeline.record(folder, acceptance, check, 'failed', 'Observed failure')
+        with self.assertRaisesRegex(ValueError, 'Pending or failed'):
+            pipeline.stage(folder, acceptance, self.root / 'failed', allow_deferred=True)
+
     def test_unexpected_or_linked_inputs_are_not_copied(self):
         folder, note, _ = self.seed()
         (folder / "private.log").write_text("should never be published")
