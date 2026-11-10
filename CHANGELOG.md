@@ -2,39 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.6.18 - 2026-11-10
 
-### Dialogue catalogs and native Terminal
-- Windows and Mac native Claude Code terminals are discovered by live session and process identity without a fixed client release list. Sending still requires a confirmed live terminal.
-- On Windows and Mac, retain the last usable provider catalog through a brief empty scan and resume updates on recovery. Sending still rechecks the actual target and permissions.
-- Keep the last confirmed ready indication during a Mac Terminal automation-permission refresh; explicit denial or timeout restores the unavailable state.
-- Replace TAB5 dialogue labels with provider icons, enlarge common icons and unread numbers, and retain entries, the current session and drafts across brief missing snapshots.
-- On Windows and Mac, group Codex sessions from the same Git repository's main directory and verified worktrees, and distinguish separate projects with the same name. New TAB5 firmware scrolls through more sessions within one project; older firmware displays the same sessions as pages.
-- Windows and Mac acknowledge a Codex reply on the next desktop snapshot when the already-observed unread marker for that reply clears. Keep the settling window for a new reply whose unread marker has not been observed.
+### Codex and Claude conversations
+- Keep the last usable provider catalog through brief interruptions and refresh it once the host responds. Sending still verifies the live target and permissions.
+- Group the main checkout and verified worktrees of the same Git repository into one Codex project. Keep separate projects with the same name distinct.
+- Clear an observed Codex unread reply on the next valid sync after the desktop marker clears. Other accounts, conversations and newer replies keep their own unread state.
 
-### Windows bridge upgrade
-- Use one administrator approval to install the bridge and inherit applicable LAN firewall permissions. The resident bridge can update TAB5 directly, without launching SettingsProbe.
-- Keep the same voice recording request through the brief Windows picker transition after microphone approval, then restore focus to the verified draft editor.
+### Native Claude Code terminals
+- Discover Windows and Mac native terminals by process and session identity without a fixed Claude Code version list. Check the target, permissions and composer before sending.
+- Support text, images, follow-ups and interruption for eligible already-open Mac Terminal sessions. Preserve existing drafts, keep delivery tied to the original conversation, and do not retry uncertain submissions.
+- Improve terminal readiness recovery and reply refresh. Keep the last confirmed Mac readiness during brief Automation permission refreshes.
 
-### Existing Mac Claude terminal windows (in development)
-- Add window input for already-open native Claude Code sessions in Terminal, including text, images, queued follow-ups and exact-turn interruption; retain public replies and delivery receipts from the original session.
-- Preserve recent client activity across midnight while resetting daily usage; reject window input while macOS is locked and keep drafts after preparation failures.
-- Centralize required system permissions in session settings while protecting desktop drafts, checking the target and never replaying uncertain delivery. Signed-bundle, terminal-specific and TAB5 hardware results are tracked separately; this is not a release.
-- Keep Codex overview activity current during long-running tasks and preserve drafts when the first window keystroke cannot be posted. Isolated Terminal tests over USB, Wi-Fi and Bluetooth and remaining page issues are recorded separately.
-- Stabilize TAB5 follow-up receipt checking and repaint stale conversation snapshots when page animation ends. Restore input after confirmed delivery; preserve the original draft and never resend an uncertain request.
-- Continue checking the original receipt at a low rate after the first three checks for long-running tasks, with backoff when the connection is unavailable.
+### Voice and Windows upgrades
+- Reuse Doubao automatic detection when its resolved input already matches the selected DJI microphone. Continue to verify the endpoint, restore temporary selections and respect manual changes.
+- On Windows, continue the same TAB5 recording after microphone approval and restore focus to the verified editor. Voice guidance wraps to fit the window.
+- Windows bridge upgrades use one administrator approval and can carry forward applicable LAN firewall permissions. The resident bridge can serve TAB5 upgrades without a separate SettingsProbe process.
 
-## 0.6.18 - 2026-11-05
-
-### Automatic microphones and returned dictation
-- Reuse Doubao automatic detection when its resolved default physical endpoint matches the selected DJI microphone, on both Windows and Mac, instead of rejecting the mode name.
-- Retain endpoint validation, temporary selection and restoration, intervening manual-choice protection, DJI preference and the existing TAB5 fallback.
-- Wrap the Windows voice window's guidance to its available width and DPI while keeping recognition text separate.
-
-### Diagnostics and scope
-- Windows background diagnostics wait for an idle device before comparing settings, retaining cancellation and read-failure protection; the Mac automation entry initializes AppKit.
-- Real automatic-input recording, stop and transcript return were exercised on each platform's development candidate. Identity and installation/startup checks for the final 0.6.18 archives are recorded separately.
-- Prepare the accepted TAB5 0.2.318-ui image with menu cleanup, clear repaint, microphone-state recovery, continuous display-read protection and polished circular controls. ESP8266 and galleries retain their existing versions.
+### Scope
+- Desktop bridge for Windows x64 and Apple Silicon Mac. TAB5 and ESP8266 firmware have independent release versions.
 
 ## 0.6.17 - 2026-11-04
 
