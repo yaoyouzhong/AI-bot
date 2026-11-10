@@ -1,0 +1,297 @@
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R4";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R4-ICON1";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -385,7 +385,8 @@
+ static ui_preferences prefs;
+ static cJSON *shown;
+ static unsigned workspace_client;
+-static lv_obj_t *workspace_buttons[2],*workspace_empty_label;
++static lv_obj_t *workspace_tab_strip,*workspace_buttons[2],*workspace_empty_label;
++enum { WORKSPACE_TAB_WIDTH=342, WORKSPACE_TAB_HEIGHT=64, WORKSPACE_TAB_GAP=10, WORKSPACE_TAB_MAX_VISIBLE=4 };
+ static char workspace_open_target[37],workspace_open_reply[64];
+ static int codex_reply_return=8;
+ static int workspace_open_return;
+@@ -395,6 +396,7 @@
+ static int64_t workspace_open_deadline;
+ static void workspace_open_tick(void);
+ static bool workspace_update_clients(void);
++static void workspace_tab_select(lv_obj_t *tab,bool selected);
+ static char workspace_tasks[2][37],workspace_projects[2][17];
+ static int workspace_switch_pending=-1;
+ static int64_t workspace_switch_hint_at;
+@@ -634,10 +636,12 @@
+     ui_bg_color(b,lv_color_hex(0x303A3E),LV_STATE_DISABLED);
+     ui_text_color(b,lv_color_hex(0x829196),LV_STATE_DISABLED);
+     ui_bg_opa(b,LV_OPA_COVER,LV_STATE_DISABLED);
+-    lv_obj_t *l = lv_label_create(b);
+-    ui_text(l, s);
+-    lv_obj_center(l);
+-    ui_text_font(l, &tab5_font_24, 0);
++    if(s) {
++        lv_obj_t *l = lv_label_create(b);
++        ui_text(l, s);
++        lv_obj_center(l);
++        ui_text_font(l, &tab5_font_24, 0);
++    }
+     lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, (void *)(intptr_t)arg);
+     return b;
+ }
+@@ -1817,7 +1821,7 @@
+     int64_t sync_next=codex_sync_next;
+     ui_text(codex_receipt,"");ui_text(codex_voice_hint,"");codex_load_draft();
+     if(codex_syncing||codex_load_waiting)codex_sync_next=sync_next;
+-    for(int i=0;i<2;i++)if(workspace_buttons[i])ui_bg_color(workspace_buttons[i],lv_color_hex(i==next?0x465C65:0x354247),0);
++    for(unsigned i=0;i<2;i++)if(workspace_buttons[i])workspace_tab_select(workspace_buttons[i],i==next);
+     render_codex();
+ }
+ static bool workspace_choose(unsigned next) {
+@@ -1835,6 +1839,53 @@
+     }
+     workspace_apply(next);return true;
+ }
++static void workspace_tab_select(lv_obj_t *tab,bool selected) {
++    ui_bg_color(tab,lv_color_hex(selected?0x465C65:0x354247),0);
++    ui_border_opa(tab,selected?LV_OPA_COVER:LV_OPA_TRANSP,0);
++}
++static lv_obj_t *workspace_tab_create(lv_obj_t *strip,const lv_image_dsc_t *logo,lv_event_cb_t click,int client,lv_obj_t **badge) {
++    lv_obj_t *tab=button(strip,NULL,0,0,WORKSPACE_TAB_WIDTH,click,client);
++    lv_obj_set_height(tab,WORKSPACE_TAB_HEIGHT);
++    lv_obj_set_style_border_width(tab,2,0);
++    ui_border_color(tab,lv_color_hex(BLUE),0);
++    workspace_tab_select(tab,false);
++    lv_obj_t *icon=lv_image_create(tab);
++    lv_image_set_src(icon,logo);
++    lv_obj_remove_flag(icon,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_CLICK_FOCUSABLE|LV_OBJ_FLAG_SCROLLABLE);
++    *badge=session_unread_marker(tab,"1",20,20);
++    ui_text_font(lv_obj_get_child(*badge,0),&lv_font_montserrat_12,0);
++    lv_obj_align(*badge,LV_ALIGN_TOP_RIGHT,-6,4);
++    return tab;
++}
++static void workspace_tabs_layout(lv_obj_t *strip,lv_obj_t *const tabs[],const bool available[],unsigned total,unsigned selected) {
++    unsigned count=0;
++    for(unsigned i=0;i<total;i++)if(available[i])count++;
++    bool overflow=count>WORKSPACE_TAB_MAX_VISIBLE;
++    if(overflow!=lv_obj_has_flag(strip,LV_OBJ_FLAG_SCROLLABLE)) {
++        if(overflow)lv_obj_add_flag(strip,LV_OBJ_FLAG_SCROLLABLE);
++        else {lv_obj_scroll_to_x(strip,0,LV_ANIM_OFF);lv_obj_remove_flag(strip,LV_OBJ_FLAG_SCROLLABLE);}
++        lv_obj_set_scrollbar_mode(strip,overflow?LV_SCROLLBAR_MODE_ON:LV_SCROLLBAR_MODE_OFF);
++    }
++    int space=WORKSPACE_TAB_WIDTH-(int)(count?count-1:0)*WORKSPACE_TAB_GAP;
++    int x=0,rank=0;
++    for(unsigned i=0;i<total;i++) {
++        lv_obj_t *tab=tabs[i];
++        visible(tab,available[i]);
++        if(!available[i])continue;
++        int w=overflow?78:space/(int)count+(rank<space%(int)count);
++        session_source_pos(tab,x,0);
++        session_source_width(tab,w);
++        lv_obj_t *icon=lv_obj_get_child(tab,0);
++        bool narrow=count>=WORKSPACE_TAB_MAX_VISIBLE;
++        int scale=narrow?228:256;
++        if(lv_image_get_scale(icon)!=scale)lv_image_set_scale(icon,scale);
++        if(lv_obj_get_style_align(icon,0)!=LV_ALIGN_CENTER||lv_obj_get_style_x(icon,0)!=(narrow?-8:0))
++            lv_obj_align(icon,LV_ALIGN_CENTER,narrow?-8:0,0);
++        workspace_tab_select(tab,i==selected);
++        x+=w+WORKSPACE_TAB_GAP;
++        rank++;
++    }
++}
+ static bool workspace_update_clients(void) {
+     if(!workspace_buttons[0])return true;
+     bool available[2]={cJSON_GetArraySize(item(item(shown,"codexTasks"),"tasks"))>0,cJSON_GetArraySize(item(item(shown,"claudeTasks"),"tasks"))>0};
+@@ -1842,10 +1893,7 @@
+     if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].id[0]&&(codex_drafts[i].dirty||codex_drafts[i].request[0]||(codex_drafts[i].text&&codex_drafts[i].text[0])||codex_drafts[i].images[0][0]))available[codex_drafts[i].client?1:0]=true;
+     int count=available[0]+available[1];
+     visible(workspace_empty_label,!count);
+-    for(int i=0;i<2;i++) {
+-        visible(workspace_buttons[i],available[i]);
+-        if(available[i]){lv_obj_set_x(workspace_buttons[i],count==1?0:i*176);lv_obj_set_width(workspace_buttons[i],count==1?342:166);ui_bg_color(workspace_buttons[i],lv_color_hex((unsigned)i==workspace_client?0x465C65:0x354247),0);}
+-    }
++    workspace_tabs_layout(workspace_tab_strip,workspace_buttons,available,2,workspace_client);
+     if(count==1&&!available[workspace_client]&&!workspace_open_target[0]) {
+         workspace_choose(available[1]?1:0);return false;
+     }
+@@ -4402,15 +4450,22 @@
+     lv_obj_t *tasks_page = pages[8];
+     lv_obj_t *task_left = card(tasks_page, 0, 0, 390, 512);
+     lv_obj_set_style_pad_all(task_left,24,0);
+-    workspace_empty_label=muted(task_left,"等待发现对话",0,12,342);
+-    for(int i=0;i<2;i++){
+-        workspace_buttons[i]=button(task_left,i?"Claude":"Codex",i*176,0,166,workspace_changed,i);lv_obj_set_height(workspace_buttons[i],48);
+-        session_unread_clients[i]=session_unread_marker(workspace_buttons[i],"1",26,26);
+-        ui_text_font(lv_obj_get_child(session_unread_clients[i],0),&tab5_source_20,0);
+-        lv_obj_align(session_unread_clients[i],LV_ALIGN_RIGHT_MID,-8,0);
+-    }
+-    session_project_label=muted(task_left,"项目",0,72,72);
+-    codex_project_picker=dropdown(task_left,"暂无项目",80,60,262,0,codex_project_changed,0);
++    workspace_tab_strip=lv_obj_create(task_left);
++    lv_obj_remove_style_all(workspace_tab_strip);
++    lv_obj_set_pos(workspace_tab_strip,0,0);
++    lv_obj_set_size(workspace_tab_strip,WORKSPACE_TAB_WIDTH,WORKSPACE_TAB_HEIGHT);
++    lv_obj_set_scroll_dir(workspace_tab_strip,LV_DIR_HOR);
++    lv_obj_remove_flag(workspace_tab_strip,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE|LV_OBJ_FLAG_SCROLL_ELASTIC);
++    lv_obj_set_scrollbar_mode(workspace_tab_strip,LV_SCROLLBAR_MODE_OFF);
++    ui_bg_color(workspace_tab_strip,lv_color_hex(MUTED),LV_PART_SCROLLBAR);
++    ui_bg_opa(workspace_tab_strip,LV_OPA_COVER,LV_PART_SCROLLBAR);
++    lv_obj_set_style_width(workspace_tab_strip,2,LV_PART_SCROLLBAR);
++    workspace_empty_label=muted(workspace_tab_strip,"等待发现对话",0,18,WORKSPACE_TAB_WIDTH);
++    const lv_image_dsc_t *logos[]={&brand_codex_image,&brand_claude_image};
++    for(int i=0;i<2;i++)
++        workspace_buttons[i]=workspace_tab_create(workspace_tab_strip,logos[i],workspace_changed,i,&session_unread_clients[i]);
++    session_project_label=muted(task_left,"项目",0,84,72);
++    codex_project_picker=dropdown(task_left,"暂无项目",80,72,262,0,codex_project_changed,0);
+     ui_text_font(codex_project_picker,&tab5_font_24,0);
+     // Native dropdown text is not clipped around its indicator. Keep a
+     // separate ellipsized caption; full options and selection stay native.
+--- a/firmware/sdkconfig
++++ b/firmware/sdkconfig
+@@ -3062,7 +3062,7 @@
+ #
+ # CONFIG_LV_FONT_MONTSERRAT_8 is not set
+ # CONFIG_LV_FONT_MONTSERRAT_10 is not set
+-# CONFIG_LV_FONT_MONTSERRAT_12 is not set
++CONFIG_LV_FONT_MONTSERRAT_12=y
+ CONFIG_LV_FONT_MONTSERRAT_14=y
+ # CONFIG_LV_FONT_MONTSERRAT_16 is not set
+ # CONFIG_LV_FONT_MONTSERRAT_18 is not set
+--- a/tests/ui-preview/lv_conf.h
++++ b/tests/ui-preview/lv_conf.h
+@@ -6,6 +6,7 @@
+ #define LV_USE_FONT_COMPRESSED 1
+ #define LV_USE_OS LV_OS_NONE
+ #define LV_USE_STDLIB_MALLOC LV_STDLIB_CLIB
++#define LV_FONT_MONTSERRAT_12 1
+ #define LV_FONT_MONTSERRAT_14 1
+ #define LV_FONT_MONTSERRAT_24 1
+ #define LV_FONT_MONTSERRAT_32 1
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2040,6 +2040,7 @@
+ #include "workspace_parity_ui_test.h"
+ #include "workspace_switch_sync_test.h"
+ #include "reply_open_state_test.h"
++#include "workspace_brand_tabs_test.h"
+ #include "workspace_controls_test.h"
+ #include "session_source_test.h"
+ #include "session_unread_test.h"
+@@ -2160,6 +2161,7 @@
+     if(getenv("TAB5_REPLY_RETURN_TOUCH_ONLY")){check_reply_return_touch();return 0;}
+     if(getenv("TAB5_REPLY_UNREAD_LOADING_ONLY")){check_reply_unread_loading();return 0;}
+     if(getenv("TAB5_WORKSPACE_CONTROLS_ONLY")){check_workspace_controls();return 0;}
++    if(getenv("TAB5_WORKSPACE_BRAND_TABS_ONLY")){check_workspace_brand_tabs();return 0;}
+     if(getenv("TAB5_SESSION_SOURCE_ONLY")){check_session_source();return 0;}
+     if(getenv("TAB5_SESSION_UNREAD_ONLY")){check_session_unread();return 0;}
+     if(getenv("TAB5_PROJECT_DROPDOWN_ONLY")){check_project_dropdown_navigation();return 0;}
+--- a/tests/ui-preview/session_unread_test.h
++++ b/tests/ui-preview/session_unread_test.h
+@@ -63,8 +63,8 @@
+     assert(!lv_obj_has_flag(session_unread_clients[1],LV_OBJ_FLAG_HIDDEN));
+     assert(!strcmp(lv_label_get_text(session_project_label),"项目"));
+     assert(!lv_obj_has_flag(session_project_label,LV_OBJ_FLAG_CLICKABLE));
+-    assert(lv_obj_get_width(session_unread_clients[1])==26);
+-    assert(lv_obj_get_style_text_font(lv_obj_get_child(session_unread_clients[1],0),0)==&tab5_source_20);
++    assert(lv_obj_get_width(session_unread_clients[1])==20);
++    assert(lv_obj_get_style_text_font(lv_obj_get_child(session_unread_clients[1],0),0)==&lv_font_montserrat_12);
+     for(int i=0;i<2;i++){
+         lv_area_t button,badge;lv_obj_get_coords(workspace_buttons[i],&button);lv_obj_get_coords(session_unread_clients[i],&badge);
+         assert(button.x2-badge.x2>=8&&badge.x1>button.x1&&badge.y1>button.y1&&badge.y2<button.y2);
+--- a/tests/ui-preview/workspace_parity_ui_test.h
++++ b/tests/ui-preview/workspace_parity_ui_test.h
+@@ -34,7 +34,7 @@
+     codex_set_text("Codex 更新后的草稿");assert(!workspace_choose(1));assert(workspace_switch_pending==1&&workspace_client==0&&a->dirty);
+     a->dirty=false;workspace_switch_tick();assert(workspace_client==1&&!strcmp(lv_textarea_get_text(codex_input),b->text));
+     capture("workspace-claude-restored");
+-    // Single-client layouts keep their full-width label; both clients restore
++    // Single-client layouts keep their full-width logo tab; both clients restore
+     // the two-button layout. Unsent composers were tested separately above.
+     codex_set_text("");
+     assert(codex_store_text(a,"",false)&&codex_store_text(b,"",false));a->dirty=b->dirty=false;
+--- /dev/null
++++ b/tests/ui-preview/workspace_brand_tabs_test.h
+@@ -0,0 +1,79 @@
++static unsigned workspace_preview_clicks;
++static void workspace_preview_tab_click(lv_event_t *event) {
++    (void)event;workspace_preview_clicks++;
++}
++
++static void check_workspace_brand_tabs(void) {
++    reply_open_state_setup(1);
++    codex_draft *draft=codex_draft_for(codex_selected,false);
++    assert(draft&&codex_store_text(draft,"",false));
++    lv_obj_update_layout(lv_screen_active());
++    assert(lv_obj_get_style_y(codex_list,0)==136);
++    assert(lv_obj_get_height(workspace_buttons[1])==64&&lv_obj_get_width(workspace_buttons[1])==342);
++    assert(lv_image_get_src(lv_obj_get_child(workspace_buttons[1],0))==&brand_claude_image);
++    capture("provider-tabs-one");
++
++    cJSON *codex=cJSON_Duplicate(item(shown,"claudeTasks"),true);
++    cJSON_ReplaceItemInObject(cJSON_GetArrayItem(item(codex,"tasks"),0),"id",cJSON_CreateString("22222222-2222-4222-8222-222222222222"));
++    cJSON_AddItemToObject(shown,"codexTasks",codex);
++    render_codex();
++    assert(lv_image_get_src(lv_obj_get_child(workspace_buttons[0],0))==&brand_codex_image);
++    for(unsigned i=0;i<2;i++) {
++        assert(lv_obj_get_child_count(workspace_buttons[i])==2);
++        assert(!lv_obj_has_flag(lv_obj_get_child(workspace_buttons[i],0),LV_OBJ_FLAG_CLICKABLE));
++    }
++    visible(session_unread_clients[0],true);visible(session_unread_clients[1],true);
++    ui_text(lv_obj_get_child(session_unread_clients[0],0),"1");
++    ui_text(lv_obj_get_child(session_unread_clients[1],0),"9+");
++    capture("provider-tabs-two-unread");
++    lv_indev_t *touch=lv_indev_create();
++    lv_indev_set_type(touch,LV_INDEV_TYPE_POINTER);lv_indev_set_display(touch,lv_display_get_default());
++    lv_indev_set_read_cb(touch,camera_touch_read);
++    lv_area_t bounds;lv_obj_get_coords(workspace_buttons[0],&bounds);
++    reply_pointer_tap(touch,(lv_point_t){bounds.x1+10,bounds.y2-10});
++    assert(workspace_client==0);
++
++    // Exercise extra providers using the actual strip/layout, without
++    // inventing additional firmware protocol clients.
++    visible(workspace_buttons[0],false);visible(workspace_buttons[1],false);
++    const lv_image_dsc_t *logos[]={&brand_codex_image,&brand_claude_image,&brand_deepseek_image,&brand_kimi_image,
++        &brand_alibaba_image,&brand_zhipu_image,&brand_minimax_image};
++    lv_obj_t *tabs[7],*badges[7];
++    bool present[7]={true,true,false,true,false,false,false};
++    for(int i=0;i<7;i++)tabs[i]=workspace_tab_create(workspace_tab_strip,logos[i],workspace_preview_tab_click,i,&badges[i]);
++    workspace_tabs_layout(workspace_tab_strip,tabs,present,7,1);
++    lv_obj_update_layout(lv_screen_active());
++    assert(lv_obj_get_x(tabs[3])+lv_obj_get_width(tabs[3])==342);
++    assert(lv_obj_has_flag(tabs[2],LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(workspace_tab_strip,LV_OBJ_FLAG_SCROLLABLE));
++    capture("provider-tabs-three");
++    present[2]=true;
++    workspace_tabs_layout(workspace_tab_strip,tabs,present,7,1);
++    for(int i=0;i<4;i++){visible(badges[i],true);ui_text(lv_obj_get_child(badges[i],0),"9+");}
++    capture("provider-tabs-four");
++    for(int i=0;i<4;i++) {
++        lv_area_t icon,badge;
++        lv_obj_get_coords(lv_obj_get_child(tabs[i],0),&icon);lv_obj_get_coords(badges[i],&badge);
++        assert(icon.x2<badge.x1&&lv_obj_get_height(tabs[i])==64);
++    }
++    for(int i=4;i<7;i++)present[i]=true;
++    workspace_tabs_layout(workspace_tab_strip,tabs,present,7,1);
++    capture("provider-tabs-overflow");
++    lv_obj_get_coords(workspace_tab_strip,&bounds);
++    int scroll=lv_obj_get_scroll_right(workspace_tab_strip);
++    assert(scroll>0&&lv_obj_get_scroll_bottom(workspace_tab_strip)==0);
++    camera_touch_point=(lv_point_t){bounds.x1+280,bounds.y1+40};
++    camera_touch_state=LV_INDEV_STATE_PRESSED;lv_indev_read(touch);
++    for(int i=0;i<8;i++){camera_touch_point.x-=20;lv_tick_inc(18);lv_indev_read(touch);}
++    camera_touch_state=LV_INDEV_STATE_RELEASED;lv_indev_read(touch);
++    assert(lv_obj_get_scroll_x(workspace_tab_strip)>0&&workspace_preview_clicks==0);
++    lv_obj_scroll_to_x(workspace_tab_strip,scroll,LV_ANIM_OFF);
++    capture("provider-tabs-overflow-end");
++    assert(lv_obj_get_scroll_right(workspace_tab_strip)==0);
++    for(int i=0;i<7;i++)lv_obj_delete(tabs[i]);
++    cJSON_DeleteItemFromObject(shown,"codexTasks");cJSON_DeleteItemFromObject(shown,"claudeTasks");
++    render_codex();lv_obj_update_layout(lv_screen_active());
++    assert(!lv_obj_has_flag(workspace_empty_label,LV_OBJ_FLAG_HIDDEN)&&lv_obj_get_scroll_x(workspace_tab_strip)==0);
++    capture("provider-tabs-empty");
++    lv_indev_delete(touch);
++    puts("WORKSPACE_BRAND_TABS_OK actual zero/one/two providers; dense and overflow layout; pointer click and swipe; fixed list position");
++}
