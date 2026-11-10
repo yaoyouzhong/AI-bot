@@ -41,7 +41,11 @@ struct MacClaudeTerminalRegistration: Codable {
     let newSession: Bool
 
     static let directory = URL(fileURLWithPath: "/private/tmp/aibot-claude-tty-\(getuid())", isDirectory: true)
-    static let supportedVersions: Set<String> = ["2.1.318", "2.1.319"]
+    static func isInteractiveCLI(_ row: [String: Any]) -> Bool {
+        let job = row["jobId"]
+        return row["entrypoint"] as? String == "cli" && row["kind"] as? String == "interactive" &&
+            (job == nil || job is NSNull || (job as? String)?.isEmpty == true)
+    }
     static let defaultConfig = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
 
     static func privateDirectory(_ path: URL) -> Bool {
@@ -91,8 +95,7 @@ struct MacClaudeTerminalRegistration: Codable {
             return (process.identity, process.info, row)
         }
         guard matching.count == 1, let (process, info, row) = matching.first,
-              process.executable == executable, row["kind"] as? String == "interactive",
-              row["entrypoint"] as? String == "cli", Self.supportedVersions.contains(row["version"] as? String ?? ""),
+              process.executable == executable, Self.isInteractiveCLI(row),
               MacClaudeTerminalProcess.child(process.pid, of: child),
               info.pbi_pgid > 0, info.e_tpgid == info.pbi_pgid,
               let state = row["status"] as? String else { return nil }

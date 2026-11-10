@@ -24,6 +24,12 @@ internal static class ClaudeHarnessSelfTest
         string marker=Guid.NewGuid().ToString();Directory.CreateDirectory(root);File.WriteAllText(Path.Combine(root,".owned"),marker);
         int checks=0;void Check(bool value,string message){checks++;if(!value)throw new InvalidOperationException(message);}
         try{
+            bool TerminalRecord(string? version,string kind="interactive",string entrypoint="cli",string? jobId=null)=>
+                ClaudeNativeTerminal.IsInteractiveRecord(JsonSerializer.SerializeToElement(new{version,kind,entrypoint,jobId}));
+            Check(TerminalRecord("2.1.318")&&TerminalRecord("2.1.322")&&TerminalRecord("3.0.0")&&TerminalRecord(null),
+                "An interactive terminal record must not depend on the reported version");
+            Check(!TerminalRecord("2.1.322","background")&&!TerminalRecord("2.1.322",entrypoint:"claude-vscode")&&
+                !TerminalRecord("2.1.322",jobId:"background-job"),"Non-terminal session accepted by the console adapter");
             using(var process=System.Diagnostics.Process.GetCurrentProcess()){
                 string image=Environment.ProcessPath??throw new InvalidOperationException("Process image unavailable");
                 string start=process.StartTime.ToUniversalTime().ToFileTimeUtc().ToString(System.Globalization.CultureInfo.InvariantCulture);

@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Dialogue catalogs and native Terminal
+- Windows and Mac native Claude Code terminals are discovered by live session and process identity without a fixed client release list. Sending still requires a confirmed live terminal.
 - On Windows and Mac, retain the last usable provider catalog through a brief empty scan and resume updates on recovery. Sending still rechecks the actual target and permissions.
 - Keep the last confirmed ready indication during a Mac Terminal automation-permission refresh; explicit denial or timeout restores the unavailable state.
 - Replace TAB5 dialogue labels with provider icons, enlarge common icons and unread numbers, and retain entries, the current session and drafts across brief missing snapshots.

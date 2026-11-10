@@ -9,10 +9,23 @@ final class MacClaudeTerminalWindowTests: XCTestCase {
         try XCTUnwrap(MacClaudeWindowComposer(([rule] + rows + [rule]).joined(separator: "\n")))
     }
 
-    func testNativePatchVersionDoesNotWidenIDEOrUnknownVersionSupport() {
-        XCTAssertTrue(MacClaudeNativeClient.supportsVersion("2.1.319", entrypoint: "cli"))
-        XCTAssertFalse(MacClaudeNativeClient.supportsVersion("2.1.319", entrypoint: "claude-vscode"))
-        XCTAssertFalse(MacClaudeNativeClient.supportsVersion("2.1.320", entrypoint: "cli"))
+    func testTerminalDiscoveryUsesIdentityInsteadOfAReleaseList() {
+        let terminal: [String: Any] = ["entrypoint": "cli", "kind": "interactive"]
+        for version in ["2.1.318", "2.1.322", "3.0.0"] {
+            var row = terminal
+            row["version"] = version
+            XCTAssertTrue(MacClaudeTerminalRegistration.isInteractiveCLI(row))
+            XCTAssertTrue(MacClaudeNativeClient.acceptsSessionRecord(row, entrypoint: "cli"))
+            let image = URL(fileURLWithPath: "/fixture/versions/\(version)")
+            XCTAssertTrue(MacClaudeNativeClient.matchesExecutable(image, reportedVersion: version))
+            XCTAssertFalse(MacClaudeNativeClient.matchesExecutable(image, reportedVersion: "different"))
+        }
+        XCTAssertTrue(MacClaudeNativeClient.acceptsSessionRecord(terminal, entrypoint: "cli"))
+        XCTAssertTrue(MacClaudeNativeClient.matchesExecutable(URL(fileURLWithPath: "/fixture/bin/claude"), reportedVersion: nil))
+        XCTAssertFalse(MacClaudeNativeClient.acceptsSessionRecord(
+            ["entrypoint": "cli", "kind": "interactive", "jobId": "job"], entrypoint: "cli"))
+        XCTAssertFalse(MacClaudeNativeClient.acceptsSessionRecord(
+            ["entrypoint": "claude-vscode", "kind": "interactive", "version": "2.1.322"], entrypoint: "claude-vscode"))
     }
     func testTerminalSuggestionDoesNotConsumeAnIdenticalRealDraft() throws {
         final class Delegate: TerminalDelegate {

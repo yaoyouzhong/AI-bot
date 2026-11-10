@@ -8,12 +8,14 @@ import SQLite3
 final class MacClaudeNativeClient: MacClaudeNativeSession {
     let session: UUID
     private let pid: Int32, start: String, record: URL, host: NSRunningApplication, hostStart: String, entrypoint: String
+    private let executablePath: URL
     private let database: URL?
     private let registeredAt: Double
     var source: MacClaudeSessionSource { entrypoint == "cli" ? .terminal : .vscode }
     private struct UI { let window: AXUIElement, frame: AXUIElement, editor: AXUIElement, composer: AXUIElement, button: AXUIElement?, view: MacClaudeNativeView }
-    private init(session:UUID,pid:Int32,start:String,record:URL,host:NSRunningApplication,hostStart:String,entrypoint:String,database:URL?,registeredAt:Double) {
+    private init(session:UUID,pid:Int32,start:String,record:URL,host:NSRunningApplication,hostStart:String,entrypoint:String,database:URL?,registeredAt:Double,executablePath:URL) {
         self.session=session;self.pid=pid;self.start=start;self.record=record;self.host=host;self.hostStart=hostStart;self.entrypoint=entrypoint;self.database=database;self.registeredAt=registeredAt
+        self.executablePath=executablePath
     }
     private static let ttyLock = NSLock()
     private static func process(_ pid: Int32) throws -> proc_bsdinfo {
@@ -33,17 +35,23 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
     private static func fingerprint(_ info: proc_bsdinfo) -> String {
         "\(info.pbi_start_tvsec).\(info.pbi_start_tvusec)"
     }
-    private static func executable(_ pid: Int32, version: String) -> Bool {
+    private static func executable(_ pid: Int32) -> URL? {
         var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
-        guard proc_pidpath(pid, &path, UInt32(path.count)) > 0 else { return false }
-        let url = URL(fileURLWithPath: String(cString: path))
-        return url.lastPathComponent == "claude" ||
-            url.lastPathComponent == version && url.deletingLastPathComponent().lastPathComponent == "versions"
+        guard proc_pidpath(pid, &path, UInt32(path.count)) > 0 else { return nil }
+        return URL(fileURLWithPath: String(cString: path))
     }
-    static func supportsVersion(_ version: String, entrypoint: String) -> Bool {
+    // An executable in the installer's version directory must match the
+    // record that identified it. No specific CLI release is required.
+    static func matchesExecutable(_ url: URL, reportedVersion: String?) -> Bool {
+        if url.lastPathComponent == "claude" { return true }
+        guard let reportedVersion, !reportedVersion.isEmpty else { return false }
+        return url.lastPathComponent == reportedVersion && url.deletingLastPathComponent().lastPathComponent == "versions"
+    }
+    static func acceptsSessionRecord(_ row: [String: Any], entrypoint: String) -> Bool {
+        guard row["entrypoint"] as? String == entrypoint, row["kind"] as? String == "interactive" else { return false }
         switch entrypoint {
-        case "cli": return version == "2.1.314" || MacClaudeTerminalRegistration.supportedVersions.contains(version)
-        case "claude-vscode": return ["2.1.314", "2.1.318"].contains(version)
+        case "cli": return MacClaudeTerminalRegistration.isInteractiveCLI(row)
+        case "claude-vscode": return ["2.1.314", "2.1.318"].contains(row["version"] as? String ?? "")
         default: return false
         }
     }
@@ -67,10 +75,10 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
             guard files.count<=2048 else { return nil }
             let matches=files.compactMap { file -> (URL,[String:Any])? in guard let row=try? metadata(file),row["entrypoint"] as? String == entrypoint,row["kind"] as? String == "interactive",UUID(uuidString:row["sessionId"] as? String ?? "")==session else { return nil };return(file,row) }
             guard matches.count==1,let (record,row)=matches.first,let rawPid=row["pid"] as? Int,let pid=Int32(exactly:rawPid),pid>0,
-                  Int32(record.deletingPathExtension().lastPathComponent)==pid,row["kind"] as? String=="interactive",
-                  let entry=row["entrypoint"] as? String,["cli","claude-vscode"].contains(entry),
-                  let version = row["version"] as? String, supportsVersion(version, entrypoint: entry),
-                  let registeredAt=row["startedAt"] as? Double, executable(pid, version: version) else { return nil }
+                  Int32(record.deletingPathExtension().lastPathComponent)==pid,
+                  acceptsSessionRecord(row, entrypoint: entrypoint), let image=executable(pid),
+                  let registeredAt=row["startedAt"] as? Double,
+                  matchesExecutable(image, reportedVersion: row["version"] as? String) else { return nil }
             let info = try process(pid), start = fingerprint(info)
             guard info.pbi_uid == getuid(), validStart(Double(info.pbi_start_tvsec), registeredAt: registeredAt) else { return nil }
             var parent=pid,app:NSRunningApplication?
@@ -78,7 +86,7 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
                 if let candidate=NSRunningApplication(processIdentifier:parent),["com.microsoft.VSCode","com.apple.Terminal","com.googlecode.iterm2"].contains(candidate.bundleIdentifier ?? "") {app=candidate;break} }
             guard let host=app else { return nil }
             var database:URL?
-            if entry=="claude-vscode" {
+            if entrypoint=="claude-vscode" {
                 guard host.bundleIdentifier=="com.microsoft.VSCode" else { return nil }
                 let storage=FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0].appendingPathComponent("Code/User/workspaceStorage")
                 let folders=try FileManager.default.contentsOfDirectory(at:storage,includingPropertiesForKeys:nil)
@@ -86,7 +94,7 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
                 let found=folders.compactMap { folder -> URL? in let file=folder.appendingPathComponent("state.vscdb");guard let object=try? readDatabase(file,"Anthropic.claude-code"),let panels=object["panelTabSessions"] as? [[String:Any]],panels.contains(where:{ UUID(uuidString:$0["sessionId"] as? String ?? "")==session }) else { return nil };return file }
                 guard found.count==1 else { return nil };database=found[0]
             } else if !["com.apple.Terminal","com.googlecode.iterm2"].contains(host.bundleIdentifier ?? "") { return nil }
-            return MacClaudeNativeClient(session:session,pid:pid,start:start,record:record,host:host,hostStart:fingerprint(try process(host.processIdentifier)),entrypoint:entry,database:database,registeredAt:registeredAt)
+            return MacClaudeNativeClient(session:session,pid:pid,start:start,record:record,host:host,hostStart:fingerprint(try process(host.processIdentifier)),entrypoint:entrypoint,database:database,registeredAt:registeredAt,executablePath:image)
         }catch{return nil}
     }
     static func validStart(_ seconds: Double, registeredAt: Double) -> Bool {
@@ -95,9 +103,10 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
     }
     func state() throws -> String {
         let row=try Self.metadata(record)
-        guard !host.isTerminated,UUID(uuidString:row["sessionId"] as? String ?? "")==session,row["startedAt"] as? Double==registeredAt,row["entrypoint"] as? String==entrypoint,
-              row["pid"] as? Int==Int(pid),row["kind"] as? String=="interactive",
-              Self.supportsVersion(row["version"] as? String ?? "", entrypoint: entrypoint),
+        guard !host.isTerminated,UUID(uuidString:row["sessionId"] as? String ?? "")==session,row["startedAt"] as? Double==registeredAt,
+              row["pid"] as? Int==Int(pid),Self.acceptsSessionRecord(row, entrypoint: entrypoint),
+              entrypoint != "cli" || (Self.executable(pid) == executablePath &&
+                  Self.matchesExecutable(executablePath, reportedVersion: row["version"] as? String)),
               Self.fingerprint(try Self.process(pid))==start,Self.fingerprint(try Self.process(host.processIdentifier))==hostStart else {throw MacTab5Error.unconfirmed}
         return row["status"] as? String ?? "unknown"
     }

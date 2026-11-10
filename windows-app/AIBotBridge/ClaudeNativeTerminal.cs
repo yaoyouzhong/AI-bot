@@ -26,19 +26,21 @@ internal sealed class ClaudeNativeTerminal:IClaudeNativeSession
         foreach(string path in Directory.EnumerateFiles(root,"*.json").Take(2048))try {
             var info=new FileInfo(path);if(info.Length>16384||(info.Attributes&FileAttributes.ReparsePoint)!=0)continue;
             using var doc=JsonDocument.Parse(File.ReadAllBytes(path));var row=doc.RootElement;
-            if(!Guid.TryParse(ClaudeHistory.Text(row,"sessionId"),out var id)||session is {} target&&id!=target||known?.Contains(id)==true||!Supported(row))continue;
+            if(!Guid.TryParse(ClaudeHistory.Text(row,"sessionId"),out var id)||session is {} target&&id!=target||known?.Contains(id)==true||!IsInteractiveRecord(row))continue;
             if(!int.TryParse(Path.GetFileNameWithoutExtension(path),out int pid)||!row.TryGetProperty("pid",out var saved)||!saved.TryGetInt32(out var actual)||pid!=actual)continue;
             var client=new ClaudeNativeTerminal(id,pid,ClaudeHistory.Text(row,"procStart")??"",path);_=client.Scope();found.Add(client);
         }catch(Exception e) when(e is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception){}
         return found;
     }
-    private static bool Supported(JsonElement row)=>ClaudeHistory.Text(row,"entrypoint")=="cli"&&ClaudeHistory.Text(row,"kind")=="interactive"&&
-        string.IsNullOrEmpty(ClaudeHistory.Text(row,"jobId"))&&ClaudeHistory.Text(row,"version") is "2.1.318" or "2.1.319";
+    // CLI updates do not change ownership. Validate the actual record, exact
+    // process and live console; an incompatible layout still fails closed.
+    internal static bool IsInteractiveRecord(JsonElement row)=>ClaudeHistory.Text(row,"entrypoint")=="cli"&&
+        ClaudeHistory.Text(row,"kind")=="interactive"&&string.IsNullOrEmpty(ClaudeHistory.Text(row,"jobId"));
     public string State {
         get {using var doc=JsonDocument.Parse(File.ReadAllBytes(_record));var r=doc.RootElement;
             string program=Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile),".local","bin","claude.exe");
             if(!ProcessIdentityMatches(Pid,program,_start)||!r.TryGetProperty("pid",out var pid)||!pid.TryGetInt32(out int actual)||actual!=Pid||
-                !Guid.TryParse(ClaudeHistory.Text(r,"sessionId"),out var session)||session!=Session||ClaudeHistory.Text(r,"procStart")!=_start||!Supported(r))throw new IOException("native_session_changed");
+                !Guid.TryParse(ClaudeHistory.Text(r,"sessionId"),out var session)||session!=Session||ClaudeHistory.Text(r,"procStart")!=_start||!IsInteractiveRecord(r))throw new IOException("native_session_changed");
             return ClaudeHistory.Text(r,"status")??"unknown";}
     }
     // Reading an elevated process's MainModule requires VM_READ. The image,
