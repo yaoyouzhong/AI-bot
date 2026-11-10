@@ -9,4 +9,6 @@
 
 从已校验的 .318 完整工程依次重放 [R4 源码增量](tab5-318-r4-source/README.md)、[LIST1 累计补丁](TAB5-PROJECT-SCROLL-LIST1-20261110.patch)及 [R5 补丁](TAB5-318-R5-RELEASE-NOTICE.patch)。R5 保持协议和对外版本 `0.2.318-ui`，将内部版本更新为 `R5`，并隔离离屏预览的 SHA-256 配置头以避免覆盖拼音内存桩。放入上述准确 PCM 后构建；[生成脚本](../../scripts/generate_tab5_claude_huihui_notice.ps1)用于本机重建 WAV，语音包版本不同时字节可能不同，仍须核对 PCM 摘要。
 
+LIST1 的界面使用原有 14 px 数字字形，没有引用新增的 Montserrat 12 px 字体。R5 撤回该未用的生产开关，使 ESP-IDF 配置与 R4 完全相同；图标、角标及列表布局不变。
+
 新提示不含 Apple 系统语音、不需要捆绑 Microsoft 引擎或语音包。当前新 PCM 只作为本地候选输入；未找到明确覆盖该文件公开再分发的 Huihui 授权依据，不把该本地构建记作可公开晋级的固件或源码包。Windows 和 Mac 桥接发布独立。实际设备播放、升级与设置保留应绑定同一镜像另行验收。
