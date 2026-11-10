@@ -1,0 +1,32 @@
+.tools/
+.reference/
+artifacts/
+firmware/build/
+firmware/managed_components/
+firmware/sdkconfig
+firmware/sdkconfig.old
+__pycache__/
+*.pyc
+.local/
+
+# Local firmware/debug builds and generated preview images.
+/build*/
+/firmware/build*/
+/*.ppm
+**/bin/
+**/obj/
+
+# Local credentials and environment overrides.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Explicitly supplied OpenAI artwork for local Codex companion candidates.
+/firmware/main/codex_pet_data.inc
+/firmware/main/codex_pet_data.json
+
+# Explicitly supplied Anthropic artwork for local Claude companion candidates.
+/firmware/main/claude_pet_data.inc
+/firmware/main/claude_pet_data.json

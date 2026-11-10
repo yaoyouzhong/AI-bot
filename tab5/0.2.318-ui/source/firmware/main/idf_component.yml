@@ -1,0 +1,7 @@
+dependencies:
+  idf: '==5.4.2'
+  espressif/esp_hosted: '1.4.0'
+  espressif/esp_wifi_remote: '0.8.5'
+  lvgl/lvgl: '9.2.2'
+  espressif/esp_lcd_ili9881c: '1.0.2'
+  espressif/esp_tinyusb: '==2.2.0'

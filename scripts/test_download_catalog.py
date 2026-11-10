@@ -23,6 +23,8 @@ class DownloadCatalogTests(unittest.TestCase):
             release = releases.setdefault(entry["tag"], {"tag_name": entry["tag"], "published_at": "2026-10-08", "draft": False,
                 "prerelease": False, "assets": [{"name": "SHA256SUMS.txt"}]})
             release["assets"].append({"name": entry["file"], "size": entry["size"], "digest": "sha256:" + entry["sha256"]})
+            if catalog.checksum_name(entry) != 'SHA256SUMS.txt':
+                release['assets'].append({'name': catalog.checksum_name(entry)})
         return list(releases.values())
 
     def test_missing_download_and_mismatched_pair_are_rejected(self):
@@ -142,6 +144,17 @@ class DownloadCatalogTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "checksum mismatch"):
                 catalog.verify_online(self.data)
 
+    def test_compact_firmware_requires_its_own_checksum(self):
+        releases = self.releases()
+        entry = self.data['downloads']['esp8266']
+        if catalog.checksum_name(entry) == 'SHA256SUMS.txt':
+            self.skipTest('No published compact package in catalog')
+        self.assertEqual(catalog.discover(releases)['downloads']['esp8266'], entry)
+        release = next(r for r in releases if r['tag_name'] == entry['tag'])
+        release['assets'] = [a for a in release['assets'] if a['name'] != catalog.checksum_name(entry)]
+        with self.assertRaisesRegex(ValueError, 'Missing checksum'):
+            catalog.discover(releases)
+
     def test_component_release_changes_only_its_own_downloads(self):
         for tag, changed in (("v99.0.0", {"windows", "macos"}), ("esp8266-v99.0.0", {"esp8266"}),
                              ("tab5-v99.0.0-ui", {"tab5-first", "tab5-upgrade"})):
@@ -170,7 +183,8 @@ class DownloadCatalogTests(unittest.TestCase):
                 # Complete archives are merged locally, not single published ZIP assets.
                 self.assertNotIn(catalog.asset_url(hd, collection["file"]), row)
             for item in self.data["downloads"].values():
-                self.assertIn(f"[{action} · {item['size'] / 1048576:.0f} MiB]({catalog.asset_url(item)})", "\n".join(rows))
+                size = f"{item['size'] / 1024:.0f} KiB" if item['size'] < 1048576 else f"{item['size'] / 1048576:.0f} MiB"
+                self.assertIn(f"[{action} · {size}]({catalog.asset_url(item)})", "\n".join(rows))
 
     def test_readmes_and_centers_match_index(self):
         catalog.sync(self.data, check=True)
@@ -179,6 +193,8 @@ class DownloadCatalogTests(unittest.TestCase):
         releases = self.releases()
         expected = copy.deepcopy(self.data)
         for key, entry in expected["downloads"].items():
+            if key == 'esp8266' and catalog.checksum_name(entry) != 'SHA256SUMS.txt':
+                continue
             entry["file"] = catalog.artifact_names(key, entry["version"])[0]
             release = next(r for r in releases if r["tag_name"] == entry["tag"])
             release["assets"].append({"name": entry["file"], "size": entry["size"], "digest": "sha256:" + entry["sha256"]})
@@ -190,7 +206,8 @@ class DownloadCatalogTests(unittest.TestCase):
             for language in ("zh", "en"):
                 rendered = catalog.table(self.data, language, tag=item["tag"])
                 row = next(line for line in rendered.splitlines() if catalog.asset_url(item) in line)
-                self.assertIn(f"{item['size'] / 1048576:.0f} MiB", row)
+                size = f"{item['size'] / 1024:.0f} KiB" if item['size'] < 1048576 else f"{item['size'] / 1048576:.0f} MiB"
+                self.assertIn(size, row)
         draft = catalog.table(self.data, tag="v99.0.0")
         for line in draft.splitlines():
             if "v99.0.0" in line:

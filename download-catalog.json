@@ -18,9 +18,9 @@
     "esp8266": {
       "version": "0.5.8",
       "tag": "esp8266-v0.5.8",
-      "file": "AI-bot-esp8266-0.5.8-firmware.zip",
-      "size": 31689135,
-      "sha256": "e2d05c87058355deb9caf370e51e72f530f381eae9c990f232bd7f6bc0d36f88"
+      "file": "AI-bot-esp8266-0.5.8-flash.zip",
+      "size": 392706,
+      "sha256": "135727db235e2ef88fc852357598539f236811564da353c86046bd4f759eca06"
     },
     "tab5-first": {
       "version": "0.2.318-ui",

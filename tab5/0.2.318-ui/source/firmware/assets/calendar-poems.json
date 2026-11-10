@@ -1,0 +1,352 @@
+{
+  "note": "24 seasonal editorial pairings, not claims that every poem was written for that solar term. Public-domain original texts only; no modern translations or commentary. Order matches calendar_terms. Verified 2026-10-06.",
+  "poems": [
+    {
+      "term": "小寒",
+      "title": "探梅",
+      "author": "杨万里",
+      "dynasty": "宋",
+      "lines": [
+        "山间幽步不胜奇",
+        "政是深寒浅暮时",
+        "一树梅花开一朵",
+        "恼人偏在最高枝"
+      ],
+      "source": "https://m.cidianwang.com/gushiwen/7/885c3231737.htm",
+      "note": "保留底本的政是。",
+      "font": "brush"
+    },
+    {
+      "term": "大寒",
+      "title": "雪梅·其二",
+      "author": "卢梅坡",
+      "dynasty": "宋",
+      "lines": [
+        "有梅无雪不精神",
+        "有雪无诗俗了人",
+        "日暮诗成天又雪",
+        "与梅并作十分春"
+      ],
+      "source": "https://www.gushiwenku.cn/shiwen/e2fb4f8/",
+      "font": "wenkai"
+    },
+    {
+      "term": "立春",
+      "title": "立春",
+      "author": "王镃",
+      "dynasty": "宋",
+      "lines": [
+        "泥牛鞭散六街尘",
+        "生菜挑来叶叶春",
+        "从此雪消风自软",
+        "梅花合让柳条新"
+      ],
+      "source": "https://m.gushiwen.cn/shiwenv_f411e100243c.aspx",
+      "font": "brush"
+    },
+    {
+      "term": "雨水",
+      "title": "春雨",
+      "author": "周邦彦",
+      "dynasty": "宋",
+      "lines": [
+        "耕人扶耒语林丘",
+        "花外时时落一鸥",
+        "欲验春来多少雨",
+        "野塘漫水可回舟"
+      ],
+      "source": "https://www.gushiwen.cn/shiwenv_4d7fcda2c304.aspx",
+      "font": "running"
+    },
+    {
+      "term": "惊蛰",
+      "title": "春日",
+      "author": "秦观",
+      "dynasty": "宋",
+      "lines": [
+        "一夕轻雷落万丝",
+        "霁光浮瓦碧参差",
+        "有情芍药含春泪",
+        "无力蔷薇卧晓枝"
+      ],
+      "source": "https://zh.wikisource.org/zh-hans/春日_(秦觀)",
+      "note": "取轻雷、春雨意象，并非专咏惊蛰；花期随地域而异。",
+      "font": "wenkai"
+    },
+    {
+      "term": "春分",
+      "title": "淮中晚泊犊头",
+      "author": "苏舜钦",
+      "dynasty": "宋",
+      "lines": [
+        "春阴垂野草青青",
+        "时有幽花一树明",
+        "晚泊孤舟古祠下",
+        "满川风雨看潮生"
+      ],
+      "source": "https://m.gushiwen.cn/shiwenv_91da00bee5c9.aspx",
+      "font": "running"
+    },
+    {
+      "term": "清明",
+      "title": "苏堤清明即事",
+      "author": "吴惟信",
+      "dynasty": "宋",
+      "lines": [
+        "梨花风起正清明",
+        "游子寻春半出城",
+        "日暮笙歌收拾去",
+        "万株杨柳属流莺"
+      ],
+      "source": "https://dict.baidu.com/shici/detail?pid=89229f303c0a4635b230992b4f19445c",
+      "font": "brush"
+    },
+    {
+      "term": "谷雨",
+      "title": "见二十弟倡和花字漫兴五首·其一",
+      "author": "黄庭坚",
+      "dynasty": "宋",
+      "lines": [
+        "落絮游丝三月候",
+        "风吹雨洗一城花",
+        "未知东郭清明酒",
+        "何似西窗谷雨茶"
+      ],
+      "source": "https://m.gushiwen.cn/shiwenv_ca10eb0f4c7f.aspx",
+      "font": "wenkai"
+    },
+    {
+      "term": "立夏",
+      "title": "初夏绝句",
+      "author": "陆游",
+      "dynasty": "宋",
+      "lines": [
+        "纷纷红紫已成尘",
+        "布谷声中夏令新",
+        "夹路桑麻行不尽",
+        "始知身是太平人"
+      ],
+      "source": "https://m.gushiwen.cn/shiwenv_1614e83f3f7e.aspx",
+      "font": "running"
+    },
+    {
+      "term": "小满",
+      "title": "初夏即事",
+      "author": "王安石",
+      "dynasty": "宋",
+      "lines": [
+        "石梁茅屋有弯碕",
+        "流水溅溅度两陂",
+        "晴日暖风生麦气",
+        "绿阴幽草胜花时"
+      ],
+      "source": "https://zh.wikisource.org/zh/初夏即事",
+      "note": "保留碕、陂。",
+      "font": "wenkai"
+    },
+    {
+      "term": "芒种",
+      "title": "田上",
+      "author": "崔道融",
+      "dynasty": "唐",
+      "lines": [
+        "雨足高田白",
+        "披蓑半夜耕",
+        "人牛力俱尽",
+        "东方殊未明"
+      ],
+      "source": "https://www.gushiju.net/ju/424127",
+      "note": "以雨后抢耕对应农忙，并非专咏芒种。",
+      "font": "brush"
+    },
+    {
+      "term": "夏至",
+      "title": "夏夜追凉",
+      "author": "杨万里",
+      "dynasty": "宋",
+      "lines": [
+        "夜热依然午热同",
+        "开门小立月明中",
+        "竹深树密虫鸣处",
+        "时有微凉不是风"
+      ],
+      "source": "https://m.gushiwen.cn/shiwenv_2d549d9a09f4.aspx",
+      "font": "running"
+    },
+    {
+      "term": "小暑",
+      "title": "闲居初夏午睡起二绝句·其二",
+      "author": "杨万里",
+      "dynasty": "宋",
+      "lines": [
+        "松阴一架半弓苔",
+        "偶欲看书又懒开",
+        "戏掬清泉洒蕉叶",
+        "儿童误认雨声来"
+      ],
+      "source": "https://www.pinshiwen.com/gsdq/sgjs/2019051444085.html",
+      "note": "以树阴、清泉的消暑意趣选配，标题仍保留初夏，不改作小暑诗。",
+      "font": "wenkai"
+    },
+    {
+      "term": "大暑",
+      "title": "纳凉",
+      "author": "秦观",
+      "dynasty": "宋",
+      "lines": [
+        "携杖来追柳外凉",
+        "画桥南畔倚胡床",
+        "月明船笛参差起",
+        "风定池莲自在香"
+      ],
+      "source": "https://www.gushiwen.cn/mingju/juv_ab1a0b87feee.aspx",
+      "font": "brush"
+    },
+    {
+      "term": "立秋",
+      "title": "立秋",
+      "author": "刘翰",
+      "dynasty": "宋",
+      "lines": [
+        "乳鸦啼散玉屏空",
+        "一枕新凉一扇风",
+        "睡起秋声无觅处",
+        "满阶梧叶月明中"
+      ],
+      "source": "https://www.gushiwen.cn/shiwenv.aspx?id=7492691aa257",
+      "note": "乳鸦，不作乳鸭。",
+      "font": "wenkai"
+    },
+    {
+      "term": "处暑",
+      "title": "初秋雨晴",
+      "author": "朱淑真",
+      "dynasty": "宋",
+      "lines": [
+        "雨后风凉暑气收",
+        "庭梧叶叶报初秋",
+        "浮云尽逐黄昏去",
+        "楼角新蟾挂玉钩"
+      ],
+      "source": "https://www.cidianwang.com/gushiwen/7/f12a0261417.htm",
+      "font": "running"
+    },
+    {
+      "term": "白露",
+      "title": "秋夜寄邱员外",
+      "author": "韦应物",
+      "dynasty": "唐",
+      "lines": [
+        "怀君属秋夜",
+        "散步咏凉天",
+        "空山松子落",
+        "幽人应未眠"
+      ],
+      "source": "https://www.gushiwen.cn/shiwenv.aspx?id=0f23fdb7b5f9",
+      "note": "采用空山；异本作山空，题名另作秋夜寄丘二十二员外。",
+      "font": "wenkai"
+    },
+    {
+      "term": "秋分",
+      "title": "秋凉晚步",
+      "author": "杨万里",
+      "dynasty": "宋",
+      "lines": [
+        "秋气堪悲未必然",
+        "轻寒正是可人天",
+        "绿池落尽红蕖却",
+        "荷叶犹开最小钱"
+      ],
+      "source": "https://www.gushiwen.cn/shiwenv.aspx?id=c32bc0006712",
+      "font": "brush"
+    },
+    {
+      "term": "寒露",
+      "title": "秋夜二首·其一",
+      "author": "朱淑真",
+      "dynasty": "宋",
+      "lines": [
+        "夜久无眠秋气清",
+        "烛花频剪欲三更",
+        "铺床凉满梧桐月",
+        "月在梧桐缺处明"
+      ],
+      "source": "https://www.pinshiwen.com/gsdq/ssjx/2019050518216.html",
+      "font": "running"
+    },
+    {
+      "term": "霜降",
+      "title": "立冬前一日霜对菊有感",
+      "author": "钱时",
+      "dynasty": "宋",
+      "lines": [
+        "昨夜清霜冷絮裯",
+        "纷纷红叶满阶头",
+        "园林尽扫西风去",
+        "惟有黄花不负秋"
+      ],
+      "source": "https://m.gushiwen.cn/shiwenv_5f60b20ef6f5.aspx",
+      "note": "立冬前一日仍处于霜降节气区间。",
+      "font": "wenkai"
+    },
+    {
+      "term": "立冬",
+      "title": "立冬即事二首·其一",
+      "author": "仇远",
+      "dynasty": "宋",
+      "lines": [
+        "细雨生寒未有霜",
+        "庭前木叶半青黄",
+        "小春此去无多日",
+        "何处梅花一绽香"
+      ],
+      "source": "https://www.gushiwen.cn/shiwenv_1248929727d7.aspx",
+      "note": "作者跨宋元，此处按所引页面标宋。",
+      "font": "running"
+    },
+    {
+      "term": "小雪",
+      "title": "小雪",
+      "author": "戴叔伦",
+      "dynasty": "唐",
+      "lines": [
+        "花雪随风不厌看",
+        "更多还肯失林峦",
+        "愁人正在书窗下",
+        "一片飞来一片寒"
+      ],
+      "source": "https://zh.wikisource.org/zh-hans/小雪_(戴叔倫)",
+      "note": "采用还肯、书窗；不混入其他异文。",
+      "font": "brush"
+    },
+    {
+      "term": "大雪",
+      "title": "对雪",
+      "author": "高骈",
+      "dynasty": "唐",
+      "lines": [
+        "六出飞花入户时",
+        "坐看青竹变琼枝",
+        "如今好上高楼望",
+        "盖尽人间恶路岐"
+      ],
+      "source": "https://www.wuduge.com/shiwen/a/327.html",
+      "note": "岐另有作歧的版本，采用所引页面文本。",
+      "font": "running"
+    },
+    {
+      "term": "冬至",
+      "title": "冬至日独游吉祥寺",
+      "author": "苏轼",
+      "dynasty": "宋",
+      "lines": [
+        "井底微阳回未回",
+        "萧萧寒雨湿枯荄",
+        "何人更似苏夫子",
+        "不是花时肯独来"
+      ],
+      "source": "https://zh.wikisource.org/zh-hans/冬至日獨遊吉祥寺",
+      "font": "wenkai"
+    }
+  ]
+}

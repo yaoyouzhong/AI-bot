@@ -1,0 +1,2 @@
+# Preserve the published source snapshot byte-for-byte across operating systems.
+0.2.318-ui/** -text

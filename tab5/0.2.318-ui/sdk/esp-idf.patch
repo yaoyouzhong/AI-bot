@@ -1,0 +1,309 @@
+diff --git a/components/esp_driver_cam/csi/src/esp_cam_ctlr_csi.c b/components/esp_driver_cam/csi/src/esp_cam_ctlr_csi.c
+index 3f6c2b56..4ea70cee 100644
+--- a/components/esp_driver_cam/csi/src/esp_cam_ctlr_csi.c
++++ b/components/esp_driver_cam/csi/src/esp_cam_ctlr_csi.c
+@@ -26,7 +26,7 @@
+ #include "esp_private/esp_clk_tree_common.h"
+ #include "esp_cache.h"
+ 
+-#if CONFIG_CAM_CTLR_MIPI_CSI_ISR_CACHE_SAFE
++#if CONFIG_CAM_CTLR_MIPI_CSI_ISR_CACHE_SAFE || CONFIG_DW_GDMA_ISR_IRAM_SAFE
+ #define CSI_MEM_ALLOC_CAPS   (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+ #else
+ #define CSI_MEM_ALLOC_CAPS   MALLOC_CAP_DEFAULT
+@@ -109,6 +109,8 @@ esp_err_t esp_cam_new_csi_ctlr(const esp_cam_ctlr_csi_config_t *config, esp_cam_
+         ESP_RETURN_ON_ERROR(ret, TAG, "no available csi controller");
+     }
+ 
++    // TAB5: constructor failures must release the claimed CSI controller.
++    ctlr->csi_fsm = CSI_FSM_INIT;
+     ESP_LOGD(TAG, "config->queue_items: %d", config->queue_items);
+     ctlr->trans_que = xQueueCreateWithCaps(config->queue_items, sizeof(esp_cam_ctlr_trans_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+     ESP_GOTO_ON_FALSE(ctlr->trans_que, ESP_ERR_NO_MEM, err, TAG, "no memory for transaction queue");
+@@ -254,7 +256,7 @@ esp_err_t s_del_csi_ctlr(csi_controller_t *ctlr)
+     if (!ctlr->bk_buffer_dis) {
+         free(ctlr->backup_buffer);
+     }
+-    vQueueDeleteWithCaps(ctlr->trans_que);
++    if (ctlr->trans_que) vQueueDeleteWithCaps(ctlr->trans_que);
+     free(ctlr);
+ 
+     return ESP_OK;
+diff --git a/components/esp_driver_jpeg/jpeg_decode.c b/components/esp_driver_jpeg/jpeg_decode.c
+index d940acc3..eed9e615 100644
+--- a/components/esp_driver_jpeg/jpeg_decode.c
++++ b/components/esp_driver_jpeg/jpeg_decode.c
+@@ -78,9 +78,10 @@ esp_err_t jpeg_new_decoder_engine(const jpeg_decode_engine_cfg_t *dec_eng_cfg, j
+     uint32_t alignment = cache_line_size;
+     size_t dma_desc_mem_size = JPEG_ALIGN_UP(sizeof(dma2d_descriptor_t), cache_line_size);
+ 
+-    decoder_engine->rxlink = (dma2d_descriptor_t*)heap_caps_aligned_calloc(alignment, 1, dma_desc_mem_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | JPEG_MEM_ALLOC_CAPS);
++    // TAB5: decoder descriptors may use the reserved DMA heap (no DEFAULT).
++    decoder_engine->rxlink = (dma2d_descriptor_t*)heap_caps_aligned_calloc(alignment, 1, dma_desc_mem_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+     ESP_GOTO_ON_FALSE(decoder_engine->rxlink, ESP_ERR_NO_MEM, err, TAG, "no memory for jpeg decode rxlink");
+-    decoder_engine->txlink = (dma2d_descriptor_t*)heap_caps_aligned_calloc(alignment, 1, dma_desc_mem_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | JPEG_MEM_ALLOC_CAPS);
++    decoder_engine->txlink = (dma2d_descriptor_t*)heap_caps_aligned_calloc(alignment, 1, dma_desc_mem_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+     ESP_GOTO_ON_FALSE(decoder_engine->txlink, ESP_ERR_NO_MEM, err, TAG, "no memory for jpeg decode txlink");
+     decoder_engine->dma_desc_size = dma_desc_mem_size;
+ 
+diff --git a/components/esp_driver_jpeg/jpeg_encode.c b/components/esp_driver_jpeg/jpeg_encode.c
+index 9e9ce47e..38e0bc68 100644
+--- a/components/esp_driver_jpeg/jpeg_encode.c
++++ b/components/esp_driver_jpeg/jpeg_encode.c
+@@ -9,6 +9,7 @@
+ #include "esp_heap_caps.h"
+ #include "freertos/FreeRTOS.h"
+ #include "freertos/queue.h"
++#include "freertos/task.h"
+ #if CONFIG_JPEG_ENABLE_DEBUG_LOG
+ // The local log level must be defined before including esp_log.h
+ // Set the maximum log level for this source file
+@@ -32,6 +33,20 @@
+ 
+ static const char *TAG = "jpeg.encoder";
+ 
++// TAB5: bound image cache critical sections so LCD frame interrupts can run.
++static esp_err_t tab5_jpeg_sync_image(void *buffer, size_t size, int flags)
++{
++    for (size_t offset = 0; offset < size;) {
++        size_t part = size - offset;
++        if (part > 16384) part = 16384;
++        esp_err_t result = esp_cache_msync((uint8_t *)buffer + offset, part, flags);
++        if (result != ESP_OK) return result;
++        offset += part;
++        if (offset < size) vTaskDelay(1);
++    }
++    return ESP_OK;
++}
++
+ static esp_err_t s_jpeg_set_header_info(jpeg_encoder_handle_t encoder_engine);
+ static uint32_t s_dma_desc_get_len(dma2d_descriptor_t *dsc);
+ static bool s_jpeg_rx_eof(dma2d_channel_handle_t dma2d_chan, dma2d_event_data_t *event_data, void *user_data);
+@@ -89,9 +104,10 @@ esp_err_t jpeg_new_encoder_engine(const jpeg_encode_engine_cfg_t *enc_eng_cfg, j
+     uint32_t alignment = cache_line_size;
+     size_t dma_desc_mem_size = JPEG_ALIGN_UP(sizeof(dma2d_descriptor_t), cache_line_size);
+ 
+-    encoder_engine->rxlink = (dma2d_descriptor_t*)heap_caps_aligned_calloc(alignment, 1, sizeof(dma2d_descriptor_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | JPEG_MEM_ALLOC_CAPS);
++    // TAB5: DMA reserve excludes DEFAULT; allocate the entire synced cache line.
++    encoder_engine->rxlink = (dma2d_descriptor_t*)heap_caps_aligned_calloc(alignment, 1, dma_desc_mem_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+     ESP_GOTO_ON_FALSE(encoder_engine->rxlink, ESP_ERR_NO_MEM, err, TAG, "no memory for jpeg encoder rxlink");
+-    encoder_engine->txlink = (dma2d_descriptor_t*)heap_caps_aligned_calloc(alignment, 1, sizeof(dma2d_descriptor_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | JPEG_MEM_ALLOC_CAPS);
++    encoder_engine->txlink = (dma2d_descriptor_t*)heap_caps_aligned_calloc(alignment, 1, dma_desc_mem_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+     ESP_GOTO_ON_FALSE(encoder_engine->txlink, ESP_ERR_NO_MEM, err, TAG, "no memory for jpeg encoder txlink");
+     encoder_engine->dma_desc_size = dma_desc_mem_size;
+ 
+@@ -196,6 +212,12 @@ esp_err_t jpeg_encoder_process(jpeg_encoder_handle_t encoder_engine, const jpeg_
+ 
+     s_jpeg_enc_config_picture_color_space(encoder_engine);
+     s_jpeg_enc_select_sample_mode(encoder_engine);
++    // TAB5: bytes_per_pixel is bit depth. Validate before any TX DMA setup.
++    uint64_t input_pixels = (uint64_t)encode_cfg->width * encode_cfg->height;
++    ESP_GOTO_ON_FALSE(input_pixels > 0 && encoder_engine->bytes_per_pixel > 0 &&
++                      input_pixels <= ((uint64_t)inbuf_size * 8) / encoder_engine->bytes_per_pixel &&
++                      (input_pixels * encoder_engine->bytes_per_pixel) % 8 == 0,
++                      ESP_ERR_INVALID_ARG, err2, TAG, "invalid JPEG input geometry or buffer size");
+     jpeg_ll_set_picture_height(hal->dev, encoder_engine->header_info->origin_v);
+     jpeg_ll_set_picture_width(hal->dev, encoder_engine->header_info->origin_h);
+     jpeg_ll_pixel_reverse(hal->dev, false);
+@@ -237,7 +259,7 @@ esp_err_t jpeg_encoder_process(jpeg_encoder_handle_t encoder_engine, const jpeg_
+     memset(encoder_engine->txlink, 0, sizeof(dma2d_descriptor_t));
+     s_cfg_desc(encoder_engine, encoder_engine->txlink, JPEG_DMA2D_2D_ENABLE, DMA2D_DESCRIPTOR_BLOCK_RW_MODE_MULTIPLE, dma_vb, dma_hb, JPEG_DMA2D_EOF_NOT_LAST, dma2d_desc_pixel_format_to_pbyte_value(picture_format), DMA2D_DESCRIPTOR_BUFFER_OWNER_DMA, encoder_engine->header_info->origin_v, encoder_engine->header_info->origin_h, raw_buffer, NULL);
+ 
+-    ret = esp_cache_msync((void*)raw_buffer, encoder_engine->header_info->origin_v * encoder_engine->header_info->origin_h * encoder_engine->bytes_per_pixel, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
++    ret = tab5_jpeg_sync_image((void*)raw_buffer, inbuf_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
+     assert(ret == ESP_OK);
+ 
+     dma2d_trans_config_t trans_desc = {
+@@ -271,7 +293,7 @@ esp_err_t jpeg_encoder_process(jpeg_encoder_handle_t encoder_engine, const jpeg_
+             ESP_GOTO_ON_ERROR(esp_cache_msync((void*)encoder_engine->rxlink, encoder_engine->dma_desc_size, ESP_CACHE_MSYNC_FLAG_DIR_M2C), err1, TAG, "sync memory to cache failed");
+             compressed_size = s_dma_desc_get_len(encoder_engine->rxlink);
+             uint32_t _compressed_size = JPEG_ALIGN_UP(compressed_size, cache_hal_get_cache_line_size(CACHE_LL_LEVEL_EXT_MEM, CACHE_TYPE_DATA));
+-            ESP_GOTO_ON_ERROR(esp_cache_msync((void*)(bit_stream + encoder_engine->header_info->header_len), _compressed_size, ESP_CACHE_MSYNC_FLAG_DIR_M2C), err1, TAG, "sync memory to cache failed");
++            ESP_GOTO_ON_ERROR(tab5_jpeg_sync_image((void*)(bit_stream + encoder_engine->header_info->header_len), _compressed_size, ESP_CACHE_MSYNC_FLAG_DIR_M2C), err1, TAG, "sync memory to cache failed");
+             break;
+         }
+     }
+@@ -388,15 +410,15 @@ static bool s_jpeg_rx_desc_empty(dma2d_channel_handle_t dma2d_chan, dma2d_event_
+ 
+ static void jpeg_enc_config_dma_trans_ability(jpeg_encoder_handle_t encoder_engine)
+ {
+-    // set transfer ability
++    // TAB5: short codec bursts leave PSRAM arbitration opportunities for LCD scanout.
+     dma2d_transfer_ability_t transfer_ability_config_tx = {
+-        .data_burst_length = DMA2D_DATA_BURST_LENGTH_128,
++        .data_burst_length = DMA2D_DATA_BURST_LENGTH_16,
+         .desc_burst_en = true,
+         .mb_size = DMA2D_MACRO_BLOCK_SIZE_NONE,
+     };
+ 
+     dma2d_transfer_ability_t transfer_ability_config_rx = {
+-        .data_burst_length = DMA2D_DATA_BURST_LENGTH_128,
++        .data_burst_length = DMA2D_DATA_BURST_LENGTH_16,
+         .desc_burst_en = true,
+         .mb_size = DMA2D_MACRO_BLOCK_SIZE_NONE,
+     };
+diff --git a/components/esp_lcd/dsi/esp_lcd_panel_dpi.c b/components/esp_lcd/dsi/esp_lcd_panel_dpi.c
+index 8372bdd1..18f7eb40 100644
+--- a/components/esp_lcd/dsi/esp_lcd_panel_dpi.c
++++ b/components/esp_lcd/dsi/esp_lcd_panel_dpi.c
+@@ -81,6 +81,9 @@ static bool dma_trans_done_cb(dw_gdma_channel_handle_t chan, const dw_gdma_trans
+     bool yield_needed = false;
+     esp_lcd_dpi_panel_t *dpi_panel = (esp_lcd_dpi_panel_t *)user_data;
+     mipi_dsi_hal_context_t *hal = &dpi_panel->bus->hal;
++    /* TAB5 display frame timing hook */
++    extern void tab5_lcd_frame_tick(void) __attribute__((weak));
++    if (tab5_lcd_frame_tick) tab5_lcd_frame_tick();
+     uint8_t fb_index = dpi_panel->cur_fb_index;
+     dw_gdma_link_list_handle_t link_list = dpi_panel->link_lists[fb_index];
+ 
+@@ -88,6 +91,9 @@ static bool dma_trans_done_cb(dw_gdma_channel_handle_t chan, const dw_gdma_trans
+     uint32_t error_status = mipi_dsi_brg_ll_get_interrupt_status(hal->bridge);
+     mipi_dsi_brg_ll_clear_interrupt_status(hal->bridge, error_status);
+     if (unlikely(error_status & MIPI_DSI_LL_EVENT_UNDERRUN)) {
++        /* TAB5 display underrun diagnostic hook */
++        extern void tab5_lcd_underrun(void) __attribute__((weak));
++        if (tab5_lcd_underrun) tab5_lcd_underrun();
+         // when an underrun happens, the LCD display may already becomes blue
+         // it's too late to recover the display, so we just print an error message
+         // as a hint to the user that he should optimize the memory bandwidth (with AXI-ICM)
+diff --git a/components/hal/esp32p4/include/hal/gpio_ll.h b/components/hal/esp32p4/include/hal/gpio_ll.h
+index cc3a44cf..61463a9a 100644
+--- a/components/hal/esp32p4/include/hal/gpio_ll.h
++++ b/components/hal/esp32p4/include/hal/gpio_ll.h
+@@ -27,6 +27,7 @@
+ #include "soc/pmu_struct.h"
+ #include "soc/usb_serial_jtag_struct.h"
+ #include "soc/usb_wrap_struct.h"
++#include "soc/lp_system_struct.h"
+ #include "soc/clk_tree_defs.h"
+ #include "hal/gpio_types.h"
+ #include "hal/misc.h"
+@@ -107,7 +108,7 @@ static inline void gpio_ll_pullup_dis(gpio_dev_t *hw, uint32_t gpio_num)
+     // TODO: read the specific efuse with efuse_ll.h
+ 
+     // One more noticeable point is P4 has two internal PHYs connecting to USJ and USB_WRAP(OTG1.1) separately.
+-    // We only consider the default connection here: PHY0 -> USJ, PHY1 -> USB_OTG
++    // Respect both default and software-swapped PHY connections.
+     if (gpio_num == USB_USJ_INT_PHY_DP_GPIO_NUM) {
+         USB_SERIAL_JTAG.conf0.pad_pull_override = 1;
+         USB_SERIAL_JTAG.conf0.dp_pullup = 0;
+@@ -601,11 +602,15 @@ static inline void gpio_ll_iomux_func_sel(uint32_t pin_name, uint32_t func)
+ {
+     // Disable USB PHY configuration if pins (24, 25) (26, 27) needs to select an IOMUX function
+     // P4 has two internal PHYs connecting to USJ and USB_WRAP(OTG1.1) separately.
+-    // We only consider the default connection here: PHY0 -> USJ, PHY1 -> USB_OTG
++    // Respect both default and software-swapped PHY connections.
++    // TAB5: honor software-swapped USB PHY routing during GPIO setup.
++    const bool usb_swapped = LP_SYS.usb_ctrl.sw_hw_usb_phy_sel && LP_SYS.usb_ctrl.sw_usb_phy_sel;
+     if (pin_name == IO_MUX_GPIO24_REG || pin_name == IO_MUX_GPIO25_REG) {
+-        USB_SERIAL_JTAG.conf0.usb_pad_enable = 0;
++        if (usb_swapped) USB_WRAP.otg_conf.usb_pad_enable = 0;
++        else USB_SERIAL_JTAG.conf0.usb_pad_enable = 0;
+     } else if (pin_name == IO_MUX_GPIO26_REG || pin_name == IO_MUX_GPIO27_REG) {
+-        USB_WRAP.otg_conf.usb_pad_enable = 0;
++        if (usb_swapped) USB_SERIAL_JTAG.conf0.usb_pad_enable = 0;
++        else USB_WRAP.otg_conf.usb_pad_enable = 0;
+     }
+     PIN_FUNC_SELECT(pin_name, func);
+ }
+@@ -622,11 +627,15 @@ static inline void gpio_ll_func_sel(gpio_dev_t *hw, uint8_t gpio_num, uint32_t f
+ {
+     // Disable USB PHY configuration if pins (24, 25) (26, 27) needs to select an IOMUX function
+     // P4 has two internal PHYs connecting to USJ and USB_WRAP(OTG1.1) separately.
+-    // We only consider the default connection here: PHY0 -> USJ, PHY1 -> USB_OTG
++    // Respect both default and software-swapped PHY connections.
++    // TAB5: honor software-swapped USB PHY routing during GPIO setup.
++    const bool usb_swapped = LP_SYS.usb_ctrl.sw_hw_usb_phy_sel && LP_SYS.usb_ctrl.sw_usb_phy_sel;
+     if (gpio_num == USB_USJ_INT_PHY_DM_GPIO_NUM || gpio_num == USB_USJ_INT_PHY_DP_GPIO_NUM) {
+-        USB_SERIAL_JTAG.conf0.usb_pad_enable = 0;
++        if (usb_swapped) USB_WRAP.otg_conf.usb_pad_enable = 0;
++        else USB_SERIAL_JTAG.conf0.usb_pad_enable = 0;
+     } else if (gpio_num == USB_OTG_INT_PHY_DM_GPIO_NUM || gpio_num == USB_OTG_INT_PHY_DP_GPIO_NUM) {
+-        USB_WRAP.otg_conf.usb_pad_enable = 0;
++        if (usb_swapped) USB_SERIAL_JTAG.conf0.usb_pad_enable = 0;
++        else USB_WRAP.otg_conf.usb_pad_enable = 0;
+     }
+     IO_MUX.gpio[gpio_num].mcu_sel = func;
+ }
+diff --git a/components/nvs_flash/src/nvs_page.cpp b/components/nvs_flash/src/nvs_page.cpp
+index f818ddb5..810ad34f 100644
+--- a/components/nvs_flash/src/nvs_page.cpp
++++ b/components/nvs_flash/src/nvs_page.cpp
+@@ -698,7 +698,7 @@ esp_err_t Page::mLoadEntryTable()
+         if (lastItemIndex != INVALID_ENTRY) {
+             size_t findItemIndex = 0;
+             Item dupItem;
+-            if (findItem(item.nsIndex, item.datatype, item.key, findItemIndex, dupItem) == ESP_OK) {
++            if (findItem(item.nsIndex, item.datatype, item.key, findItemIndex, dupItem, item.chunkIndex) == ESP_OK) {
+                 if (findItemIndex < lastItemIndex) {
+                     auto err = eraseEntryAndSpan(findItemIndex);
+                     if (err != ESP_OK) {
+diff --git a/components/nvs_flash/src/nvs_storage.cpp b/components/nvs_flash/src/nvs_storage.cpp
+index e5db0cae..e84fab78 100644
+--- a/components/nvs_flash/src/nvs_storage.cpp
++++ b/components/nvs_flash/src/nvs_storage.cpp
+@@ -270,7 +270,6 @@ esp_err_t Storage::findItem(uint8_t nsIndex, ItemType datatype, const char* key,
+ esp_err_t Storage::writeMultiPageBlob(uint8_t nsIndex, const char* key, const void* data, size_t dataSize, VerOffset chunkStart)
+ {
+     uint8_t chunkCount = 0;
+-    TUsedPageList usedPages;
+     size_t remainingSize = dataSize;
+     size_t offset = 0;
+     esp_err_t err = ESP_OK;
+@@ -326,13 +325,6 @@ esp_err_t Storage::writeMultiPageBlob(uint8_t nsIndex, const char* key, const vo
+             NVS_ASSERT_OR_RETURN(err != ESP_ERR_NVS_PAGE_FULL, err);
+             break;
+         } else {
+-            UsedPageNode* node = new (std::nothrow) UsedPageNode();
+-            if (!node) {
+-                err = ESP_ERR_NO_MEM;
+-                break;
+-            }
+-            node->mPage = &page;
+-            usedPages.push_back(node);
+             if (remainingSize || (tailroom - chunkSize) < Page::ENTRY_SIZE) {
+                 if (page.state() != Page::PageState::FULL) {
+                     err = page.markFull();
+@@ -362,13 +354,15 @@ esp_err_t Storage::writeMultiPageBlob(uint8_t nsIndex, const char* key, const vo
+     } while (1);
+ 
+     if (err != ESP_OK) {
+-        /* Anything failed, then we should erase all the written chunks*/
+-        int ii=0;
+-        for (auto it = std::begin(usedPages); it != std::end(usedPages); it++) {
+-            it->mPage->eraseItem(nsIndex, ItemType::BLOB_DATA, key, ii++);
++        // TAB5: reclaim only this failed version; GC may have moved its chunks.
++        const uint16_t firstChunk = static_cast<uint8_t>(chunkStart);
++        for (uint16_t chunk = firstChunk; chunk < firstChunk + chunkCount; ++chunk) {
++            for (auto page = mPageManager.begin(); page != mPageManager.end(); ++page) {
++                if (page->eraseItem(nsIndex, ItemType::BLOB_DATA, key,
++                        static_cast<uint8_t>(chunk)) == ESP_OK) break;
++            }
+         }
+     }
+-    usedPages.clearAndFreeNodes();
+     return err;
+ }
+ 
+diff --git a/components/spi_flash/spi_flash_os_func_app.c b/components/spi_flash/spi_flash_os_func_app.c
+index 4bbfbb9e..c248d2ae 100644
+--- a/components/spi_flash/spi_flash_os_func_app.c
++++ b/components/spi_flash/spi_flash_os_func_app.c
+@@ -62,12 +62,17 @@ static inline bool on_spi_check_yield(app_func_arg_t* ctx);
+ #if !SPI_FLASH_CACHE_NO_DISABLE
+ IRAM_ATTR static void cache_enable(void* arg)
+ {
++    extern void tab5_flash_guard_end(void) __attribute__((weak));
++    if (tab5_flash_guard_end) tab5_flash_guard_end();
+     spi_flash_enable_interrupts_caches_and_other_cpu();
+ }
+ 
+ IRAM_ATTR static void cache_disable(void* arg)
+ {
+     spi_flash_disable_interrupts_caches_and_other_cpu();
++    /* TAB5 flash blackout timing hook */
++    extern void tab5_flash_guard_begin(void) __attribute__((weak));
++    if (tab5_flash_guard_begin) tab5_flash_guard_begin();
+ }
+ #endif  //#if !SPI_FLASH_CACHE_NO_DISABLE
+ 

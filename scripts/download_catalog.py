@@ -18,6 +18,7 @@ CATALOG = ROOT / "download-catalog.json"
 HD_CATALOG = ROOT / "gallery-hd-downloads.json"
 CENTER = REPO + "/blob/main/DOWNLOADS.md"
 HD_GUIDE = REPO + "/blob/main/docs/GALLERY-HD.md"
+ESP_FLASH_TEMPLATE = "AI-bot-esp8266-{version}-flash.zip"
 # id: component, asset template, Chinese label, English label
 SPECS = {
     "windows": ("bridge", TEMPLATES["windows"][0], "Windows 桥接 · Windows 10/11 x64", "Windows bridge · Windows 10/11 x64"),
@@ -51,6 +52,10 @@ def asset_url(item, filename=None):
     return f"{REPO}/releases/download/{item['tag']}/{filename or item['file']}"
 
 
+def checksum_name(item):
+    return item['file'] + '.sha256' if item['file'] == ESP_FLASH_TEMPLATE.format(version=item['version']) else 'SHA256SUMS.txt'
+
+
 def validate(data):
     if data.get("schemaVersion") != 1 or set(data.get("downloads", {})) != set(SPECS):
         raise ValueError("Download index must contain all seven supported downloads")
@@ -60,6 +65,8 @@ def validate(data):
         version = item["version"]
         pattern = r"\d{4}\.\d{2}\.\d{2}(?:\.\d+)?" if component == "gallery" else r"\d+\.\d+\.\d+" + (r"-ui" if component == "tab5" else "")
         filenames = artifact_names(key, version)
+        if key == 'esp8266':
+            filenames += (ESP_FLASH_TEMPLATE.format(version=version),)
         if not re.fullmatch(pattern, version) or item["file"] not in filenames:
             raise ValueError(f"Wrong version/package for {key}")
         tag_component, tag_version = release_target(item["tag"])
@@ -117,6 +124,10 @@ def discover(releases):
                 continue
             for asset in release["assets"]:
                 match = match_artifact(key, asset["name"])
+                if key == 'esp8266':
+                    flash = re.fullmatch(r'AI-bot-esp8266-(\d+\.\d+\.\d+)-flash\.zip', asset['name'])
+                    if flash:
+                        match = (flash.group(1), -1)
                 if not match:
                     continue
                 version, priority = match
@@ -129,7 +140,8 @@ def discover(releases):
         if not candidates:
             raise ValueError(f"No published package for {key}")
         _, _, _, release, asset, version = max(candidates, key=lambda c: c[:3])
-        if "SHA256SUMS.txt" not in {a["name"] for a in release["assets"]}:
+        checksum = asset['name'] + '.sha256' if asset['name'] == ESP_FLASH_TEMPLATE.format(version=version) else 'SHA256SUMS.txt'
+        if checksum not in {a["name"] for a in release["assets"]}:
             raise ValueError(f"Missing checksum file for {key}")
         entries[key] = {"version": version, "tag": release["tag_name"], "file": asset["name"],
                         "size": asset["size"], "sha256": (asset.get("digest") or "").removeprefix("sha256:")}
@@ -143,12 +155,14 @@ def verify_online(data):
     sums = {}
     for key, item in data["downloads"].items():
         tag = item["tag"]
-        if tag not in sums:
-            with request(asset_url(item, "SHA256SUMS.txt")) as response:
+        checksum = checksum_name(item)
+        identity = (tag, checksum)
+        if identity not in sums:
+            with request(asset_url(item, checksum)) as response:
                 lines = response.read().decode("utf-8-sig").splitlines()
-            sums[tag] = dict((m[2], m[1].lower()) for line in lines
+            sums[identity] = dict((m[2], m[1].lower()) for line in lines
                              if (m := re.fullmatch(r"([a-fA-F0-9]{64})\s+\*?(.+)", line)))
-        if sums[tag].get(item["file"]) != item["sha256"]:
+        if sums[identity].get(item["file"]) != item["sha256"]:
             raise ValueError(f"Published checksum mismatch: {key}")
         with request(asset_url(item), "HEAD") as response:
             if response.status != 200:
@@ -207,8 +221,8 @@ def table(data, language="zh", tag=None):
         version = gallery_display_version(key, item["version"], language) + ((" · 本次发布" if zh else " · this release") if key in changed else "")
         label = "下载" if zh else "Download"
         if "size" in item:
-            label += f" · {item['size'] / 1048576:.0f} MiB"
-        lines.append(f"| {spec[2 if zh else 3]} | {version} | [{label}]({asset_url(item)}) | [SHA-256]({asset_url(item, 'SHA256SUMS.txt')}) |")
+            label += f" · {item['size'] / 1024:.0f} KiB" if item['size'] < 1048576 else f" · {item['size'] / 1048576:.0f} MiB"
+        lines.append(f"| {spec[2 if zh else 3]} | {version} | [{label}]({asset_url(item)}) | [SHA-256]({asset_url(item, checksum_name(item))}) |")
         if key in hd["collections"]:
             collection = hd["collections"][key]
             title = spec[2].replace("标准版", "高清完整版") if zh else spec[3].replace("standard", "complete HD")

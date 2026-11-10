@@ -39,7 +39,7 @@ PlatformIO 可能需要联网安装锁定的平台和编译工具。`rebuild.ini
 已收集在 `licenses/compiler-runtime`。组件级声明详见 `THIRD_PARTY_NOTICES.md`。
 
 构建和归档校验不会刷写设备，也不证明 USB/Wi-Fi、实体视觉或长期运行通过。
-公开分发应原样提供完整材料 ZIP，不能只提供 BIN 或依赖可变化的网页链接。
+公开分发同时保留完整材料 ZIP；普通用户可单独下载包含固件、许可说明和完整材料入口的精简刷机 ZIP。完整材料包继续保留对应源码、依赖与重建说明，不依赖可变化的上游网页。
 
 ## English
 
@@ -50,4 +50,4 @@ host compiler. Install PlatformIO 6.1.18 and run the command above from the unpa
 directory. `rebuild.ini` uses the included core and libraries; modify them and
 rebuild/relink as needed. Platform/compiler downloads may require network access.
 Buildability is not a claim of byte-identical cross-host output or device acceptance.
-Preserve this complete materials archive when distributing the firmware.
+Preserve this complete materials archive alongside the compact flash package when distributing the firmware.

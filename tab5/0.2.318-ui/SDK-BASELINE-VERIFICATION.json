@@ -1,0 +1,148 @@
+{
+  "checkedFiles": 13251,
+  "upstreamTrees": [
+    {
+      "repository": "espressif/esp-idf",
+      "commit": "f5c3654a1c2d2a01f7f67def7a0dc48e691f63c0",
+      "prefix": ""
+    },
+    {
+      "repository": "kmackay/micro-ecc",
+      "commit": "24c60e243580c7868f4334a1ba3123481fe1aa48",
+      "prefix": "components/bootloader/subproject/components/micro-ecc/micro-ecc/"
+    },
+    {
+      "repository": "espressif/esp32-bt-lib",
+      "commit": "6d007b7167146b31256b29fed31e04dc46989885",
+      "prefix": "components/bt/controller/lib_esp32/"
+    },
+    {
+      "repository": "espressif/esp32c2-bt-lib",
+      "commit": "06c5ef1481e6e5ff9308d6abe9c1e576d60c946f",
+      "prefix": "components/bt/controller/lib_esp32c2/esp32c2-bt-lib/"
+    },
+    {
+      "repository": "espressif/esp32c3-bt-lib",
+      "commit": "72599d583c232ea78d6461b5b502426c6e5a1ec9",
+      "prefix": "components/bt/controller/lib_esp32c3_family/"
+    },
+    {
+      "repository": "espressif/esp32c5-bt-lib",
+      "commit": "19bce59850e593a1e0231a1f051e24a1532c38d6",
+      "prefix": "components/bt/controller/lib_esp32c5/esp32c5-bt-lib/"
+    },
+    {
+      "repository": "espressif/esp32c6-bt-lib",
+      "commit": "841466ff3cf6635bf061c18e836807ee7f99ce78",
+      "prefix": "components/bt/controller/lib_esp32c6/esp32c6-bt-lib/"
+    },
+    {
+      "repository": "espressif/esp32h2-bt-lib",
+      "commit": "bd09406c74d135d1d4e68c5e578540a8bcffbcac",
+      "prefix": "components/bt/controller/lib_esp32h2/esp32h2-bt-lib/"
+    },
+    {
+      "repository": "espressif/esp-ble-mesh-lib",
+      "commit": "a62a98132cdec59d2f2745da7b0598964b38bdae",
+      "prefix": "components/bt/esp_ble_mesh/lib/lib/"
+    },
+    {
+      "repository": "espressif/esp-nimble",
+      "commit": "0225775e49669cd4f070400908f73718bddce83b",
+      "prefix": "components/bt/host/nimble/nimble/"
+    },
+    {
+      "repository": "ThrowTheSwitch/CMock",
+      "commit": "eeecc49ce8af123cf8ad40efdb9673e37b56230f",
+      "prefix": "components/cmock/CMock/"
+    },
+    {
+      "repository": "throwtheswitch/cexception",
+      "commit": "71b47be7c950f1bf5f7e5303779fa99a16224bb6",
+      "prefix": "components/cmock/CMock/vendor/c_exception/"
+    },
+    {
+      "repository": "throwtheswitch/unity",
+      "commit": "cf949f45ca6d172a177b00da21310607b97bc7a7",
+      "prefix": "components/cmock/CMock/vendor/unity/"
+    },
+    {
+      "repository": "espressif/esp-coex-lib",
+      "commit": "cb6667841f63457246d56a9170f3409917e9d5a8",
+      "prefix": "components/esp_coex/lib/"
+    },
+    {
+      "repository": "espressif/esp-phy-lib",
+      "commit": "fc76520d481fc3d08cbc001ef47804a4457fffd7",
+      "prefix": "components/esp_phy/lib/"
+    },
+    {
+      "repository": "espressif/esp32-wifi-lib",
+      "commit": "206fe3e13e788b5fad8be6d39b5d9742e4bd9985",
+      "prefix": "components/esp_wifi/lib/"
+    },
+    {
+      "repository": "espressif/tlsf",
+      "commit": "2867f6883a12920b1969ff9624c0ab0e4185c2ce",
+      "prefix": "components/heap/tlsf/"
+    },
+    {
+      "repository": "DaveGamble/cJSON",
+      "commit": "8f2beb57ddad1f94bed899790b00f46df893ccac",
+      "prefix": "components/json/cJSON/"
+    },
+    {
+      "repository": "espressif/esp-lwip",
+      "commit": "fa4dffdfac52587a26c1f29258376df750cf8474",
+      "prefix": "components/lwip/lwip/"
+    },
+    {
+      "repository": "espressif/mbedtls",
+      "commit": "601990b1d81510a135da9bb0476d6ed3cb8c011b",
+      "prefix": "components/mbedtls/mbedtls/"
+    },
+    {
+      "repository": "espressif/esp-mqtt",
+      "commit": "cac1552e62b0474c162547b7cce345d7cd1aecfe",
+      "prefix": "components/mqtt/esp-mqtt/"
+    },
+    {
+      "repository": "espressif/esp-thread-lib",
+      "commit": "d4d4738d0d757dbcead167179ecf829a8c1d477b",
+      "prefix": "components/openthread/lib/"
+    },
+    {
+      "repository": "espressif/openthread",
+      "commit": "ec2b0d487356d2955346457a6515201039140037",
+      "prefix": "components/openthread/openthread/"
+    },
+    {
+      "repository": "protobuf-c/protobuf-c",
+      "commit": "abc67a11c6db271bedbb9f58be85d6f4e2ea8389",
+      "prefix": "components/protobuf-c/protobuf-c/"
+    },
+    {
+      "repository": "pellepl/spiffs",
+      "commit": "0dbb3f71c5f6fae3747a9d935372773762baf852",
+      "prefix": "components/spiffs/spiffs/"
+    },
+    {
+      "repository": "ThrowTheSwitch/Unity",
+      "commit": "bf560290f6020737eafaa8b5cbd2177c3956c03f",
+      "prefix": "components/unity/unity/"
+    }
+  ],
+  "lineEndingsOnly": 12719,
+  "modified": [
+    "components/bt/host/nimble/nimble/nimble/host/src/ble_att_cmd.c",
+    "components/esp_driver_cam/csi/src/esp_cam_ctlr_csi.c",
+    "components/esp_driver_jpeg/jpeg_decode.c",
+    "components/esp_driver_jpeg/jpeg_encode.c",
+    "components/esp_lcd/dsi/esp_lcd_panel_dpi.c",
+    "components/hal/esp32p4/include/hal/gpio_ll.h",
+    "components/nvs_flash/src/nvs_page.cpp",
+    "components/nvs_flash/src/nvs_storage.cpp",
+    "components/spi_flash/spi_flash_os_func_app.c"
+  ],
+  "extra": []
+}

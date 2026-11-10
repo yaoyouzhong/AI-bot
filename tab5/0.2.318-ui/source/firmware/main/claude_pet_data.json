@@ -1,0 +1,78 @@
+{
+  "owner": "Anthropic",
+  "source": "https://claude.dev",
+  "inputSha256": "f42458f1fae656788de65917569017a8c706cf4ef191b415c496f7281c257158",
+  "encodedBytes": 98371,
+  "frameCount": 378,
+  "groups": [
+    {
+      "name": "walk",
+      "first": 0,
+      "count": 28,
+      "width": 24,
+      "height": 18,
+      "sourceWidth": 24,
+      "anchorX2": 24,
+      "anchorY2": 19,
+      "fps": 12
+    },
+    {
+      "name": "pool",
+      "first": 28,
+      "count": 44,
+      "width": 40,
+      "height": 31,
+      "sourceWidth": 39,
+      "anchorX2": 38,
+      "anchorY2": 30,
+      "fps": 12
+    },
+    {
+      "name": "kite",
+      "first": 72,
+      "count": 101,
+      "width": 38,
+      "height": 33,
+      "sourceWidth": 37,
+      "anchorX2": 24,
+      "anchorY2": 49,
+      "fps": 12
+    },
+    {
+      "name": "skate",
+      "first": 173,
+      "count": 73,
+      "width": 28,
+      "height": 29,
+      "sourceWidth": 28,
+      "anchorX2": 24,
+      "anchorY2": 31,
+      "fps": 12
+    },
+    {
+      "name": "astronaut",
+      "first": 246,
+      "count": 131,
+      "width": 40,
+      "height": 33,
+      "sourceWidth": 40,
+      "anchorX2": 42,
+      "anchorY2": 37,
+      "fps": 12
+    },
+    {
+      "name": "rest",
+      "first": 377,
+      "count": 1,
+      "width": 38,
+      "height": 33,
+      "sourceWidth": 37,
+      "anchorX2": 24,
+      "anchorY2": 50,
+      "fps": 12
+    }
+  ],
+  "conversion": "Original indices and order; transparent right padding only; RGB565A8; bounded PackBits",
+  "meanings": "AI-bot defines task state mapping and playback; these are not official task semantics",
+  "scope": "Private supplied artwork; excluded from MIT source patch and public redistribution"
+}

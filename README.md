@@ -4,7 +4,7 @@
 
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
-[完整下载中心](DOWNLOADS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.18.md) · [English](README.en.md)
+[完整下载中心](DOWNLOADS.md) · [组件源码](docs/COMPONENTS.md) · [下载与搭配](#下载与搭配) · [安装指南](docs/INSTALL.zh.md) · [本次更新明细](docs/RELEASE-0.6.18.md) · [English](README.en.md)
 
 **本次更新：** Windows／Mac 桥接 **0.6.18** 和 TAB5 **0.2.318-ui** 改善 Claude Code 原生会话识别、对话和未读回复体验，并优化语音授权后的恢复。TAB5 增加会话滚动和未读优先显示，改进总览显示与固件升级提示。ESP8266 保持 **0.5.8**。[更新说明](docs/RELEASE-0.6.18.md) · [安装指南](docs/INSTALL.zh.md)
 
@@ -133,7 +133,7 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 | --- | --- | --- | --- |
 | Windows 桥接 · Windows 10/11 x64 | 0.6.18 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-bridge-v0.6.18-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/SHA256SUMS.txt) |
 | Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.18 | [下载 · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-bridge-v0.6.18-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/SHA256SUMS.txt) |
-| ESP8266 小屏 · 首刷／升级通用 | 0.5.8 | [下载 · 30 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-firmware.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/SHA256SUMS.txt) |
+| ESP8266 小屏 · 首刷／升级通用 | 0.5.8 | [下载 · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
 | TAB5 · 出厂系统首次安装 | 0.2.318-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
 | TAB5 · 已有 AI-bot 升级 | 0.2.318-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
 | 每日书法 · 标准版 | 2026.1（包 2026.10.15.1） | [下载 · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/AI-bot-DailyCalligraphy-Curated-2026.10.15.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.205-ui/SHA256SUMS.txt) |
