@@ -1,6 +1,6 @@
 # 0.6.18 / TAB5 0.2.318-ui 双语发布说明草稿
 
-本文件供 Windows 发布负责人审校，并非公开说明。目标版本、范围、权限、候选素材和实际日期须在发布前确认；与当前 `Unreleased / 未发布` 及目标版本既有条目合并后，以最终 CHANGELOG 和镜像 sidecar 为准。涉及提示音的条目仅在素材具备公开再分发依据且选定包实际包含它时保留。未知验收项不写成已通过。
+本文件供发布负责人审校，并非公开说明。目标版本、最终 Mac 变化、候选素材和实际日期须在发布前核对。用户已表示语音素材可以发布并试听选择 Claude 提示音；保留实际素材及其来源、权利依据，不将该决定写成未经核实的第三方许可条款。未知验收项不写成已通过。
 
 ## 桥接 / Desktop bridge
 
@@ -53,12 +53,15 @@
 - Codex 和 Claude 使用图标入口；按可用空间排列，入口较多时可横向滚动，未读数字为 14 px。厂商目录短暂缺失时保留当前入口和会话。
 - 将可验证属于同一项目的会话分页合并为一个入口，通过滚动列表查看更早的会话；不同项目保持独立。
 - 当前项目的未读会话优先显示；有新回复时等触控操作结束再带入视野，不切换当前项目或选中会话。
+- 重新进入对话时，让默认选中的最近会话显示在列表视野中。
 - 保留 Codex 原完成提示，并使用匹配音色的 Claude 完成提示。
 
 #### 触控与显示
 
 - 切离对话页时关闭项目菜单；为长项目名保留箭头空间。相机与录音按钮采用等高双圆，发送、追加和取消使用胶囊按钮。
 - 修复录音结束后按下态残留、长按清空后的文字残影，并保留取消后草稿与照片恢复保护。
+- 降低总览显示缓存复制的峰值负载；修正滑动时 Codex 和 Claude 图标边缘的像素差异。
+- 固件升级准备期间显示具体状态，后台读取完成后继续准备，同时保护未确认消息和草稿。
 - 保持独立版本和现有配对、展示设置；现有设备使用升级包，新设备使用首刷包。
 
 ### English draft
@@ -68,10 +71,13 @@
 - Use provider icons for Codex and Claude, arrange them to fit the available width and allow horizontal scrolling when needed. Unread numbers use 14 px; briefly missing catalogs retain the current entries and session.
 - Merge verified pages belonging to one project into one entry and scroll to older sessions; keep different projects separate.
 - Show unread sessions first in the current project. Reveal a new reply after touch interaction ends without changing the current project or selected session.
+- Bring the default selected recent conversation into view when reopening dialogue.
 - Retain the existing Codex completion prompt and use a matching voice for the Claude completion prompt.
 
 #### Touch and display
 
 - Close the project menu when leaving dialogue and reserve arrow space for long project names. Use aligned circular camera and microphone controls and capsule send, append and cancel buttons.
 - Fix the lingering microphone pressed state and stale text after long-press clear, while retaining cancelled-draft and photo recovery protections.
+- Reduce peak overview display-cache copy load and correct Codex and Claude icon edge differences while swiping.
+- Show firmware preparation states and continue after background reads finish, protecting unconfirmed messages and drafts.
 - Keep the independent firmware version, existing pairing and display settings. Existing devices use the upgrade package; new devices use the first-install package.

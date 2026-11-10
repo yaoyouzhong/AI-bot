@@ -36,6 +36,7 @@
     "toolchain-xtensa": "2.100300.220621"
   },
   "sourceAssets": {
+    "docs/assets/screens/tab5-dialogue-0318-r13-preview.png": "957c94b0a84c263653b96d65e83e3ddc3633f52d9720c74f7bb66f7f66e9d6c7",
     "docs/assets/screens/mac-accounts.png": "9f800e5e4cfcf0baddb309f7ea2819ed57b75b99767222261e6a8a0862f6c709",
     "docs/assets/screens/mac-bridge-settings.png": "773d897e833ddd84bab649750d37dd251e07520e93beec386d7b22bded399318",
     "docs/assets/screens/mac-device-center.png": "abaecea1ce8f67d138ee6d23fc9552623240b8ca0f770e96042ef052e0b0dcca",
@@ -330,6 +331,14 @@
     "encoding": "1280x720 24fps H.264 Main yuv420p; AAC-LC 64kbps; faststart",
     "transformation": "Original 121-second film with the Codex Direct description updated only between 56 and 68 seconds; original sequence and audio retained.",
     "spriteRights": "User confirmed redistribution permission or authority on 2026-11-02; third-party sprite is not covered by project MIT license."
+  },
+  "tab5DialogueR13Preview20261110": {
+    "image": "docs/assets/screens/tab5-dialogue-0318-r13-preview.png",
+    "nativeRender": "production LVGL offscreen rendering with synthetic session and unread fixture data; not physical device footage",
+    "runtime": "0.2.318-ui R13 local source; this frame is pixel-identical to the R12 fixture",
+    "dimensions": "1280x720",
+    "license": "MIT for original UI; client icons and companion art retain their separate notices",
+    "pixelEdits": false
   },
   "tab5Controls72Preview20261105": {
     "runtimeSourceCommit": "6cc8528608c7e7ceb88fe59aadc171e07a24b33f",

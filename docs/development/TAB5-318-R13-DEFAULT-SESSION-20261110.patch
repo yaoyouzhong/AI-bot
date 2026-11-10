@@ -1,0 +1,135 @@
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R12";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R13";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2029,7 +2029,9 @@
+         if(!latest||num(task,"updatedAt")>num(latest,"updatedAt"))latest=task;
+     }
+     if(!latest)return false;
+-    codex_default_pending=false;codex_restore_project=false;
++    // Reveal the newly chosen default in the virtual list. The renderer still
++    // gives newly promoted unread rows and active gestures their usual priority.
++    codex_default_pending=false;codex_restore_project=true;
+     const char *project=workspace_project_root(text(latest,"projectId"));
+     snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",strlen(project)==16?project:"");
+     char id[37];snprintf(id,sizeof(id),"%s",text(latest,"id"));
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -3368,7 +3368,16 @@
+         cJSON_AddItemToArray(recent_tasks,task);
+     }
+     page(0);lv_obj_send_event(workbench_nav[1],LV_EVENT_CLICKED,NULL);
+-    assert(!strcmp(codex_selected,"10000000-0000-4000-8000-000000000108")&&!strcmp(codex_task_ids[7],codex_selected));
++    assert(!strcmp(codex_selected,"10000000-0000-4000-8000-000000000108"));
++    lv_obj_update_layout(lv_screen_active());
++    bool selected_visible=false;
++    lv_area_t list_bounds;lv_obj_get_coords(codex_list,&list_bounds);
++    for(int i=0;i<8;i++)if(!strcmp(codex_task_ids[i],codex_selected)&&!lv_obj_has_flag(codex_task_rows[i],LV_OBJ_FLAG_HIDDEN)) {
++        lv_area_t row_bounds;lv_obj_get_coords(codex_task_rows[i],&row_bounds);
++        selected_visible=row_bounds.y1>=list_bounds.y1&&row_bounds.y2<=list_bounds.y2;
++    }
++    assert(selected_visible);
++    capture("codex-default-scrolled");
+     for(int extra=0;extra<9;extra++)cJSON_DeleteItemFromArray(recent_tasks,2);
+     codex_select_task(text(recent_a,"id"));
+     assert(preview_submit_count==default_submits);cJSON_DeleteItemFromObject(recent_a,"updatedAt");cJSON_DeleteItemFromObject(recent_b,"updatedAt");
+@@ -3380,7 +3389,7 @@
+     page(8);lv_obj_send_event(codex_reply_button,LV_EVENT_CLICKED,NULL);
+     assert(!lv_obj_has_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN));
+     capture("codex-reply-open");
+-    lv_obj_send_event(lv_obj_get_child(codex_reply_overlay,1),LV_EVENT_CLICKED,NULL);
++    lv_obj_send_event(codex_reply_back,LV_EVENT_CLICKED,NULL);
+     assert(lv_obj_has_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN));
+     codex_reading=false;
+     cJSON *remote=item(shown,"codexTasks"),*ready=cJSON_AddObjectToObject(remote,"repliesReady");
+@@ -3394,6 +3403,12 @@
+     // Count unread tasks, retain other tasks when the selected one is read,
+     // and cap the displayed count without losing the underlying notices.
+     codex_notice saved_notices[80];memcpy(saved_notices,codex_notices,sizeof(saved_notices));
++    cJSON *count_tasks=item(remote,"tasks");int count_tasks_original=cJSON_GetArraySize(count_tasks);
++    for(int i=1;i<=9;i++) {
++        char id[37];snprintf(id,sizeof(id),"00000000-0000-0000-0000-%012d",i);
++        cJSON *task=cJSON_CreateObject();cJSON_AddStringToObject(task,"id",id);
++        cJSON_AddStringToObject(task,"title","计数测试会话");cJSON_AddItemToArray(count_tasks,task);
++    }
+     for(int i=1;i<3;i++) {
+         snprintf(codex_notices[i].task,sizeof(codex_notices[i].task),"00000000-0000-0000-0000-%012d",i);
+         codex_notices[i].unread=true;
+@@ -3403,14 +3418,16 @@
+     codex_notice_read();assert(!strcmp(lv_label_get_text(codex_unread_count),"2"));
+     assert(!lv_obj_has_flag(codex_unread_dot,LV_OBJ_FLAG_HIDDEN));
+     memcpy(codex_notices,saved_notices,sizeof(saved_notices));
+-    for(int i=1;i<9;i++)codex_notices[i].unread=true;
++    for(int i=1;i<9;i++) {snprintf(codex_notices[i].task,sizeof(codex_notices[i].task),"00000000-0000-0000-0000-%012d",i);codex_notices[i].unread=true;}
+     codex_notice_style();assert(!strcmp(lv_label_get_text(codex_unread_count),"9"));
+     lv_obj_update_layout(codex_unread_dot);assert(lv_obj_get_width(codex_unread_dot)==24);
+-    codex_notices[9].unread=true;codex_notice_style();
++    snprintf(codex_notices[9].task,sizeof(codex_notices[9].task),"00000000-0000-0000-0000-%012d",9);codex_notices[9].unread=true;codex_notice_style();
+     assert(!strcmp(lv_label_get_text(codex_unread_count),"9+"));
+     lv_obj_update_layout(codex_unread_dot);assert(lv_obj_get_width(codex_unread_dot)==32);
+     capture("proposal-codex-count-9plus");
+-    memcpy(codex_notices,saved_notices,sizeof(saved_notices));codex_notice_style();
++    memcpy(codex_notices,saved_notices,sizeof(saved_notices));
++    while(cJSON_GetArraySize(count_tasks)>count_tasks_original)cJSON_DeleteItemFromArray(count_tasks,count_tasks_original);
++    codex_notice_style();
+     puts("CODEX_UNREAD_COUNT_OK count_tasks, selected_read_retains_others, 9_plus_cap");
+     codex_notice_tick(2500,true);assert(preview_chimes==1);
+     cJSON *desktop_read=cJSON_AddObjectToObject(remote,"repliesRead");
+@@ -3426,12 +3443,15 @@
+     for(int i=1;i<3;i++) {
+         snprintf(codex_notices[i].task,sizeof(codex_notices[i].task),"00000000-0000-0000-0000-%012d",i);
+         snprintf(codex_notices[i].turn,sizeof(codex_notices[i].turn),"other-reply");codex_notices[i].unread=true;
++        cJSON *task=cJSON_CreateObject();cJSON_AddStringToObject(task,"id",codex_notices[i].task);
++        cJSON_AddStringToObject(task,"title","已读测试会话");cJSON_AddItemToArray(count_tasks,task);
+     }
+     codex_notice_style();assert(!strcmp(lv_label_get_text(codex_unread_count),"3"));
+     codex_notice_tick(2503,true);assert(!strcmp(lv_label_get_text(codex_unread_count),"2"));
+     capture("codex-desktop-read-count-two");
+     for(int i=1;i<3;i++)cJSON_AddStringToObject(desktop_read,codex_notices[i].task,"other-reply");
+     codex_notice_tick(2503,true);assert(lv_obj_has_flag(codex_unread_dot,LV_OBJ_FLAG_HIDDEN));
++    while(cJSON_GetArraySize(count_tasks)>count_tasks_original)cJSON_DeleteItemFromArray(count_tasks,count_tasks_original);
+     memcpy(codex_notices,saved_notices,sizeof(saved_notices));
+     snprintf(codex_notices[0].turn,sizeof(codex_notices[0].turn),"reply-new");
+     cJSON_ReplaceItemInObject(ready,codex_selected,cJSON_CreateString("reply-new"));
+@@ -3493,7 +3513,7 @@
+     codex_notice_tick(2550,true);assert(!home_task_unread&&preview_chimes==1);
+     cJSON_DeleteItemFromObject(remote,"replyView");cJSON_ReplaceItemInObject(responses,codex_selected,saved_response);
+     puts("OVERVIEW_READ_ACK_OK pinned completed text clears unread; placeholders and other turns do not; empty replies retry");
+-    lv_obj_send_event(lv_obj_get_child(codex_reply_overlay,1),LV_EVENT_CLICKED,NULL);
++    lv_obj_send_event(codex_reply_back,LV_EVENT_CLICKED,NULL);
+     codex_reading=false;codex_nav_pending=false;
+     lv_textarea_set_text(codex_input,"");codex_save_draft();
+     puts("OVERVIEW_COMPLETION_OPEN_OK exact turn, page zero, draft preserved, no send, unread retained");
+@@ -3515,7 +3535,7 @@
+     last_received=esp_timer_get_time()/1000;
+     // This scenario opens live activity; the preceding history-read scenario
+     // now correctly leaves a real bookmark rather than an empty placeholder.
+-    codex_open_latest=true;
++    page(8);codex_open_latest=true;
+     lv_obj_send_event(codex_reply_button,LV_EVENT_CLICKED,NULL);assert(preview_read_page==-1);
+     codex_reading=false;codex_nav_pending=false;lv_obj_send_event(codex_reply_older,LV_EVENT_CLICKED,NULL);assert(preview_read_page==0);
+     codex_reading=false;lv_obj_send_event(codex_reply_latest,LV_EVENT_CLICKED,NULL);assert(preview_read_page==-1);
+@@ -3736,7 +3756,7 @@
+     codex_reply_refresh(NULL);preview_result_code=429;codex_read_finish(400);assert(codex_read_next==600);
+     preview_result_code=-1;codex_reading=false;codex_nav_pending=false;
+     printf("CODEX_NAVIGATION_OK queued_clicks_latest_wins_direct_reply_stale_heartbeat_rate_retry_cached_history_instant_latest\n");
+-    lv_obj_send_event(lv_obj_get_child(codex_reply_overlay,1),LV_EVENT_CLICKED,NULL);
++    lv_obj_send_event(codex_reply_back,LV_EVENT_CLICKED,NULL);
+     codex_apply_key("a",0);codex_apply_key("enter",0);codex_apply_key("backspace",0);codex_apply_key("A",0);
+     codex_apply_key("x",1);codex_apply_key("x",4);
+     assert(!strcmp(lv_textarea_get_text(codex_input),"aA"));
+@@ -3988,7 +4008,7 @@
+     lv_obj_send_event(codex_reply_button,LV_EVENT_CLICKED,NULL);
+     assert(!lv_obj_has_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN)&&strstr(lv_label_get_text(codex_reply_status),"正在发送"));
+     capture("codex-view-during-send");
+-    lv_obj_send_event(lv_obj_get_child(codex_reply_overlay,1),LV_EVENT_CLICKED,NULL);
++    lv_obj_send_event(codex_reply_back,LV_EVENT_CLICKED,NULL);
+     assert(lv_obj_has_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN)&&codex_waiting);
+     preview_result_code=503;preview_result_text="会话恢复失败，文字已保留";tick(NULL);render_codex();
+     assert(!codex_waiting&&strstr(lv_label_get_text(codex_receipt),"会话恢复失败"));

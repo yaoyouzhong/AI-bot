@@ -30,7 +30,8 @@ class DistributionTests(unittest.TestCase):
                      'docs/assets/screens/tab5-first-install.png', 'docs/assets/screens/tab5-upgrade.png',
                      'licenses/windows-sdk/sdk_license.rtf', 'licenses/windows-sdk/REDIST.html',
                      'licenses/netease-clock-reference/LICENSE', 'licenses/netease-clock-reference/ORIGIN.md',
-                     'licenses/qqmusic-clock-reference/LICENSE', 'licenses/qqmusic-clock-reference/ORIGIN.md'):
+                     'licenses/qqmusic-clock-reference/LICENSE', 'licenses/qqmusic-clock-reference/ORIGIN.md',
+                     'licenses/companion-art/NOTICE.md'):
             self.write(name, 'synthetic fixture')
         self.package = self.root / 'packages/sample/1.0'
         self.package.mkdir(parents=True)
@@ -49,6 +50,7 @@ class DistributionTests(unittest.TestCase):
             for name in ('LICENSE', 'ORIGIN.md'):
                 relative = reference + '/' + name
                 evidence['files'][relative] = materials.digest(self.root / 'licenses' / relative)
+        evidence['files']['companion-art/NOTICE.md'] = materials.digest(self.root / 'licenses/companion-art/NOTICE.md')
         self.write('licenses/materials.json', json.dumps(evidence))
         assets = {'packageFolders': {str(self.root / 'packages'): {}},
                   'libraries': {'sample/1.0': {'type': 'package', 'path': 'sample/1.0'}},
@@ -69,6 +71,8 @@ class DistributionTests(unittest.TestCase):
                 self.assertEqual((self.stage / relative).read_bytes(), (self.root / relative).read_bytes())
         self.assertTrue((self.stage / 'licenses/Microsoft.Windows.SDK.NET.Ref-10.0.19041.56/sdk_license.rtf').is_file())
         self.assertTrue((self.stage / 'DEPENDENCIES.json').is_file())
+        self.assertEqual((self.stage / 'licenses/companion-art/NOTICE.md').read_bytes(),
+                         (self.root / 'licenses/companion-art/NOTICE.md').read_bytes())
         for name in ('WINDOWS_INSTALLER.md', 'DOMESTIC_QUOTA_SETUP.md', 'assets/screens/api-settings.png'):
             self.assertEqual((self.stage / 'docs' / name).read_bytes(), (self.root / 'docs' / name).read_bytes())
         for name, expected in self.hashes.items():

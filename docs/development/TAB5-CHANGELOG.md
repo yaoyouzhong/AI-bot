@@ -2,28 +2,24 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
-## Unreleased
+## 0.2.318-ui - 2026-11-10
 
 ### Dialogue
 - Use provider icons for Codex and Claude; center larger icons for one to three entries and allow horizontal scrolling when more entries are available.
 - Keep compact unread badges with 14 px numbers. Retain provider entries and the current session through brief missing catalogs, updating after a sustained empty result.
 - Combine verifiably related session pages into one project entry and scroll through more conversations. Keep distinct projects separate; older bridge transport limits still apply.
 - Show unread conversations first within the current project. Bring new unread replies into view once the list is idle, without changing the selected conversation.
+- When reopening dialogue, bring the default selected recent conversation into the visible list.
 - Retain the original Codex completion prompt and match its voice in the new Claude completion prompt.
-- Mac USB acceptance confirmed LIST1 boot, one entry for a verified project, scrolling to older sessions, and preserved display settings. Windows later validated R6 boot and the user confirmed unread priority; Mac-to-R6 unread behavior remains to be checked. Public redistribution of the R6 Claude audio remains unresolved.
-
-## 0.2.318-ui - 2026-11-05
-
 ### Dialogue and touch controls
 - Close project menus immediately when leaving dialogue, keep them closed on return, and reserve arrow space for long project names.
 - Align 72px camera/microphone circles with the send button height; use matching solid fills, fine borders, press feedback and capsule send/append/cancel buttons. Preserve the accepted right-hand reach and source, attachment and guidance areas.
 - Fix the microphone's lingering pressed state and idle color mismatch after recording, and stale text pixels reappearing after long-press clear.
 - Include .314 cancellation recovery for text/photos and protection for later drafts.
 
-### Display and verification
-- Protect continuous LCD reads outside camera sessions. Subsequent user observations did not reproduce left-side flashing; finite diagnostic samples recorded zero underruns/flush errors, without a permanent no-flash claim.
-- Preserve accepted build `20261105-controls72`, BIN SHA-256 `fad7d04c5585f222951aa7ac13deb01e8664a2069679d32547fa9f058563e2be`; do not rebuild or relabel it.
-- Fourteen native cases and exact-image boot checks passed. The user confirmed camera return, stopped dictation and transcript fill, clear remaining empty after five seconds, matching idle colors, appearance and touch. Existing checks retain their original scope.
+### Display and firmware updates
+- Reduce peak overview display-cache copy load and correct Codex and Claude icon edge differences while swiping.
+- Show the specific firmware preparation state and continue after background reads complete, while protecting unconfirmed messages and drafts.
 
 ## 0.2.314-ui - 2026-11-05
 
