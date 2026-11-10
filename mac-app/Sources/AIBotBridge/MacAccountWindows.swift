@@ -96,23 +96,91 @@ final class MacStocksWindow: NSWindowController, NSTextFieldDelegate {
 
 private final class MacQuotaChart: NSView {
     var days: [MacQuotaTrend.Day] = [] { didSet { needsDisplay = true } }
-    var points = false
+    var points = false { didSet { needsDisplay = true } }
+    private let percent = NumberFormatter()
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        percent.locale = Locale(identifier: "en_US_POSIX")
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        let resized = frame.size != newSize
+        super.setFrameSize(newSize)
+        if resized { needsDisplay = true }
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         NSColor.controlBackgroundColor.setFill(); bounds.fill()
-        let maxValue = points ? 100 : max(1, days.compactMap(\.used).max() ?? 1), width = (bounds.width - 24) / CGFloat(max(1, days.count))
-        let line = NSBezierPath(); var started = false
-        for (index, day) in days.enumerated() {
-            let x = 12 + CGFloat(index) * width
-            if let value = day.used {
-                if points {
-                    let p = NSPoint(x:x + width/2,y:30 + CGFloat(value / maxValue) * (bounds.height - 62))
-                    if started { line.line(to:p) } else { line.move(to:p); started = true }
-                } else {
-                    (day.partial ? NSColor.systemOrange : NSColor.controlAccentColor).setFill()
-                    NSBezierPath(rect: NSRect(x: x + 2, y: 30, width: max(1, width - 4), height: max(1, CGFloat(value / maxValue) * (bounds.height - 62)))).fill()
+        let maxValue = points ? 100 : max(1, days.compactMap(\.used).max() ?? 1)
+        let step = (bounds.width - 24) / CGFloat(max(1, days.count))
+        guard step > 0 else { return }
+        let valueFont = NSFont.systemFont(ofSize: 11)
+        let dateStyle: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.secondaryLabelColor]
+        func formattedLabels(decimals: Int, suffix: String) -> [NSAttributedString] {
+            percent.maximumFractionDigits = decimals
+            let minimum = decimals == 0 ? 1.0 : 0.1
+            let belowMinimum = decimals == 0 ? "<1" : "<0.1"
+            return days.map { day in
+                let value = day.used.flatMap { amount in
+                    amount > 0 && amount < minimum ? belowMinimum : percent.string(from: NSNumber(value: amount))
                 }
-            } else { NSColor.separatorColor.setFill(); NSRect(x: x + 2, y: 30, width: max(1, width - 4), height: 2).fill() }
-            if days.count <= 7 || index % max(1,days.count/6) == 0 { (day.label as NSString).draw(at: NSPoint(x: x, y: 10), withAttributes: [.font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.secondaryLabelColor]) }
+                return NSAttributedString(string: value.map { $0 + suffix } ?? "—", attributes: [.font: valueFont,
+                    .foregroundColor: day.used == nil ? NSColor.secondaryLabelColor : NSColor.labelColor])
+            }
+        }
+        func needsMoreRoom(_ labels: [NSAttributedString]) -> Bool { labels.contains { $0.size().width + 2 > step } }
+
+        var labels = points ? [] : formattedLabels(decimals: 1, suffix: "%")
+        var unit: NSAttributedString?
+        if needsMoreRoom(labels) {
+            labels = formattedLabels(decimals: 0, suffix: "%")
+            if needsMoreRoom(labels) {
+                labels = formattedLabels(decimals: 0, suffix: "")
+                unit = NSAttributedString(string: "周额度（%）", attributes: dateStyle)
+            }
+        }
+        let vertical = needsMoreRoom(labels)
+        let sizes = labels.map { $0.size() }
+        let labelHeight = sizes.map { vertical ? $0.width : $0.height }.max() ?? 0
+        let headerHeight = unit == nil ? CGFloat(0) : 16
+        let plotHeight = max(1, bounds.height - max(62, 42 + labelHeight) - headerHeight)
+        unit?.draw(at: NSPoint(x: 12, y: bounds.height - 18))
+        let line = NSBezierPath()
+        for (index, day) in days.enumerated() {
+            let x = 12 + CGFloat(index) * step, center = x + step / 2
+            let height = day.used.map { max(1, CGFloat($0 / maxValue) * plotHeight) } ?? 2
+            if points {
+                if let value = day.used {
+                    let point = NSPoint(x: center, y: 30 + CGFloat(value / maxValue) * plotHeight)
+                    if line.isEmpty { line.move(to: point) } else { line.line(to: point) }
+                } else {
+                    NSColor.separatorColor.setFill(); NSRect(x: x + 2, y: 30, width: max(1, step - 4), height: height).fill()
+                }
+            } else {
+                let fill: NSColor = day.used == nil ? .separatorColor : day.partial ? .systemOrange : .controlAccentColor
+                fill.setFill()
+                NSRect(x: x + 2, y: 30, width: max(1, step - 4), height: height).fill()
+                let label = labels[index], size = sizes[index], top = 34 + height
+                if vertical, day.used != nil {
+                    NSGraphicsContext.saveGraphicsState()
+                    let transform = NSAffineTransform()
+                    transform.translateX(by: center + size.height / 2, yBy: top)
+                    transform.rotate(byDegrees: 90)
+                    transform.concat()
+                    label.draw(at: .zero)
+                    NSGraphicsContext.restoreGraphicsState()
+                } else {
+                    label.draw(at: NSPoint(x: center - size.width / 2, y: top))
+                }
+            }
+            if days.count <= 7 || index % max(1, days.count / 6) == 0 {
+                let label = NSAttributedString(string: day.label, attributes: dateStyle)
+                let x = min(max(0, center - label.size().width / 2), max(0, bounds.width - label.size().width))
+                label.draw(at: NSPoint(x: x, y: 10))
+            }
         }
         if points { NSColor.controlAccentColor.setStroke(); line.lineWidth = 2; line.stroke() }
     }

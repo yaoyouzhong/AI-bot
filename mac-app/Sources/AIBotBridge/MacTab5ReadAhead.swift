@@ -6,16 +6,17 @@ final class MacTab5ReadAhead {
     private let lock = NSLock()
     private let clock: () -> TimeInterval
     private let schedule: (@escaping () -> Void) -> Void
+    private let freshness: TimeInterval
     private var pending = false
     private var cached: (key: String, at: TimeInterval, result: MacTab5RPCResult)?
-    init(clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+    init(clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, freshness: TimeInterval = 1,
          schedule: @escaping (@escaping () -> Void) -> Void = { work in DispatchQueue.global(qos: .utility).async(execute: work) }) {
-        self.clock = clock; self.schedule = schedule
+        self.clock = clock; self.freshness = freshness; self.schedule = schedule
     }
     func response(key: String, read: @escaping () -> MacTab5RPCResult) -> MacTab5RPCResult {
         lock.lock()
         let now = clock(), match = cached.flatMap { $0.key == key && now >= $0.at ? $0 : nil }
-        let fresh = match.map { now - $0.at < 1 } ?? false
+        let fresh = match.map { now - $0.at < freshness } ?? false
         let start = !pending && !fresh
         if start { pending = true }
         // Retain a recent successful page while refreshing; never return a page

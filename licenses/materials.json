@@ -244,7 +244,8 @@
     "docs/development/tab5-313-source/AI-bot-tab5-0.2.313-ui-source.zip": "31de185bbcbd0895088d1f7b713a4ba47f68402b6545ebac07c206f6f2d96de3",
     "docs/assets/screens/tab5-dialogue-0313-preview.png": "32510ec1adfada77f2e83ac55b990518ea3ed054ffb6c46757d25d2a78f17db3",
     "docs/assets/screens/tab5-dialogue-0318-preview.png": "5f90022a697f7840a6cea772a8552f5a69d7d5973b9333a51fe25d175ba11c9c",
-    "docs/development/tab5-318-source/AI-bot-tab5-0.2.318-ui-source.zip": "ddecd2141043e615f904a128ce75a16b2568b3000a7bb3624058b4e75b770895"
+    "docs/development/tab5-318-source/AI-bot-tab5-0.2.318-ui-source.zip": "ddecd2141043e615f904a128ce75a16b2568b3000a7bb3624058b4e75b770895",
+    "docs/development/tab5-318-r4-source/source-overlay.zip": "6d2e51c089358b52c256eea9548406d56ce8a7ec3d33ed2fa48497c06b9b1aeb"
   },
   "windowsPackageNotices": {
     "NAudio.Core/2.2.1": "naudio/license.txt",

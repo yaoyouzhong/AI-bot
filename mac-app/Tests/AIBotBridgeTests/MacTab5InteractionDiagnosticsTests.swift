@@ -2,6 +2,46 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5InteractionDiagnosticsTests: XCTestCase {
+    func testNativeRejectionUsesFixedReasonWithoutRecordingUntrustedDetails() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let local = MacTab5LocalDiagnostics(directory: directory)
+        let diagnostics = MacTab5InteractionDiagnostics(clock: { 1 })
+        diagnostics.localDiagnostics = local
+        let id = diagnostics.begin(kind: "codex", operation: "send", transport: "USB")
+        diagnostics.finish(id, status: 409, body: ["error":"native_input_unavailable", "message":"private"])
+        local.waitUntilIdle()
+        XCTAssertTrue(diagnostics.summary.contains("未确认"))
+        let file = directory.appendingPathComponent("tab5-desktop-diagnostics.json")
+        let record = try XCTUnwrap(try JSONSerialization.jsonObject(with:Data(contentsOf:file)) as? [String:[String:Any]])
+        XCTAssertEqual(record["request"]?["detail"] as? String, "native_input_unavailable")
+        XCTAssertFalse(String(decoding:try Data(contentsOf:file),as:UTF8.self).contains("private"))
+        let another = diagnostics.begin(kind: "codex", operation: "send", transport: "USB")
+        diagnostics.finish(another, status: 409, body: ["error":"private payload"])
+        local.waitUntilIdle()
+        XCTAssertFalse(diagnostics.summary.contains("private payload"))
+        let updated = try XCTUnwrap(try JSONSerialization.jsonObject(with:Data(contentsOf:file)) as? [String:[String:Any]])
+        XCTAssertEqual(updated["request"]?["detail"] as? String, "unclassified")
+    }
+    func testDeviceDisplayCountersSurvivePartialAcknowledgements() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let diagnostics = MacTab5LocalDiagnostics(directory: directory)
+        diagnostics.device(["type": "tab5_ack", "uptimeMs": 42, "saverActive": 1,
+                            "lcdUnderruns": 7, "flushErrors": 0, "message": "private"])
+        diagnostics.waitUntilIdle()
+
+        let partial = MacTab5LocalDiagnostics(directory: directory)
+        partial.device(["type": "tab5_ack", "sequence": 12])
+        partial.waitUntilIdle()
+        let data = try Data(contentsOf: directory.appendingPathComponent("tab5-device-diagnostics.json"))
+        let snapshot = try JSONDecoder().decode([String: String].self, from: data)
+        XCTAssertEqual(snapshot["lcdUnderruns"], "7")
+        XCTAssertEqual(snapshot["flushErrors"], "0")
+        XCTAssertEqual(snapshot["saverActive"], "1")
+        XCTAssertNil(snapshot["message"])
+    }
+
     func testUnmeasuredQueueIsNotReportedAsZero() {
         let diagnostics = MacTab5InteractionDiagnostics(clock: { 1 })
         diagnostics.finish(diagnostics.begin(kind: "voice", operation: "start", transport: "BLE"), status: 200)

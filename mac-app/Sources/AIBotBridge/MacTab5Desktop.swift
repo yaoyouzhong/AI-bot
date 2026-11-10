@@ -668,7 +668,7 @@ enum MacTab5DesktopAX {
               !containers.contains(where: { ["AXDialog", "AXSheet", "AXTextArea", "AXTextField"].contains($0.role) }),
               let pageIndex = containers.firstIndex(where: { $0.role == "AXWebArea" }),
               containers.filter({ $0.role == "AXWebArea" }).count == 1,
-              containers[..<pageIndex].contains(where: { question ? $0.classes.contains("@container/request-card") : $0.classes.contains(where: { $0.hasPrefix("_ComposerLayoutBody_") }) }) else { return .structure }
+              containers[..<pageIndex].contains(where: { question ? $0.classes.contains("@container/request-card") : hasComposerClass($0.classes, role: "Body") }) else { return .structure }
         let page = containers[pageIndex]
         guard trustedShell(page.address, resourceRoot: resources) else { return .route }
         // An exact live address wins over a stale/matching title. In particular,
@@ -953,13 +953,24 @@ enum MacTab5DesktopAX {
     // The presentational outer Root can be omitted from the accessibility tree.
     // Body is already required by checkedComposer and contains both the editor
     // and its adaptive footer controls in the supported desktop layout.
+    static func hasComposerClass(_ classes: [String], role: String) -> Bool {
+        let legacy = "_ComposerLayout" + role + "_", current = "ComposerLayout" + role + "-"
+        return classes.contains { token in
+            let prefix = token.hasPrefix(legacy) ? legacy : current
+            guard token.hasPrefix(prefix) else { return false }
+            let suffix = token.utf8.dropFirst(prefix.utf8.count)
+            return !suffix.isEmpty && suffix.allSatisfy {
+                (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95
+            }
+        }
+    }
     static func composerContainer<Node>(_ editor: Node, role: (Node) -> String,
                                          classes: (Node) -> [String], parent: (Node) -> Node?) -> Node? {
         var node = editor
         for _ in 0..<32 {
             guard !["AXWebArea", "AXWindow", "AXDialog", "AXSheet"].contains(role(node)),
                   !classes(node).contains("@container/request-card") else { return nil }
-            if classes(node).contains(where: { $0.hasPrefix("_ComposerLayoutBody_") }) { return node }
+            if hasComposerClass(classes(node), role: "Body") { return node }
             guard let next = parent(node) else { return nil }
             node = next
         }
@@ -980,7 +991,7 @@ enum MacTab5DesktopAX {
             prohibited: {
                 let classes = value($0, "AXDOMClassList") as? [String] ?? []
                 return classes.contains("@container/request-card") || (!CFEqual($0, body) &&
-                    classes.contains(where: { $0.hasPrefix("_ComposerLayoutBody_") }))
+                    hasComposerClass(classes, role: "Body"))
             }, isEditor: { CFEqual($0, editor) }, label: buttonLabel,
             enabled: { value($0, "AXEnabled") as? Bool == true }, failure: note)
     }
@@ -1029,7 +1040,7 @@ enum MacTab5DesktopAX {
         let classes = value(root, "AXDOMClassList") as? [String] ?? []
         // Electron may omit the presentational LayoutRoot from AX. Its nearest
         // group must still be bounded, contain this one body and no other editor.
-        guard classes.contains(where: { $0.hasPrefix("_ComposerLayoutRoot_") }) ||
+        guard hasComposerClass(classes, role: "Root") ||
               value(root, "AXRole") as? String == "AXGroup" else { return false }
         ready = attachmentFreeLayout(root, role: { value($0, "AXRole") as? String ?? "" },
             classes: { value($0, "AXDOMClassList") as? [String] ?? [] },
@@ -1055,17 +1066,17 @@ enum MacTab5DesktopAX {
         while let (node, insideControl) = pending.popLast() {
             visited += 1
             guard visited <= 300, clock() < deadline else { return reject(.taskAppendScope, "scan-limit") }
-            let kind = role(node), names = classes(node).map { $0.lowercased() }
+            let kind = role(node), tokens = classes(node), names = tokens.map { $0.lowercased() }
             if isBody(node) { bodies += 1 }
             if kind == "AXTextArea" {
                 guard isEditor(node), !insideControl else { return reject(.taskAppendScope, "foreign-editor") }
                 editors += 1
             }
             if names.contains("@container/request-card") ||
-                (!isBody(node) && names.contains(where: { $0.hasPrefix("_composerlayoutbody_") })) {
+                (!isBody(node) && hasComposerClass(tokens, role: "Body")) {
                 return reject(.taskAppendScope, "foreign-body-or-card")
             }
-            let attachmentSlot = names.contains { $0.hasPrefix("_composerlayoutattachments_") || $0.hasPrefix("_composerlayoutreplycontext_") }
+            let attachmentSlot = hasComposerClass(tokens, role: "Attachments") || hasComposerClass(tokens, role: "ReplyContext")
             if attachmentSlot {
                 guard emptyAttachmentLayout(node, role: role, children: children, text: text,
                                             deadline: ProcessInfo.processInfo.systemUptime + max(0, deadline - clock())) else {
@@ -1104,10 +1115,10 @@ enum MacTab5DesktopAX {
             var zone = previousZone
             let role = value(node, "AXRole") as? String ?? ""
             let classes = value(node, "AXDOMClassList") as? [String] ?? []
-            for (prefix, label) in [("_ComposerLayoutRoot_", "root"), ("_ComposerLayoutAttachments_", "attachment-slot"),
-                                    ("_ComposerLayoutReplyContext_", "reply-slot"), ("_ComposerLayoutBody_", "body-slot"),
-                                    ("_ComposerLayoutFooter_", "footer"), ("_ComposerLayoutInput_", "input")] {
-                if classes.contains(where: { $0.hasPrefix(prefix) }) { stats[scope + "." + label, default: 0] += 1; zone = label }
+            for (layoutRole, label) in [("Root", "root"), ("Attachments", "attachment-slot"),
+                                    ("ReplyContext", "reply-slot"), ("Body", "body-slot"),
+                                    ("Footer", "footer"), ("Input", "input")] {
+                if hasComposerClass(classes, role: layoutRole) { stats[scope + "." + label, default: 0] += 1; zone = label }
             }
             if isComposerToolbarControl(role) { zone = role }
             if ["AXImage", "AXLink", "AXWebArea", "AXDialog", "AXSheet", "AXTextArea"].contains(role) {

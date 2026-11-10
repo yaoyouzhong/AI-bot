@@ -29,6 +29,29 @@ final class MacTab5Speech {
             AVCaptureDevice.requestAccess(for: .audio) { allowed in DispatchQueue.main.async { completion(allowed) } }
         }
     }
+    // Request only the capabilities this explicit take needs. Always finish
+    // asynchronously; a device RPC never waits for a system consent dialog.
+    static func preparePermission(source: String, current: @escaping () -> Bool, completion: @escaping (Bool) -> Void) -> Bool {
+        let speech = SFSpeechRecognizer.authorizationStatus()
+        let microphone = AVCaptureDevice.authorizationStatus(for: .audio)
+        guard speech == .notDetermined || (source == "pc" && microphone == .notDetermined) else { return false }
+        DispatchQueue.main.async {
+            guard current() else { return }
+            func microphoneIfNeeded(_ allowed: Bool) {
+                guard current() else { return }
+                guard allowed, source == "pc" else { completion(allowed); return }
+                AVCaptureDevice.requestAccess(for: .audio, completionHandler: completion)
+            }
+            if speech == .notDetermined {
+                SFSpeechRecognizer.requestAuthorization { status in
+                    DispatchQueue.main.async { microphoneIfNeeded(status == .authorized) }
+                }
+            } else {
+                microphoneIfNeeded(speech == .authorized)
+            }
+        }
+        return true
+    }
     private func start(_ source: String, selected: MacAudioInput?, callback: @escaping (String, Bool, MacTab5SpeechFailure?) -> Void) throws {
         lock.lock(); defer { lock.unlock() }; cancel()
         updates = 0; timedUpdates = 0; lastDiagnostics = ""; inputName = ""

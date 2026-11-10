@@ -28,8 +28,8 @@ final class MacClaudeCatalog {
         let secret = try key()
         guard secret.count == 32 else { throw MacTab5Error.keychain }
         let observations=index.scanAll(now:now)
-        let known=Set(observations.map(\.sessionID))
-        let combined=(observations+newPanels.filter{!known.contains($0.sessionID)}).sorted{$0.lastActivity>$1.lastActivity}
+        var known=Set(observations.map(\.sessionID))
+        let combined=(observations+newPanels.filter{known.insert($0.sessionID).inserted}).sorted{$0.lastActivity>$1.lastActivity}
         let rows = combined.compactMap { row -> Entry? in
             let normalized = row.directory.flatMap { directory -> String? in
                 guard directory.hasPrefix("/"), !directory.contains("\0") else { return nil }

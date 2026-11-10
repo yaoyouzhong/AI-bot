@@ -70,6 +70,8 @@ internal static class BridgeInstallation
     internal static string Configure(){
         AppProfileGuard.EnsureDesktopProfile();if(!BridgeElevation.IsAdministrator)throw new UnauthorizedAccessException("bridge_administrator_required");
         string owner=BridgeElevation.Owner,source=AppContext.BaseDirectory;
+        string? previous=StartupRegistration.InstalledExecutable();
+        Manifest? previousManifest=previous is null?null:Read(previous,owner);
         var files=SourceFiles.Value;
         string directory=Path.Combine(Root,"v1-"+Identity(files)+"-"+owner),executable=Path.Combine(directory,"AIBotBridge.exe");
         DirectoryProtected(Root,owner);
@@ -87,7 +89,7 @@ internal static class BridgeInstallation
                 foreach(string path in parents)DirectoryProtected(path,owner);
                 File.Copy(from,to,false);SetOwner(new(to));if(Hash(to)!=pair.Value)throw new IOException("bridge_payload_changed");
             }
-            int? port=int.TryParse(Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT"),out int configured)&&configured is >0 and <=65535?configured:null;
+            int? port=int.TryParse(Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT"),out int configured)&&configured is >0 and <=65535?configured:previousManifest?.HttpPort;
             string manifest=Path.Combine(destination,"bridge-install.json");File.WriteAllText(manifest,JsonSerializer.Serialize(new Manifest(1,owner,files,port)));SetOwner(new(manifest));
             Directory.Move(destination,directory);
             }catch{
@@ -100,8 +102,10 @@ internal static class BridgeInstallation
                 throw;
             }
         }
-        if(Read(executable,owner) is null)throw new IOException("bridge_install_verification_failed");
+        var manifestRead=Read(executable,owner)??throw new IOException("bridge_install_verification_failed");
+        using var firewall=BridgeFirewall.Prepare(previous,executable,owner,manifestRead.HttpPort??BridgeFirewall.DefaultHttpPort);
         StartupRegistration.ConfigureInstalled(executable);
+        firewall.Commit();
         int cleanup=LegacyClaudeAdminCleanup.Remove();
         Tab5LocalDiagnostics.Write("BRIDGE_ADMIN stage=configured legacyCleanup="+cleanup);
         return executable;

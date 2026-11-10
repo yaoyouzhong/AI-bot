@@ -55,6 +55,8 @@ internal static class Tab5RemoteOtaSelfTest
             try {
                 var info=await Tab5OtaControl.CallAsync("info",name:pipeName);
                 if(!info.GetProperty("ok").GetBoolean()||info.GetProperty("body").GetProperty("sha256").GetString()!=image.Sha256)throw new Exception("IPC offer metadata differs");
+                var wrongSettings=await Tab5OtaControl.CallAsync("display-settings","001122334455",name:pipeName);
+                if(wrongSettings.GetProperty("ok").GetBoolean())throw new Exception("Read-only upgrade settings accepted the wrong device");
                 var status=await Tab5OtaControl.CallAsync("native-status",name:pipeName);
                 if(!status.GetProperty("ok").GetBoolean()||status.GetProperty("body").GetProperty("armed").GetBoolean())
                     throw new Exception("Native diagnostics must start unarmed");

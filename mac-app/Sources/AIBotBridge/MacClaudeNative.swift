@@ -42,12 +42,13 @@ enum MacClaudeNativeContent {
 struct MacClaudeNativeReceipt: Codable {
     let session: UUID, scope: String, digest: String, known: Set<String>, limited: Bool
     static func capture(_ history: MacClaudeHistory.Value, session: UUID, scope: String, text: String, images: [String]) -> Self {
-        Self(session:session,scope:scope,digest:MacClaudeNativeContent.digest(text,images:images),known:history.accepted,limited:history.limited)
+        Self(session:session,scope:scope,digest:MacClaudeNativeContent.digest(text,images:images),known:history.allAccepted ?? history.accepted,limited:history.limited)
     }
     func confirm(_ history: MacClaudeHistory.Value, scope current: String) -> String? {
-        guard scope == current, !limited, !history.limited, known.isSubset(of:history.accepted) else { return nil }
-        let added = history.accepted.subtracting(known)
-        guard added.count == 1, let id = added.first, UUID(uuidString:id) != nil, history.inputDigests[id] == digest else { return nil }
+        let all = history.allAccepted ?? history.accepted
+        guard scope == current, !limited, !history.limited, known.isSubset(of:all) else { return nil }
+        let added = all.subtracting(known)
+        guard added.count == 1, let id = added.first, history.accepted.contains(id), UUID(uuidString:id) != nil, history.inputDigests[id] == digest else { return nil }
         return id
     }
 }
@@ -58,9 +59,15 @@ struct MacClaudeNativeView: Equatable {
 struct MacClaudeNativeRequest {
     let operation: String, text: String, paths: [URL], imageDigests: [String]
     let authorized: () -> Bool, current: () throws -> Bool
+    var interrupted: () throws -> Bool = { false }
+    var expectedUser: String? = nil
 }
 protocol MacClaudeNativeSession {
-    var hasSessionAPI: Bool { get }
+    var source: MacClaudeSessionSource { get }
+    var usesFileImageReferences: Bool { get }
+    func normalizedInput(_ text: String) -> String
+    func allows(_ operation: String, images: Bool) -> Bool
+    func isVerifiedBlank() -> Bool
     var session: UUID { get }
     func scope() throws -> String
     func state() throws -> String
@@ -70,21 +77,101 @@ protocol MacClaudeNativeSession {
     /// True only after the client confirms interruption of the requested turn.
     func interrupt(_ request: MacClaudeNativeRequest) throws -> Bool
 }
-extension MacClaudeNativeSession { var hasSessionAPI: Bool { false } }
+extension MacClaudeNativeSession {
+    var source: MacClaudeSessionSource { .unknown }
+    var usesFileImageReferences: Bool { false }
+    func normalizedInput(_ text: String) -> String { text }
+    func allows(_ operation: String, images: Bool) -> Bool { false }
+    func isVerifiedBlank() -> Bool { false }
+}
+
+protocol MacClaudeDirectSession: MacClaudeNativeSession {
+    /// Prepare a verified connection without sending input. The caller journals
+    /// the request before invoking the returned submission once. False means
+    /// a final preflight failed before any submission. For interruption,
+    /// true requires terminal evidence of the targeted stop.
+    func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool
+}
+
+// Optional evidence that the original client accepted a follow-up into its
+// own queue. A posted keystroke or an empty composer alone is not evidence.
+protocol MacClaudeQueueReceiptSession: MacClaudeDirectSession {
+    func queuedSubmissionConfirmed(_ request: MacClaudeNativeRequest) throws -> Bool
+}
+
+extension MacClaudeDirectSession {
+    func view(_ operation: String) throws -> MacClaudeNativeView { throw MacTab5Error.unavailable }
+    func stage(_ request: MacClaudeNativeRequest) throws { throw MacTab5Error.unavailable }
+    func submit(_ request: MacClaudeNativeRequest) throws { throw MacTab5Error.unavailable }
+    func interrupt(_ request: MacClaudeNativeRequest) throws -> Bool { false }
+}
 
 enum MacClaudeNativeOperation {
     struct Result {
         let attempted: Bool, user: String?, stopped: Bool
         var submissionNotInvoked = false
+        var queued = false
     }
     static func run(client: any MacClaudeNativeSession, request: MacClaudeNativeRequest,
                     history: () throws -> MacClaudeHistory.Value, dispatch: (MacClaudeNativeReceipt) throws -> Void,
                     wait: () -> Void = { Thread.sleep(forTimeInterval:0.1) }) throws -> Result {
         guard request.authorized(), try request.current() else { throw MacCodexDesktopError.rejected("native_session_changed") }
-        guard client.hasSessionAPI else { throw MacCodexDesktopError.rejected("native_session_api_unavailable") }
-        let scope = try client.scope(), first = try client.view(request.operation)
+        guard client.allows(request.operation, images: !request.paths.isEmpty) else { throw MacCodexDesktopError.rejected("native_input_unavailable") }
+        let scope = try client.scope()
+        let direct = client as? any MacClaudeDirectSession
+        let first = direct == nil ? try client.view(request.operation) : nil
         let baseline = MacClaudeNativeReceipt.capture(try history(),session:client.session,scope:scope,text:request.text,images:request.imageDigests)
-        guard !baseline.limited, first.ready else { throw MacCodexDesktopError.rejected("native_history_or_state_unconfirmed") }
+        guard !baseline.limited else { throw MacCodexDesktopError.rejected("native_history_or_state_unconfirmed") }
+        let notSubmitted = Result(attempted:true,user:nil,stopped:false,submissionNotInvoked:true)
+        func submitAndConfirm(_ submit: () throws -> Bool) -> Result {
+            do {
+                do { if try !submit() { return notSubmitted } }
+                catch { /* Input may already have reached the original client. */ }
+                for _ in 0..<50 {
+                    if let id = baseline.confirm(try history(), scope: try client.scope()) {
+                        return Result(attempted: true, user: id, stopped: false)
+                    }
+                    if request.operation == "steer", request.paths.isEmpty, request.authorized(), (try? request.current()) == true,
+                       (try? client.scope()) == scope, let queue = client as? any MacClaudeQueueReceiptSession,
+                       (try? queue.queuedSubmissionConfirmed(request)) == true {
+                        return Result(attempted: true, user: nil, stopped: false, queued: true)
+                    }
+                    wait()
+                }
+            } catch { /* Recover via the existing request receipt. */ }
+            return Result(attempted: true, user: nil, stopped: false)
+        }
+        if let direct {
+            let submit: () throws -> Bool
+            do { submit = try direct.prepareSubmission(request) }
+            catch let error as MacCodexDesktopError { throw error }
+            catch {
+                // Preparation may focus/inspect the target, but never invokes
+                // input. Preserve the draft as a definite rejection.
+                throw MacCodexDesktopError.rejected("native_input_unavailable")
+            }
+            guard request.authorized(), try request.current(), try client.scope() == scope else {
+                throw MacCodexDesktopError.rejected("native_session_changed")
+            }
+            try dispatch(baseline)
+            if request.operation == "interrupt" {
+                var observed = false
+                do {
+                    if try !submit() { return notSubmitted }
+                    observed = true
+                } catch { /* The terminal may already have consumed the control byte. */ }
+                for _ in 0..<50 {
+                    if (try? client.scope()) == scope, (try? client.state()) == "idle",
+                       (try? request.current()) == true, observed || (try? request.interrupted()) == true {
+                        return Result(attempted: true, user: nil, stopped: true)
+                    }
+                    wait()
+                }
+                return Result(attempted: true, user: nil, stopped: false)
+            }
+            return submitAndConfirm(submit)
+        }
+        guard let first, first.ready else { throw MacCodexDesktopError.rejected("native_history_or_state_unconfirmed") }
         func same(_ view: MacClaudeNativeView) throws -> Bool {
             guard view.target == first.target, view.ready, try client.scope() == scope else { return false }
             return try request.current()
@@ -104,7 +191,6 @@ enum MacClaudeNativeOperation {
         guard first.empty, first.text.isEmpty else { throw MacCodexDesktopError.rejected("desktop_draft_present") }
         guard request.authorized(), try same(client.view(request.operation)) else { throw MacCodexDesktopError.rejected("native_session_changed") }
         try dispatch(baseline)
-        let notSubmitted = Result(attempted:true,user:nil,stopped:false,submissionNotInvoked:true)
         do {
             try client.stage(request)
             var staged = false
@@ -117,12 +203,9 @@ enum MacClaudeNativeOperation {
             let final = try client.view(request.operation)
             guard try same(final), final.text == request.text, final.images == request.paths.map(\.lastPathComponent), final.canSubmit else { return notSubmitted }
         } catch { return notSubmitted }
-        do {
-            do { try client.submit(request) } catch { /* Invocation may already have reached the original client. */ }
-            for _ in 0..<50 {
-                if let id = baseline.confirm(try history(),scope:try client.scope()) { return Result(attempted:true,user:id,stopped:false) }; wait()
-            }
-        } catch { return Result(attempted:true,user:nil,stopped:false) }
-        return Result(attempted:true,user:nil,stopped:false)
+        return submitAndConfirm {
+            try client.submit(request)
+            return true
+        }
     }
 }

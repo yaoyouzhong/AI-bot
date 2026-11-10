@@ -9,7 +9,7 @@ internal sealed class Tab5CodexReadState
 {
     internal sealed record Snapshot(string Scope,HashSet<string> Unread);
     internal sealed record Identity(string Scope,object Context);
-    private sealed record Observed(string Turn,long Since);
+    private sealed record Observed(string Turn,long Since,bool Unread,bool CanAcknowledgeOnClear);
     private readonly Dictionary<string,Observed> _turns=new();
     private string _scope="";
     private readonly Func<Snapshot?> _read;
@@ -30,12 +30,20 @@ internal sealed class Tab5CodexReadState
         long now=_clock();
         foreach(var task in _turns.Keys.Where(id=>!ready.ContainsKey(id)).ToArray())_turns.Remove(task);
         foreach(var (task,turn) in ready) {
-            if(!_turns.TryGetValue(task,out var observed)||observed.Turn!=turn)
-                _turns[task]=observed=new(turn,now);
-            // Allow the desktop completion/unread write to settle before treating
-            // an absent task as read. Never carry an old acknowledgement forward.
-            if(snapshot.Unread.Contains(task)) {_turns[task]=new(turn,now);if(_unread.Count<80)_unread[task]=turn;}
-            else if(now-observed.Since>=5000&&result.Count<80)result[task]=turn;
+            bool unread=snapshot.Unread.Contains(task);
+            _turns.TryGetValue(task,out var observed);
+            if(observed?.Turn!=turn) {
+                // A thread-level unread bit carried over from the previous turn
+                // cannot prove that the new reply was opened.
+                observed=new(turn,now,unread,unread&&observed?.Unread!=true);
+            } else if(unread) {
+                observed=observed with {Since=now,Unread=true,CanAcknowledgeOnClear=!observed.Unread||observed.CanAcknowledgeOnClear};
+            } else {
+                observed=observed with {Unread=false};
+            }
+            _turns[task]=observed;
+            if(unread) {if(_unread.Count<80)_unread[task]=turn;}
+            else if((observed.CanAcknowledgeOnClear||now-observed.Since>=5000)&&result.Count<80)result[task]=turn;
         }
         return result;
     }

@@ -2,6 +2,66 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5CodexTests: XCTestCase {
+    func testProjectPickerGroupsVerifiedWorktreesAndDistinguishesOtherNames() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let original = root.appendingPathComponent("Work/AI-bot")
+        let worktree = root.appendingPathComponent("worktrees/example/AI-bot")
+        let unrelated = root.appendingPathComponent("Personal/AI-bot")
+        let git = original.appendingPathComponent(".git")
+        let slot = git.appendingPathComponent("worktrees/example")
+        for folder in [slot, worktree, unrelated] { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+        try Data("gitdir: \(slot.path)\n".utf8).write(to: worktree.appendingPathComponent(".git"))
+        try Data("../..\n".utf8).write(to: slot.appendingPathComponent("commondir"))
+        try Data("\(worktree.appendingPathComponent(".git").path)\n".utf8).write(to: slot.appendingPathComponent("gitdir"))
+        let urls = [original, worktree, unrelated]
+        let ids = urls.map { _ in UUID().uuidString.lowercased() }
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, call: { _, _ in
+            ["data": zip(ids, urls).map { ["id": $0.0, "cwd": $0.1.path, "name": "Test"] }]
+        })
+        codex.refresh()
+        let snap = try XCTUnwrap(codex.snapshot())
+        let tasks = try XCTUnwrap(snap["tasks"] as? [[String: Any]])
+        let mapped = Dictionary(uniqueKeysWithValues: tasks.map { ($0["id"] as! String, $0["projectId"] as! String) })
+        XCTAssertEqual(mapped[ids[0]], mapped[ids[1]])
+        let existingID = String(MacTab5Protocol.sha256(Data(original.resolvingSymlinksInPath().path.utf8)).prefix(16))
+        XCTAssertEqual(mapped[ids[0]], existingID)
+        XCTAssertNotEqual(mapped[ids[0]], mapped[ids[2]])
+        let projects = try XCTUnwrap(snap["projects"] as? [[String: Any]])
+        XCTAssertEqual(Set(projects.compactMap { $0["name"] as? String }), ["Work/AI-bot", "Personal/AI-bot"])
+        XCTAssertTrue(tasks.allSatisfy { $0["_folderParent"] == nil })
+        XCTAssertNil((snap["overviewTask"] as? [String: Any])?["_folderParent"])
+        // A forged or broken worktree reference must not merge directories.
+        try Data("/unrelated/.git\n".utf8).write(to: slot.appendingPathComponent("gitdir"))
+        XCTAssertNotEqual(MacCodexProjectIdentity.resolve(original.path).key,
+                          MacCodexProjectIdentity.resolve(worktree.path).key)
+    }
+    func testTransientEmptyCatalogRetainsBothProvidersIndependently() throws {
+        for provider in ["Codex", "Claude"] {
+            var now = 0.0, empty = false, enabled = true, failed = false
+            let task = UUID().uuidString.lowercased()
+            let workspace = MacTab5Codex(store: try store(), enabled: { enabled }, clock: { now },
+                call: { _, _ in
+                    if failed { throw MacTab5CodexFailure.timeout }
+                    return ["data": empty ? [] : [["id": task, "cwd": "/fixture", "name": "test"]]]
+                }, provider: provider)
+            func count() -> Int { (workspace.snapshot()?["tasks"] as? [[String: Any]])?.count ?? 0 }
+            workspace.refresh(); XCTAssertEqual(count(), 1)
+            empty = true; now = 1; workspace.refresh()
+            XCTAssertEqual(count(), 1); XCTAssertEqual(workspace.taskCatalog().count, 1)
+            now = 7; workspace.refresh(); XCTAssertEqual(count(), 1)
+            empty = false; workspace.refresh(); XCTAssertEqual(count(), 1)
+            empty = true; now = 10; workspace.refresh(); XCTAssertEqual(count(), 1)
+            now = 18; workspace.refresh(); XCTAssertEqual(count(), 0)
+            empty = false; workspace.refresh(); XCTAssertEqual(count(), 1)
+            empty = true; now = 20; workspace.refresh()
+            failed = true; now = 25; workspace.refresh()
+            failed = false; now = 30; workspace.refresh(); XCTAssertEqual(count(), 1)
+            now = 38; workspace.refresh(); XCTAssertEqual(count(), 0)
+            empty = false; workspace.refresh(); XCTAssertEqual(count(), 1)
+            enabled = false; workspace.refresh(); XCTAssertNil(workspace.snapshot())
+        }
+    }
     func testRecencyOrderAndDeviceTimestampDoNotPromoteRecordOnlyUpdates() throws {
         let ids = (0..<4).map { _ in UUID().uuidString.lowercased() }
         // Desktop order is 1,2,3,4; record updates would produce 1,4,2,3.
@@ -241,7 +301,7 @@ final class MacTab5CodexTests: XCTestCase {
         }
         XCTAssertEqual(visible, Set(entries.compactMap { $0["id"] as? String }))
         XCTAssertEqual(Set(projects.compactMap { $0["name"] as? String }),
-                       Set(["workspace · 1/3", "workspace · 2/3", "workspace · 3/3", "Work · 1/2", "Work · 2/2"]))
+                       Set(["1/3 · workspace", "2/3 · workspace", "3/3 · workspace", "1/2 · Work", "2/2 · Work"]))
         failSecondPage = true; codex.refresh()
         XCTAssertEqual((codex.snapshot()?["tasks"] as? [[String: Any]])?.count, 30)
         XCTAssertTrue(codex.snapshot()?["control"] is NSNull)

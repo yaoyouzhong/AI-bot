@@ -43,10 +43,14 @@ internal sealed partial class ClaudeWorkspace:IDisposable
         if(key.Length!=32)throw new IOException("Private key unavailable");return _key=key;}}
     private static string? Locate(){var paths=new[]{Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),".local","bin","claude.exe"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","Claude","claude.exe")}.Concat((Environment.GetEnvironmentVariable("PATH")??"").Split(Path.PathSeparator).Where(p=>p.Length>0).Select(p=>Path.Combine(p,"claude.exe")));return paths.FirstOrDefault(File.Exists);}
     private void Refresh(){
-        if(!_enabled()||_disposed||Interlocked.Exchange(ref _catalogRefreshing,1)!=0)return;
+        if(!_enabled()){_catalog.Clear();return;}
+        if(_disposed||Interlocked.Exchange(ref _catalogRefreshing,1)!=0)return;
         long started=Environment.TickCount64;
-        try{_catalog.Refresh();Volatile.Write(ref _catalogAt,Environment.TickCount64);}
-        catch(Exception e) when(e is IOException or UnauthorizedAccessException or CryptographicException){return;}
+        try{
+            if(!_catalog.Refresh())return;
+            if(!_enabled()){_catalog.Clear();return;}
+            Volatile.Write(ref _catalogAt,Environment.TickCount64);
+        }
         finally{Volatile.Write(ref _catalogRefreshing,0);}
         long elapsed=Environment.TickCount64-started;
         if(elapsed>=1000)Tab5LocalDiagnostics.Write($"CLAUDE_CATALOG elapsedMs={elapsed}");
@@ -64,7 +68,8 @@ internal sealed partial class ClaudeWorkspace:IDisposable
         }return ClaudeIdentity.Resolve(bound,owned);}
     }
     internal object? Snapshot(int limit=64,string? requiredTask=null,string device=""){
-        if(!_enabled())return null;var full=_catalog.Snapshot();
+        if(!_enabled()){_catalog.Clear();return null;}
+        var (full,fresh)=_catalog.DisplaySnapshot();
         if(DiagnosticSession is {} selected)full=full.Where(e=>e.Session==selected).ToArray();
         lock(_sync){
             var entries=full.Take(Math.Max(1,limit)).ToList();var pinned=new HashSet<string>();
@@ -73,8 +78,8 @@ internal sealed partial class ClaudeWorkspace:IDisposable
             }
             var positions=new Dictionary<string,int>();var counts=entries.GroupBy(e=>e.Project).ToDictionary(g=>g.Key,g=>g.Count());
             var tasks=entries.Select(e=>{
-                var owner=_owners.GetValueOrDefault(e.Alias);string state=Environment.TickCount64-_catalogAt>30000?"unknown":owner?.Approvals.Count>0?"waiting":owner?.Messages.Any(m=>m.Status=="inProgress")==true?"working":owner is {Ended:false}?"idle":"unknown";
-                if(_nativeClients)state=Environment.TickCount64-_catalogAt>30000?"unknown":_nativeViews.GetValueOrDefault(e.Alias)?.State??"unknown";
+                var owner=_owners.GetValueOrDefault(e.Alias);string state=!fresh||Environment.TickCount64-_catalogAt>30000?"unknown":owner?.Approvals.Count>0?"waiting":owner?.Messages.Any(m=>m.Status=="inProgress")==true?"working":owner is {Ended:false}?"idle":"unknown";
+                if(_nativeClients)state=!fresh||Environment.TickCount64-_catalogAt>30000?"unknown":_nativeViews.GetValueOrDefault(e.Alias)?.State??"unknown";
                 int position=positions.GetValueOrDefault(e.Project);positions[e.Project]=position+1;int page=position/8,total=(counts[e.Project]+7)/8;
                 string project=page==0?e.Project:Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(e.Project+":page:"+page))).ToLowerInvariant()[..16];
                 return new{id=e.Alias,title=e.Title,source=_sources.Get(e.Alias),folder=total>1?e.Folder+" · "+(page+1)+"/"+total:e.Folder,projectId=project,updatedAt=e.Updated,state,companionState=state,waitingKind=state=="waiting"?"confirm":""};
@@ -86,7 +91,7 @@ internal sealed partial class ClaudeWorkspace:IDisposable
             var notices=_ready.Where(p=>DiagnosticSession is null&&ids.Contains(p.Key)).ToArray();
             return new{projects=tasks.GroupBy(t=>t.projectId).Take(24).Select(g=>new{id=g.Key,name=g.First().folder}).ToArray(),tasks,
                 overviewTask=tasks.OrderByDescending(t=>t.state=="waiting"?3:t.state=="working"?1:0).ThenByDescending(t=>t.updatedAt).FirstOrDefault(),
-                replyView=_view,control=_control,controls=_nativeClients?entries.ToDictionary(e=>e.Alias,e=>NativeControl(e.Alias)):null,
+                replyView=_view,control=fresh?_control:null,controls=_nativeClients?entries.ToDictionary(e=>e.Alias,e=>fresh?NativeControl(e.Alias):null):null,
                 draftView=device==_draftDevice?_draft:null,responses=_responses.Where(p=>ids.Contains(p.Key)).ToDictionary(p=>p.Key,p=>p.Value),
                 receipts=_receipts.Where(p=>ids.Contains(p.Key)).ToDictionary(p=>p.Key,p=>p.Value),
                 repliesReady=notices.ToDictionary(p=>p.Key,p=>p.Value),repliesRead=new Dictionary<string,string>(_read),

@@ -47,6 +47,14 @@ internal static class StartupRegistration
         bool enabled=task is null||!Matches(task)||(bool)task!.Definition.Triggers.Item(1).Enabled;
         Register(executable,enabled);
     }
+    internal static string? InstalledExecutable(){
+        dynamic service=Connect();dynamic? task=FindTask(service.GetFolder("\\"));
+        return task is not null&&Matches(task)?(string)task!.Definition.Actions.Item(1).Path:null;
+    }
+    internal static bool IsRunning(string executable){
+        dynamic service=Connect();dynamic? task=FindTask(service.GetFolder("\\"));
+        return task is not null&&Matches(task,executable)&&(int)task!.State==4;
+    }
     private static void Register(string executable,bool enabled){
         if(!BridgeElevation.IsAdministrator||!BridgeInstallation.TrustedExecutable(executable,UserSid))throw new UnauthorizedAccessException("Protected administrator bridge required");
         dynamic service=Connect(),definition=service.NewTask(0);

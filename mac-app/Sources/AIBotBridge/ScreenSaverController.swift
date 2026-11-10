@@ -63,3 +63,17 @@ enum MacIdleTime {
         return CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: anyInput)
     }
 }
+
+
+// TAB5 compares timestamps, not idle durations. Stabilize the estimate
+// against sampling jitter so unchanged heartbeats cannot wake the display.
+struct MacTab5InputActivity {
+    private var lastTick: Int64?
+
+    mutating func sample(uptime: TimeInterval, idle: TimeInterval) -> Int64? {
+        guard uptime.isFinite, idle.isFinite, idle >= 0, uptime >= idle, uptime < 9_000_000_000_000 else { return nil }
+        let tick = Int64((uptime - idle) * 1000)
+        if lastTick.map({ tick > $0 + 50 }) ?? true { lastTick = tick }
+        return lastTick
+    }
+}

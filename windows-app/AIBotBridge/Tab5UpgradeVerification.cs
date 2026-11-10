@@ -4,7 +4,7 @@ namespace AIBotBridge;
 internal sealed partial class Tab5Service
 {
     private volatile string _upgradeDiagnostic="尚未核验";
-    private sealed record VerifiedBoot(string DeviceId,string Version,string ElfSha256);
+    private sealed record VerifiedBoot(string DeviceId,string Version,string ElfSha256,string Partition);
     private volatile VerifiedBoot? _verifiedBoot;
     internal bool CanVerifyUpgrade=>HasOta&&!Busy&&DeviceView.Online&&(DeviceView.Usb=="已连接"||SupportsWirelessBoot(DeviceView.Firmware))&&DeviceView.Firmware==Volatile.Read(ref _ota)?.Version;
     internal string UpgradeBootSummary {
@@ -19,7 +19,7 @@ internal sealed partial class Tab5Service
     }
     internal void RecordVerifiedBoot(JsonElement root,Tab5OtaPackage image,string deviceId) {
         VerifyUpgradeDiagnostic(root,image);
-        _verifiedBoot=new(deviceId,image.Version,image.ElfSha256);
+        _verifiedBoot=new(deviceId,image.Version,image.ElfSha256,root.GetProperty("partition").GetString()!);
     }
     internal async Task VerifyUpgradeAsync(CancellationToken token) {
         var image=Volatile.Read(ref _ota)??throw new InvalidOperationException("请先选择本次升级的固件，用于核对版本和指纹。");

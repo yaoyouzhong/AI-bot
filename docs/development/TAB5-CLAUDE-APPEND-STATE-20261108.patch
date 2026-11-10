@@ -1,0 +1,147 @@
+--- a/firmware/main/draw_cache.c
++++ b/firmware/main/draw_cache.c
+@@ -210,6 +210,19 @@
+     tab5_lvgl_cache_draw=draw;
+     tab5_lvgl_cache_dirty=invalidate;
+ }
++void tab5_draw_cache_present_stale(lv_obj_t *obj) {
++    cache_entry *e=find(obj);
++    if(!e||!e->stale_drawn||!e->has_image||tab5_draw_cache_is_ready(obj)||
++       (tab5_draw_cache_interaction&&tab5_draw_cache_interaction(obj)))return;
++    lv_area_t bounds,damage;lv_obj_get_coords(obj,&bounds);
++    damage=e->has_dirty?e->dirty:(lv_area_t){0,0,lv_area_get_width(&bounds)-1,lv_area_get_height(&bounds)-1};
++    lv_area_move(&damage,bounds.x1,bounds.y1);
++    if(lv_obj_area_is_visible(obj,&damage)) {
++        // The cached revision stays invalid, so the normal renderer paints
++        // current widgets. Do not dirty the cache again while scheduling it.
++        e->stale_drawn=false;lv_inv_area(lv_obj_get_display(obj),&damage);
++    }
++}
+ void tab5_draw_cache_repair(lv_obj_t *obj) {
+     cache_entry *e=find(obj);
+     if(e&&e->has_image&&!e->valid)tab5_draw_cache_step(obj);
+--- a/firmware/main/draw_cache.h
++++ b/firmware/main/draw_cache.h
+@@ -8,6 +8,9 @@
+ // Refresh a dirty part of an existing complete image, without allocating or
+ // starting a new full-page capture while a touch/scroll is in progress.
+ void tab5_draw_cache_repair(lv_obj_t *obj);
++// Replace an old drag snapshot as soon as the gesture ends, without waiting
++// for an incremental cache rebuild that may be delayed by fresh updates.
++void tab5_draw_cache_present_stale(lv_obj_t *obj);
+ void tab5_draw_cache_drop(void);
+ // Release optional offscreen snapshots only, between LVGL render passes.
+ // Visible pages and active input gestures keep their snapshots.
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1266,7 +1266,10 @@
+     if(workspace_client) {
+         cJSON *control=codex_selected_control();
+         bool available=!strcmp(text(control,"taskId"),codex_selected)&&yes(control,codex_running()?"canSteer":"canSend");
+-        if(!codex_waiting&&!codex_send_queued&&((d&&d->request[0])||available))lv_obj_remove_state(codex_send_button,LV_STATE_DISABLED);
++        int64_t age=esp_timer_get_time()/1000-last_received;
++        bool auto_check=d&&d->request[0]&&!strcmp(d->request,codex_retry_request)&&codex_retry_count<3&&
++            current_page==8&&!saver&&!quick_visible&&!photo_flow&&age>=0&&age<=6000;
++        if(!codex_waiting&&!codex_send_queued&&!auto_check&&((d&&d->request[0])||available))lv_obj_remove_state(codex_send_button,LV_STATE_DISABLED);
+         else lv_obj_add_state(codex_send_button,LV_STATE_DISABLED);
+     }
+     if(codex_interrupt_button) {
+@@ -2162,7 +2165,7 @@
+     ui_text(codex_voice_hint,"");
+     snprintf(codex_receipt_before_send,sizeof(codex_receipt_before_send),"%s",text(item(item(shown,workspace_key()),"receipts"),codex_selected));
+     ui_text(codex_receipt,querying?"正在核对送达记录…":!strcmp(operation,"interrupt")?"正在请求停止…":workspace_client?"正在发送到 Claude…":"正在发送到 Codex…");
+-    ui_text(lv_obj_get_child(codex_send_button,0),querying?"查询中…":"发送中…");
++    ui_text(lv_obj_get_child(codex_send_button,0),querying?"核对送达":"发送中…");
+     lv_obj_add_state(codex_list,LV_STATE_DISABLED);lv_obj_add_state(codex_project_picker,LV_STATE_DISABLED);
+     lv_obj_add_state(codex_input,LV_STATE_DISABLED);lv_obj_add_state(codex_send_button,LV_STATE_DISABLED);
+     codex_control_style();codex_keyboard_done(NULL);
+@@ -3912,6 +3915,7 @@
+ }
+ static void cache_tick_work(lv_timer_t *timer) {
+     (void)timer;
++    if(current_page==8&&pages[8])tab5_draw_cache_present_stale(pages[8]);
+     if(screen_preview_cache_paused(esp_timer_get_time()/1000)||saver||quick_visible||agenda_editor_open()||agenda_delete_open()||ota_update_busy()||codex_voice_waiting||photo_flow||
+        !lv_obj_has_flag(camera_layer,LV_OBJ_FLAG_HIDDEN))return;
+     if(current_page==4||current_page==5||current_page==6||current_page==7)return;
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2474,6 +2474,10 @@
+         codex_reading=codex_syncing=codex_load_waiting=false;codex_read_next=999999;
+         codex_begin_action("receipt");preview_result_code=202;tick(NULL);
+         assert(!d->request[0]&&!strlen(lv_textarea_get_text(codex_input))&&preview_submit_count==sends);
++        assert(!lv_obj_has_state(codex_input,LV_STATE_DISABLED));
++        lv_textarea_set_text(codex_input,"新的输入");
++        assert(!strcmp(lv_textarea_get_text(codex_input),"新的输入"));
++        codex_set_text("");
+         capture("codex-recovery-success");
+         codex_reading=codex_syncing=codex_load_waiting=false;codex_read_next=999999;preview_result_code=-1;
+         lv_textarea_set_text(codex_input,"自动查询测试");codex_send(NULL);preview_result_code=504;tick(NULL);
+@@ -2483,7 +2487,9 @@
+             codex_reading=codex_syncing=codex_load_waiting=false;codex_read_next=999999;
+             codex_retry_at=0;last_received=esp_timer_get_time()/1000;codex_recovery_tick(esp_timer_get_time()/1000);
+             assert(codex_waiting&&!strcmp(preview_operation,"receipt")&&preview_submit_count==sends);
++            assert(!strcmp(lv_label_get_text(lv_obj_get_child(codex_send_button,0)),"核对送达"));
+             preview_result_code=504;tick(NULL);
++            assert(!strcmp(lv_label_get_text(lv_obj_get_child(codex_send_button,0)),"核对送达"));
+             if(attempt<2)assert(!strcmp(lv_label_get_text(codex_receipt),"正在核对送达记录…"));
+             else {assert(!strcmp(lv_label_get_text(codex_receipt),"送达尚未确认，正在保留草稿"));capture("claude-receipt-unconfirmed");}
+         }
+@@ -2504,6 +2510,43 @@
+         }
+         puts("CLIENT_REPLY_VOICE_ROUTING_OK");
+         puts("CODEX_RECOVERY_OK cancel, host-change, confirm-only, uncertain-query-preserved, accepted-unlock");return 0;
++    }
++    if(getenv("TAB5_CLAUDE_APPEND_STABILITY_ONLY")) {
++        const char *task="01a0cc69-2782-7650-9903-303578a0296e";
++        cJSON_DeleteItemFromObject(shown,"claudeTasks");
++        cJSON *remote=cJSON_Duplicate(item(shown,"codexTasks"),true);
++        cJSON_AddItemToObject(shown,"claudeTasks",remote);
++        cJSON *controls=cJSON_AddObjectToObject(remote,"controls"),*control=cJSON_AddObjectToObject(controls,task);
++        cJSON_AddStringToObject(control,"taskId",task);
++        cJSON_AddStringToObject(control,"turnId","11111111-1111-4111-8111-111111111112");
++        cJSON_AddBoolToObject(control,"running",true);cJSON_AddBoolToObject(control,"canSteer",true);
++        last_received=esp_timer_get_time()/1000;page(8);workspace_apply(1);codex_select_task(task);
++        codex_load_waiting=codex_reading=codex_syncing=false;codex_read_next=999999;preview_submit_enabled=true;preview_result_code=-1;
++        lv_textarea_set_text(codex_input,"追加测试");codex_send(NULL);
++        assert(codex_waiting&&!strcmp(preview_operation,"steer"));unsigned sent=preview_submit_count;
++        preview_result_code=504;preview_result_text="送达尚未确认，草稿已保留";tick(NULL);
++        codex_draft *d=codex_draft_for(task,false);assert(d&&d->request[0]);
++        assert(!strcmp(lv_label_get_text(lv_obj_get_child(codex_send_button,0)),"核对送达"));
++        assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++        assert(lv_obj_has_state(codex_input,LV_STATE_DISABLED));capture("claude-append-checking");
++        // No fresh bridge heartbeat: retain the request but allow explicit
++        // checking rather than leaving the button disabled indefinitely.
++        int64_t saved_time=preview_now_us;preview_now_us+=7000000;codex_control_style();
++        assert(!lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++        preview_now_us=saved_time;codex_control_style();assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++        for(int i=0;i<2;i++) {
++            codex_reading=codex_syncing=codex_load_waiting=false;codex_read_next=999999;
++            codex_retry_at=0;last_received=esp_timer_get_time()/1000;codex_recovery_tick(esp_timer_get_time()/1000);
++            assert(codex_waiting&&!strcmp(preview_operation,"receipt")&&preview_submit_count==sent);
++            assert(!strcmp(lv_label_get_text(lv_obj_get_child(codex_send_button,0)),"核对送达"));
++            preview_result_code=i?202:504;tick(NULL);
++            if(!i)assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++        }
++        assert(!d->request[0]&&!lv_obj_has_state(codex_input,LV_STATE_DISABLED));
++        assert(preview_submit_count==sent&&!lv_textarea_get_text(codex_input)[0]);
++        lv_textarea_set_text(codex_input,"下一条");assert(!strcmp(lv_textarea_get_text(codex_input),"下一条"));
++        capture("claude-append-ready-next");
++        puts("CLAUDE_APPEND_STABILITY_OK stable query button, original receipt, no resend, next input available");return 0;
+     }
+     if(getenv("TAB5_CODEX_REJECTION_ONLY")) {
+         last_received=esp_timer_get_time()/1000;
+--- a/tests/ui-preview/cache_publication_refresh_test.h
++++ b/tests/ui-preview/cache_publication_refresh_test.h
+@@ -32,6 +32,12 @@
+     unsigned stale=text_differences(empty,camera_partial_pixels);
+     assert(tab5_cache_hits>hits&&stale>0);
+     simulated_snap=false;
++    // The visible page must recover immediately on release, even when a cold
++    // neighbour or continuous updates delay rebuilding the snapshot.
++    lv_tick_inc(500);cache_tick_work(NULL);lv_refr_now(display);
++    unsigned release_differences=text_differences(empty,camera_partial_pixels);
++    printf("STALE_ON_RELEASE differences=%u\n",release_differences);
++    assert(release_differences==0);
+     for(unsigned i=0;i<20&&!tab5_draw_cache_is_ready(pages[8]);i++)tab5_draw_cache_step(pages[8]);
+     assert(tab5_draw_cache_is_ready(pages[8]));
+     // No forced invalidation, capture(), or navigation: idle publication must

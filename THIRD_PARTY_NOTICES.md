@@ -415,3 +415,13 @@ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
 DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
+
+## SwiftTerm (macOS terminal input verification)
+
+The macOS bridge links SwiftTerm 1.10.1 to track the Claude CLI composer in
+memory while relaying the interactive session to the user's terminal.
+Source: https://github.com/migueldeicaza/SwiftTerm/tree/5c83a9d214e7354697624c11deb4e488bdcfabad
+
+The upstream MIT license and copyright notices are retained at
+`mac-app/ThirdParty/SwiftTerm-LICENSE.txt` and included in the macOS app bundle
+at `Contents/Resources/licenses/SwiftTerm/LICENSE.txt`.

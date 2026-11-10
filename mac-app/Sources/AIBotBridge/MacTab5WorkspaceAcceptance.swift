@@ -8,12 +8,14 @@ final class MacTab5WorkspaceAcceptance {
     let root: URL
     let claude: MacClaudeWorkspace
     let codex: MacTab5Codex
+    private let terminalSession: UUID?
     static let codexID = "11111111-1111-4111-8111-111111111111"
     init(root: URL) throws {
         let resolved = root.resolvingSymlinksInPath().standardizedFileURL
         let temporary = FileManager.default.temporaryDirectory.resolvingSymlinksInPath().standardizedFileURL.path+"/"
         guard resolved.path.hasPrefix(temporary) else { throw Failure.temporaryRoot }
-        guard (try? String(contentsOf:resolved.appendingPathComponent(".aibot-synthetic-claude"),encoding:.utf8)) == "1\n",
+        guard let mode = try? String(contentsOf:resolved.appendingPathComponent(".aibot-synthetic-claude"),encoding:.utf8),
+              ["1\n", "terminal\n", "window\n"].contains(mode),
               let bytes = try? Data(contentsOf:resolved.appendingPathComponent("environment.json")),
               let environment = try JSONSerialization.jsonObject(with:bytes) as? [String:String] else { throw Failure.fixtureFiles }
         func sameDirectory(_ value: String?) -> Bool {
@@ -26,8 +28,27 @@ final class MacTab5WorkspaceAcceptance {
         guard let executable = MacClaudeWorkspaceBackend.locate() else { throw Failure.cliUnavailable }
         self.root = resolved
         let key = Data(0..<32), store = MacTab5PrivateStore(root:resolved.appendingPathComponent("sealed"),key:{key})
+        let harnesses: MacClaudeHarnesses?
+        if mode == "terminal\n" || mode == "window\n" {
+            let config = resolved.appendingPathComponent(".claude",isDirectory:true)
+            guard config.resolvingSymlinksInPath().path == config.path,
+                  let text = try? String(contentsOf:resolved.appendingPathComponent("terminal-session"),encoding:.utf8),
+                  let session = UUID(uuidString:text.trimmingCharacters(in:.whitespacesAndNewlines)) else { throw Failure.fixtureFiles }
+            func client(_ id: UUID) -> (any MacClaudeNativeSession)? {
+                if mode == "window\n" { return MacClaudeTerminalWindow.find(id, config: config) }
+                return MacClaudeTerminalSession.find(id, config: config)
+            }
+            guard client(session) != nil else { throw Failure.fixtureFiles }
+            terminalSession = session
+            harnesses = try MacClaudeHarnesses([
+                .init(source:.terminal,discover:{[]},live:{[session]},resolve:{
+                    $0 == session ? client($0) : nil
+                })
+            ])
+        } else { terminalSession = nil; harnesses = nil }
         let backend = MacClaudeWorkspaceBackend(root:resolved.appendingPathComponent(".claude/projects"),store:store,key:{key},executable:{executable},environment:environment,
-            arguments:["--model","claude-sonnet-4-6","--setting-sources","user","--strict-mcp-config","--tools","","--disable-slash-commands","--max-budget-usd","0.05"],legacyFixture:true)
+            arguments:["--model","claude-sonnet-4-6","--setting-sources","user","--strict-mcp-config","--tools","","--disable-slash-commands","--max-budget-usd","0.05"],
+            legacyFixture:harnesses == nil,harnesses:harnesses)
         // Capture a standalone locked set, avoiding a self/let initialization cycle.
         let visibility = Visibility(); self.visibility = visibility
         claude = MacClaudeWorkspace(store:store,backend:backend,enabled:{visibility.has("claude")})
@@ -50,6 +71,24 @@ final class MacTab5WorkspaceAcceptance {
         // Catalog refresh has no UI side effects. Requests still use each
         // client's own encrypted storage and the production device RPC path.
         claude.tasks.refresh(); codex.refresh()
+    }
+    func stageTerminalDraft(_ text: String, photo: Bool, device: String) throws {
+        guard let terminalSession, let task = claude.backend.alias(session:terminalSession),
+              text.utf8.count <= 2000 else { throw Failure.fixtureFiles }
+        var images: [String] = []
+        if photo {
+            let file = root.appendingPathComponent("terminal-photo.jpg")
+            guard file.resolvingSymlinksInPath().path == file.path,
+                  let size = try file.resourceValues(forKeys:[.fileSizeKey]).fileSize,
+                  (32...MacTab5Photos.maxBytes).contains(size) else { throw Failure.fixtureFiles }
+            let id = UUID().uuidString.lowercased()
+            let result = claude.tasks.photos.upload(["taskId":task,"requestId":id],bytes:try Data(contentsOf:file),device:device)
+            guard result.status == 200 else { throw Failure.fixtureFiles }
+            images = [id]
+        }
+        let result = claude.tasks.handle(["op":"draft-save","taskId":task,"requestId":UUID().uuidString.lowercased(),
+                                          "message":text,"images":images],device:device)
+        guard result.status == 200 else { throw Failure.fixtureFiles }
     }
     var projects: URL { root.appendingPathComponent(".claude/projects") }
     func voice() -> MacTab5Voice {

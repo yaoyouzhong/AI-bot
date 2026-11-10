@@ -1,0 +1,711 @@
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R4";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R4-LIST1";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -385,7 +385,10 @@
+ static ui_preferences prefs;
+ static cJSON *shown;
+ static unsigned workspace_client;
+-static lv_obj_t *workspace_buttons[2],*workspace_empty_label;
++static lv_obj_t *workspace_tab_strip,*workspace_buttons[2],*workspace_empty_label;
++static int64_t workspace_seen_at[2]={-1,-1};
++static char workspace_seen_session[33];
++enum { WORKSPACE_TAB_WIDTH=342, WORKSPACE_TAB_HEIGHT=64, WORKSPACE_TAB_GAP=10, WORKSPACE_TAB_MAX_VISIBLE=4 };
+ static char workspace_open_target[37],workspace_open_reply[64];
+ static int codex_reply_return=8;
+ static int workspace_open_return;
+@@ -395,6 +398,7 @@
+ static int64_t workspace_open_deadline;
+ static void workspace_open_tick(void);
+ static bool workspace_update_clients(void);
++static void workspace_tab_select(lv_obj_t *tab,bool selected);
+ static char workspace_tasks[2][37],workspace_projects[2][17];
+ static int workspace_switch_pending=-1;
+ static int64_t workspace_switch_hint_at;
+@@ -541,6 +545,9 @@
+ static char codex_voice_base[2001];
+ static uint32_t codex_voice_cursor,codex_voice_insert_byte;
+ static lv_obj_t *codex_task_rows[8],*codex_task_titles[8],*codex_empty;
++static lv_obj_t *codex_list_extent;
++static bool codex_list_rebinding;
++static void codex_list_scrolled(lv_event_t *e);
+ static char codex_task_ids[8][37];
+ static void codex_selected_changed(lv_event_t *e);
+ static void codex_project_changed(lv_event_t *e);
+@@ -634,10 +641,12 @@
+     ui_bg_color(b,lv_color_hex(0x303A3E),LV_STATE_DISABLED);
+     ui_text_color(b,lv_color_hex(0x829196),LV_STATE_DISABLED);
+     ui_bg_opa(b,LV_OPA_COVER,LV_STATE_DISABLED);
+-    lv_obj_t *l = lv_label_create(b);
+-    ui_text(l, s);
+-    lv_obj_center(l);
+-    ui_text_font(l, &tab5_font_24, 0);
++    if(s) {
++        lv_obj_t *l = lv_label_create(b);
++        ui_text(l, s);
++        lv_obj_center(l);
++        ui_text_font(l, &tab5_font_24, 0);
++    }
+     lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, (void *)(intptr_t)arg);
+     return b;
+ }
+@@ -1542,6 +1551,7 @@
+         strcmp(body,"Codex 正在处理，等待新的动态…")&&strcmp(body,"暂未收到会话动态。")&&
+         strcmp(body,"正在读取会话动态…");
+ }
++#include "ui_project_groups.h"
+ #include "ui_session_source.h"
+ #include "ui_session_unread.h"
+ static void render_codex(void) {
+@@ -1561,27 +1571,39 @@
+     if (!codex_list || !shown || codex_waiting || codex_voice_waiting || codex_send_queued) return;
+     cJSON *remote = item(shown, workspace_key()), *tasks = item(remote, "tasks"), *projects=item(remote,"projects");
+     int count = cJSON_GetArraySize(tasks);
++    // A transient empty snapshot must not discard the selected task, its
++    // rendered list, or its composer while the provider is still retained.
++    if(!count&&codex_selected[0]&&workspace_seen_at[workspace_client]>=0&&
++       esp_timer_get_time()/1000-workspace_seen_at[workspace_client]<8000)return;
++    workspace_groups_build(projects);
++    if(codex_project_selected[0]) {
++        const char *root=workspace_project_root(codex_project_selected);
++        if(root!=codex_project_selected)memmove(codex_project_selected,root,strlen(root)+1);
++    }
+     if(codex_default_pending&&count&&codex_default_focus(codex_default_all))return;
+     if(codex_restore_project&&!count)return;
++    bool restore_location=codex_restore_project;
+     if(codex_restore_project) {
+         for(int i=0;i<count;i++)if(!strcmp(text(cJSON_GetArrayItem(tasks,i),"id"),codex_selected)) {
+-            snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",text(cJSON_GetArrayItem(tasks,i),"projectId"));codex_restore_project=false;break;
++            snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",workspace_project_root(text(cJSON_GetArrayItem(tasks,i),"projectId")));codex_restore_project=false;break;
+         }
+     }
+     codex_control_style();
+     // LVGL callbacks share one task; a 4 KB automatic buffer exhausts its stack.
+     static char options[4096];options[0]=0;int selected_project=-1;
+     codex_project_count=0;
+-    for(int i=0;i<cJSON_GetArraySize(projects)&&codex_project_count<24;i++) {
+-        cJSON *project=cJSON_GetArrayItem(projects,i);
+-        const char *id=text(project,"id"),*name=text(project,"name");
+-        if(strlen(id)!=16||!strcmp(name,"--"))continue;
++    for(int i=0;i<workspace_project_groups_count&&codex_project_count<24;i++) {
++        workspace_project_group *project=&workspace_project_groups[i];
++        const char *id=project->id,*name=project->name;
++        if(strcmp(id,project->root))continue;
+         unsigned unread=session_unread_count(workspace_client,id);char prefix[16]="";
+         if(unread)snprintf(prefix,sizeof(prefix),"[%u] ",unread);
+         size_t used=strlen(options),needed=strlen(prefix)+strlen(name)+(codex_project_count?1:0);
+         if(used+needed>=sizeof(options))break;
+-        snprintf(options+used,sizeof(options)-used,"%s%s%s",codex_project_count?"\n":"",prefix,name);
+-        snprintf(codex_project_ids[codex_project_count],sizeof(codex_project_ids[0]),"%s",id);
++        if(codex_project_count)options[used++]='\n';
++        size_t plen=strlen(prefix),nlen=strlen(name);
++        memcpy(options+used,prefix,plen);used+=plen;memcpy(options+used,name,nlen);used+=nlen;options[used]=0;
++        memcpy(codex_project_ids[codex_project_count],project->id,sizeof(project->id));
+         if(!strcmp(id,codex_project_selected))selected_project=codex_project_count;
+         codex_project_count++;
+     }
+@@ -1597,26 +1619,33 @@
+     lv_dropdown_get_selected_str(codex_project_picker,options,sizeof(options));
+     ui_text(codex_project_caption,options);
+     int selected=-1,visible_count=0;
+-    cJSON *visible_tasks[8]={0};
++    cJSON *visible_tasks[80]={0};
+     for(int source=0;source<count;source++) {
+         cJSON *task=cJSON_GetArrayItem(tasks,source);
+-        if(codex_project_selected[0]&&strcmp(text(task,"projectId"),codex_project_selected))continue;
++        if(codex_project_selected[0]&&strcmp(workspace_project_root(text(task,"projectId")),codex_project_selected))continue;
+         const char *id=text(task,"id");
+         bool valid=task&&strlen(id)==36;
+         if(!valid)continue;
+-        if(visible_count<8)visible_tasks[visible_count++]=task;
+-        else if(!strcmp(id,codex_selected))visible_tasks[7]=task;
+-    }
+-    for(int i=0;i<visible_count;i++) {
+-        cJSON *task=visible_tasks[i];const char *id=text(task,"id");
++        if(visible_count<80){if(!strcmp(id,codex_selected))selected=visible_count;visible_tasks[visible_count++]=task;}
++    }
++    codex_list_rebinding=true;
++    lv_obj_set_height(codex_list_extent,LV_MAX(1,visible_count*88));
++    lv_obj_update_layout(codex_list);
++    if(restore_location&&selected>=0)lv_obj_scroll_to_y(codex_list,selected*88,LV_ANIM_OFF);
++    int first=LV_MAX(0,lv_obj_get_scroll_y(codex_list)/88-1);
++    for(int i=0;i<8;i++) {
++        int index=first+i;
++        if(index>=visible_count){visible(codex_task_rows[i],false);codex_task_ids[i][0]=0;continue;}
++        cJSON *task=visible_tasks[index];const char *id=text(task,"id");
++        session_source_pos(codex_task_rows[i],0,index*88);
+         visible(codex_task_rows[i],true);
+         snprintf(codex_task_ids[i],sizeof(codex_task_ids[i]),"%s",id);
+-        bool active=!strcmp(id,codex_selected);if(active)selected=i;
++        bool active=!strcmp(id,codex_selected);
+         session_source_row(i,task);
+         session_source_text(codex_task_titles[i],text(task,"title"));
+         tint(codex_task_titles[i],active?BLUE:INK);
+     }
+-    for(int i=visible_count;i<8;i++){visible(codex_task_rows[i],false);codex_task_ids[i][0]=0;}
++    codex_list_rebinding=false;
+     visible(codex_empty,visible_count==0);
+     if(selected<0){if(codex_selected[0]){if(!codex_save_draft())return;codex_selected[0]=0;codex_load_draft();}}
+     cJSON *selected_task=selected>=0?visible_tasks[selected]:NULL;
+@@ -1808,6 +1837,7 @@
+     codex_remote_set_client(workspace_name());voice_remote_set_client(workspace_name());
+     snprintf(codex_selected,sizeof(codex_selected),"%s",workspace_tasks[next]);
+     snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",workspace_projects[next]);
++    if(!codex_selected[0]){codex_list_rebinding=true;lv_obj_scroll_to_y(codex_list,0,LV_ANIM_OFF);codex_list_rebinding=false;}
+     cJSON_Delete(codex_inline_reply);codex_inline_reply=NULL;
+     codex_nav_revision++;codex_nav_queued=codex_nav_pending=codex_turn_pending=false;
+     codex_nav_timed_out=codex_unread_open_pending=codex_unread_opened=false;codex_refresh_wait_at=0;codex_reply_turn[0]=codex_reply_selected[0]=0;
+@@ -1817,7 +1847,7 @@
+     int64_t sync_next=codex_sync_next;
+     ui_text(codex_receipt,"");ui_text(codex_voice_hint,"");codex_load_draft();
+     if(codex_syncing||codex_load_waiting)codex_sync_next=sync_next;
+-    for(int i=0;i<2;i++)if(workspace_buttons[i])ui_bg_color(workspace_buttons[i],lv_color_hex(i==next?0x465C65:0x354247),0);
++    for(unsigned i=0;i<2;i++)if(workspace_buttons[i])workspace_tab_select(workspace_buttons[i],i==next);
+     render_codex();
+ }
+ static bool workspace_choose(unsigned next) {
+@@ -1835,17 +1865,71 @@
+     }
+     workspace_apply(next);return true;
+ }
++static void workspace_tab_select(lv_obj_t *tab,bool selected) {
++    ui_bg_color(tab,lv_color_hex(selected?0x465C65:0x354247),0);
++    ui_border_opa(tab,selected?LV_OPA_COVER:LV_OPA_TRANSP,0);
++}
++static lv_obj_t *workspace_tab_create(lv_obj_t *strip,const lv_image_dsc_t *logo,lv_event_cb_t click,int client,lv_obj_t **badge) {
++    lv_obj_t *tab=button(strip,NULL,0,0,WORKSPACE_TAB_WIDTH,click,client);
++    lv_obj_set_height(tab,WORKSPACE_TAB_HEIGHT);
++    lv_obj_set_style_border_width(tab,2,0);
++    ui_border_color(tab,lv_color_hex(BLUE),0);
++    workspace_tab_select(tab,false);
++    lv_obj_t *icon=lv_image_create(tab);
++    lv_image_set_src(icon,logo);
++    lv_obj_remove_flag(icon,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_CLICK_FOCUSABLE|LV_OBJ_FLAG_SCROLLABLE);
++    *badge=session_unread_marker(tab,"1",20,20);
++    ui_text_font(lv_obj_get_child(*badge,0),&lv_font_montserrat_14,0);
++    lv_obj_align(*badge,LV_ALIGN_TOP_RIGHT,-6,4);
++    return tab;
++}
++static void workspace_tabs_layout(lv_obj_t *strip,lv_obj_t *const tabs[],const bool available[],unsigned total,unsigned selected) {
++    unsigned count=0;
++    for(unsigned i=0;i<total;i++)if(available[i])count++;
++    bool overflow=count>WORKSPACE_TAB_MAX_VISIBLE;
++    if(overflow!=lv_obj_has_flag(strip,LV_OBJ_FLAG_SCROLLABLE)) {
++        if(overflow)lv_obj_add_flag(strip,LV_OBJ_FLAG_SCROLLABLE);
++        else {lv_obj_scroll_to_x(strip,0,LV_ANIM_OFF);lv_obj_remove_flag(strip,LV_OBJ_FLAG_SCROLLABLE);}
++        lv_obj_set_scrollbar_mode(strip,overflow?LV_SCROLLBAR_MODE_ON:LV_SCROLLBAR_MODE_OFF);
++    }
++    int space=WORKSPACE_TAB_WIDTH-(int)(count?count-1:0)*WORKSPACE_TAB_GAP;
++    int x=0,rank=0;
++    for(unsigned i=0;i<total;i++) {
++        lv_obj_t *tab=tabs[i];
++        visible(tab,available[i]);
++        if(!available[i])continue;
++        int w=overflow?78:space/(int)count+(rank<space%(int)count);
++        session_source_pos(tab,x,0);
++        session_source_width(tab,w);
++        lv_obj_t *icon=lv_obj_get_child(tab,0);
++        bool narrow=count>=WORKSPACE_TAB_MAX_VISIBLE;
++        int scale=narrow?228:341;
++        if(lv_image_get_scale(icon)!=scale)lv_image_set_scale(icon,scale);
++        if(lv_obj_get_style_align(icon,0)!=LV_ALIGN_CENTER||lv_obj_get_style_x(icon,0)!=(narrow?-8:0))
++            lv_obj_align(icon,LV_ALIGN_CENTER,narrow?-8:0,0);
++        workspace_tab_select(tab,i==selected);
++        x+=w+WORKSPACE_TAB_GAP;
++        rank++;
++    }
++}
+ static bool workspace_update_clients(void) {
+     if(!workspace_buttons[0])return true;
+     bool available[2]={cJSON_GetArraySize(item(item(shown,"codexTasks"),"tasks"))>0,cJSON_GetArraySize(item(item(shown,"claudeTasks"),"tasks"))>0};
++    int64_t now=esp_timer_get_time()/1000;
++    const char *session=text(item(shown,"pcInput"),"session");
++    if(strcmp(session,"--")&&strcmp(session,workspace_seen_session)) {
++        snprintf(workspace_seen_session,sizeof(workspace_seen_session),"%s",session);
++        workspace_seen_at[0]=workspace_seen_at[1]=-1;
++    }
++    for(int i=0;i<2;i++) {
++        if(available[i]&&now>=last_received&&now-last_received<=6000)workspace_seen_at[i]=now;
++        else if(!available[i]&&workspace_seen_at[i]>=0&&now>=workspace_seen_at[i]&&now-workspace_seen_at[i]<8000)available[i]=true;
++    }
+     // Retain an unsent/uncertain local composer even if its catalog disappears.
+     if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].id[0]&&(codex_drafts[i].dirty||codex_drafts[i].request[0]||(codex_drafts[i].text&&codex_drafts[i].text[0])||codex_drafts[i].images[0][0]))available[codex_drafts[i].client?1:0]=true;
+     int count=available[0]+available[1];
+     visible(workspace_empty_label,!count);
+-    for(int i=0;i<2;i++) {
+-        visible(workspace_buttons[i],available[i]);
+-        if(available[i]){lv_obj_set_x(workspace_buttons[i],count==1?0:i*176);lv_obj_set_width(workspace_buttons[i],count==1?342:166);ui_bg_color(workspace_buttons[i],lv_color_hex((unsigned)i==workspace_client?0x465C65:0x354247),0);}
+-    }
++    workspace_tabs_layout(workspace_tab_strip,workspace_buttons,available,2,workspace_client);
+     if(count==1&&!available[workspace_client]&&!workspace_open_target[0]) {
+         workspace_choose(available[1]?1:0);return false;
+     }
+@@ -1858,8 +1942,8 @@
+     cJSON *task=NULL;
+     cJSON_ArrayForEach(task,item(item(shown,workspace_key()),"tasks"))if(!strcmp(text(task,"id"),workspace_open_target)) {
+         char target[37];snprintf(target,sizeof(target),"%s",workspace_open_target);workspace_open_target[0]=0;
+-        snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",text(task,"projectId"));
+-        codex_restore_project=false;codex_default_pending=false;codex_select_task(target);page(8);render_codex();
++        snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",workspace_project_root(text(task,"projectId")));
++        codex_restore_project=true;codex_default_pending=false;codex_select_task(target);page(8);render_codex();
+         codex_open_latest=true;codex_reply_open_turn(NULL,workspace_open_reply[0]?workspace_open_reply:NULL);
+         codex_reply_return=workspace_open_return;workspace_open_reply[0]=0;
+         return;
+@@ -1885,17 +1969,20 @@
+     codex_default_pending=false;
+     codex_select_task(codex_task_ids[index]);
+ }
++static void codex_list_scrolled(lv_event_t *e) {
++    (void)e;if(!codex_list_rebinding&&current_page==8)render_codex();
++}
+ static bool codex_default_focus(bool all_projects) {
+     if(codex_waiting||codex_voice_waiting||codex_send_queued||!codex_save_draft())return false;
+     cJSON *latest=NULL,*task=NULL;
+     cJSON_ArrayForEach(task,item(item(shown,workspace_key()),"tasks")) {
+         if(strlen(text(task,"id"))!=36)continue;
+-        if(!all_projects&&codex_project_selected[0]&&strcmp(text(task,"projectId"),codex_project_selected))continue;
++        if(!all_projects&&codex_project_selected[0]&&strcmp(workspace_project_root(text(task,"projectId")),codex_project_selected))continue;
+         if(!latest||num(task,"updatedAt")>num(latest,"updatedAt"))latest=task;
+     }
+     if(!latest)return false;
+     codex_default_pending=false;codex_restore_project=false;
+-    const char *project=text(latest,"projectId");
++    const char *project=workspace_project_root(text(latest,"projectId"));
+     snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",strlen(project)==16?project:"");
+     char id[37];snprintf(id,sizeof(id),"%s",text(latest,"id"));
+     if(!strcmp(id,codex_selected))render_codex();else codex_select_task(id);
+@@ -2188,6 +2275,7 @@
+     codex_bookmark_save();
+     snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",codex_project_ids[index]);
+     codex_selected[0]=0;last_codex_status[0]=0;
++    codex_list_rebinding=true;lv_obj_scroll_to_y(codex_list,0,LV_ANIM_OFF);codex_list_rebinding=false;
+     codex_feedback_pinned=codex_submit_accepted=false;
+     codex_load_draft();
+     codex_unread_open_pending=codex_unread_opened=false;visible(codex_reply_overlay,false);ui_text(codex_reply_status,"");
+@@ -3036,7 +3124,8 @@
+         if(!workspace_choose(client)){page(8);return;}
+         if(!codex_save_draft())return;
+         snprintf(codex_selected,sizeof(codex_selected),"%s",codex_alert_task);
+-        snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",text(task,"projectId"));
++        snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",workspace_project_root(text(task,"projectId")));
++        codex_restore_project=true;
+         codex_load_draft();codex_reply_turn[0]=0;page(8);render_codex();codex_open_latest=true;codex_reply_open(e);return;
+     }
+ }
+@@ -4402,15 +4491,22 @@
+     lv_obj_t *tasks_page = pages[8];
+     lv_obj_t *task_left = card(tasks_page, 0, 0, 390, 512);
+     lv_obj_set_style_pad_all(task_left,24,0);
+-    workspace_empty_label=muted(task_left,"等待发现对话",0,12,342);
+-    for(int i=0;i<2;i++){
+-        workspace_buttons[i]=button(task_left,i?"Claude":"Codex",i*176,0,166,workspace_changed,i);lv_obj_set_height(workspace_buttons[i],48);
+-        session_unread_clients[i]=session_unread_marker(workspace_buttons[i],"1",26,26);
+-        ui_text_font(lv_obj_get_child(session_unread_clients[i],0),&tab5_source_20,0);
+-        lv_obj_align(session_unread_clients[i],LV_ALIGN_RIGHT_MID,-8,0);
+-    }
+-    session_project_label=muted(task_left,"项目",0,72,72);
+-    codex_project_picker=dropdown(task_left,"暂无项目",80,60,262,0,codex_project_changed,0);
++    workspace_tab_strip=lv_obj_create(task_left);
++    lv_obj_remove_style_all(workspace_tab_strip);
++    lv_obj_set_pos(workspace_tab_strip,0,0);
++    lv_obj_set_size(workspace_tab_strip,WORKSPACE_TAB_WIDTH,WORKSPACE_TAB_HEIGHT);
++    lv_obj_set_scroll_dir(workspace_tab_strip,LV_DIR_HOR);
++    lv_obj_remove_flag(workspace_tab_strip,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE|LV_OBJ_FLAG_SCROLL_ELASTIC);
++    lv_obj_set_scrollbar_mode(workspace_tab_strip,LV_SCROLLBAR_MODE_OFF);
++    ui_bg_color(workspace_tab_strip,lv_color_hex(MUTED),LV_PART_SCROLLBAR);
++    ui_bg_opa(workspace_tab_strip,LV_OPA_COVER,LV_PART_SCROLLBAR);
++    lv_obj_set_style_width(workspace_tab_strip,2,LV_PART_SCROLLBAR);
++    workspace_empty_label=muted(workspace_tab_strip,"等待发现对话",0,18,WORKSPACE_TAB_WIDTH);
++    const lv_image_dsc_t *logos[]={&brand_codex_image,&brand_claude_image};
++    for(int i=0;i<2;i++)
++        workspace_buttons[i]=workspace_tab_create(workspace_tab_strip,logos[i],workspace_changed,i,&session_unread_clients[i]);
++    session_project_label=muted(task_left,"项目",0,84,72);
++    codex_project_picker=dropdown(task_left,"暂无项目",80,72,262,0,codex_project_changed,0);
+     ui_text_font(codex_project_picker,&tab5_font_24,0);
+     // Native dropdown text is not clipped around its indicator. Keep a
+     // separate ellipsized caption; full options and selection stay native.
+@@ -4426,8 +4522,13 @@
+     lv_obj_set_pos(codex_list,0,136);lv_obj_set_size(codex_list,342,328);
+     lv_obj_set_scroll_dir(codex_list,LV_DIR_VER);
+     ui_bg_color(codex_list,lv_color_hex(MUTED),LV_PART_SCROLLBAR);
++    ui_bg_opa(codex_list,LV_OPA_COVER,LV_PART_SCROLLBAR);
+     lv_obj_set_style_width(codex_list,3,LV_PART_SCROLLBAR);
+     lv_obj_set_scrollbar_mode(codex_list,LV_SCROLLBAR_MODE_ON);
++    lv_obj_add_event_cb(codex_list,codex_list_scrolled,LV_EVENT_SCROLL,NULL);
++    codex_list_extent=lv_obj_create(codex_list);lv_obj_remove_style_all(codex_list_extent);
++    lv_obj_set_pos(codex_list_extent,0,0);lv_obj_set_size(codex_list_extent,1,1);
++    lv_obj_remove_flag(codex_list_extent,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE|LV_OBJ_FLAG_CLICK_FOCUSABLE);
+     codex_empty=muted(codex_list,"该项目暂无会话",10,12,320);
+     for(int i=0;i<8;i++) {
+         lv_obj_t *row=codex_task_rows[i]=button(codex_list,"",0,i*88,332,codex_selected_changed,i);
+--- /dev/null
++++ b/firmware/main/ui_project_groups.h
+@@ -0,0 +1,67 @@
++#include "mbedtls/sha256.h"
++
++// Project pagination IDs are SHA-256(root + ":page:" + zeroBasedPage).
++// Merge only a fully verifiable page ID; names alone never prove identity.
++typedef struct { char id[17],root[17],name[160]; } workspace_project_group;
++static workspace_project_group workspace_project_groups[24];
++static int workspace_project_groups_count;
++
++static void workspace_group_copy(char *out,size_t capacity,const char *input) {
++    size_t length=strnlen(input,capacity-1);
++    if(input[length])while(length&&((unsigned char)input[length]&0xc0)==0x80)length--;
++    memcpy(out,input,length);out[length]=0;
++}
++static bool workspace_page_name(const char *input,int *page,int *total,char *name,size_t capacity) {
++    int position=0,used=0,n=0,whole=0;
++    if(sscanf(input,"%d/%d · %n",&n,&whole,&used)==2&&used>0&&input[used]) {
++        position=used;snprintf(name,capacity,"%s",input+position);
++    } else {
++        const char *separator=strstr(input," · ");const char *last=NULL;
++        while(separator){last=separator;separator=strstr(separator+3," · ");}
++        if(!last||sscanf(last," · %d/%d%n",&n,&whole,&used)!=2||last[used])return false;
++        size_t length=(size_t)(last-input);if(!length||length>=capacity)return false;
++        memcpy(name,input,length);name[length]=0;
++    }
++    if(n<1||whole<2||whole>24||n>whole)return false;
++    *page=n;*total=whole;return true;
++}
++static bool workspace_page_id(const char *root,int page,const char *id) {
++    char input[40],expected[17];uint8_t digest[32];
++    snprintf(input,sizeof(input),"%.16s:page:%d",root,page-1);
++    if(mbedtls_sha256((const uint8_t *)input,strlen(input),digest,0))return false;
++    for(int i=0;i<8;i++)snprintf(expected+2*i,3,"%02x",digest[i]);
++    return !strcmp(expected,id);
++}
++static void workspace_groups_build(cJSON *projects) {
++    workspace_project_groups_count=0;
++    cJSON *entry=NULL;
++    cJSON_ArrayForEach(entry,projects) {
++        if(workspace_project_groups_count>=24)break;
++        const char *id=text(entry,"id"),*label=text(entry,"name");
++        if(strlen(id)!=16||!strcmp(label,"--"))continue;
++        workspace_project_group *g=&workspace_project_groups[workspace_project_groups_count++];
++        snprintf(g->id,sizeof(g->id),"%s",id);snprintf(g->root,sizeof(g->root),"%s",id);
++        workspace_group_copy(g->name,sizeof(g->name),label);
++    }
++    for(int i=0;i<workspace_project_groups_count;i++) {
++        int page,total;char name[160];
++        workspace_project_group *g=&workspace_project_groups[i];
++        if(!workspace_page_name(g->name,&page,&total,name,sizeof(name))||page!=1)continue;
++        for(int j=0;j<workspace_project_groups_count;j++) {
++            int otherPage,otherTotal;char otherName[160];
++            workspace_project_group *other=&workspace_project_groups[j];
++            if(j==i||!workspace_page_name(other->name,&otherPage,&otherTotal,otherName,sizeof(otherName))||
++               otherPage<=1||otherTotal!=total||strcmp(name,otherName)||!workspace_page_id(g->id,otherPage,other->id))continue;
++            memcpy(other->root,g->id,sizeof(other->root));
++        }
++        // Only change the label when at least one page was verified.
++        bool merged=false;
++        for(int j=0;j<workspace_project_groups_count;j++)if(j!=i&&!strcmp(workspace_project_groups[j].root,g->id))merged=true;
++        if(merged)snprintf(g->name,sizeof(g->name),"%s",name);
++    }
++}
++static const char *workspace_project_root(const char *id) {
++    for(int i=0;i<workspace_project_groups_count;i++)
++        if(!strcmp(workspace_project_groups[i].id,id))return workspace_project_groups[i].root;
++    return id;
++}
+--- a/firmware/main/ui_session_unread.h
++++ b/firmware/main/ui_session_unread.h
+@@ -10,7 +10,7 @@
+ static unsigned session_unread_count(unsigned client,const char *project) {
+     unsigned count=0;cJSON *task=NULL;
+     cJSON_ArrayForEach(task,item(item(shown,client?"claudeTasks":"codexTasks"),"tasks"))
+-        if((!project||!strcmp(text(task,"projectId"),project))&&session_unread_task(text(task,"id")))count++;
++        if((!project||!strcmp(workspace_project_root(text(task,"projectId")),project))&&session_unread_task(text(task,"id")))count++;
+     return count;
+ }
+ static void session_unread_center(lv_obj_t *label) {
+--- a/firmware/sdkconfig
++++ b/firmware/sdkconfig
+@@ -3062,7 +3062,7 @@
+ #
+ # CONFIG_LV_FONT_MONTSERRAT_8 is not set
+ # CONFIG_LV_FONT_MONTSERRAT_10 is not set
+-# CONFIG_LV_FONT_MONTSERRAT_12 is not set
++CONFIG_LV_FONT_MONTSERRAT_12=y
+ CONFIG_LV_FONT_MONTSERRAT_14=y
+ # CONFIG_LV_FONT_MONTSERRAT_16 is not set
+ # CONFIG_LV_FONT_MONTSERRAT_18 is not set
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -204,6 +204,10 @@
+         LV_DRAW_SW_SUPPORT_L8=0 LV_DRAW_SW_SUPPORT_AL88=0 LV_DRAW_SW_SUPPORT_I1=0)
+ endif()
+ add_executable(ui-preview preview.c "${ROOT}/firmware/main/tab5_font_24.c" "${ROOT}/firmware/main/tab5_font_30.c" "${ROOT}/firmware/main/tab5_digits_72.c" "${ROOT}/firmware/main/tab5_digits_96.c" "${ROOT}/firmware/main/tab5_timer_digits_192.c" "${ROOT}/firmware/main/link_state.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
++set(UI_SHA_ROOT "${ROOT}/.tools/esp-idf/components/mbedtls/mbedtls")
++target_sources(ui-preview PRIVATE "${UI_SHA_ROOT}/library/sha256.c" "${UI_SHA_ROOT}/library/platform_util.c")
++target_include_directories(ui-preview PRIVATE "${UI_SHA_ROOT}/include" "${ROOT}/tests/ui-preview/photo-crypto-stubs")
++target_compile_definitions(ui-preview PRIVATE MBEDTLS_CONFIG_FILE="photo-crypto-config.h")
+ target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/codex_companion.c" "${ROOT}/firmware/main/claude_companion.c")
+ add_executable(claude-companion-test claude_companion_test.c "${ROOT}/firmware/main/claude_companion.c" "${ROOT}/firmware/main/codex_companion.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
+ target_include_directories(claude-companion-test PRIVATE "${ROOT}/firmware/main" "${ROOT}/.tools/esp-idf/components/json/cJSON")
+--- a/tests/ui-preview/lv_conf.h
++++ b/tests/ui-preview/lv_conf.h
+@@ -6,6 +6,7 @@
+ #define LV_USE_FONT_COMPRESSED 1
+ #define LV_USE_OS LV_OS_NONE
+ #define LV_USE_STDLIB_MALLOC LV_STDLIB_CLIB
++#define LV_FONT_MONTSERRAT_12 1
+ #define LV_FONT_MONTSERRAT_14 1
+ #define LV_FONT_MONTSERRAT_24 1
+ #define LV_FONT_MONTSERRAT_32 1
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2040,11 +2040,14 @@
+ #include "workspace_parity_ui_test.h"
+ #include "workspace_switch_sync_test.h"
+ #include "reply_open_state_test.h"
++#include "workspace_brand_tabs_test.h"
+ #include "workspace_controls_test.h"
+ #include "session_source_test.h"
+ #include "session_unread_test.h"
+ #include "cancelled_draft_refresh_test.h"
+ #include "project_dropdown_navigation_test.h"
++#include "project_identity_preview_test.h"
++#include "project_virtual_list_test.h"
+ static void saver_test_tap(lv_indev_t *touch,lv_point_t point) {
+     camera_touch_point=point;camera_touch_state=LV_INDEV_STATE_PRESSED;
+     lv_indev_read(touch);lv_tick_inc(32);
+@@ -2160,9 +2163,12 @@
+     if(getenv("TAB5_REPLY_RETURN_TOUCH_ONLY")){check_reply_return_touch();return 0;}
+     if(getenv("TAB5_REPLY_UNREAD_LOADING_ONLY")){check_reply_unread_loading();return 0;}
+     if(getenv("TAB5_WORKSPACE_CONTROLS_ONLY")){check_workspace_controls();return 0;}
++    if(getenv("TAB5_WORKSPACE_BRAND_TABS_ONLY")){check_workspace_brand_tabs();return 0;}
+     if(getenv("TAB5_SESSION_SOURCE_ONLY")){check_session_source();return 0;}
+     if(getenv("TAB5_SESSION_UNREAD_ONLY")){check_session_unread();return 0;}
+     if(getenv("TAB5_PROJECT_DROPDOWN_ONLY")){check_project_dropdown_navigation();return 0;}
++    if(getenv("TAB5_PROJECT_IDENTITY_ONLY")){check_project_identity_preview();return 0;}
++    if(getenv("TAB5_PROJECT_VIRTUAL_LIST_ONLY")){check_project_virtual_list();return 0;}
+     if(getenv("TAB5_CANCELLED_DRAFT_ONLY")){check_cancelled_draft_refresh();return 0;}
+     if(getenv("TAB5_WORKSPACE_PARITY_ONLY")){check_workspace_parity_ui();return 0;}
+     if(getenv("TAB5_WORKSPACE_SWITCH_SYNC_ONLY")){check_workspace_switch_sync();return 0;}
+--- a/tests/ui-preview/session_unread_test.h
++++ b/tests/ui-preview/session_unread_test.h
+@@ -63,8 +63,8 @@
+     assert(!lv_obj_has_flag(session_unread_clients[1],LV_OBJ_FLAG_HIDDEN));
+     assert(!strcmp(lv_label_get_text(session_project_label),"项目"));
+     assert(!lv_obj_has_flag(session_project_label,LV_OBJ_FLAG_CLICKABLE));
+-    assert(lv_obj_get_width(session_unread_clients[1])==26);
+-    assert(lv_obj_get_style_text_font(lv_obj_get_child(session_unread_clients[1],0),0)==&tab5_source_20);
++    assert(lv_obj_get_width(session_unread_clients[1])==20);
++    assert(lv_obj_get_style_text_font(lv_obj_get_child(session_unread_clients[1],0),0)==&lv_font_montserrat_14);
+     for(int i=0;i<2;i++){
+         lv_area_t button,badge;lv_obj_get_coords(workspace_buttons[i],&button);lv_obj_get_coords(session_unread_clients[i],&badge);
+         assert(button.x2-badge.x2>=8&&badge.x1>button.x1&&badge.y1>button.y1&&badge.y2<button.y2);
+--- a/tests/ui-preview/workspace_parity_ui_test.h
++++ b/tests/ui-preview/workspace_parity_ui_test.h
+@@ -34,16 +34,18 @@
+     codex_set_text("Codex 更新后的草稿");assert(!workspace_choose(1));assert(workspace_switch_pending==1&&workspace_client==0&&a->dirty);
+     a->dirty=false;workspace_switch_tick();assert(workspace_client==1&&!strcmp(lv_textarea_get_text(codex_input),b->text));
+     capture("workspace-claude-restored");
+-    // Single-client layouts keep their full-width label; both clients restore
++    // Single-client layouts keep their full-width logo tab; both clients restore
+     // the two-button layout. Unsent composers were tested separately above.
+     codex_set_text("");
+     assert(codex_store_text(a,"",false)&&codex_store_text(b,"",false));a->dirty=b->dirty=false;
+     cJSON *codex_saved=cJSON_DetachItemFromObject(shown,"codexTasks");
++    preview_now_us+=9000000;last_received=preview_now_us/1000;
+     render_codex();lv_obj_update_layout(lv_screen_active());assert(lv_obj_has_flag(workspace_buttons[0],LV_OBJ_FLAG_HIDDEN));
+     assert(!lv_obj_has_flag(workspace_buttons[1],LV_OBJ_FLAG_HIDDEN)&&lv_obj_get_width(workspace_buttons[1])==342);
+     capture("workspace-claude-only");
+     cJSON_AddItemToObject(shown,"codexTasks",codex_saved);
+     cJSON *claude_saved=cJSON_DetachItemFromObject(shown,"claudeTasks");
++    preview_now_us+=9000000;last_received=preview_now_us/1000;
+     render_codex();lv_obj_update_layout(lv_screen_active());assert(workspace_client==0&&lv_obj_has_flag(workspace_buttons[1],LV_OBJ_FLAG_HIDDEN));
+     assert(lv_obj_get_width(workspace_buttons[0])==342);capture("workspace-codex-only");
+     cJSON_AddItemToObject(shown,"claudeTasks",claude_saved);render_codex();lv_obj_update_layout(lv_screen_active());
+--- /dev/null
++++ b/tests/ui-preview/workspace_brand_tabs_test.h
+@@ -0,0 +1,92 @@
++static unsigned workspace_preview_clicks;
++static void workspace_preview_tab_click(lv_event_t *event) {
++    (void)event;workspace_preview_clicks++;
++}
++
++static void check_workspace_brand_tabs(void) {
++    reply_open_state_setup(1);
++    codex_draft *draft=codex_draft_for(codex_selected,false);
++    assert(draft&&codex_store_text(draft,"",false));
++    lv_obj_update_layout(lv_screen_active());
++    assert(lv_obj_get_style_y(codex_list,0)==136);
++    assert(lv_obj_get_height(workspace_buttons[1])==64&&lv_obj_get_width(workspace_buttons[1])==342);
++    assert(lv_image_get_src(lv_obj_get_child(workspace_buttons[1],0))==&brand_claude_image);
++    capture("provider-tabs-one");
++
++    cJSON *codex=cJSON_Duplicate(item(shown,"claudeTasks"),true);
++    cJSON_ReplaceItemInObject(cJSON_GetArrayItem(item(codex,"tasks"),0),"id",cJSON_CreateString("22222222-2222-4222-8222-222222222222"));
++    cJSON_AddItemToObject(shown,"codexTasks",codex);
++    render_codex();
++    // Short missing snapshots do not hide either tab or clear the selected
++    // conversation. A sustained disappearance is tested by parity coverage.
++    char selected_before[37];snprintf(selected_before,sizeof(selected_before),"%s",codex_selected);
++    cJSON *missing=cJSON_DetachItemFromObject(shown,"claudeTasks");
++    preview_now_us+=1000000;last_received=preview_now_us/1000;render_codex();
++    assert(!lv_obj_has_flag(workspace_buttons[1],LV_OBJ_FLAG_HIDDEN));
++    assert(workspace_client==1&&!strcmp(codex_selected,selected_before));
++    cJSON_AddItemToObject(shown,"claudeTasks",missing);
++    missing=cJSON_DetachItemFromObject(shown,"codexTasks");
++    preview_now_us+=1000000;last_received=preview_now_us/1000;render_codex();
++    assert(!lv_obj_has_flag(workspace_buttons[0],LV_OBJ_FLAG_HIDDEN)&&workspace_client==1);
++    cJSON_AddItemToObject(shown,"codexTasks",missing);render_codex();
++    assert(lv_image_get_src(lv_obj_get_child(workspace_buttons[0],0))==&brand_codex_image);
++    for(unsigned i=0;i<2;i++) {
++        assert(lv_obj_get_child_count(workspace_buttons[i])==2);
++        assert(!lv_obj_has_flag(lv_obj_get_child(workspace_buttons[i],0),LV_OBJ_FLAG_CLICKABLE));
++    }
++    visible(session_unread_clients[0],true);visible(session_unread_clients[1],true);
++    ui_text(lv_obj_get_child(session_unread_clients[0],0),"1");
++    ui_text(lv_obj_get_child(session_unread_clients[1],0),"9+");
++    capture("provider-tabs-two-unread");
++    lv_indev_t *touch=lv_indev_create();
++    lv_indev_set_type(touch,LV_INDEV_TYPE_POINTER);lv_indev_set_display(touch,lv_display_get_default());
++    lv_indev_set_read_cb(touch,camera_touch_read);
++    lv_area_t bounds;lv_obj_get_coords(workspace_buttons[0],&bounds);
++    reply_pointer_tap(touch,(lv_point_t){bounds.x1+10,bounds.y2-10});
++    assert(workspace_client==0);
++
++    // Exercise extra providers using the actual strip/layout, without
++    // inventing additional firmware protocol clients.
++    visible(workspace_buttons[0],false);visible(workspace_buttons[1],false);
++    const lv_image_dsc_t *logos[]={&brand_codex_image,&brand_claude_image,&brand_deepseek_image,&brand_kimi_image,
++        &brand_alibaba_image,&brand_zhipu_image,&brand_minimax_image};
++    lv_obj_t *tabs[7],*badges[7];
++    bool present[7]={true,true,false,true,false,false,false};
++    for(int i=0;i<7;i++)tabs[i]=workspace_tab_create(workspace_tab_strip,logos[i],workspace_preview_tab_click,i,&badges[i]);
++    workspace_tabs_layout(workspace_tab_strip,tabs,present,7,1);
++    lv_obj_update_layout(lv_screen_active());
++    assert(lv_obj_get_x(tabs[3])+lv_obj_get_width(tabs[3])==342);
++    assert(lv_obj_has_flag(tabs[2],LV_OBJ_FLAG_HIDDEN)&&!lv_obj_has_flag(workspace_tab_strip,LV_OBJ_FLAG_SCROLLABLE));
++    capture("provider-tabs-three");
++    present[2]=true;
++    workspace_tabs_layout(workspace_tab_strip,tabs,present,7,1);
++    for(int i=0;i<4;i++){visible(badges[i],true);ui_text(lv_obj_get_child(badges[i],0),"9+");}
++    capture("provider-tabs-four");
++    for(int i=0;i<4;i++) {
++        lv_area_t icon,badge;
++        lv_obj_get_coords(lv_obj_get_child(tabs[i],0),&icon);lv_obj_get_coords(badges[i],&badge);
++        assert(icon.x2<badge.x1&&lv_obj_get_height(tabs[i])==64);
++    }
++    for(int i=4;i<7;i++)present[i]=true;
++    workspace_tabs_layout(workspace_tab_strip,tabs,present,7,1);
++    capture("provider-tabs-overflow");
++    lv_obj_get_coords(workspace_tab_strip,&bounds);
++    int scroll=lv_obj_get_scroll_right(workspace_tab_strip);
++    assert(scroll>0&&lv_obj_get_scroll_bottom(workspace_tab_strip)==0);
++    camera_touch_point=(lv_point_t){bounds.x1+280,bounds.y1+40};
++    camera_touch_state=LV_INDEV_STATE_PRESSED;lv_indev_read(touch);
++    for(int i=0;i<8;i++){camera_touch_point.x-=20;lv_tick_inc(18);lv_indev_read(touch);}
++    camera_touch_state=LV_INDEV_STATE_RELEASED;lv_indev_read(touch);
++    assert(lv_obj_get_scroll_x(workspace_tab_strip)>0&&workspace_preview_clicks==0);
++    lv_obj_scroll_to_x(workspace_tab_strip,scroll,LV_ANIM_OFF);
++    capture("provider-tabs-overflow-end");
++    assert(lv_obj_get_scroll_right(workspace_tab_strip)==0);
++    for(int i=0;i<7;i++)lv_obj_delete(tabs[i]);
++    cJSON_DeleteItemFromObject(shown,"codexTasks");cJSON_DeleteItemFromObject(shown,"claudeTasks");
++    preview_now_us+=9000000;last_received=preview_now_us/1000;
++    render_codex();lv_obj_update_layout(lv_screen_active());
++    assert(!lv_obj_has_flag(workspace_empty_label,LV_OBJ_FLAG_HIDDEN)&&lv_obj_get_scroll_x(workspace_tab_strip)==0);
++    capture("provider-tabs-empty");
++    lv_indev_delete(touch);
++    puts("WORKSPACE_BRAND_TABS_OK actual zero/one/two providers; dense and overflow layout; pointer click and swipe; fixed list position");
++}
+--- /dev/null
++++ b/tests/ui-preview/project_identity_preview_test.h
+@@ -0,0 +1,12 @@
++static void check_project_identity_preview(void) {
++    const char *fixture="{\"epochMilliseconds\":1793758000000,\"pcInput\":{\"session\":\"identity-preview\"},\"codexTasks\":{\"projects\":[{\"id\":\"1111111111111111\",\"name\":\"1/3 · AI-bot\"},{\"id\":\"2222222222222222\",\"name\":\"2/3 · AI-bot\"},{\"id\":\"3333333333333333\",\"name\":\"3/3 · AI-bot\"},{\"id\":\"4444444444444444\",\"name\":\"Personal/AI-bot\"}],\"tasks\":[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"projectId\":\"1111111111111111\",\"title\":\"当前项目会话\"}]}}";
++    cJSON_Delete(shown);shown=cJSON_Parse(fixture);assert(shown);
++    workspace_client=0;codex_selected[0]=codex_project_selected[0]=0;codex_default_pending=codex_default_all=true;
++    page(8);render_codex();lv_obj_update_layout(lv_screen_active());
++    assert(!strcmp(lv_label_get_text(codex_project_caption),"1/3 · AI-bot"));
++    assert(strstr(lv_dropdown_get_options(codex_project_picker),"2/3 · AI-bot"));
++    capture("project-identity-closed");
++    lv_dropdown_open(codex_project_picker);assert(lv_dropdown_is_open(codex_project_picker));
++    capture("project-identity-open");
++    puts("PROJECT_IDENTITY_PREVIEW_OK distinct projects and page labels");
++}
+--- /dev/null
++++ b/tests/ui-preview/project_virtual_list_test.h
+@@ -0,0 +1,72 @@
++static void project_page_id(char out[17],const char *root,int page) {
++    char input[40];uint8_t digest[32];snprintf(input,sizeof(input),"%s:page:%d",root,page);
++    assert(!mbedtls_sha256((const uint8_t *)input,strlen(input),digest,0));
++    for(int i=0;i<8;i++)snprintf(out+i*2,3,"%02x",digest[i]);
++}
++static void check_project_virtual_list(void) {
++    reply_open_state_setup(0);
++    cJSON *remote=item(shown,"codexTasks"),*projects=item(remote,"projects"),*tasks=item(remote,"tasks");
++    cJSON_DeleteItemFromArray(projects,0);cJSON_DeleteItemFromArray(tasks,0);
++    const char *root="1111111111111111";char ids[8][17];snprintf(ids[0],17,"%s",root);
++    for(int i=1;i<8;i++)project_page_id(ids[i],root,i);
++    for(int i=0;i<8;i++) {
++        cJSON *project=cJSON_CreateObject();char caption[80];snprintf(caption,sizeof(caption),"%d/8 · AI-bot",i+1);
++        cJSON_AddStringToObject(project,"id",ids[i]);cJSON_AddStringToObject(project,"name",caption);cJSON_AddItemToArray(projects,project);
++    }
++    // An unrelated project with an identical-looking name must remain separate.
++    cJSON *other=cJSON_CreateObject();cJSON_AddStringToObject(other,"id","4444444444444444");
++    cJSON_AddStringToObject(other,"name","2/8 · AI-bot");cJSON_AddItemToArray(projects,other);
++    for(int i=0;i<64;i++) {
++        char id[37],title[40];snprintf(id,sizeof(id),"aaaaaaaa-aaaa-4aaa-8aaa-%012d",i);
++        snprintf(title,sizeof(title),"会话 %02d",i+1);
++        cJSON *task=cJSON_CreateObject();cJSON_AddStringToObject(task,"id",id);cJSON_AddStringToObject(task,"title",title);
++        cJSON_AddStringToObject(task,"projectId",ids[i/8]);cJSON_AddNumberToObject(task,"updatedAt",100-i);
++        cJSON_AddItemToArray(tasks,task);
++    }
++    if(!codex_notices)codex_notices=calloc(80,sizeof(*codex_notices));
++    memset(codex_notices,0,80*sizeof(*codex_notices));
++    snprintf(codex_notices[0].task,37,"aaaaaaaa-aaaa-4aaa-8aaa-000000000063");codex_notices[0].unread=true;
++    workspace_client=0;codex_selected[0]=codex_project_selected[0]=0;codex_default_pending=codex_default_all=true;
++    render_codex();render_codex();lv_obj_update_layout(lv_screen_active());
++    assert(codex_project_count==2);
++    assert(strstr(lv_dropdown_get_options(codex_project_picker),"[1] AI-bot\n2/8 · AI-bot"));
++    assert(!strcmp(lv_label_get_text(codex_project_caption),"[1] AI-bot"));
++    assert(!strcmp(codex_task_ids[0],"aaaaaaaa-aaaa-4aaa-8aaa-000000000000"));
++    capture("project-virtual-top");
++    lv_indev_t *touch=lv_indev_create();lv_indev_set_type(touch,LV_INDEV_TYPE_POINTER);
++    lv_indev_set_display(touch,lv_display_get_default());lv_indev_set_read_cb(touch,camera_touch_read);
++    lv_area_t area;lv_obj_get_coords(codex_list,&area);
++    camera_touch_point=(lv_point_t){area.x1+100,area.y1+260};
++    camera_touch_state=LV_INDEV_STATE_PRESSED;lv_indev_read(touch);
++    for(int i=0;i<8;i++){camera_touch_point.y-=20;lv_tick_inc(18);lv_indev_read(touch);}
++    camera_touch_state=LV_INDEV_STATE_RELEASED;lv_indev_read(touch);
++    assert(lv_obj_get_scroll_y(codex_list)>0&&!strcmp(codex_selected,"aaaaaaaa-aaaa-4aaa-8aaa-000000000000"));
++    lv_obj_scroll_to_y(codex_list,12*88,LV_ANIM_OFF);lv_obj_update_layout(lv_screen_active());
++    assert(!strcmp(codex_task_ids[0],"aaaaaaaa-aaaa-4aaa-8aaa-000000000011"));
++    assert(!strcmp(codex_selected,"aaaaaaaa-aaaa-4aaa-8aaa-000000000000"));
++    capture("project-virtual-middle");
++    // Selecting an older visible row uses its exact session ID.
++    lv_obj_get_coords(codex_task_rows[2],&area);
++    reply_pointer_tap(touch,(lv_point_t){area.x1+40,(area.y1+area.y2)/2});
++    assert(!strcmp(codex_selected,"aaaaaaaa-aaaa-4aaa-8aaa-000000000013"));
++    assert(codex_draft_for(codex_selected,false));
++    lv_obj_scroll_to_y(codex_list,LV_COORD_MAX,LV_ANIM_OFF);lv_obj_update_layout(lv_screen_active());
++    assert(!strcmp(codex_task_ids[4],"aaaaaaaa-aaaa-4aaa-8aaa-000000000063"));
++    assert(!lv_obj_has_flag(session_unread_rows[4],LV_OBJ_FLAG_HIDDEN));
++    assert(!strcmp(codex_selected,"aaaaaaaa-aaaa-4aaa-8aaa-000000000013"));
++    capture("project-virtual-bottom");
++    // Opening an older unread item from Overview scrolls it into view.
++    lv_obj_scroll_to_y(codex_list,0,LV_ANIM_OFF);page(0);
++    workspace_open_task(0,"aaaaaaaa-aaaa-4aaa-8aaa-000000000063",0);
++    assert(current_page==8&&!strcmp(codex_selected,"aaaaaaaa-aaaa-4aaa-8aaa-000000000063"));
++    assert(lv_obj_get_scroll_y(codex_list)>0);
++    // Older Windows Claude labels use the suffix form, with the same IDs.
++    for(int i=0;i<8;i++) {
++        char label[80];snprintf(label,sizeof(label),"AI-bot · %d/8",i+1);
++        cJSON_ReplaceItemInObject(cJSON_GetArrayItem(projects,i),"name",cJSON_CreateString(label));
++    }
++    workspace_groups_build(projects);
++    for(int i=0;i<8;i++)assert(!strcmp(workspace_project_root(ids[i]),root));
++    lv_indev_delete(touch);
++    puts("PROJECT_VIRTUAL_LIST_OK one verified project; unverified distinct; 64 exact sessions; bounded recycled rows; selection survives scroll");
++}

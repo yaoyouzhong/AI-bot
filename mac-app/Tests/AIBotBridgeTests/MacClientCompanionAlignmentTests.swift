@@ -51,6 +51,51 @@ final class MacClientCompanionAlignmentTests: XCTestCase {
         XCTAssertGreaterThan(captured.claude.ageSeconds.map { Int64(now.timeIntervalSince1970)-$0 } ?? 0, captured.domestic?.providers?["deepseek"]?.lastActivity ?? 0)
     }
 
+    func testMidnightKeepsRecentActivityButResetsDailyUsage() throws {
+        let home=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let directory=home.appendingPathComponent(".claude/projects/test")
+        try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
+        defer { try? FileManager.default.removeItem(at:home) }
+        let midnight=Calendar.current.startOfDay(for:Date()), before=midnight.addingTimeInterval(-10), now=midnight.addingTimeInterval(5)
+        let row="{\"type\":\"assistant\",\"timestamp\":\"\(ISO8601DateFormatter().string(from:before))\",\"message\":{\"model\":\"deepseek-chat\",\"usage\":{\"input_tokens\":123}}}\n"
+        let file=directory.appendingPathComponent("session.jsonl")
+        try row.write(to:file,atomically:true,encoding:.utf8)
+        try FileManager.default.setAttributes([.modificationDate:before],ofItemAtPath:file.path)
+        let sampler=MacActivityMetadata(home:home), current=sampler.capture(now:now)
+        XCTAssertEqual(current.claude.state,"working")
+        XCTAssertEqual(current.claude.ageSeconds,15)
+        XCTAssertEqual(current.domestic?.activeProvider,"deepseek")
+        XCTAssertEqual(current.domestic?.tokensToday,0)
+        XCTAssertEqual(current.claude.tokensToday,0)
+        XCTAssertEqual(sampler.capture(now:midnight.addingTimeInterval(901)).claude.state,"offline")
+        let codex=MacActivityMetadata.parse(["{\"timestamp\":\"\(ISO8601DateFormatter().string(from:before))\",\"payload\":{\"type\":\"token_count\",\"info\":{\"total_token_usage\":{\"total_tokens\":123}}}}"],codex:true,now:now)
+        XCTAssertNil(codex.usage["codex"])
+        XCTAssertEqual(codex.latest["codex"],before)
+    }
+
+    func testLongRunningCodexRemainsActiveWhileSameSessionReportsTokens() throws {
+        let home=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder=home.appendingPathComponent(".codex/sessions/test")
+        try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
+        defer { try? FileManager.default.removeItem(at:home) }
+        let now=Calendar.current.startOfDay(for:Date()).addingTimeInterval(12*3600)
+        func row(_ seconds:Double,_ payload:[String:Any]) throws -> String {
+            let object:[String:Any] = ["timestamp":ISO8601DateFormatter().string(from:now.addingTimeInterval(seconds)),"payload":payload]
+            return String(decoding:try JSONSerialization.data(withJSONObject:object),as:UTF8.self)+"\n"
+        }
+        let start=try row(-1800,["type":"task_started"])
+        let token=try row(-5,["type":"token_count","info":["total_token_usage":["total_tokens":123]]])
+        let file=folder.appendingPathComponent("session.jsonl")
+        try (start+token).write(to:file,atomically:true,encoding:.utf8)
+        let running=MacActivityMetadata(home:home).capture(now:now)
+        XCTAssertEqual(running.codex.state,"working")
+        XCTAssertEqual(running.codex.ageSeconds,5)
+        XCTAssertEqual(running.codex.tokensToday,123)
+        let end=try row(-1700,["type":"task_complete"])
+        try (start+end+token).write(to:file,atomically:true,encoding:.utf8)
+        XCTAssertEqual(MacActivityMetadata(home:home).capture(now:now).codex.state,"offline")
+    }
+
     func testRealProviderTimestampSurvivesTab5WireAndESPCompactExcludesIt() throws {
         let now = Date(), earlier = Int64(now.timeIntervalSince1970) - 13
         let state = ToolState(state:"working",ageSeconds:13)

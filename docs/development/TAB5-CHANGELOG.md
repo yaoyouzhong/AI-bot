@@ -2,6 +2,14 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## Unreleased
+
+### Dialogue
+- Use provider icons for Codex and Claude; center larger icons for one to three entries and allow horizontal scrolling when more entries are available.
+- Keep compact unread badges with 14 px numbers. Retain provider entries and the current session through brief missing catalogs, updating after a sustained empty result.
+- Combine verifiably related session pages into one project entry and scroll through more conversations. Keep distinct projects separate; older bridge transport limits still apply.
+- Mac USB acceptance confirmed ICON2 boot and display settings preservation. Actual unread-badge visibility, long-term stability and behavior with the Windows bridge remain to be validated.
+
 ## 0.2.318-ui - 2026-11-05
 
 ### Dialogue and touch controls

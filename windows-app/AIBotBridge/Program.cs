@@ -14,6 +14,7 @@ internal static class Program
         }
         if(args is ["--self-test-bridge-admin"]){AppPaths.BeginPublicSelfTest();BridgeAdminSelfTest.Run();return;}
         if(args is ["--inspect-codex-desktop-read"]){BridgeAdminSelfTest.ReadDesktopAsync().GetAwaiter().GetResult();return;}
+        if(args is ["--upgrade-admin-bridge"] or ["--upgrade-admin-bridge",_,_]){BridgeUpgrade.Run(args);return;}
         if(args is ["--install-admin-bridge"]){
             try{Console.WriteLine(JsonSerializer.Serialize(new{path=BridgeInstallation.Configure(),administrator=BridgeElevation.IsAdministrator}));}
             catch(Exception ex){Console.Error.WriteLine("BRIDGE_ADMIN_INSTALL_FAILED "+ex.GetType().Name+": "+ex.Message);Environment.ExitCode=1;}return;

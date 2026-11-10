@@ -20,6 +20,9 @@ internal static class BridgeElevation
         string[] arguments=Environment.GetCommandLineArgs().Skip(1).ToArray();
         if(arguments.Length>=2&&arguments[0]=="--elevated-tray")arguments=arguments.Skip(2).ToArray();
         if(IsAdministrator){
+            if(arguments.Length==0&&!BridgeInstallation.TrustedExecutable(Environment.ProcessPath!,Owner)){
+                BridgeUpgrade.InstallAndStart();return false;
+            }
             string path=BridgeInstallation.Configure();
             if(string.Equals(path,Environment.ProcessPath,StringComparison.OrdinalIgnoreCase)){
                 if(Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT") is null&&BridgeInstallation.Read(path,Owner)?.HttpPort is {} port)

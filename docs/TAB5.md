@@ -111,6 +111,12 @@ Windows 桥接复用 GetLastInputInfo 向 TAB5 三通道提供单调输入时间
 
 The Windows bridge sends monotonic last-input timestamps over all TAB5 transports. New keyboard/mouse activity wakes the display and resets inactivity; input contents are never collected. Initial connection establishes a baseline. Idle heartbeats, duplicate/older frames and unavailable samples do not wake it. ESP8266 settings remain independent.
 
+Mac 桥接复用 macOS 全局空闲时间读取键盘、触摸板和鼠标的最后活动时间。TAB5 沿用既有屏保退出和亮度恢复交互，仍只根据新的活动时间戳退出普通屏保。首次状态、静止心跳和预览模式沿用原规则。
+
+The Mac bridge derives the same last-input timestamp from macOS idle time for
+keyboard, trackpad and mouse activity. TAB5 uses the existing screensaver exit
+and brightness restoration behavior for a newer activity sample.
+
 ### 0.2.6-dev 金额合并与音乐时长 / Cost merge and music duration
 
 DeepSeek 同时走官方余额接口和现有 WebView 网页采集；API 不再清空网页消费金额，也不更新其采集时间。凭据范围、币种变化清除旧金额；网页余额与最近 API 余额不一致拒绝合并；消费采样超过 24 小时隐藏。缺少网页登录时仍可更新 API 余额。

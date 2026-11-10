@@ -7,12 +7,20 @@ internal sealed class ClaudeCatalog(string root,Func<byte[]> key,Func<IEnumerabl
 {
     internal sealed record Entry(string Alias,Guid Session,string Directory,string Title,long Updated,string Project,string Folder);
     private readonly ClaudeSessionIndex _index=new(root);
-    private readonly object _sync=new();private Entry[] _entries=[];
+    private readonly object _sync=new();private Entry[]? _entries;
+    private readonly Tab5CatalogDisplay<Entry> _display=new();
     internal static string Alias(string value,byte[] key,bool uuid=true){
         string hex=Convert.ToHexString(HMACSHA256.HashData(key,Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
         return uuid?Guid.ParseExact(hex[..32],"N").ToString():hex[..16];
     }
-    internal void Refresh(DateTimeOffset? clock=null){
+    internal bool Refresh(DateTimeOffset? clock=null){
+        try {RefreshCore(clock);return true;}
+        catch(Exception e) when(e is IOException or UnauthorizedAccessException or CryptographicException) {
+            lock(_sync){_entries=null;_display.Observe(null);}
+            return false;
+        }
+    }
+    private void RefreshCore(DateTimeOffset? clock){
         _=Directory.GetFileSystemEntries(root);byte[] secret=key();if(secret.Length!=32)throw new IOException("private key unavailable");
         var observed=_index.ScanAll(clock??DateTimeOffset.UtcNow);
         var known=observed.Select(row=>row.Id).ToHashSet();
@@ -25,8 +33,10 @@ internal sealed class ClaudeCatalog(string root,Func<byte[]> key,Func<IEnumerabl
             string title=(known.Contains(r.Id)?r.Title:_index.KnownTitle(r.Id)??r.Title)??"Claude Code";
             return new Entry(Alias("claude:session:"+r.Id.ToString(),secret),r.Id,directory,title,r.LastActivity.ToUnixTimeSeconds(),Alias("claude:project:"+project,secret,false),directory.Length>0?Path.GetFileName(Path.TrimEndingDirectorySeparator(directory)):"项目待确认");
         }).ToArray();
-        lock(_sync)_entries=rows;
+        lock(_sync){_entries=rows;_display.Observe(rows);}
     }
-    internal IReadOnlyList<Entry> Snapshot(){lock(_sync)return _entries.ToArray();}
-    internal Entry? Resolve(string alias){lock(_sync)return _entries.FirstOrDefault(e=>e.Alias.Equals(alias,StringComparison.OrdinalIgnoreCase));}
+    internal IReadOnlyList<Entry> Snapshot(){lock(_sync)return _entries??[];}
+    internal (IReadOnlyList<Entry> Items,bool Fresh) DisplaySnapshot(){lock(_sync)return _entries is {Length:>0} rows?(rows,true):_display.Observe(_entries);}
+    internal void Clear(){lock(_sync){_entries=null;_display.Clear();}}
+    internal Entry? Resolve(string alias){lock(_sync)return _entries?.FirstOrDefault(e=>e.Alias.Equals(alias,StringComparison.OrdinalIgnoreCase));}
 }

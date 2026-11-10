@@ -81,7 +81,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var httpPort = int.TryParse(Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT"), out var configuredPort)
             && configuredPort is > 0 and <= 65535
             ? configuredPort
-            : 8765;
+            : BridgeFirewall.DefaultHttpPort;
         _services=new DeviceServiceManager(_runtime,httpPort,_shutdown.Token);
         _otaControlTask=Tab5OtaControl.RunAsync(()=>_tab5,_shutdown.Token);
         if(!AppPaths.IsPublicSelfTest) {

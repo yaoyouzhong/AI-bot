@@ -3,9 +3,25 @@ import Foundation
 // Main-branch public assistant text grouped by user turn. Raw prompt/tool data
 // is neither retained in nodes nor included in returned dictionaries.
 enum MacClaudeHistory {
-    struct Value { let turns: [[String:Any]]; let limited: Bool; let accepted: Set<String>; var inputDigests: [String:String] = [:] }
-    private struct Node { let id: String, parent: String?, human: Bool, text: String, at: Int64, assistant: Bool, ended: Bool, inputDigest: String?, prompt: UUID?, stopNotice: Bool }
-    static func read(root: URL, session: UUID, key: Data,verifiedNewPanel: () -> Bool = {false}) throws -> Value {
+    struct Value { let turns: [[String:Any]]; let limited: Bool; let accepted: Set<String>; var inputDigests: [String:String] = [:]; var restoreDigests: [String:String] = [:]; var allAccepted: Set<String>? = nil }
+    private struct Node {
+        let id: String, parent: String?, human: Bool, text: String, at: Int64, assistant: Bool, ended: Bool
+        let inputDigest: String?, restoreDigest: String?, prompt: UUID?, stopNotice: Bool
+        let photoPrompt: String?, photo: MacClaudeBackgroundPhotos.Attachment?
+    }
+    // A restored terminal draft has soft wraps. Keep only a digest of its
+    // visible characters; never retain or export the original user prompt.
+    static func restoreDigest(_ content: Any?) -> String? {
+        let text: String
+        if let value = content as? String { text = value }
+        else if let blocks = content as? [[String: Any]], !blocks.isEmpty,
+                blocks.allSatisfy({ $0["type"] as? String == "text" && $0["text"] is String }) {
+            text = blocks.compactMap { $0["text"] as? String }.joined()
+        } else { return nil }
+        let visible = String(text.filter { !$0.isWhitespace })
+        return visible.isEmpty ? nil : MacClaudeNativeContent.digest(visible)
+    }
+    static func read(root: URL, session: UUID, key: Data, backgroundImages: Bool = false, verifiedNewPanel: () -> Bool = {false}) throws -> Value {
         var scanFailed=false
         guard let files = FileManager.default.enumerator(at:root,includingPropertiesForKeys:[.isRegularFileKey,.isSymbolicLinkKey],errorHandler:{_,_ in scanFailed=true;return false}) else { throw MacTab5Error.unavailable }
         var target: URL?
@@ -26,19 +42,23 @@ enum MacClaudeHistory {
         let dates = ISO8601DateFormatter(); dates.formatOptions = [.withInternetDateTime,.withFractionalSeconds]
         let plain = ISO8601DateFormatter()
         var nodes: [String:Node] = [:], leaf: String?, line = Data(), oversized = false, ordinal = 0
+        // A contiguous attachment tail can already prove image input before
+        // the model replies. It never replaces the selected conversation leaf.
+        var attachmentTail: [String]? = []
         func consume(_ data: Data) throws {
             guard let row = try? JSONSerialization.jsonObject(with:data) as? [String:Any],
                   let raw = row["sessionId"] as? String, UUID(uuidString:raw) == session,
                   let type = row["type"] as? String,
                   row["isSidechain"] as? Bool != true else { return }
             let subtype = row["subtype"] as? String
-            let link = type == "attachment" || (type == "system" && (subtype == "turn_duration" || subtype == "away_summary"))
+            let link = type == "attachment" || (type == "system" && (["turn_duration", "away_summary", "informational", "api_error", "stop_hook_summary", "local_command"].contains(subtype ?? "")))
             guard link || ["user","assistant"].contains(type) else { return }
             for flag in ["isSidechain","isMeta"] { if let v = row[flag], !MacTab5Protocol.isBoolean(v) { return } }
             // Context nodes preserve ancestry only; never expose their payload
             // or let a late attachment select an older conversation branch.
             if link {
-                guard let uuid = row["uuid"] as? String, UUID(uuidString:uuid) != nil, row["parentUuid"] != nil else { return }
+                guard let uuid = row["uuid"] as? String, UUID(uuidString:uuid) != nil,
+                      let parent = row["parentUuid"] as? String, UUID(uuidString:parent) != nil else { return }
             }
             ordinal += 1
             let id = (row["uuid"] as? String).flatMap(UUID.init(uuidString:))?.uuidString.lowercased() ?? "legacy-\(ordinal)"
@@ -56,12 +76,26 @@ enum MacClaudeHistory {
                 assistant = true; ended = message["stop_reason"] as? String == "end_turn" && !text.isEmpty
             } else if !meta, type == "user", (row["origin"] as? [String:Any])?["kind"] as? String != "peer", row["toolUseResult"] == nil || row["toolUseResult"] is NSNull {
                 let content = message["content"] as? [[String:Any]] ?? []
-                human = message["content"] is String || (!content.isEmpty && content.allSatisfy { ["text","image"].contains($0["type"] as? String ?? "") })
-                stopNotice = content.count == 1 && content[0]["type"] as? String == "text" && content[0]["text"] as? String == "[Request interrupted by user]"
+                let nonblank: (Any?) -> Bool = { ($0 as? String)?.contains(where: { !$0.isWhitespace }) == true }
+                human = nonblank(message["content"]) || (!content.isEmpty &&
+                    content.allSatisfy { ["text","image"].contains($0["type"] as? String ?? "") } &&
+                    content.contains { $0["type"] as? String == "image" || nonblank($0["text"]) })
+                stopNotice = content.count == 1 && content[0]["type"] as? String == "text" &&
+                    ["[Request interrupted by user]", "[Request interrupted by user for tool use]"].contains(content[0]["text"] as? String ?? "")
             }
             let stamp = row["timestamp"] as? String ?? "", date = dates.date(from:stamp) ?? plain.date(from:stamp)
             let prompt=(row["promptId"] as? String).flatMap(UUID.init(uuidString:))
-            nodes[id] = Node(id:id,parent:parent,human:human,text:text,at:date.map { Int64($0.timeIntervalSince1970) } ?? 0,assistant:assistant,ended:ended,inputDigest:human ? MacClaudeNativeContent.message(message["content"]):nil,prompt:prompt,stopNotice:stopNotice)
+            let photoPrompt = backgroundImages && human ? MacClaudeBackgroundPhotos.prompt(message["content"]) : nil
+            let photo = backgroundImages && type == "attachment" ? MacClaudeBackgroundPhotos.attachment(row) : nil
+            nodes[id] = Node(id:id,parent:parent,human:human,text:text,at:date.map { Int64($0.timeIntervalSince1970) } ?? 0,
+                             assistant:assistant,ended:ended,inputDigest:human ? MacClaudeNativeContent.message(message["content"]):nil,
+                             restoreDigest:human ? restoreDigest(message["content"]):nil, prompt:prompt,stopNotice:stopNotice,photoPrompt:photoPrompt,photo:photo)
+            if backgroundImages {
+                if !link { attachmentTail = [] }
+                else if let previous = attachmentTail?.last ?? leaf, previous == parent {
+                    attachmentTail?.append(id)
+                } else { attachmentTail = nil }
+            }
             if !link { leaf = id }
         }
         while let bytes = try file.read(upToCount:65536), !bytes.isEmpty {
@@ -82,9 +116,19 @@ enum MacClaudeHistory {
         }
         guard !branch.isEmpty else { throw MacTab5Error.unavailable }
         var turns: [[String:Any]] = [], items: [[String:Any]] = [], start: Node?, complete = false, interrupted = false, endedAt: Int64 = 0
-        var accepted=Set<String>(),digests=[String:String]()
+        var accepted=Set<String>(),digests=[String:String](),restored=[String:String]()
+        var photos: [MacClaudeBackgroundPhotos.Attachment] = [], sawAssistant = false
+        func collectPhoto(_ node: Node) {
+            guard !sawAssistant, start?.photoPrompt != nil, photos.count <= MacTab5Photos.maxCount,
+                  let photo = node.photo else { return }
+            photos.append(photo)
+        }
         func finish() {
             guard let first = start else { return }
+            if let prompt = first.photoPrompt, let digest = MacClaudeBackgroundPhotos.digest(prompt: prompt, attachments: photos) {
+                digests[first.id] = digest
+            }
+            photos.removeAll(keepingCapacity: true); sawAssistant = false
             turns.append(["id":MacClaudeCatalog.alias("claude:turn:"+session.uuidString.lowercased()+":"+first.id,key:key),
                           "startedAt":first.at,"status":interrupted ? "interrupted":complete ? "completed":"unknown","endedAt":endedAt,"items":items]); items = []
         }
@@ -93,9 +137,10 @@ enum MacClaudeHistory {
             if node.stopNotice,let prompt=node.prompt,prompt.uuidString != "00000000-0000-0000-0000-000000000000",start?.human==true,prompt==start?.prompt {
                 interrupted=true;endedAt=node.at;continue
             }
-            if node.human { finish(); start = node; complete = false; interrupted=false; endedAt = 0; accepted.insert(node.id);digests[node.id]=node.inputDigest }
+            if node.human { finish(); start = node; complete = false; interrupted=false; endedAt = 0; accepted.insert(node.id);digests[node.id]=node.inputDigest;restored[node.id]=node.restoreDigest }
             if start == nil { start = node }
-            if node.assistant { complete = node.ended; endedAt = complete ? node.at:0 }
+            collectPhoto(node)
+            if node.assistant { sawAssistant = true; complete = node.ended; endedAt = complete ? node.at:0 }
             if !node.text.isEmpty {
                 guard node.text.utf8.count <= 1024*1024 else { throw MacTab5Error.invalidPacket }
                 items.append(["id":MacClaudeCatalog.alias("claude:item:"+node.id,key:key),"type":"agentMessage","phase":"final_answer","text":node.text]); retainedBytes += node.text.utf8.count
@@ -104,6 +149,10 @@ enum MacClaudeHistory {
                 if !turns.isEmpty { let removed = turns.removeFirst(); retainedBytes -= (removed["items"] as? [[String:Any]] ?? []).reduce(0) { $0+(($1["text"] as? String)?.utf8.count ?? 0) }; limited = true }
             }
         }
-        finish(); return Value(turns:turns,limited:limited,accepted:accepted,inputDigests:digests)
+        for id in attachmentTail ?? [] {
+            if let node = nodes[id] { collectPhoto(node) }
+        }
+        finish(); return Value(turns:turns,limited:limited,accepted:accepted,inputDigests:digests,restoreDigests:restored,
+                               allAccepted:Set(nodes.values.filter(\.human).map(\.id)))
     }
 }

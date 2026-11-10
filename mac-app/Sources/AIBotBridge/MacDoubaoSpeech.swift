@@ -271,12 +271,13 @@ final class MacDoubaoSpeech:NSObject,NSTextViewDelegate,NSWindowDelegate {
 
 final class MacSpeechRouter {
     private var plannedInput: MacAudioInput?
+    private var plannedDoubao = false
     private lazy var local = MacTab5Speech().backend(input: { [weak self] in self?.plannedInput })
     private lazy var doubao = MacDoubaoSpeech().backend(input: { [weak self] in self?.plannedInput })
     private var active:MacTab5SpeechBackend?
     private var last:MacTab5SpeechBackend?
     func backend() -> MacTab5SpeechBackend {
-        .init(start:{ [self] source,callback in active?.cancel(); let chosen = MacSpeechProvider.doubao ? doubao:local; active = chosen; last = chosen; try chosen.start(source,callback) },
+        .init(start:{ [self] source,callback in active?.cancel(); let chosen = plannedDoubao ? doubao:local; active = chosen; last = chosen; try chosen.start(source,callback) },
               feed:{ [self] in guard let active else { throw MacTab5Error.unavailable }; try active.feed($0) },finish:{ [self] in active?.finish() },
               cancel:{ [self] in active?.cancel(); active = nil },diagnostics:{ [self] in (active ?? last)?.diagnostics() ?? "" },ready:{ [self] in active?.ready() ?? false },sourceName:{ [self] in (active ?? last)?.sourceName() ?? "" },
               resolveSource: { [self] requested, forceTab5 in
@@ -284,8 +285,10 @@ final class MacSpeechRouter {
                   let explicitTab5 = forceTab5 && (settings.microphone != nil || requested == "tab5")
                   let tab5 = explicitTab5 || settings.microphone == .tab5 || (settings.microphone == nil && MacVoiceCaptureSource.resolve(requested: requested, preferred: settings.source) == .tab5)
                   let route = try tab5 ? MacVoiceRoute(source: .tab5, input: nil) : settings.route(requested: requested, inputs: MacAudioInputs.devices(), defaultInput: MacAudioInputs.defaultInputID())
-                  plannedInput = route.input
+                  plannedInput = route.input; plannedDoubao = settings.provider == "doubao"
                   return route.source.rawValue
+              }, preparePermission: { [self] source, current, completion in
+                  !plannedDoubao && MacTab5Speech.preparePermission(source: source, current: current, completion: completion)
               })
     }
 }

@@ -17,16 +17,22 @@ internal static class Tab5CodexReadStateSelfTest
         Check(sync.Unread.GetValueOrDefault(task)=="turn-one"&&!sync.Unread.ContainsKey(other),"desktop unread baseline");
         now=5000;var ack=sync.Synchronize(ready);
         Check(!ack.ContainsKey(task)&&ack.GetValueOrDefault(other)=="other-turn","unread retained, read acknowledged");
-        source=new("account-a",[]);now=10000;ack=sync.Synchronize(ready);
-        Check(ack.GetValueOrDefault(task)=="turn-one","desktop read exact turn");
+        source=new("account-a",[]);now=5001;ack=sync.Synchronize(ready);
+        Check(ack.GetValueOrDefault(task)=="turn-one","observed unread clears on first fresh desktop snapshot");
         ready[task]="turn-two";now=10001;ack=sync.Synchronize(ready);
         Check(!ack.ContainsKey(task),"old acknowledgement not inherited");
         source=new("account-a",[task]);now=15001;ack=sync.Synchronize(ready);
         Check(!ack.ContainsKey(task),"new unread write retained");
+        ready[task]="turn-three";now=15002;sync.Synchronize(ready);
+        source=new("account-a",[]);now=15003;
+        Check(!sync.Synchronize(ready).ContainsKey(task),"old unread carried over cannot fast-ack a new turn");
+        source=new("account-a",[task]);now=15004;sync.Synchronize(ready);
+        source=new("account-a",[]);now=15005;
+        Check(sync.Synchronize(ready).GetValueOrDefault(task)=="turn-three","new desktop unread edge enables prompt read acknowledgement");
         source=null;now=21000;Check(sync.Synchronize(ready).Count==0,"unavailable not read");
         Check(sync.Unread.Count==0,"unavailable not unread");
         source=new("account-b",[]);Check(sync.Synchronize(ready).Count==0,"account switch resets");
-        now=26000;Check(sync.Synchronize(ready)[task]=="turn-two","reconnect current turn");
+        now=26000;Check(sync.Synchronize(ready)[task]=="turn-three","reconnect current turn");
 
         string Hash(object o)=>Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(o))).ToLowerInvariant();
         string identity=Hash(new[]{"chatgpt","account","user"}),host="local:"+Hash(new object?[]{"local","local",null});

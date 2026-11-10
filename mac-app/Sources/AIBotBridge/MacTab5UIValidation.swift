@@ -56,6 +56,7 @@ enum MacTab5UIValidation {
         try validateVoiceSource(service: service, defaults: defaults, output: output)
         try validateDoubaoDraft()
         try validatePinsAndCancel(root: root, codex: codex, service: service, output: output)
+        let quotaHistory = try quotaHistoryFixture(file: root.appendingPathComponent("history.json"))
         let windows: [(String, NSWindowController)] = [
             ("device-data",deviceForm),
             ("esp-display",MacESPDisplayWindow(policy:.init(selectedMode:"auto",cycleEnabled:true,intervalSeconds:15,pages:["codex","domestic_kimi","weather"]),apply:{ _ in },brightness:{ _ in true },read:{ $0(.success(70)) })),
@@ -63,7 +64,7 @@ enum MacTab5UIValidation {
             ("connection", MacTab5ToolsWindow(service:service,usb:usb)), ("birthdays", MacBirthdayWindow(store: service.birthdays)), ("agenda", MacAgendaWindow(store: service.agenda)),
             ("task-pins", MacTaskPinsWindow(codex: codex, store: MacTaskPins(directory: root), permissions: {})),
             ("computer-control", MacComputerWindow(service: service, music: {})), ("unlock-settings",MacUnlockSettingsWindow(service:service)), ("unlock-test",MacUnlockConnectionWindow()), ("voice", MacVoiceSettingsWindow(service: service, defaults: defaults, inspect: { voiceFixture() })),
-            ("stocks", MacStocksWindow(didSave: {})), ("quota-history", MacQuotaHistoryWindow(store: MacDataStore(defaults: defaults, quotaHistory: MacQuotaHistory(file: root.appendingPathComponent("history.json"))))),
+            ("stocks", MacStocksWindow(didSave: {})), ("quota-history", MacQuotaHistoryWindow(store: MacDataStore(defaults: defaults, quotaHistory: quotaHistory))),
             ("gallery-browser", MacGalleryBrowser(gallery: service.gallery, importPack: {})), ("configuration", MacConfigurationWindow(didRestore: {})),
             ("notifications", MacNotificationWindow(service: MacNotifications(directory: root))), ("runtime", MacRuntimeWindow(file:.init("runtime-health.json",directory:root,initial:{ .init() },validate:{ try $0.validate() }),capture:{ "CPU：采样正常\n内存：采样正常\nVPN / PAC：等待网络采样" },reload:{},deviceCapture:{ "本段收音设备：TAB5 内置麦克风 · 豆包输入法\n本机分段计时：本地启动 390 ms · 收音就绪应答 610 ms · 首段结果（含说话等待） 3280 ms · 停止至最终识别 780 ms · 最终结果至响应生成 4 ms\nTAB5 音频：已接收 25 块 · 5.0 秒 · 最近电平 36% · 峰值 82%\n最近请求：USB · 查询 · 200\n\nBLE：当前没有语音请求" })), ("updates", MacUpdateWindow(tab5: service, upgradeTools: {}, espTools: {})), ("features", MacTab5FeaturesWindow(service: service)),
             ("features-codex-permission", MacTab5FeaturesWindow(service: service, focusSection: .codex, accessibilityTrusted: { false })),
@@ -77,6 +78,14 @@ enum MacTab5UIValidation {
             window.appearance = NSAppearance(named: .aqua); window.displayIfNeeded(); content.layoutSubtreeIfNeeded()
             try render(content, to: output.appendingPathComponent(name + ".png"))
             if name != "gallery-browser" { try validateSettings(window, name: name, output: output) }
+            if name == "quota-history" {
+                guard let range = descendants(content).compactMap({ $0 as? NSPopUpButton })
+                    .first(where: { $0.itemTitles == ["最近 7 天", "最近 30 天"] }),
+                      let action = range.action else { throw MacTab5Error.invalidPacket }
+                range.selectItem(at: 1)
+                range.sendAction(action, to: range.target)
+                try validateSettings(window, name: "quota-history-30", output: output)
+            }
             window.close()
         }
         withExtendedLifetime(dataControls) {}
@@ -104,16 +113,27 @@ enum MacTab5UIValidation {
                   alert.buttons[0].keyEquivalent == "\r", alert.buttons[1].keyEquivalent.isEmpty else { throw MacTab5Error.invalidPacket }
             try render(content, to: output.appendingPathComponent("keychain-migration-" + suffix + ".png"))
             alert.window.close()
-            for previous in [false, true] {
-                let guide = MacDirectAuthorizationAlert.make(previouslyRequested: previous)
-                guide.window.appearance = NSAppearance(named: appearance); guide.layout()
-                guard let content = guide.window.contentView, guide.window.frame.height <= 600, guide.buttons.count == 2,
-                      guide.buttons[0].keyEquivalent == "\r", guide.buttons[1].keyEquivalent == "\u{1b}" else { throw MacTab5Error.invalidPacket }
-                try render(content, to: output.appendingPathComponent("direct-authorization-" + (previous ? "upgrade-" : "fresh-") + suffix + ".png"))
-                guide.window.close()
-            }
         }
         print("MAC_TAB5_NATIVE_UI_RENDER_OK device center and all settings fixtures; tabs, draft, offscreen validation/cancel, minimum size and both appearances; no hardware operation or permission requested")
+    }
+
+    private static func quotaHistoryFixture(file: URL) throws -> MacQuotaHistory {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let today = calendar.startOfDay(for: Date())
+        let amounts: [Double?] = [nil, 42.2, 0, 93.88, 13.5, 0.01, 26.75, nil, 2.35]
+        let observations = (1...29).reversed().flatMap { age -> [MacQuotaHistory.Observation] in
+            guard let amount = amounts[age % amounts.count],
+                  let day = calendar.date(byAdding: .day, value: -age, to: today) else { return [] }
+            let start = day.addingTimeInterval(3600)
+            let reset = day.addingTimeInterval(86400)
+            return [0, amount].enumerated().map { index, used in
+                .init(at: start.addingTimeInterval(Double(index) * 120), plan: "fixture-\(age)",
+                      weekly: used, reset: reset, account: String(repeating: "a", count: 64))
+            }
+        }
+        try JSONEncoder().encode(observations).write(to: file)
+        return MacQuotaHistory(file: file)
     }
 
     private static func validateDoubaoDraft() throws {

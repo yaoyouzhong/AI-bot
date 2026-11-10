@@ -10,6 +10,7 @@ Claude Code 原会话接入、来源标签与后续交互优化已在 Windows/TA
 
 - Claude 原会话协作：区分普通 VS Code 与原生终端，保留原客户端审批和送达未知保护；Mac 的真实输入能力及独立验收仍待补齐。
 - 会话来源与 Harness：列表、输入区和回复标题显示承载端来源，提供编译期 Claude 兼容适配接口；来源与模型、标题、发送权限分离，不声称已接通任意第三方 Harness。
+- Mac 的 Claude 列表保留原会话名；菜单栏右键不再放 Codex 桌面授权入口，桥接不主动弹桌面授权引导。普通功能仍默认启用，桌面控制仍取决于 macOS 的实际权限。
 - 切换与回复：后台草稿同步不反复阻塞切换，完成回复稳定显示、后台静默刷新，去除完成态“稍后更新”；通过每会话控制状态改善发送按钮就绪，Mac 按共同协议对齐。
 - 两端豆包自动检测已正确路由到本次大疆物理端点时直接复用；需要临时选择时继续读回、恢复并保护用户手动改选。Windows 语音小窗改善提示换行。
 - TAB5 项目菜单切页即关闭，长项目名与箭头分开；底部双圆与发送等高，采用 72px 双圆、统一底色与细边框，以及胶囊发送／追加／取消按钮。
@@ -38,5 +39,7 @@ TAB5 保持桥接 0.6.17 兼容下限；自动音源优化需对应的新桥接�
 ## English
 
 This is preparation, not publication. The user selected Windows x64 and Apple Silicon Mac 0.6.18 together with independent TAB5 0.2.318-ui, pending Mac feature alignment and exact-package acceptance. ESP8266 and galleries stay unchanged. Scope includes original Claude sessions, source badges and a compiled Harness seam, stable replies, per-session controls, switching, audio routing and dialogue interactions. Mac production support remains subject to its own implementation and native evidence.
+
+On Mac, Claude rows keep their original titles. The menu bar's context menu no longer offers Codex desktop authorization, and the bridge does not show its own desktop authorization prompt. Ordinary features remain enabled by default; desktop control still depends on macOS permissions.
 
 Reuse the latest accepted TAB5 BIN `fc6e8d3b…` and matching sidecar, not the earlier controls72 image. Both desktop packages must come from one frozen commit, which is still pending; the dirty checkout HEAD is not a complete candidate identity. Old Mac archives cannot be relabeled. Final containers and source archives must match the accepted bytes. Reuse unchanged evidence with its original scope, preserve settings, and separately verify final installation/startup and actual signing/notarization. The illustration is an earlier controls72 native LVGL render, not physical footage or a preview of the new badges. Update misleading release material while retaining accurate media and the approved video structure. See the Mac handoff for the actionable gaps and return requirements.

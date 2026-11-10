@@ -23,29 +23,32 @@ internal static class Tab5CodexSelfTest
         JsonElement Json(string text)=>JsonDocument.Parse(text).RootElement.Clone();
         var workRoot=Path.Combine(Path.GetTempPath(),"tab5-projects","Work");
         var bossRoot=Path.Combine(workRoot,"boss-resume-filter");
-        Tab5SavedProject[] saved=[new("work","Work",workRoot),new("boss","boss-resume-filter",bossRoot)];
+        Tab5SavedProject[] saved=[new("work","Work",workRoot,-1),new("boss","boss-resume-filter",bossRoot)];
         if(Tab5CodexCatalog.MatchProject(workRoot,saved)?.Id!="work"||
            Tab5CodexCatalog.MatchProject(bossRoot,saved)?.Id!="boss"||
            Tab5CodexCatalog.MatchProject(Path.Combine(bossRoot,"src"),saved)?.Id!="boss"||
            Tab5CodexCatalog.MatchProject(Path.Combine(workRoot,"hello"),saved) is not null||
            Tab5CodexCatalog.MatchProject(Path.Combine(Path.GetTempPath(),"hello","work"),saved) is not null||
-           Tab5CodexCatalog.MatchProject(Path.Combine(Tab5CodexCatalog.HomePath,"worktrees","44ed","boss-resume-filter"),saved)?.Id!="boss")
+           Tab5CodexCatalog.MatchProject(Path.Combine(Tab5CodexCatalog.HomePath,"worktrees","44ed","boss-resume-filter"),saved) is not null)
             throw new InvalidOperationException("TAB5 Codex: only saved project roots and matching worktrees appear");
         var projectTasks=Enumerable.Range(0,10).Select(i=>new Tab5CodexTask(Guid.NewGuid().ToString(),"Project A task "+i,"Project A",100-i,"aaaaaaaaaaaaaaaa"))
             .Concat([new Tab5CodexTask(Guid.NewGuid().ToString(),"Project B task","Project B",50,"bbbbbbbbbbbbbbbb")]).ToArray();
         var grouped=Tab5CodexCatalog.SelectRecent(projectTasks);
-        if(grouped.Count!=9||grouped.Count(t=>t.ProjectId=="aaaaaaaaaaaaaaaa")!=8||grouped.Count(t=>t.ProjectId=="bbbbbbbbbbbbbbbb")!=1)
-            throw new InvalidOperationException("TAB5 Codex: per-project history limit");
+        if(grouped.Count!=11||grouped.Count(t=>t.ProjectId=="aaaaaaaaaaaaaaaa")!=10||grouped.Count(t=>t.ProjectId=="bbbbbbbbbbbbbbbb")!=1)
+            throw new InvalidOperationException("TAB5 Codex: retain older sessions and small projects");
         using(var catalog=new Tab5CodexTasks((_,_,_)=>Task.FromResult(default(JsonElement)),()=>grouped)) {
             var snapshot=JsonSerializer.SerializeToElement(catalog.Snapshot());
             var projects=snapshot.GetProperty("projects");
-            if(projects.GetArrayLength()!=2||projects[0].GetProperty("name").GetString()!="Project A"||
-               projects[1].GetProperty("name").GetString()!="Project B"||snapshot.GetProperty("tasks").GetArrayLength()!=9)
+            if(projects.GetArrayLength()!=3||projects[0].GetProperty("name").GetString()!="1/2 · Project A"||
+               projects[1].GetProperty("name").GetString()!="2/2 · Project A"||
+               projects[1].GetProperty("id").GetString()!=Tab5GitProject.Id("aaaaaaaaaaaaaaaa:page:1")||
+               projects[2].GetProperty("name").GetString()!="Project B"||
+               !snapshot.GetProperty("tasks").EnumerateArray().Select(t=>t.GetProperty("Id").GetString()).ToHashSet().SetEquals(grouped.Select(t=>t.Id)))
                 throw new InvalidOperationException("TAB5 Codex: project selector catalog");
         }
         using(var catalog=new Tab5CodexTasks((_,_,_)=>Task.FromResult(default(JsonElement)),()=>grouped.Select(t=>t with {ProjectOrder=t.Folder=="Project B"?0:1}).ToArray())) {
             var projects=JsonSerializer.SerializeToElement(catalog.Snapshot()).GetProperty("projects");
-            if(projects[0].GetProperty("name").GetString()!="Project A")
+            if(projects[0].GetProperty("name").GetString()!="1/2 · Project A")
                 throw new InvalidOperationException("TAB5 Codex: project order must follow recent activity");
         }
         var idle=Json("{\"result\":{\"thread\":{\"status\":{\"type\":\"idle\"},\"turns\":[{\"id\":\"synthetic-turn\",\"status\":\"completed\",\"completedAt\":1}]}}}");

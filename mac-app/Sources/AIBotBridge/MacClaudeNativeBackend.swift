@@ -1,5 +1,13 @@
 import Foundation
 
+// Internal to the bridge. No transcript or real session identifiers leave the
+// backend through the catalog's completion observations.
+struct MacClaudeReplyObservation {
+    let acceptedTurn: String?
+    let completedTurn: String?
+    let earlierReplies: [String]
+}
+
 final class MacClaudeNativeBackend {
     private struct Record: Codable {
         let task:String,operation:String,expected:String,baseline:MacClaudeNativeReceipt
@@ -8,17 +16,27 @@ final class MacClaudeNativeBackend {
         var stopAcknowledged:Bool?
     }
     private let root:URL,store:MacTab5PrivateStore,key:()throws->Data
-    private let factory:(UUID)->(any MacClaudeNativeSession)?
+    private let harnesses: MacClaudeHarnesses, sources: MacClaudeSourceCache
+    private let factory: ((UUID) -> (any MacClaudeNativeSession)?)?
     private let gate=NSLock(),recordsGate=NSLock(),generationGate=NSLock()
     private var generation=0
     var authorized:()->Bool={false}
-    init(root:URL,store:MacTab5PrivateStore,key:@escaping ()throws->Data,factory:@escaping (UUID)->(any MacClaudeNativeSession)?=MacClaudeNativeClient.find) {
-        self.root=root;self.store=store;self.key=key;self.factory=factory
+    init(root: URL, store: MacTab5PrivateStore, key: @escaping () throws -> Data, harnesses: MacClaudeHarnesses,
+         factory: ((UUID) -> (any MacClaudeNativeSession)?)?) {
+        self.root = root; self.store = store; self.key = key; self.factory = factory; self.harnesses = harnesses
+        sources = MacClaudeSourceCache(store: store)
     }
-    private func history(_ entry:MacClaudeCatalog.Entry)throws->MacClaudeHistory.Value {
+    func liveSessions() -> Set<UUID>? { factory == nil ? harnesses.liveSessions() : nil }
+    func discover() -> [MacClaudeSessionObservation] { harnesses.discover() }
+    private func owner(_ session: UUID) -> MacClaudeHarnesses.Owner {
+        guard let factory else { return harnesses.owner(session) }
+        guard let client = factory(session), client.session == session else { return .unavailable }
+        return .verified(client)
+    }
+    private func history(_ entry:MacClaudeCatalog.Entry, client: (any MacClaudeNativeSession)?)throws->MacClaudeHistory.Value {
         let secret=try key();guard secret.count==32 else{throw MacTab5Error.keychain}
-        return try MacClaudeHistory.read(root:root,session:entry.session,key:secret){
-            (self.factory(entry.session) as? MacClaudeNativeClient)?.isNewPanel() == true
+        return try MacClaudeHistory.read(root:root,session:entry.session,key:secret,backgroundImages:client?.usesFileImageReferences == true){
+            client?.isVerifiedBlank() == true
         }
     }
     private func turn(_ entry:MacClaudeCatalog.Entry,_ user:String)throws->String{try MacClaudeCatalog.alias("claude:turn:"+entry.session.uuidString.lowercased()+":"+user,key:key())}
@@ -26,30 +44,76 @@ final class MacClaudeNativeBackend {
     private func save(_ id:String,_ record:Record)throws{recordsGate.lock();defer{recordsGate.unlock()};var values=try records();guard values.count<512||values[id] != nil else{throw MacTab5Error.unavailable};values[id]=record;try store.write("native-requests",JSONEncoder().encode(values))}
     func stop(){generationGate.lock();generation += 1;generationGate.unlock()}
     private func currentGeneration()->Int{generationGate.lock();defer{generationGate.unlock()};return generation}
-    func thread(_ entry:MacClaudeCatalog.Entry,includeHistory:Bool)throws->[String:Any] {
-        var turns:[[String:Any]]=[];var limited=false
-        if includeHistory{let value=try history(entry);turns=value.turns;limited=value.limited}
-        let client=factory(entry.session),state=(try? client?.state()) ?? "unknown",running=["busy","working","waiting"].contains(state),waiting=state=="waiting"
-        if running,!turns.isEmpty{turns[turns.count-1]["status"]="inProgress"}
-        if !turns.isEmpty {
-            let stopped=Set(try records().values.compactMap { record -> String? in
-                guard record.task==entry.alias,record.operation=="interrupt",record.baseline.session==entry.session,
-                      record.stopAcknowledged==true,record.confirmed==record.expected else{return nil}
+    func thread(_ entry: MacClaudeCatalog.Entry, includeHistory: Bool, live: Set<UUID>? = nil, liveObservedAt: TimeInterval? = nil, observing: Bool = false) throws -> [String: Any] {
+        let absent = live?.contains(entry.session) == false
+        let observedAt = (absent ? liveObservedAt : nil) ?? ProcessInfo.processInfo.systemUptime
+        let ownership = absent ? .unavailable : owner(entry.session)
+        let client = ownership.client, state = (try? client?.state()) ?? "unknown"
+        let running = ["busy", "working", "waiting"].contains(state), waiting = state == "waiting"
+        let source: MacClaudeSessionSource
+        switch ownership {
+        case .verified(let client): source = sources.source(entry.alias, observed: client.source == .unknown ? nil : client.source)
+        case .conflict: source = .multiple
+        case .invalid: source = .unknown
+        case .unavailable: source = sources.source(entry.alias)
+        }
+        var historyValue: MacClaudeHistory.Value?
+        if includeHistory { historyValue = try history(entry, client: client) }
+        else if client != nil, state != "unknown" { historyValue = try? history(entry, client: client) }
+        var turns = historyValue?.turns ?? []
+        let exactRunningTurn = running && turns.last?["status"] as? String == "unknown" &&
+            (turns.last?["id"] as? String).map { alias in
+                historyValue?.accepted.contains { id in UUID(uuidString: id) != nil && (try? turn(entry, id)) == alias } == true
+            } == true
+        if exactRunningTurn { turns[turns.count - 1]["status"] = "inProgress" }
+        if includeHistory, !turns.isEmpty {
+            let stopped = Set((try? records())?.values.compactMap { record -> String? in
+                guard record.task == entry.alias, record.operation == "interrupt", record.baseline.session == entry.session,
+                      record.stopAcknowledged == true, record.confirmed == record.expected else { return nil }
                 return record.confirmed
-            })
+            } ?? [])
             for index in turns.indices where stopped.contains(turns[index]["id"] as? String ?? "") {
-                turns[index]["status"]="interrupted"
+                turns[index]["status"] = "interrupted"
             }
         }
-        let status:[String:Any]=running ? ["type":"active","activeFlags":waiting ? ["waitingOnApproval"]:[String]()] : state=="idle" ? ["type":"idle"]:["type":"notLoaded"]
-        return ["id":entry.alias,"turns":turns,"historyLimited":limited,"status":status,"controlUnavailable":client?.hasSessionAPI != true || !["idle","busy","working","waiting"].contains(state)]
+        let status: [String: Any] = running ? ["type":"active", "activeFlags": waiting ? ["waitingOnApproval"] : [String]()]
+            : state == "idle" ? ["type":"idle"] : ["type":"notLoaded"]
+        var control: [String: Any]?
+        if let client, historyValue?.limited == false, state == "idle" || running {
+            let observedPermission = observing && !waiting ? (client as? MacClaudeTerminalWindow)?.inputPermission(observing: true) : nil
+            let canSend = state == "idle" && (observedPermission ?? client.allows("send", images: false))
+            let canSteer = exactRunningTurn && !waiting && (observedPermission ?? client.allows("steer", images: false))
+            let canInterrupt = exactRunningTurn && !waiting && (observedPermission ?? client.allows("interrupt", images: false))
+            if waiting || canSend || canSteer || canInterrupt {
+                control = ["taskId": entry.alias, "turnId": turns.last?["id"] as? String ?? "",
+                           "running": running, "waiting": waiting, "canSend": canSend, "canSteer": canSteer, "canInterrupt": canInterrupt]
+            }
+        }
+        var result: [String: Any] = ["id": entry.alias, "turns": includeHistory ? turns : [],
+            "historyLimited": historyValue?.limited ?? true, "status": status, "source": source.wire,
+            "nativeControl": control as Any? ?? NSNull(), "controlUnavailable": control == nil, "nativeObservedAt": observedAt]
+        if !includeHistory, let historyValue, !historyValue.limited, state != "unknown" {
+            let accepted = turns.last.flatMap { MacTab5Codex.id($0["id"]) }.flatMap { latest in
+                historyValue.accepted.contains { UUID(uuidString: $0) != nil && (try? turn(entry, $0)) == latest } ? latest : nil
+            }
+            let completed = turns.last.flatMap { row -> String? in
+                guard !running, row["status"] as? String == "completed", MacTab5Codex.hasPublicText(row) else { return nil }
+                return accepted
+            }
+            let earlier = accepted == nil ? [] : turns.dropLast().compactMap { row -> String? in
+                guard row["status"] as? String == "completed", MacTab5Codex.hasPublicText(row) else { return nil }
+                return MacTab5Codex.id(row["id"])
+            }
+            result["nativeReplyObservation"] = MacClaudeReplyObservation(acceptedTurn: accepted, completedTurn: completed, earlierReplies: earlier)
+        }
+        return result
     }
     func selection(_ entries:[MacClaudeCatalog.Entry],bound:MacClaudeIdentity.Selection?,now:Date)->MacClaudeIdentity.Selection? {
-        let live=MacClaudeNativeClient.live()
-        let observed=entries.filter{live.contains($0.session)}.compactMap { entry -> MacClaudeIdentity.Selection? in
-            guard let client=factory(entry.session),let state=try? client.state(),let value=try? history(entry),let latest=value.turns.last,let alias=latest["id"] as? String,
+        let live=liveSessions()
+        let observed=entries.filter{live?.contains($0.session) != false}.compactMap { entry -> MacClaudeIdentity.Selection? in
+            guard let client=owner(entry.session).client,let state=try? client.state(),let value=try? history(entry, client: client),let latest=value.turns.last,let alias=latest["id"] as? String,
                   let raw=value.accepted.first(where:{(try? turn(entry,$0))==alias}),let prompt=UUID(uuidString:raw) else{return nil}
-            let running=["busy","working","waiting"].contains(state),outcome=running ? "inProgress":latest["status"] as? String ?? "unknown"
+            let running=["busy","working","waiting"].contains(state),recorded=latest["status"] as? String ?? "unknown",outcome=running && recorded == "unknown" ? "inProgress":recorded
             let at=(latest["endedAt"] as? Int64 ?? 0)>0 ? latest["endedAt"] as? Int64 ?? 0:latest["startedAt"] as? Int64 ?? 0
             return MacClaudeIdentity.Selection(sessionID:entry.session,promptID:prompt,activity:running ? now:Date(timeIntervalSince1970:Double(at)),state:state=="waiting" ? "working":running ? "working":state=="idle" ? "idle":"unknown",outcome:outcome,needsInput:state=="waiting",completionAt:outcome=="completed" ? at:0,completionSequence:0,ownedTurn:alias)
         }
@@ -58,35 +122,76 @@ final class MacClaudeNativeBackend {
     func call(_ method:String,entry:MacClaudeCatalog.Entry,params:[String:Any])throws->[String:Any] {
         gate.lock();defer{gate.unlock()}
         guard let id=MacTab5Codex.id(params["requestId"]),["turn/start","turn/steer","turn/interrupt"].contains(method),authorized() else{throw MacTab5Error.unconfirmed}
-        if let existing=try records()[id] {guard existing.task==entry.alias else{throw MacTab5Error.unconfirmed};if existing.submissionNotInvoked==true{throw MacCodexDesktopError.rejected("composer_changed")};if let turn=receipt(entry,id){return ["turnId":turn]};throw MacTab5Error.timeout}
-        guard let client=factory(entry.session),client.session==entry.session else{throw MacCodexDesktopError.rejected("native_session_unavailable")}
-        guard client.hasSessionAPI else{throw MacCodexDesktopError.rejected("native_session_api_unavailable")}
         let operation=method=="turn/start" ? "send":method=="turn/steer" ? "steer":"interrupt"
-        let inputs=params["input"] as? [[String:Any]] ?? [],text=inputs.filter{$0["type"] as? String=="text"}.compactMap{$0["text"] as? String}.joined(separator:"\n")
-        var paths:[URL]=[],digests:[String]=[]
-        for input in inputs where input["type"] as? String=="image" {
-            guard paths.count<3,let url=input["url"] as? String,let comma=url.firstIndex(of:","),["data:image/png;base64","data:image/jpeg;base64"].contains(String(url[..<comma])),let bytes=Data(base64Encoded:String(url[url.index(after:comma)...])) else{throw MacTab5Error.invalidPacket}
-            digests.append(try MacClaudeNativeContent.image(bytes));paths.append(try store.materializeNativePhoto(bytes))
+        let expected = params[operation == "interrupt" ? "turnId" : "expectedTurnId"] as? String ?? ""
+        if let existing = try records()[id] {
+            guard existing.task == entry.alias, existing.baseline.session == entry.session,
+                  existing.operation == operation, existing.expected == expected else { throw MacTab5Error.unconfirmed }
+            if existing.submissionNotInvoked == true { throw MacCodexDesktopError.rejected("composer_changed") }
+            if let turn = receipt(entry,id) { return ["turnId":turn] }
+            throw MacTab5Error.timeout
         }
-        let scope=try client.scope(),original=try history(entry),before=original.turns.last?["id"] as? String ?? "",expected=params[operation=="interrupt" ? "turnId":"expectedTurnId"] as? String ?? "",epoch=currentGeneration()
-        guard operation=="send" || (!expected.isEmpty && expected==before && ["busy","working"].contains(try client.state())) else{throw MacCodexDesktopError.rejected("turn_changed")}
+        guard let client=owner(entry.session).client,client.session==entry.session else{throw MacCodexDesktopError.rejected("native_session_unavailable")}
+        let inputs=params["input"] as? [[String:Any]] ?? [],text=client.normalizedInput(inputs.filter{$0["type"] as? String=="text"}.compactMap{$0["text"] as? String}.joined(separator:"\n"))
+        let images = inputs.filter { $0["type"] as? String == "image" }
+        guard images.count <= MacTab5Photos.maxCount, client.allows(operation, images: !images.isEmpty) else {
+            throw MacCodexDesktopError.rejected("native_input_unavailable")
+        }
+        let fileImages = client.usesFileImageReferences
+        let photoDirectory = fileImages && !images.isEmpty ? try MacClaudeBackgroundPhotos.makeDirectory() : nil
+        var photoDeliveryUnknown = false
+        defer {
+            if let photoDirectory { MacClaudeBackgroundPhotos.remove(photoDirectory, deliveryUnknown: photoDeliveryUnknown) }
+        }
+        var paths: [URL] = [], digests: [String] = []
+        for input in images {
+            guard let url = input["url"] as? String, let comma = url.firstIndex(of: ","),
+                  ["data:image/png;base64", "data:image/jpeg;base64"].contains(String(url[..<comma])),
+                  let bytes = Data(base64Encoded: String(url[url.index(after: comma)...])) else { throw MacTab5Error.invalidPacket }
+            if let photoDirectory {
+                paths.append(try MacClaudeBackgroundPhotos.stage(bytes, in: photoDirectory))
+                digests.append(MacTab5Protocol.sha256(bytes))
+            } else {
+                digests.append(try MacClaudeNativeContent.image(bytes))
+                paths.append(try store.materializeNativePhoto(bytes))
+            }
+        }
+        let scope=try client.scope(),original=try history(entry, client: client),before=original.turns.last?["id"] as? String ?? "",epoch=currentGeneration()
+        let state = try client.state()
+        let currentUser = original.accepted.first { UUID(uuidString: $0) != nil && (try? turn(entry, $0)) == before }
+        let exactTurn = !expected.isEmpty && expected == before && original.turns.last?["status"] as? String == "unknown"
+            && currentUser != nil
+        guard operation == "send" ? state == "idle" : exactTurn && ["busy","working"].contains(state) else {
+            throw MacCodexDesktopError.rejected("turn_changed")
+        }
         let request=MacClaudeNativeRequest(operation:operation,text:text,paths:paths,imageDigests:digests,
             authorized:{self.authorized()&&self.currentGeneration()==epoch},
             current:{
-                guard try client.scope()==scope else{return false}
-                return (try self.history(entry).turns.last?["id"] as? String ?? "")==before
-            })
+                guard let live = self.owner(entry.session).client, live.source == client.source,
+                      try live.scope() == scope, try client.scope() == scope else { return false }
+                return (try self.history(entry, client: client).turns.last?["id"] as? String ?? "") == before
+            }, interrupted: {
+                let latest = try self.history(entry, client: client).turns.last
+                return latest?["id"] as? String == expected && latest?["status"] as? String == "interrupted"
+            }, expectedUser: operation == "send" ? nil : currentUser)
         var saved:Record?
-        let result=try MacClaudeNativeOperation.run(client:client,request:request,history:{try self.history(entry)},dispatch:{baseline in
+        let result=try MacClaudeNativeOperation.run(client:client,request:request,history:{try self.history(entry, client: client)},dispatch:{baseline in
             guard request.authorized(),try request.current() else{throw MacTab5Error.unconfirmed}
             let record=Record(task:entry.alias,operation:operation,expected:expected,baseline:baseline,confirmed:nil);try self.save(id,record);saved=record
+            photoDeliveryUnknown = photoDirectory != nil
         })
+        if result.user != nil || result.submissionNotInvoked { photoDeliveryUnknown = false }
         if let user=result.user,var record=saved{let alias=try turn(entry,user);record.confirmed=alias;try save(id,record);return ["turnId":alias]}
+        if result.queued, var record = saved, MacTab5Codex.id(expected) != nil {
+            // The original terminal visibly accepted this exact follow-up into
+            // its queue. This confirms submission, not completion of the turn.
+            record.confirmed = expected; try save(id, record); return ["turnId":expected]
+        }
         if result.stopped,var record=saved{record.confirmed=expected;record.stopAcknowledged=true;try save(id,record);return ["turnId":expected]}
         if result.submissionNotInvoked,var record=saved {
             record.submissionNotInvoked=true
             try save(id,record)
-            throw MacCodexDesktopError.rejected("composer_changed")
+            throw MacCodexDesktopError.rejected(client is any MacClaudeDirectSession ? "native_session_changed" : "composer_changed")
         }
         throw MacTab5Error.timeout
     }
@@ -97,7 +202,7 @@ final class MacClaudeNativeBackend {
             // An idle client can also mean the task completed on its own. Only
             // the confirmed interrupt response above establishes a stop.
             if record.operation=="interrupt"{return nil}
-            guard let client=factory(entry.session),client.session==entry.session else{return nil};let value=try history(entry),scope=try client.scope()
+            guard let client=owner(entry.session).client,client.session==entry.session else{return nil};let value=try history(entry, client: client),scope=try client.scope()
             let confirmed=try record.baseline.confirm(value,scope:scope).map{try turn(entry,$0)}
             if let confirmed{record.confirmed=confirmed;try save(id,record)};return confirmed
         }catch{return nil}

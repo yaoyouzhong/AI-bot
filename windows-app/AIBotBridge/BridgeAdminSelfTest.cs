@@ -75,6 +75,14 @@ internal static class BridgeAdminSelfTest
         string hash=BridgeInstallation.Identity(files);files["AIBotBridge.dll"]=new string('b',64);
         Check(hash!=BridgeInstallation.Identity(files),"changed product gets a distinct protected candidate");
         Check(BridgeInstallation.OwnedPath(Path.Combine(BridgeInstallation.Root,"v1-"+new string('A',64)+"-"+sid),sid)&&!BridgeInstallation.OwnedPath(Path.Combine(Path.GetTempPath(),"v1-"+new string('A',64)+"-"+sid),sid),"cleanup scoped to protected product and owner");
+        var allow=new BridgeFirewall.Rule("old.exe",1,1,true,6,6,"*","*","*","*","All");
+        var scoped=BridgeFirewall.Plan([allow,allow with{Protocol=17}],"old.exe",18765);
+        Check(scoped.Length==2&&scoped.All(r=>r.Profiles==6&&r.RemoteAddresses=="LocalSubnet")&&scoped.Any(r=>r.Port==18765)&&scoped.Any(r=>r.Port==18766),"inherit approved profiles but scope both LAN ports");
+        Check(BridgeFirewall.Plan([allow with{App="lookalike.exe"},allow with{Enabled=false},allow with{Direction=2},allow with{Constrained=true}],"old.exe",18765).Length==0,"ignore unrelated, disabled, outbound and constrained allows");
+        Check(BridgeFirewall.Plan([allow,allow with{Action=0}],"old.exe",18765).Length==0,"do not clone permissions around an explicit block");
+        Check(BridgeFirewall.Plan([allow with{LocalPorts="18000-18500",Profiles=2}],"old.exe",18765).Length==0,"do not authorize a port outside the existing grant");
+        Check(BridgeFirewall.Plan([allow with{LocalPorts="18760-18769",Profiles=2,LocalAddresses="192.168.0.5",RemoteAddresses="192.168.0.9",InterfaceTypes="Wireless"}],"old.exe",18765)
+            .Single()==new BridgeFirewall.Grant(6,18765,2,"192.168.0.5","192.168.0.9","*","Wireless"),"retain narrower source restrictions");
         Console.WriteLine($"BRIDGE_ADMIN_SELF_TEST_OK {checks} checks; no installation, elevation or input");
     }
 }

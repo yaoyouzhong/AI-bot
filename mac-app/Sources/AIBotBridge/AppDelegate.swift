@@ -57,7 +57,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var screenSaverState = AutomaticScreenSaverState()
     private var port: UInt16 = 8765
     private var deviceOperationBusy = false
-    private var directGuideBusy = false
     private var flasher: MacFirmwareFlashWindow?
     private var tab5Installer: MacTab5InstallWindow?
     private var flashSerialStopped = false
@@ -96,9 +95,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if !migrationCancelled { _ = try PairingTokenStore.loadOrCreate() }
         }
         catch { show("无法访问设备配对令牌", "请检查钥匙串授权后重新启动。读取失败不会替换现有令牌，也不会反复请求密码。") }
-        DispatchQueue.main.async { [weak self] in
-            _ = self?.showDirectGuide(interactive: !CommandLine.arguments.contains("--background") && !NSApp.isHidden)
-        }
         screenSaverState.select(MacDisplayPolicy.load().selectedMode)
         let music = { [dataStore] in dataStore.snapshot().music }
         let tab5 = MacTab5Service(port: port, computer: MacTab5Computer(music: music, musicUpdated: { [dataStore] in dataStore.update(music: $0) }), networkDiagnostics: { [networkDiagnostics] in networkDiagnostics.snapshot() }, music: { [dataStore] in
@@ -209,7 +205,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         guard !MacDoubaoSpeech.hasActiveSession else { return false }
-        if !showDirectGuide() { openTab5() }
+        openTab5()
         return false
     }
 
@@ -297,7 +293,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func buildMenu() -> NSMenu {
-        let menu = MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
+        MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
             guard let self, let current = self.devices.device(device.kind), current.id == device.id, current.enabled else { return }
             if action == "mirror" {
                 if device.kind == "esp8266" { self.openMirror() }
@@ -318,29 +314,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if action == "devices" { self?.openTab5() }
             else if action == "exit" { self?.quit() }
         })
-        if MacDirectAuthorization.required(defaults: .standard, trusted: AXIsProcessTrusted()) {
-            menu.insertItem(item("完成 Codex 直达授权…", #selector(openDirectGuide)), at: 1)
-        }
-        return menu
-    }
-
-    @discardableResult private func showDirectGuide(interactive: Bool = true, force: Bool = false) -> Bool {
-        guard interactive, !directGuideBusy, !MacDoubaoSpeech.hasActiveSession else { return false }
-        let defaults = UserDefaults.standard, trusted = AXIsProcessTrusted()
-        guard MacDirectAuthorization.required(defaults: defaults, trusted: trusted) else { return false }
-        let previouslyRequested = defaults.bool(forKey: MacDirectAuthorization.requestedKey)
-        let requested = MacDirectAuthorization.shouldRequest(defaults: defaults, trusted: trusted, identity: MacDirectAuthorization.buildIdentity())
-        guard requested || force else { return false }
-        directGuideBusy = true; defer { directGuideBusy = false }
-        NSApp.unhide(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        if MacDirectAuthorizationAlert.make(previouslyRequested: previouslyRequested).runModal() == .alertFirstButtonReturn {
-            MacDirectAuthorizationAlert.openSettings()
-        }
-        return true
-    }
-    @objc private func openDirectGuide() {
-        DispatchQueue.main.async { [weak self] in _ = self?.showDirectGuide(force: true) }
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
@@ -497,7 +470,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard ids.indices.contains(sender.indexOfSelectedItem) else { return }
         UserDefaults.standard.set(ids[sender.indexOfSelectedItem],forKey:"weather_animation"); updateTitle()
     }
-    @objc private func statusClicked(){guard let button=statusItem.button else{return};if NSApp.currentEvent?.type == .rightMouseUp {buildMenu().popUp(positioning:nil,at:NSPoint(x:0,y:button.bounds.minY),in:button)}else if !showDirectGuide(){openTab5()}}
+    @objc private func statusClicked(){guard let button=statusItem.button else{return};if NSApp.currentEvent?.type == .rightMouseUp {buildMenu().popUp(positioning:nil,at:NSPoint(x:0,y:button.bounds.minY),in:button)}else{openTab5()}}
     @objc private func openMirror() {
         guard let button=statusItem.button else{return}
         if mirror == nil { mirror=MacMirrorWindow(anchor:button,capture:{[weak self] in self?.reader.capture(extras:self?.dataStore.snapshot() ?? .empty) ?? SessionActivityReader().capture()},resources:{[weak self] in self?.resourceSnapshot() ?? []},select:{[weak self] mode in self?.selectMode(mode)},brightness:{[weak self] level in self?.serial?.sendBrightness(level) ?? false}) }

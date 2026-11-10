@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Dialogue catalogs and native Terminal
+- On Windows and Mac, retain the last usable provider catalog through a brief empty scan and resume updates on recovery. Sending still rechecks the actual target and permissions.
+- Keep the last confirmed ready indication during a Mac Terminal automation-permission refresh; explicit denial or timeout restores the unavailable state.
+- Replace TAB5 dialogue labels with provider icons, enlarge common icons and unread numbers, and retain entries, the current session and drafts across brief missing snapshots.
+- On Windows and Mac, group Codex sessions from the same Git repository's main directory and verified worktrees, and distinguish separate projects with the same name. New TAB5 firmware scrolls through more sessions within one project; older firmware displays the same sessions as pages.
+- Windows acknowledges a Codex reply on the next desktop snapshot when the already-observed unread marker for that reply clears. Keep the settling window for a new reply whose unread marker has not been observed.
+
+### Windows bridge upgrade
+- Use one administrator approval to install the bridge and inherit applicable LAN firewall permissions. The resident bridge can update TAB5 directly, without launching SettingsProbe.
+
+### Existing Mac Claude terminal windows (in development)
+- Add window input for already-open native Claude Code sessions in Terminal, including text, images, queued follow-ups and exact-turn interruption; retain public replies and delivery receipts from the original session.
+- Preserve recent client activity across midnight while resetting daily usage; reject window input while macOS is locked and keep drafts after preparation failures.
+- Centralize required system permissions in session settings while protecting desktop drafts, checking the target and never replaying uncertain delivery. Signed-bundle, terminal-specific and TAB5 hardware results are tracked separately; this is not a release.
+- Keep Codex overview activity current during long-running tasks and preserve drafts when the first window keystroke cannot be posted. Isolated Terminal tests over USB, Wi-Fi and Bluetooth and remaining page issues are recorded separately.
+- Stabilize TAB5 follow-up receipt checking and repaint stale conversation snapshots when page animation ends. Restore input after confirmed delivery; preserve the original draft and never resend an uncertain request.
+- Continue checking the original receipt at a low rate after the first three checks for long-running tasks, with backoff when the connection is unavailable.
+
 ## 0.6.18 - 2026-11-05
 
 ### Automatic microphones and returned dictation

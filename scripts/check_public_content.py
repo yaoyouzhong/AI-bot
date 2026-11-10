@@ -246,6 +246,7 @@ REVIEWED_SOURCE_ARCHIVES = frozenset({
     "docs/development/tab5-312-source/AI-bot-tab5-0.2.312-ui-source.zip",
     "docs/development/tab5-313-source/AI-bot-tab5-0.2.313-ui-source.zip",
     "docs/development/tab5-318-source/AI-bot-tab5-0.2.318-ui-source.zip",
+    "docs/development/tab5-318-r4-source/source-overlay.zip",
 })
 
 

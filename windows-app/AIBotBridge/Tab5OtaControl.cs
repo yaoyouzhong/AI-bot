@@ -33,6 +33,13 @@ internal static class Tab5OtaControl
                     var current=service()??throw new InvalidOperationException("没有已启用的 TAB5。");
                     string op=request.RootElement.GetProperty("op").GetString()??"";
                     if(op=="info")response=new{ok=true,body=current.OtaControlInfo};
+                    else if(op=="display-settings"){
+                        string id=request.RootElement.GetProperty("deviceId").GetString()??"";
+                        if(!Tab5Protocol.ValidId(id)||current.PairedId!=id)throw new InvalidOperationException("设备身份不一致。");
+                        var settings=await current.DisplaySettingsAsync(null,deadline.Token);
+                        if(current.PairedId!=id)throw new InvalidOperationException("设备身份已变化。");
+                        response=new{ok=true,body=settings};
+                    }
                     else if(op=="native-inspect"){
                         var host=request.RootElement.GetProperty("host").GetString()??"";
                         if(!Guid.TryParse(request.RootElement.GetProperty("session").GetString(),out var session))throw new ArgumentException("invalid_session");
@@ -69,8 +76,11 @@ internal static class Tab5OtaControl
 internal sealed partial class Tab5Service
 {
     internal object OtaControlInfo {
-        get {var image=Volatile.Read(ref _ota);return new{deviceId=PairedId,installedVersion=_firmware.LastVersion(PairedId),
-            offeredVersion=image?.Version,sha256=image?.Sha256,elfSha256=image?.ElfSha256,canStart=CanStartOta,status=OtaSummary,hint=OtaStartHint};}
+        get {lock(_lifecycle){var image=Volatile.Read(ref _ota);var verified=_verifiedBoot;
+            return new{deviceId=PairedId,installedVersion=_firmware.LastVersion(PairedId),online=DeviceView.Online,busy=Busy,
+            offeredVersion=image?.Version,sha256=image?.Sha256,elfSha256=image?.ElfSha256,canStart=CanStartOta,status=OtaSummary,hint=OtaStartHint,
+            canVerify=CanVerifyUpgrade,finalReleased=_otaDelivery?.FinalReleased==true,transfer=OtaTransferSummary,
+            verifiedPartition=verified is not null&&verified.DeviceId==PairedId&&verified.ElfSha256==image?.ElfSha256?verified.Partition:null};}}
     }
     internal void OfferScopedOta(string id,string sha,Tab5OtaPackage image) {
         lock(_lifecycle) {

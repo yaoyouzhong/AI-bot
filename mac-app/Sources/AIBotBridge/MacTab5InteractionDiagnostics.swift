@@ -54,7 +54,13 @@ final class MacTab5InteractionDiagnostics {
                            "task_busy_or_state_unknown", "task_waiting_for_input", "codex_send_not_enabled", "composer_changed", "delivery_baseline_unavailable", "desktop_storage_unavailable", "native_submit_unavailable", "conversation_target_or_text_changed", "question_target_or_text_changed", "desktop_draft_present", "desktop_attachments_present", "desktop_photo_append_unsupported", "pending_delivery_changed", "turn_changed", "receipt_not_found", "request_id_conflict", "desktop_result_unknown", "desktop_foreground_unconfirmed", "desktop_steer_requires_expected_turn_support", "codex_read_only_connection"]
             entries[index].outcome = allowed.contains(code) ? code : "未确认"
         }
-        if entries[index].codex { localDiagnostics?.request(entries[index].label, status: status, outcome: entries[index].outcome) }
+        if entries[index].codex {
+            let nativeReasons = ["native_input_unavailable", "native_session_unavailable", "native_session_changed",
+                                 "native_history_or_state_unconfirmed", "pending_delivery_requires_receipt"]
+            let code = body?["error"] as? String
+            let localOutcome = code.flatMap { nativeReasons.contains($0) ? $0 : nil } ?? entries[index].outcome
+            localDiagnostics?.request(entries[index].label, status: status, outcome: localOutcome)
+        }
     }
     var summary: String {
         lock.lock(); defer { lock.unlock() }

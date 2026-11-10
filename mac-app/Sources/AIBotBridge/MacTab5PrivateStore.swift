@@ -25,11 +25,14 @@ final class MacTab5PrivateStore {
     private let root: URL
     private let key: () throws -> Data
     init(root: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("AI-bot/Tab5/Private", isDirectory: true), key: @escaping () throws -> Data = MacTab5PrivateStore.keychainKey) { self.root = root; self.key = key }
-    func read(_ name: String) throws -> Data? {
+    func read(_ name: String, limit: Int = 8 * 1024 * 1024) throws -> Data? {
         let path = url(name)
         guard FileManager.default.fileExists(atPath: path.path) else { return nil }
+        let info = try path.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+        guard info.isRegularFile == true, info.isSymbolicLink == false,
+              let size = info.fileSize, size <= limit else { throw MacTab5Error.invalidPacket }
         let sealed = try Data(contentsOf: path, options: .mappedIfSafe)
-        guard sealed.count <= 8 * 1024 * 1024 else { throw MacTab5Error.invalidPacket }
+        guard sealed.count <= limit else { throw MacTab5Error.invalidPacket }
         return try AES.GCM.open(AES.GCM.SealedBox(combined: sealed), using: SymmetricKey(data: key()), authenticating: Data(name.utf8))
     }
     func write(_ name: String, _ bytes: Data) throws {

@@ -3,15 +3,287 @@ import AppKit
 @testable import AIBotBridge
 
 final class MacClaudeNativeTests: XCTestCase {
+    func testReceiptSurvivesAbandonedInterruptedBranchWithoutAcceptingAnotherInput() throws {
+        let root=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
+        defer { try? FileManager.default.removeItem(at:root) }
+        let session=UUID(), seed=UUID().uuidString.lowercased(), interrupted=UUID().uuidString.lowercased(), sent=UUID().uuidString.lowercased()
+        let file=root.appendingPathComponent(session.uuidString+".jsonl"), key=Data(0..<32)
+        func user(_ id:String,_ parent:String?,_ text:String)->[String:Any] {
+            ["type":"user","sessionId":session.uuidString,"uuid":id,"parentUuid":parent as Any? ?? NSNull(),"message":["role":"user","content":text]]
+        }
+        func read(_ rows:[[String:Any]]) throws -> MacClaudeHistory.Value {
+            var data=Data(); for row in rows { data.append(try MacTab5Protocol.json(row)); data.append(10) }
+            try data.write(to:file); return try MacClaudeHistory.read(root:root,session:session,key:key)
+        }
+        let original=[user(seed,nil,"seed"),user(interrupted,seed,"interrupted")]
+        let before=try read(original)
+        let baseline=MacClaudeNativeReceipt.capture(before,session:session,scope:"scope",text:"next",images:[])
+        let after=try read(original+[user(sent,seed,"next")])
+        XCTAssertFalse(after.accepted.contains(interrupted))
+        XCTAssertEqual(baseline.confirm(after,scope:"scope"),sent)
+        XCTAssertNil(baseline.confirm(try read(original+[user(UUID().uuidString.lowercased(),seed,"other"),user(sent,seed,"next")]),scope:"scope"))
+        XCTAssertNil(baseline.confirm(try read(original+[user(sent,seed,"next")]),scope:"different"))
+    }
     func testAttachmentAccessibleLabel(){
         XCTAssertEqual(MacClaudeNativeClient.attachmentName("blue-probe.png 96×96 Remove attachment"),"blue-probe.png")
         XCTAssertEqual(MacClaudeNativeClient.attachmentName("设计 图片 96×96.png 1280×720 Remove attachment"),"设计 图片 96×96.png")
         XCTAssertNil(MacClaudeNativeClient.attachmentName("ctrl esc to focus or unfocus Claude"))
         XCTAssertNil(MacClaudeNativeClient.attachmentName("test.png 0×96 Remove attachment"))
     }
+
+    func testBackgroundDaemonFixture() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let path = env["AIBOT_CLAUDE_BG_FIXTURE"],
+              let session = env["AIBOT_CLAUDE_BG_SESSION"].flatMap(UUID.init(uuidString:)) else {
+            throw XCTSkip("Requires the isolated Claude daemon and loopback model fixture")
+        }
+        let config = URL(fileURLWithPath: path).resolvingSymlinksInPath()
+        let fixture = config.deletingLastPathComponent()
+        let temp = URL(fileURLWithPath: "/private/tmp", isDirectory: true).resolvingSymlinksInPath()
+        XCTAssertEqual(config.lastPathComponent, "cfg")
+        guard config.lastPathComponent == "cfg", fixture.deletingLastPathComponent().path == temp.path,
+              fixture.lastPathComponent.hasPrefix("aibg-") else { return XCTFail("Unrecognized fixture profile") }
+        let projects = config.appendingPathComponent("projects")
+        let key = Data(0..<32)
+        let store = MacTab5PrivateStore(root: fixture.appendingPathComponent("bridge"), key: { key })
+        let registry = try MacClaudeHarnesses([
+            .init(source: .background, discover: { [] }, live: { MacClaudeBackground.live(root: config) },
+                  resolve: { MacClaudeBackground.find($0, root: config) })
+        ])
+        let client = try XCTUnwrap(registry.owner(session).client)
+        XCTAssertEqual(client.source, .background)
+        XCTAssertNil(MacClaudeBackground.find(UUID(), root: config))
+        XCTAssertTrue(client.allows("send", images: true))
+        XCTAssertFalse(client.allows("interrupt", images: false))
+        let backend = MacClaudeWorkspaceBackend(root: projects, store: store, key: { key }, harnesses: registry)
+        let workspace = MacClaudeWorkspace(store: store, backend: backend, enabled: { true })
+        defer { workspace.stop() }
+        workspace.tasks.refresh()
+        let alias = try XCTUnwrap(backend.alias(session: session))
+        let snapshot = try XCTUnwrap(workspace.tasks.snapshot())
+        let rows = try XCTUnwrap(snapshot["tasks"] as? [[String: Any]])
+        XCTAssertEqual((rows.first?["source"] as? [String: String])?["id"], "claude.background")
+        let controls = try XCTUnwrap(snapshot["controls"] as? [String: Any])
+        XCTAssertEqual((controls[alias] as? [String: Any])?["canSend"] as? Bool, true)
+        let pair = MacTab5Pairing(deviceId: "001122334455", usbPath: "/dev/cu.fixture", key: key, confirmed: true)
+        let service = MacTab5Service(port: 8765, load: { pair }, save: { _ in }, claudeWorkspace: workspace)
+        defer { service.stop() }
+
+        func rpc(_ fields: [String: Any], image: Data? = nil) throws -> Int {
+            var metadata = fields
+            metadata["client"] = "claude"
+            metadata["taskId"] = alias
+            metadata["session"] = service.session
+            metadata["issuedAt"] = Int64(Date().timeIntervalSince1970 * 1000)
+            let clear = try image.map { try MacTab5Binary.pack(metadata, bytes: $0, bulk: true, response: false) }
+                ?? MacTab5Protocol.json(metadata)
+            let nonce = MacTab5Protocol.identifier()
+            let packet = try MacTab5Protocol.encrypt(clear, key: pair.key, challenge: nonce)
+            let proof = MacTab5Protocol.proof(key: pair.key, message: "POST|/tab5/v1/rpc|\(pair.deviceId)|\(nonce)|\(MacTab5Protocol.sha256(packet))")
+            let (status, reply) = service.rpc(device: pair.deviceId, nonce: nonce, proof: proof, packet: packet)
+            XCTAssertEqual(status, 200)
+            let response = try MacTab5Protocol.object(MacTab5Protocol.decrypt(reply, key: pair.key, challenge: nonce))
+            return try XCTUnwrap(response["status"] as? Int)
+        }
+
+        func send(_ text: String, photos: [Data], photoTurn: Int? = nil) throws {
+            let deadline = ProcessInfo.processInfo.systemUptime + 8
+            while (try? client.state()) != "idle", ProcessInfo.processInfo.systemUptime < deadline {
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            XCTAssertEqual(try client.state(), "idle")
+            let before = try MacClaudeHistory.read(root: projects, session: session, key: key, backgroundImages: true)
+            var imageIDs: [String] = []
+            let digests = photos.map(MacTab5Protocol.sha256)
+            for (bytes, digest) in zip(photos, digests) {
+                let id = UUID().uuidString.lowercased()
+                XCTAssertEqual(try rpc(["kind": "image-chunk", "requestId": id, "size": bytes.count,
+                                        "sha256": digest, "offset": 0], image: bytes), 200)
+                imageIDs.append(id)
+            }
+            if let photoTurn {
+                try JSONEncoder().encode(digests).write(to: fixture.appendingPathComponent("expect-\(photoTurn).json"))
+            }
+            let request: [String: Any] = ["kind": "codex", "op": "send", "message": text, "expectedTurn": "",
+                                         "requestId": UUID().uuidString.lowercased(), "images": imageIDs]
+            XCTAssertEqual(try rpc(request), 202)
+            XCTAssertEqual(try rpc(request), 202)
+            let after = try MacClaudeHistory.read(root: projects, session: session, key: key, backgroundImages: true)
+            let added = after.accepted.subtracting(before.accepted)
+            XCTAssertEqual(added.count, 1)
+            XCTAssertEqual(added.first.flatMap { after.inputDigests[$0] }, MacClaudeNativeContent.digest(text, images: digests))
+            if let photoTurn {
+                // The mock holds the response until the bridge confirms the
+                // image, so an assistant message cannot substitute for proof.
+                try Data().write(to: fixture.appendingPathComponent("release-\(photoTurn)"))
+            }
+            let expected = photoTurn.map { "fixture photo response \($0)" } ?? "fixture response"
+            let replyDeadline = ProcessInfo.processInfo.systemUptime + 8
+            repeat {
+                XCTAssertEqual(workspace.tasks.handle(["op": "read", "taskId": alias], device: pair.deviceId).status, 200)
+                let snapshot = workspace.tasks.snapshot()
+                let reply = snapshot?["replyView"] as? [String: Any]
+                if reply?["state"] as? String == "completed",
+                   (snapshot?["responses"] as? [String: String])?[alias] == expected { return }
+                Thread.sleep(forTimeInterval: 0.1)
+            } while ProcessInfo.processInfo.systemUptime < replyDeadline
+            XCTFail("No completed native reply on TAB5")
+        }
+
+        try send("fixture followup", photos: [])
+        let jpeg = try MacTab5TestData.jpeg()
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: jpeg))
+        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        try send("fixture caption", photos: [jpeg, png, png], photoTurn: 1)
+        try send("", photos: [jpeg], photoTurn: 2)
+    }
+    func testBackgroundPhotoReceiptRequiresTheCompleteAttachmentChain() throws {
+        let directory = try MacClaudeBackgroundPhotos.makeDirectory()
+        defer { MacClaudeBackgroundPhotos.remove(directory, deliveryUnknown: false) }
+        let photo = try MacTab5TestData.jpeg()
+        let files = try (0..<2).map { _ in try MacClaudeBackgroundPhotos.stage(photo, in: directory) }
+        let references = try files.map { try XCTUnwrap(MacClaudeBackgroundPhotos.reference($0.path)) }
+        let session = UUID(), key = Data(0..<32)
+        let transcript = directory.appendingPathComponent(session.uuidString + ".jsonl")
+        let seed = UUID().uuidString, message = UUID().uuidString, first = UUID().uuidString
+        func row(_ type: String, id: String, parent: String?) -> [String: Any] {
+            ["sessionId": session.uuidString, "type": type, "uuid": id, "parentUuid": parent as Any? ?? NSNull()]
+        }
+        func attachment(_ file: URL, id: String, parent: String, bytes: Data) -> [String: Any] {
+            var value = row("attachment", id: id, parent: parent)
+            value["attachment"] = ["type": "file", "filename": file.path,
+                                   "content": ["type": "image", "file": ["type": "image/jpeg", "base64": bytes.base64EncodedString()]]]
+            return value
+        }
+        func history(_ rows: [[String: Any]]) throws -> MacClaudeHistory.Value {
+            let bytes = try rows.reduce(into: Data()) { $0.append(try MacTab5Protocol.json($1)); $0.append(10) }
+            try bytes.write(to: transcript)
+            return try MacClaudeHistory.read(root: directory, session: session, key: key, backgroundImages: true)
+        }
+        var initial = row("user", id: seed, parent: nil)
+        initial["message"] = ["role": "user", "content": "previous turn"]
+        let baseline = MacClaudeNativeReceipt.capture(try history([initial]), session: session, scope: "fixture",
+            text: "caption", images: files.map { _ in MacTab5Protocol.sha256(photo) })
+        var prompt = row("user", id: message, parent: seed)
+        prompt["message"] = ["role": "user", "content": references.joined(separator: " ") + " caption"]
+        let pending = [initial, prompt, attachment(files[0], id: first, parent: message, bytes: photo)]
+        XCTAssertNil(baseline.confirm(try history(pending), scope: "fixture"))
+        for (parent, bytes) in [(message, photo), (first, Data(repeating: 3, count: 64))] {
+            let observed = try history(pending + [attachment(files[1], id: UUID().uuidString, parent: parent, bytes: bytes)])
+            XCTAssertNil(baseline.confirm(observed, scope: "fixture"))
+        }
+        let complete = try history(pending + [attachment(files[1], id: UUID().uuidString, parent: first, bytes: photo)])
+        XCTAssertEqual(baseline.confirm(complete, scope: "fixture"), message.lowercased())
+        // A stop hook summary can be inserted between the baseline and the
+        // photo prompt after dispatch; it is ancestry, never receipt content.
+        let hook = UUID().uuidString
+        var summary = row("system", id: hook, parent: seed)
+        summary["subtype"] = "stop_hook_summary"
+        summary["content"] = "private hook output"
+        prompt["parentUuid"] = hook
+        let throughHook = try history([initial, summary, prompt, attachment(files[0], id: first, parent: message, bytes: photo),
+                                       attachment(files[1], id: UUID().uuidString, parent: first, bytes: photo)])
+        XCTAssertFalse(throughHook.limited)
+        XCTAssertEqual(baseline.confirm(throughHook, scope: "fixture"), message.lowercased())
+        XCTAssertNil(baseline.confirm(throughHook, scope: "different-scope"))
+        XCTAssertFalse(String(decoding: try JSONSerialization.data(withJSONObject: throughHook.turns), as: UTF8.self).contains("private hook output"))
+    }
+
+    private struct DirectFixture: MacClaudeDirectSession {
+        var preparationFails = false
+        let session = UUID()
+        let source = MacClaudeSessionSource.background
+        func allows(_ operation: String, images: Bool) -> Bool { operation == "send" && !images }
+        func scope() throws -> String { "fixture-scope" }
+        func state() throws -> String { "idle" }
+        func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool {
+            if preparationFails { throw MacTab5Error.unconfirmed }
+            return request.authorized
+        }
+    }
+
+    private final class QueueFixture: MacClaudeQueueReceiptSession {
+        let session = UUID()
+        var submissions = 0, queueConfirmed = true
+        var failLocate = false, recoveryAllowed = true, recoveryReads = 0
+        func allows(_ operation: String, images: Bool) -> Bool { operation == "steer" }
+        func scope() throws -> String { "fixture-scope" }
+        func state() throws -> String { "working" }
+        func prepareSubmission(_ request: MacClaudeNativeRequest) throws -> () throws -> Bool {
+            if failLocate {
+                _ = try MacClaudeWindowTargetRecovery.resolve(initial: { throw MacTab5Error.unconfirmed },
+                    allowed: { self.recoveryAllowed }, retry: { self.recoveryReads += 1; return "fixture-target" }, wait: {})
+            }
+            return { self.submissions += 1; return true }
+        }
+        func queuedSubmissionConfirmed(_ request: MacClaudeNativeRequest) throws -> Bool { queueConfirmed }
+    }
+
+    func testLocateRecoveryDispatchesOnceAndUnsafeRecoveryNeverDispatches() throws {
+        for allowed in [true, false] {
+            let client = QueueFixture(); client.failLocate = true; client.recoveryAllowed = allowed
+            var dispatched = 0
+            let action = {
+                try MacClaudeNativeOperation.run(client: client, request: self.request("steer"),
+                    history: { .init(turns: [], limited: false, accepted: []) }, dispatch: { _ in dispatched += 1 }, wait: {})
+            }
+            if allowed {
+                XCTAssertTrue(try action().queued)
+                XCTAssertEqual(client.recoveryReads, 1); XCTAssertEqual(dispatched, 1); XCTAssertEqual(client.submissions, 1)
+            } else {
+                XCTAssertThrowsError(try action()) { error in
+                    guard case MacCodexDesktopError.rejected("native_input_unavailable") = error else { return XCTFail("Unexpected rejection") }
+                }
+                XCTAssertEqual(client.recoveryReads, 0); XCTAssertEqual(dispatched, 0); XCTAssertEqual(client.submissions, 0)
+            }
+        }
+    }
+
+    func testQueuedEvidenceAcknowledgesOnceAndKeepsUnknownWithoutEvidence() throws {
+        for confirmed in [true, false] {
+            let client = QueueFixture(); client.queueConfirmed = confirmed
+            var dispatched = 0
+            let result = try MacClaudeNativeOperation.run(client: client, request: request("steer"),
+                history: { .init(turns: [], limited: false, accepted: []) }, dispatch: { _ in dispatched += 1 }, wait: {})
+            XCTAssertEqual(result.queued, confirmed)
+            XCTAssertNil(result.user)
+            XCTAssertEqual(client.submissions, 1)
+            XCTAssertEqual(dispatched, 1)
+        }
+        let photo = QueueFixture()
+        let result = try MacClaudeNativeOperation.run(client: photo, request: request("steer", images: ["photo"]),
+            history: { .init(turns: [], limited: false, accepted: []) }, dispatch: { _ in }, wait: {})
+        XCTAssertFalse(result.queued)
+    }
+
+    func testPreparationFailureIsDefiniteRejectionWithoutDispatch() throws {
+        var dispatched = false
+        XCTAssertThrowsError(try MacClaudeNativeOperation.run(client:DirectFixture(preparationFails:true),request:request(),
+            history:{.init(turns:[],limited:false,accepted:[])},dispatch:{_ in dispatched=true},wait:{})) { error in
+            guard case MacCodexDesktopError.rejected("native_input_unavailable") = error else { return XCTFail("Unexpected error") }
+        }
+        XCTAssertFalse(dispatched)
+    }
+
+    func testDirectSubmissionAbortedAfterJournalDoesNotClaimAnotherInput() throws {
+        var authorized = true, historyReads = 0
+        let result = try MacClaudeNativeOperation.run(client: DirectFixture(), request: request(authorized: { authorized }),
+            history: {
+                historyReads += 1
+                return .init(turns: [], limited: false, accepted: [])
+            }, dispatch: { _ in authorized = false }, wait: {})
+        XCTAssertTrue(result.submissionNotInvoked)
+        XCTAssertNil(result.user)
+        XCTAssertEqual(historyReads, 1)
+    }
+
     private final class Client: MacClaudeNativeSession {
-        var hasSessionAPI=true
-        let session=UUID()
+        var permitted = true
+        func allows(_ operation: String, images: Bool) -> Bool { permitted }
+        var source: MacClaudeSessionSource = .terminal
+        let session: UUID
+        init(session: UUID = UUID()) { self.session = session }
         var epoch="original", runtime="idle", text="", images:[String]=[]
         var stages=0,submits=0,stops=0,accept=true,throwAfterSubmit=false,changeDraftOnStop=false
         var confirmsStop=true
@@ -22,7 +294,7 @@ final class MacClaudeNativeTests: XCTestCase {
         func state()throws->String{runtime}
         func view(_ operation:String)throws->MacClaudeNativeView {
             .init(target:"original-composer",text:text,images:images,empty:text.isEmpty&&images.isEmpty,
-                  ready:operation=="send" ? runtime=="idle":operation=="observe" || runtime=="busy",canSubmit:!text.isEmpty||!images.isEmpty)
+                  ready:operation=="send" ? runtime=="idle":operation=="observe" || runtime=="busy",canSubmit:!text.isEmpty || !images.isEmpty)
         }
         func stage(_ request:MacClaudeNativeRequest)throws{stages += 1;text=request.text;images=request.paths.map(\.lastPathComponent);onStage?()}
         func submit(_ request:MacClaudeNativeRequest)throws {
@@ -38,6 +310,219 @@ final class MacClaudeNativeTests: XCTestCase {
         }
         func interrupt(_ request:MacClaudeNativeRequest)throws -> Bool {stops += 1;runtime="idle";if changeDraftOnStop{text="later draft"};return confirmsStop}
     }
+    func testHarnessControlsFollowExactOwnersAndTransportLimit() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let a = Client(), b = Client(), other = Client(session: a.session), key = Data(0..<32)
+        let custom = MacClaudeSessionSource(id: "local.fixture", label: "Fixture Harness", kind: "harness")
+        a.source = .vscode; b.source = .terminal; other.source = custom; other.permitted = false
+        var connected = true, secondClaim = false
+        func adapter(_ client: Client, active: @escaping () -> Bool) -> MacClaudeHarnessAdapter {
+            .init(source: client.source, discover: { [] }, live: { active() ? [client.session] : [] },
+                  resolve: { $0 == client.session && active() ? client : nil })
+        }
+        let code = adapter(a, active: { connected })
+        let registry = try MacClaudeHarnesses([code, adapter(b, active: { true }), adapter(other, active: { secondClaim })])
+        XCTAssertThrowsError(try registry.adding(code))
+        XCTAssertFalse(MacClaudeSessionSource(id:"a",label:String(repeating:"é",count:41),kind:"harness").valid)
+        XCTAssertFalse(MacClaudeSessionSource(id:"a",label:"Bad\u{200b}Label",kind:"ide").valid)
+        XCTAssertFalse(MacClaudeSessionSource(id:"a",label:String(repeating:"a",count:49),kind:"ide").valid)
+        for client in [a, b] {
+            let user = UUID(), reply = UUID()
+            let stamp = ISO8601DateFormatter().string(from: Date())
+            let rows: [[String: Any]] = [
+                ["type":"user","uuid":user.uuidString,"sessionId":client.session.uuidString,"cwd":root.path,
+                 "timestamp":stamp,"message":["role":"user","content":"synthetic"]],
+                ["type":"assistant","uuid":reply.uuidString,"sessionId":client.session.uuidString,"parentUuid":user.uuidString,
+                 "timestamp":stamp,"message":["role":"assistant","content":[["type":"text","text":"Fixture complete"]],"stop_reason":"end_turn"]]
+            ]
+            var bytes = Data()
+            for row in rows { bytes.append(try MacTab5Protocol.json(row)); bytes.append(10) }
+            try bytes.write(to: root.appendingPathComponent(client.session.uuidString + ".jsonl"))
+        }
+        let store = MacTab5PrivateStore(root: root.appendingPathComponent("sealed"), key: { key })
+        var now = 0.0, send = true, failedReply = false
+        let backend = MacClaudeWorkspaceBackend(root:root,store:store,key:{key},harnesses:registry)
+        let tasks = MacTab5Codex(store:store,enabled:{true},sendEnabled:{send},clock:{now},call:{ method, params in
+            if failedReply, method == "thread/read" { throw MacTab5Error.unavailable }
+            return try backend.call(method,params)
+        },provider:"Claude")
+        tasks.refresh()
+        let idA = try XCTUnwrap(backend.alias(session:a.session)), idB = try XCTUnwrap(backend.alias(session:b.session))
+        XCTAssertEqual(tasks.taskCatalog().compactMap { $0["title"] as? String }, ["Claude Code", "Claude Code"])
+        XCTAssertNotEqual(idA, idB)
+        func controls(_ limit: Int = 64) -> [String: Any] { tasks.snapshot(taskLimit:limit)?["controls"] as? [String: Any] ?? [:] }
+        func canSend(_ task: String) -> Bool { (controls()[task] as? [String: Any])?["canSend"] as? Bool == true }
+        func badge(_ task: String) -> String? {
+            let rows = tasks.snapshot()?["tasks"] as? [[String:Any]] ?? []
+            return (rows.first { $0["id"] as? String == task }?["source"] as? [String:String])?["id"]
+        }
+        XCTAssertTrue(canSend(idA)); XCTAssertTrue(canSend(idB))
+        XCTAssertEqual(badge(idA), "claude.vscode"); XCTAssertEqual(badge(idB), "claude.terminal")
+        XCTAssertEqual(tasks.handle(["op":"read","taskId":idA],device:"fixture").status, 200)
+        XCTAssertTrue(canSend(idB)); XCTAssertEqual(Set(controls(1).keys), [idA])
+        failedReply = true
+        tasks.refresh()
+        XCTAssertEqual((tasks.snapshot()?["replyView"] as? [String:Any])?["state"] as? String, "completed")
+        XCTAssertEqual((tasks.snapshot()?["responses"] as? [String:String])?[idA], "Fixture complete")
+        XCTAssertTrue(canSend(idB))
+        failedReply = false
+        secondClaim = true; tasks.refresh()
+        XCTAssertTrue(controls()[idA] is NSNull); XCTAssertEqual(badge(idA), "multiple")
+        connected = false; tasks.refresh()
+        XCTAssertTrue(controls()[idA] is NSNull); XCTAssertEqual(badge(idA), custom.id)
+        other.source = .terminal; tasks.refresh()
+        XCTAssertTrue(controls()[idA] is NSNull); XCTAssertEqual(badge(idA), "unknown")
+        secondClaim = false; tasks.refresh()
+        XCTAssertTrue(controls()[idA] is NSNull); XCTAssertEqual(badge(idA), custom.id)
+        let reopened = MacClaudeWorkspaceBackend(root:root,store:store,key:{key},harnesses:registry)
+        let list = try reopened.call("thread/list", [:])["data"] as? [[String:Any]] ?? []
+        let old = try XCTUnwrap(list.first { $0["id"] as? String == idA })
+        XCTAssertEqual((old["source"] as? [String:String])?["id"], custom.id)
+        XCTAssertTrue(old["nativeControl"] is NSNull)
+        send = false; XCTAssertTrue(controls()[idB] is NSNull)
+        send = true; now = 31; XCTAssertTrue(controls()[idB] is NSNull)
+        tasks.refresh(); XCTAssertTrue(canSend(idB))
+        tasks.stop(); XCTAssertTrue(controls()[idB] is NSNull)
+    }
+    func testUnreadTracksNativeCompletionAndReceiptDespiteReadBeforeScan() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let a = Client(), b = Client(), key = Data(0..<32)
+        var clients = [a.session: a, b.session: b], rows: [UUID: [[String: Any]]] = [:]
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        func append(_ client: Client, _ type: String, _ parent: UUID?, _ text: String, side: Bool = false) throws -> UUID {
+            let id = UUID()
+            rows[client.session, default: []].append([
+                "type": type, "uuid": id.uuidString, "sessionId": client.session.uuidString, "cwd": root.path,
+                "parentUuid": parent?.uuidString as Any? ?? NSNull(), "timestamp": stamp, "isSidechain": side,
+                "message": ["role": type, "content": type == "user" ? text as Any : [["type": "text", "text": text]], "stop_reason": "end_turn"]
+            ])
+            var data = Data()
+            for row in rows[client.session] ?? [] { data.append(try MacTab5Protocol.json(row)); data.append(10) }
+            try data.write(to: root.appendingPathComponent(client.session.uuidString + ".jsonl"), options: .atomic)
+            return id
+        }
+        func user(_ client: Client, _ parent: UUID? = nil, _ text: String = "fixture input") throws -> UUID {
+            try append(client, "user", parent, text)
+        }
+        func reply(_ client: Client, _ prompt: UUID, _ text: String = "fixture reply", side: Bool = false) throws -> UUID {
+            try append(client, "assistant", prompt, text, side: side)
+        }
+        let oldA = try reply(a, user(a)), oldB = try reply(b, user(b))
+        let store = MacTab5PrivateStore(root: root.appendingPathComponent("sealed"), key: { key })
+        let backend = MacClaudeWorkspaceBackend(root: root, store: store, key: { key }, nativeFactory: { clients[$0] })
+        let tasks = MacClaudeWorkspace(store: store, backend: backend, enabled: { true }).tasks
+        tasks.refresh()
+        let idA = try XCTUnwrap(backend.alias(session: a.session)), idB = try XCTUnwrap(backend.alias(session: b.session))
+        func projected(_ name: String) -> [String: String] { tasks.snapshot()?[name] as? [String: String] ?? [:] }
+        func read(_ task: String, _ turn: String? = nil, device: String = "fixture-A") -> MacTab5RPCResult {
+            var request = ["op": "read", "taskId": task]; request["turnId"] = turn
+            return tasks.handle(request, device: device)
+        }
+        func receipt(_ result: MacTab5RPCResult) throws -> (id: String, turn: String) {
+            XCTAssertEqual(result.status, 200)
+            let view = try XCTUnwrap(result.body["replyView"] as? [String: Any])
+            return (try XCTUnwrap(view["readReceipt"] as? String), try XCTUnwrap(view["turnId"] as? String))
+        }
+        func ack(_ target: (id: String, turn: String), _ task: String, device: String = "fixture-A") -> Int {
+            tasks.handle(["op": "read-ack", "taskId": task, "requestId": target.id, "turnId": target.turn], device: device).status
+        }
+        let history = try receipt(read(idA))
+        XCTAssertFalse(history.id.isEmpty)
+        XCTAssertTrue(projected("repliesReady").isEmpty, "Reading preexisting history must not publish a completion")
+
+        let firstA = try reply(a, user(a, oldA), "first new reply")
+        _ = try reply(b, user(b, oldB))
+        tasks.refresh()
+        let firstUnread = try XCTUnwrap(projected("repliesUnread")[idA])
+        let otherUnread = try XCTUnwrap(projected("repliesUnread")[idB])
+        XCTAssertTrue(try receipt(read(idA, history.turn)).id.isEmpty)
+        let firstReceipt = try receipt(read(idA, firstUnread))
+        XCTAssertEqual(ack(firstReceipt, idA, device: "fixture-B"), 409)
+        XCTAssertEqual(ack(firstReceipt, idB), 409)
+        // Neither a blank user record nor a side branch accepts a next input.
+        let blank = try user(a, firstA, "  ")
+        _ = try reply(a, blank, "not a main-branch reply", side: true)
+        tasks.refresh()
+        XCTAssertEqual(projected("repliesUnread")[idA], firstUnread)
+
+        let second = try user(a, firstA)
+        a.runtime = "busy"
+        tasks.refresh()
+        XCTAssertEqual(projected("repliesRead")[idA], firstUnread)
+        XCTAssertNil(projected("repliesUnread")[idA])
+        XCTAssertEqual(projected("repliesUnread")[idB], otherUnread)
+        let previous = try receipt(read(idA, firstUnread))
+        XCTAssertFalse(previous.id.isEmpty, "A running successor is not a newer completed public reply")
+        XCTAssertEqual(previous.id, firstReceipt.id)
+        XCTAssertEqual(ack(previous, idA), 200)
+        clients[a.session] = nil; tasks.refresh()
+        XCTAssertNil(projected("repliesUnread")[idA])
+
+        _ = try reply(a, second, "second new reply")
+        a.runtime = "idle"; clients[a.session] = a
+        let ahead = try receipt(read(idA))
+        XCTAssertNil(projected("repliesUnread")[idA], "A fetch cannot advance the background completion edge")
+        tasks.refresh()
+        XCTAssertEqual(projected("repliesUnread")[idA], ahead.turn)
+        XCTAssertEqual(projected("repliesUnread")[idB], otherUnread)
+        XCTAssertEqual(ack(firstReceipt, idA), 409)
+        XCTAssertEqual(ack(ahead, idA), 200)
+        for _ in 0..<85 { XCTAssertEqual(try receipt(read(idA)).id, ahead.id) }
+        for index in 0..<85 { XCTAssertFalse(try receipt(read(idA, device: "fixture-\(index)")).id.isEmpty) }
+        let replacement = try receipt(read(idA))
+        XCTAssertEqual(ack(replacement, idA), 200)
+        tasks.refresh()
+        XCTAssertNil(projected("repliesUnread")[idA])
+        XCTAssertEqual(projected("repliesUnread")[idB], otherUnread)
+    }
+
+    func testSelectedReconnectPublishesWhileUnrelatedCatalogProbeIsBlocked() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let key = Data(0..<32), store = MacTab5PrivateStore(root: root, key: { key })
+        let selected = UUID().uuidString.lowercased(), other = UUID().uuidString.lowercased()
+        let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+        let finished = DispatchSemaphore(value: 0), probe = expectation(description: "Selected session probe")
+        let slow = NSLock()
+        var block = false
+        func control(_ task: String) -> [String: Any] { ["taskId": task, "canSend": true] }
+        let tasks = MacTab5Codex(store: store, enabled: { true }, sendEnabled: { true }, call: { method, params in
+            if method == "thread/read" {
+                return ["thread": ["id": params["threadId"]!, "turns": [], "historyLimited": false]]
+            }
+            let observedAt = ProcessInfo.processInfo.systemUptime
+            slow.lock(); let blocked = block; slow.unlock()
+            if blocked { entered.signal(); _ = release.wait(timeout: .now() + 5) }
+            return ["data": [other, selected].map { ["id": $0, "cwd": "/fixture", "nativeControl": NSNull(), "nativeObservedAt": observedAt] }]
+        }, provider: "Claude")
+        tasks.probeNativeControl = { task in
+            XCTAssertEqual(task, selected); probe.fulfill()
+            return ["nativeControl": control(task), "nativeObservedAt": ProcessInfo.processInfo.systemUptime]
+        }
+        tasks.refresh()
+        slow.lock(); block = true; slow.unlock()
+        DispatchQueue.global().async { tasks.refresh(); finished.signal() }
+        defer { release.signal() }
+        XCTAssertEqual(entered.wait(timeout: .now() + 2), .success)
+        XCTAssertEqual(tasks.handle(["op": "read", "taskId": selected], device: "fixture").status, 404)
+        XCTAssertEqual(tasks.handle(["op": "draft-load", "taskId": selected, "requestId": UUID().uuidString], device: "fixture").status, 200)
+        wait(for: [probe], timeout: 2)
+        func available() -> Bool {
+            let controls = tasks.snapshot(taskLimit: 1, requiredTask: other, device: "fixture")?["controls"] as? [String: Any]
+            return (controls?[selected] as? [String: Any])?["canSend"] as? Bool == true
+        }
+        let deadline = ProcessInfo.processInfo.systemUptime + 1
+        while !available(), ProcessInfo.processInfo.systemUptime < deadline { Thread.sleep(forTimeInterval: 0.005) }
+        XCTAssertTrue(available())
+        release.signal()
+        XCTAssertEqual(finished.wait(timeout: .now() + 2), .success)
+        XCTAssertTrue(available(), "An older disconnected snapshot must not overwrite a newer reconnect")
+    }
+
     private func request(_ operation:String="send",_ text:String="测试🙂",images:[String]=[],authorized:@escaping ()->Bool={true},current:@escaping ()throws->Bool={true})->MacClaudeNativeRequest {
         .init(operation:operation,text:text,paths:images.enumerated().map{URL(fileURLWithPath:"/fixture/\($0.offset).png")},imageDigests:images,authorized:authorized,current:current)
     }
@@ -86,12 +571,10 @@ final class MacClaudeNativeTests: XCTestCase {
         XCTAssertFalse(idle.stopped)
     }
     func testPhotoIdentityAndReceiptRejectMissingReorderedOrWrongImages()throws {
-        func png(_ color:NSColor)throws->Data {
-            let bitmap=try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:8,pixelsHigh:8,bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:0,bitsPerPixel:0))
-            for y in 0..<8{for x in 0..<8{bitmap.setColor(color,atX:x,y:y)}}
-            return try XCTUnwrap(bitmap.representation(using:.png,properties:[:]))
-        }
-        let first=try png(.red),second=try png(.blue),a=try MacClaudeNativeContent.image(first),b=try MacClaudeNativeContent.image(second)
+        // Distinct opaque RGB pixels, independent of AppKit screen/color settings.
+        let first = try XCTUnwrap(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQSACj/P8Fu7N9hAAAAAElFTkSuQmCC"))
+        let second = try XCTUnwrap(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEElEQVR4nGNgYPiPAw0pCQCpcD/BFMrqcwAAAABJRU5ErkJggg=="))
+        let a = try MacClaudeNativeContent.image(first), b = try MacClaudeNativeContent.image(second)
         XCTAssertNotEqual(a,b)
         let id=UUID().uuidString.lowercased(),session=UUID(),empty=MacClaudeHistory.Value(turns:[],limited:false,accepted:[],inputDigests:[:])
         let baseline=MacClaudeNativeReceipt.capture(empty,session:session,scope:"original",text:"photo",images:[a,b])
@@ -120,21 +603,34 @@ final class MacClaudeNativeTests: XCTestCase {
         let task=try XCTUnwrap(workspace.tasks.taskCatalog().first?["id"] as? String)
         client.onSubmit={request in
             XCTAssertNotNil(try store.read("native-requests"))
+            if request.operation == "send" {
+                XCTAssertEqual(workspace.tasks.handle(["op":"draft-save","taskId":task,"message":"draft during dispatch",
+                    "requestId":UUID().uuidString.lowercased()],device:"native-fixture").status,200)
+            }
             let user=UUID(),reply=UUID()
             rows.append(["type":"user","uuid":user.uuidString,"sessionId":client.session.uuidString,"parentUuid":leaf.uuidString,"origin":["kind":"human"],"timestamp":ISO8601DateFormatter().string(from:Date()),"message":["role":"user","content":request.text]])
-            rows.append(["type":"assistant","uuid":reply.uuidString,"sessionId":client.session.uuidString,"parentUuid":user.uuidString,"timestamp":ISO8601DateFormatter().string(from:Date()),"message":["role":"assistant","content":[["type":"text","text":"native fixture reply"]],"stop_reason":"end_turn"]])
-            leaf=reply;try write()
+            if request.operation == "send" {
+                rows.append(["type":"assistant","uuid":reply.uuidString,"sessionId":client.session.uuidString,"parentUuid":user.uuidString,"timestamp":ISO8601DateFormatter().string(from:Date()),"message":["role":"assistant","content":[["type":"text","text":"native fixture reply"]],"stop_reason":"end_turn"]])
+                leaf = reply
+            } else { leaf = user }
+            try write()
         }
         func rpc(_ op:String,_ text:String="",_ expected:String="",_ id:String=UUID().uuidString.lowercased())->MacTab5RPCResult{
             workspace.tasks.handle(["op":op,"taskId":task,"requestId":id,"message":text,"expectedTurn":expected],device:"native-fixture")
         }
         let request=UUID().uuidString.lowercased(),sent=rpc("send","native first","",request)
         XCTAssertEqual(sent.status,202);XCTAssertEqual(client.submits,1)
+        _ = rpc("draft-load")
+        XCTAssertEqual((workspace.tasks.snapshot(device:"native-fixture")?["draftView"] as? [String:Any])?["text"] as? String, "draft during dispatch")
         XCTAssertEqual(rpc("send","native first","",request).status,202);XCTAssertEqual(client.submits,1)
         XCTAssertEqual(rpc("send","conflicting","",request).status,409)
+        client.runtime="busy"
+        let busy = UUID()
+        rows.append(["type":"user","uuid":busy.uuidString,"sessionId":client.session.uuidString,"parentUuid":leaf.uuidString,
+                     "timestamp":ISO8601DateFormatter().string(from:Date()),"message":["role":"user","content":"busy fixture"]])
+        leaf = busy; try write()
         _ = rpc("read")
         let turn=try XCTUnwrap((workspace.tasks.snapshot()?["control"] as? [String:Any])?["turnId"] as? String)
-        client.runtime="busy"
         XCTAssertEqual(rpc("steer","wrong turn",UUID().uuidString.lowercased()).status,409)
         XCTAssertEqual(rpc("steer","native append",turn).status,202);XCTAssertEqual(client.submits,2)
         _ = rpc("read")

@@ -27,6 +27,7 @@ internal static class Tab5CodexCatalog
     private const string Sql = "SELECT thread_id,display_title,cwd,source_updated_at FROM local_thread_catalog WHERE host_id='local' AND COALESCE(missing_candidate,0)=0 AND thread_id IS NOT NULL AND display_title IS NOT NULL ORDER BY source_updated_at DESC LIMIT 512";
     private const string ProjectsSql = "SELECT p.id,p.name,r.path FROM projects p JOIN project_roots r ON r.project_id=p.id ORDER BY p.position,r.position";
     internal static IReadOnlyList<Tab5CodexTask> Recent()=>ReadCatalog(false);
+    internal static IReadOnlyList<Tab5CodexTask>? RecentScan()=>TryReadCatalog(false);
     internal static IReadOnlyList<Tab5CodexTask> ConfirmationCatalog()=>ReadCatalog(true);
     internal static Tab5CodexTask WithDisplayTitle(Tab5CodexTask task) {
         string title=new(task.IdentityTitle.Select(c=>char.IsControl(c)?' ':c).ToArray());
@@ -53,33 +54,39 @@ internal static class Tab5CodexCatalog
     }
     internal static IReadOnlyList<Tab5CodexTask> ReadCatalog(bool confirmation,string? catalogPath=null,
         IReadOnlyList<Tab5SavedProject>? savedProjects=null,IReadOnlyDictionary<string,Activity>? activity=null)
+        =>TryReadCatalog(confirmation,catalogPath,savedProjects,activity)??[];
+
+    internal static IReadOnlyList<Tab5CodexTask>? TryReadCatalog(bool confirmation,string? catalogPath=null,
+        IReadOnlyList<Tab5SavedProject>? savedProjects=null,IReadOnlyDictionary<string,Activity>? activity=null)
     {
-        var projects=savedProjects??SavedProjects();
-        if(projects.Count==0&&!confirmation)return [];
+        var projects=savedProjects??ReadSavedProjects();
+        if(projects is null&&!confirmation)return null;
+        if(projects?.Count==0&&!confirmation)return [];
+        var matcher=confirmation?null:new ProjectMatcher(projects??[]);
         var path = catalogPath??CatalogPath(HomePath);
-        if (!File.Exists(path)) return [];
+        if (!File.Exists(path)) return null;
         nint db = 0, statement = 0;
         var tasks = new List<Tab5CodexTask>();
         try
         {
-            if (sqlite3_open_v2(path, out db, 1, 0) != 0) return [];
+            if (sqlite3_open_v2(path, out db, 1, 0) != 0) return null;
             sqlite3_busy_timeout(db, 100);
             // Confirmation must also see duplicate titles outside the device's
             // project and recent-task limits; it never serializes this full list.
-            if (sqlite3_prepare_v2(db, confirmation?Sql.Replace(" LIMIT 512","").Replace("host_id='local' AND ",""):Sql, -1, out statement, 0) != 0) return [];
+            if (sqlite3_prepare_v2(db, confirmation?Sql.Replace(" LIMIT 512","").Replace("host_id='local' AND ",""):Sql, -1, out statement, 0) != 0) return null;
             int step;
             while ((step=sqlite3_step(statement)) == 100)
             {
                 string id = Column(statement, 0), title = Column(statement, 1), folder = Column(statement, 2);
                 if (!Guid.TryParse(id, out _) || string.IsNullOrWhiteSpace(title)) continue;
-                var project=MatchProject(folder,projects);
+                var project=matcher?.Match(folder);
                 if(project is null&&!confirmation)continue;
                 tasks.Add(WithDisplayTitle(new(id,title,project?.Name??"",
                     (long)sqlite3_column_double(statement,3),project?.Id??"",project?.Order??int.MaxValue)));
             }
-            if(step!=101)return []; // A partial catalog cannot prove title uniqueness.
+            if(step!=101)return null; // A partial catalog cannot prove title uniqueness.
         }
-        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or IOException or UnauthorizedAccessException) { return []; }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or IOException or UnauthorizedAccessException) { return null; }
         finally { if (statement != 0) sqlite3_finalize(statement); if (db != 0) sqlite3_close(db); }
         if(confirmation)return tasks; // Identity checks include archived and non-local duplicates.
         var reconciled=ReconcileActivity(tasks,activity??LocalActivity());
@@ -108,59 +115,94 @@ internal static class Tab5CodexCatalog
         finally {if(statement!=0)sqlite3_finalize(statement);if(db!=0)sqlite3_close(db);}
         return result;
     }
-    internal static IReadOnlyList<Tab5SavedProject> SavedProjects()
+    private static IReadOnlyList<Tab5SavedProject>? ReadSavedProjects()
     {
         var path=Path.Combine(HomePath,"state_5.sqlite");
-        if(!File.Exists(path))return [];
+        if(!File.Exists(path))return null;
         nint db=0,statement=0;
         var projects=new List<Tab5SavedProject>();
         try {
-            if(sqlite3_open_v2(path,out db,1,0)!=0)return [];
+            if(sqlite3_open_v2(path,out db,1,0)!=0)return null;
             sqlite3_busy_timeout(db,100);
-            if(sqlite3_prepare_v2(db,ProjectsSql,-1,out statement,0)!=0)return [];
-            while(sqlite3_step(statement)==100) {
+            if(sqlite3_prepare_v2(db,ProjectsSql,-1,out statement,0)!=0)return null;
+            int step;
+            while((step=sqlite3_step(statement))==100) {
                 string id=Column(statement,0),name=Column(statement,1),root=Column(statement,2);
                 if(!Guid.TryParse(id,out _)||string.IsNullOrWhiteSpace(name)||string.IsNullOrWhiteSpace(root))continue;
                 try { root=NormalizePath(root); } catch(Exception ex) when(ex is ArgumentException or NotSupportedException or PathTooLongException) {continue;}
                 if(name=="m5stack TAB5")name="M5Stack TAB5";
                 name=new string(name.Select(c=>char.IsControl(c)?' ':c).ToArray());
-                string key=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(id))).ToLowerInvariant()[..16];
+                string key=Tab5GitProject.Id(id);
                 projects.Add(new(key,name,root,string.Equals(name,"Work",StringComparison.OrdinalIgnoreCase)?-1:projects.Count));
             }
+            if(step!=101)return null;
         }
-        catch(Exception ex) when(ex is DllNotFoundException or EntryPointNotFoundException or IOException or UnauthorizedAccessException) {return [];}
+        catch(Exception ex) when(ex is DllNotFoundException or EntryPointNotFoundException or IOException or UnauthorizedAccessException) {return null;}
         finally {if(statement!=0)sqlite3_finalize(statement);if(db!=0)sqlite3_close(db);}
         return projects;
     }
-    internal static Tab5SavedProject? MatchProject(string cwd,IReadOnlyList<Tab5SavedProject> projects)
+    internal static Tab5SavedProject? MatchProject(string cwd,IReadOnlyList<Tab5SavedProject> projects)=>new ProjectMatcher(projects).Match(cwd);
+    private static string NormalizePath(string path)=>Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+    private sealed class ProjectMatcher
     {
-        if(string.IsNullOrWhiteSpace(cwd))return null;
-        string folder;
-        try {folder=NormalizePath(cwd);} catch(Exception ex) when(ex is ArgumentException or NotSupportedException or PathTooLongException) {return null;}
-        var exact=projects.FirstOrDefault(p=>string.Equals(folder,p.Root,StringComparison.OrdinalIgnoreCase));
-        if(exact is not null)return exact;
-        var nested=projects.Where(p=>!string.Equals(p.Name,"Work",StringComparison.OrdinalIgnoreCase)&&
-                folder.StartsWith(p.Root+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(p=>p.Root.Length).FirstOrDefault();
-        if(nested is not null)return nested;
-        string worktrees=Path.Combine(HomePath,"worktrees")+Path.DirectorySeparatorChar;
-        if(!folder.StartsWith(worktrees,StringComparison.OrdinalIgnoreCase))return null;
-        string name=Path.GetFileName(folder);
-        var matches=projects.Where(p=>string.Equals(Path.GetFileName(p.Root),name,StringComparison.OrdinalIgnoreCase)).ToArray();
-        return matches.Length==1?matches[0]:null;
+        private static readonly StringComparer Paths=StringComparer.OrdinalIgnoreCase;
+        private readonly Dictionary<string,Tab5SavedProject> _roots=new(Paths),_repositories=new(Paths);
+        private readonly Dictionary<string,Tab5SavedProject?> _matches=new(Paths);
+        internal ProjectMatcher(IReadOnlyList<Tab5SavedProject> projects)
+        {
+            var ids=new HashSet<string>();
+            var groups=projects.DistinctBy(p=>p.Root,Paths).Select(p=>(Project:p,Common:Tab5GitProject.CommonDirectory(p.Root)))
+                .GroupBy(p=>p.Common??p.Project.Root,Paths);
+            var canonical=groups.Select(g=>{
+                var main=g.FirstOrDefault(p=>Paths.Equals(p.Common,Path.Combine(p.Project.Root,".git")));
+                var chosen=main.Project??g.First().Project;
+                if(!ids.Add(chosen.Id))chosen=chosen with {Id=Tab5GitProject.Id(chosen.Id+":"+chosen.Root.ToUpperInvariant())};
+                return (Project:chosen,Group:g,Common:g.First().Common);
+            }).ToArray();
+            var duplicate=canonical.GroupBy(c=>c.Project.Name,Paths).Where(g=>g.Count()>1).Select(g=>g.Key).ToHashSet(Paths);
+            var seen=new HashSet<string>(Paths);
+            foreach(var (p,group,common) in canonical) {
+                var name=duplicate.Contains(p.Name)?Path.GetFileName(Path.GetDirectoryName(p.Root))+"/"+p.Name:p.Name;
+                if(!seen.Add(name))name+=" · "+p.Id[..Math.Min(6,p.Id.Length)];
+                var display=p with {Name=name};
+                foreach(var member in group)_roots[member.Project.Root]=display;
+                if(common is not null)_repositories[common]=display;
+            }
+        }
+        internal Tab5SavedProject? Match(string cwd)
+        {
+            if(!Path.IsPathFullyQualified(cwd))return null;
+            string folder;
+            try{folder=NormalizePath(cwd);}catch(Exception e) when(e is ArgumentException or IOException or NotSupportedException){return null;}
+            if(_matches.TryGetValue(folder,out var found))return found;
+            for(string? path=folder;path is not null;path=Path.GetDirectoryName(path)) {
+                if(_roots.TryGetValue(path,out found))
+                    return _matches[folder]=Paths.Equals(path,folder)||found.Order!=-1?found:null;
+                if(_repositories.Count>0&&Tab5GitProject.CommonDirectory(path) is {} common) {
+                    if(_repositories.TryGetValue(common,out found))return _matches[folder]=found;
+                    break; // A separate, known repository never inherits a parent's identity.
+                }
+            }
+            return _matches[folder]=null;
+        }
     }
-    private static string NormalizePath(string path)=>Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar,Path.AltDirectorySeparatorChar);
+    internal const int PageSize=8, ProjectSlots=24, MaxTasks=80;
     internal static IReadOnlyList<Tab5CodexTask> SelectRecent(IReadOnlyList<Tab5CodexTask> tasks)
     {
         // Give each project a place in the frame before adding older sessions.
         // A bounded catalog fits the existing TAB5 status packet on all links.
         var groups = tasks.GroupBy(t => t.ProjectId).OrderByDescending(g => g.Max(t => t.UpdatedAt))
             .ThenBy(g => g.Min(t => t.ProjectOrder))
-            .Take(24).Select(g => g.OrderByDescending(t => t.UpdatedAt).Take(8).ToArray()).ToArray();
+            .Take(ProjectSlots).Select(g => g.OrderByDescending(t => t.UpdatedAt).Take(64).ToArray()).ToArray();
         var selected = new List<Tab5CodexTask>();
-        for (int session = 0; session < 8 && selected.Count < 80; session++)
-            foreach (var group in groups)
-                if (session < group.Length && selected.Count < 80) selected.Add(group[session]);
+        int spare=ProjectSlots-groups.Length;
+        var counts=new int[groups.Length];
+        for(int session=0;session<64&&selected.Count<MaxTasks;session++)
+            for(int i=0;i<groups.Length&&selected.Count<MaxTasks;i++) {
+                if(session>=groups[i].Length||counts[i]!=session)continue;
+                if(session>0&&session%PageSize==0) {if(spare==0)continue;spare--;}
+                selected.Add(groups[i][session]);counts[i]++;
+            }
         return selected.OrderByDescending(t => t.UpdatedAt).ToArray();
     }
     internal static string? RolloutPath(string id) {
@@ -231,6 +273,8 @@ internal sealed class Tab5CodexTasks : IDisposable
     private readonly Func<string, object, CancellationToken, Task<JsonElement>> _call;
     private readonly Func<CancellationToken, Task> _connect;
     private readonly Func<IReadOnlyList<Tab5CodexTask>> _catalog;
+    private readonly Func<IReadOnlyList<Tab5CodexTask>?> _displayScan;
+    private readonly Tab5CatalogDisplay<Tab5CodexTask> _displayCatalog=new();
     private readonly Tab5CodexDesktop? _desktop;
     private readonly Tab5LiveActivity? _liveActivity;
     private readonly Tab5CodexJournal? _journal;
@@ -254,10 +298,10 @@ internal sealed class Tab5CodexTasks : IDisposable
         });
     }
 
-    internal Tab5CodexTasks() : this(new Tab5CodexDesktop(),Tab5CodexCatalog.Recent,new Tab5CodexJournal(),liveActivity:SessionActivityReader.LiveActivity) { }
-    internal Tab5CodexTasks(Tab5CodexDesktop desktop,Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexJournal? journal=null,Tab5CodexImages? images=null,Func<string,string?>? rolloutPath=null,string? historyHome=null,Tab5LiveActivity? liveActivity=null)
+    internal Tab5CodexTasks() : this(new Tab5CodexDesktop(),Tab5CodexCatalog.Recent,new Tab5CodexJournal(),liveActivity:SessionActivityReader.LiveActivity,displayScan:Tab5CodexCatalog.RecentScan) { }
+    internal Tab5CodexTasks(Tab5CodexDesktop desktop,Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexJournal? journal=null,Tab5CodexImages? images=null,Func<string,string?>? rolloutPath=null,string? historyHome=null,Tab5LiveActivity? liveActivity=null,Func<IReadOnlyList<Tab5CodexTask>?>? displayScan=null)
     {
-        _desktop=desktop;_liveActivity=liveActivity??new((id,ct)=>desktop.ReadAsync(id,ct));_call=CallAsync;_connect=EnsureServerAsync;_catalog=catalog;_journal=journal;_images=images??new();
+        _desktop=desktop;_liveActivity=liveActivity??new((id,ct)=>desktop.ReadAsync(id,ct));_call=CallAsync;_connect=EnsureServerAsync;_catalog=catalog;_displayScan=displayScan??catalog;_journal=journal;_images=images??new();
         _rolloutPath=rolloutPath??Tab5CodexCatalog.RolloutPath;_historyHome=historyHome??Tab5CodexCatalog.HomePath;
         foreach(var record in journal?.Accepted()??[]) {
             _activeTurns[record.TaskId]=record.TurnId;_receipts[record.TaskId]="已发送 · 恢复动态";
@@ -266,7 +310,7 @@ internal sealed class Tab5CodexTasks : IDisposable
     }
     // Allows protocol failures to be tested without sending a real Codex turn.
     internal Tab5CodexTasks(Func<string,object,CancellationToken,Task<JsonElement>> call, Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexReadState? readState=null)
-    { _call=call; _connect=_=>Task.CompletedTask; _catalog=catalog;_images=new();_readState=readState??new(()=>null); }
+    { _call=call; _connect=_=>Task.CompletedTask; _catalog=catalog;_displayScan=catalog;_images=new();_readState=readState??new(()=>null); }
 
     internal object Snapshot()=>SnapshotLimited(80);
     internal static Tab5CodexTask? SelectOverview(IEnumerable<Tab5CodexTask> catalog,IReadOnlyDictionary<string,CodexLifecycleTracker.TaskActivity> activity)=>
@@ -274,9 +318,9 @@ internal sealed class Tab5CodexTasks : IDisposable
             .ThenByDescending(t=>Math.Max(t.UpdatedAt,activity.GetValueOrDefault(t.Id)?.UpdatedAt??0)).FirstOrDefault();
     internal object SnapshotLimited(int taskLimit)
     {
-        var catalog = _catalog();
+        var (catalog,fresh) = _displayCatalog.Observe(_displayScan());
         var activity=SessionActivityReader.TaskActivities.GroupBy(a=>a.Id).ToDictionary(g=>g.Key,g=>g.MaxBy(a=>a.UpdatedAt)!);
-        _liveActivity?.Refresh(catalog,_lifetime.Token);
+        if(fresh)_liveActivity?.Refresh(catalog,_lifetime.Token);
         foreach(var live in _liveActivity?.Fresh()??[])activity[live.Id]=live;
         foreach(var id in _liveActivity?.Uncertain()??[])
             activity[id]=(activity.GetValueOrDefault(id)??new(id,"unknown",0)) with {CompanionState="unknown"};
@@ -293,15 +337,25 @@ internal sealed class Tab5CodexTasks : IDisposable
             ready=_readyReplies.ToArray().ToDictionary(p=>p.Key,p=>p.Value);
         }
         // Under transport pressure retain each project plus the viewed task first.
-        var tasks=Tab5TaskPins.Select(catalog,taskLimit,overview?.Id,viewed,ready.Keys.ToHashSet())
-            .Select(task=>CodexCompanionActivity.Project(task,activity.GetValueOrDefault(task.Id))).ToArray();
+        var selected=Tab5TaskPins.Select(catalog,taskLimit,overview?.Id,viewed,ready.Keys.ToHashSet());
+        var counts=selected.GroupBy(t=>t.ProjectId).ToDictionary(g=>g.Key,g=>g.Count());
+        var positions=new Dictionary<string,int>();
+        var tasks=selected.Select(task=>{
+            int position=positions.GetValueOrDefault(task.ProjectId);positions[task.ProjectId]=position+1;
+            int page=position/Tab5CodexCatalog.PageSize,total=(counts[task.ProjectId]+Tab5CodexCatalog.PageSize-1)/Tab5CodexCatalog.PageSize;
+            var projected=CodexCompanionActivity.Project(task,activity.GetValueOrDefault(task.Id));
+            return projected with {
+                ProjectId=page==0?task.ProjectId:Tab5GitProject.Id(task.ProjectId+":page:"+page),
+                Folder=total>1?$"{page+1}/{total} · {task.Folder}":task.Folder
+            };
+        }).ToArray();
         var taskIds=tasks.Select(t=>t.Id).ToHashSet();
         var read=_readState.Synchronize(ready);
         if(view is not null&&viewed is not null)responses[viewed]=view.Text;
         var projects = tasks.GroupBy(t => t.ProjectId).OrderByDescending(g => g.Max(t => t.UpdatedAt))
             .ThenBy(g => g.Min(t => t.ProjectOrder))
             .Select(g => new { id = g.Key, name = g.First().Folder }).ToArray();
-        return new { projects, tasks, overviewTask=overview is null?null:CodexCompanionActivity.Project(overview,activity.GetValueOrDefault(overview.Id)), draftView=Volatile.Read(ref _draftView),control=Volatile.Read(ref _control),
+        return new { projects, tasks, overviewTask=overview is null?null:CodexCompanionActivity.Project(overview,activity.GetValueOrDefault(overview.Id)), draftView=Volatile.Read(ref _draftView),control=fresh?Volatile.Read(ref _control):null,
             replyView=view is null?null:new {taskId=viewed,turnId=view.TurnId,page=view.Page,pageCount=view.PageCount,hasText=view.HasText,history=viewHistory,hasPrevious=viewPrevious,hasNext=viewNext,startedAt=view.StartedAt,startedLabel=view.StartedAt>0?DateTimeOffset.FromUnixTimeSeconds(view.StartedAt).ToLocalTime().ToString("MM-dd HH:mm"):"",state=view.State},
             repliesReady = tasks.Where(t=>ready.ContainsKey(t.Id)).Take(80).ToDictionary(t=>t.Id,t=>ready[t.Id]),
             // Shrinking the catalog must also shrink its per-task maps. Keep

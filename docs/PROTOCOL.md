@@ -369,7 +369,9 @@ TAB5 0.2.22 USB 网络管理：`tab5_wifi_list` 返回 ssid/label/connected/sele
 
 ## Codex 桌面已读同步（可选字段）
 
-`codexTasks.repliesRead` 为 `{taskId: turnId}`，最多 80 项，与 `repliesReady` 共用完成轮次标识；通过现有 USB/Wi-Fi/BLE 鉴权状态通道传输。桥接只读当前账户、标准本地主机的 Codex 桌面未读记录。完成轮次及桌面未读写入稳定至少 5 秒后，已读任务才生成确认；新轮次重新等待，文件不可用、账户/主机不匹配或未知 schema 不生成确认。
+`codexTasks.repliesRead` 为 `{taskId: turnId}`，最多 80 项，与 `repliesReady` 共用完成轮次标识；通过现有 USB/Wi-Fi/BLE 鉴权状态通道传输。桥接只读当前账户、标准本地主机的 Codex 桌面未读记录。Windows 已观察到同一轮次的未读标记，且该标记不是从上一轮延续时，标记消失后的首个有效快照即可确认已读；未观察到有效未读的新轮次仍等待至少 5 秒。文件不可用、账户/主机不匹配或未知 schema 不生成确认。
+
+未读入口使用 `repliesReady` / `repliesUnread` 对应的 `turnId` 定位公开回复。Claude 在该回复后出现空白或运行中的新轮次时，读取最近已完成公开回复仍返回绑定 device/task/turn 的 `readReceipt`；旧历史不能覆盖更新的可读回复，旧回执不能清除新未读。同一 device/task/turn 的重复读取复用回执，容量有界。字段和协议版本不变。
 
 `codexTasks.repliesUnread` 使用相同结构，表示当前桌面明确标为未读的完成轮次。TAB5 首次接收时恢复未读数字且不播放历史回复提示音；同一桌面未读状态不会反复覆盖设备上的本地已读。桌面确认已读后再次标为未读，可重新恢复提醒。未知桌面状态返回空映射，不据此清除设备未读。
 
@@ -1556,15 +1558,15 @@ including macOS, may omit it. No additional client tab is implied.
 显示“来源未知”；多个已核验承载端同时认领同一会话时显示“多端打开”并禁用输入。
 字段随会话一起裁剪，旧客户端忽略，未实现该字段的桌面端可省略。
 
-The Windows compiled `IClaudeHarnessAdapter` seam provides discovery, live IDs
-and exact-session resolution; returned `IClaudeNativeSession` supplies supported
-capabilities and dispatch. It currently covers Claude-compatible sessions and
+The Windows `IClaudeHarnessAdapter` and macOS `MacClaudeHarnessAdapter` compiled
+interfaces provide discovery, live IDs and exact-session resolution. The native
+session supplies its supported capabilities and dispatch. This covers Claude-compatible sessions and
 history. A different transcript/identity system requires an explicit adapter;
 this is not automatic support for every Harness or a dynamic plugin loader.
 See [adapter contract](development/CLAUDE-HARNESS-ADAPTERS.md).
 
-中文：Windows 通过编译期 `IClaudeHarnessAdapter` 注册发现、存活身份和精确会话解析，
-通过 `IClaudeNativeSession` 声明能力并执行。当前面向 Claude 兼容会话和历史；其他格式
+中文：Windows 的 `IClaudeHarnessAdapter` 和 macOS 的 `MacClaudeHarnessAdapter`
+在编译期注册发现、存活身份和精确会话解析，由原生会话声明能力并执行。当前面向 Claude 兼容会话和历史；其他格式
 需另写适配层，不代表已接通所有第三方 Harness，也不加载任意插件代码。
 
 Optional `data.claudeTasks` uses the existing `codexTasks` project/task, replyView,
@@ -1576,7 +1578,7 @@ explicit project pages. Shrinking a transport catalog retains the Overview and
 viewed sessions. A failed scan/read retains successful data and revokes stale
 controls.
 
-Windows native Claude candidates may additionally publish `claudeTasks.controls`,
+Windows and macOS native Claude candidates may additionally publish `claudeTasks.controls`,
 an optional map keyed by the task aliases in the transported catalog. Each value
 is the existing control shape (`taskId`, `turnId`, `running`, `waiting`, `canSend`,
 `canSteer`, `canInterrupt`), or null when that session is unavailable or its
@@ -1588,9 +1590,9 @@ the legacy viewed-task `control`. Hosts without a map retain legacy behavior.
 This metadata only controls UI availability: host dispatch still revalidates
 native identity, input availability and the expected turn. Receipt recovery and
 draft/load/save isolation are unchanged. Other desktop producers may omit this
-optional map; no macOS implementation or native validation is implied.
+optional map. The advertised capabilities depend on the local adapter and session.
 
-中文：Windows 原生 Claude 候选可选发布按会话别名索引的 `controls`，值沿用既有控制结构，
+中文：Windows 和 macOS 原生 Claude 候选可选发布按会话别名索引的 `controls`，值沿用既有控制结构，
 不可用或超过 30 秒的观察为 null，随实际传输的 `tasks` 裁剪。设备切换会话时直接使用
 六秒内已认证状态帧中的对应项；映射存在但对应项缺失/null 时禁用新发送，不借用上次
 查看会话的控制状态。无此映射的旧桥接保持原路径。它仅用于按钮状态，不代替主机派发前

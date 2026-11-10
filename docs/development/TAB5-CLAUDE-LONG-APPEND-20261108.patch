@@ -1,0 +1,91 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2164,7 +2164,7 @@
+     codex_waiting=true;codex_result_is_read=false;codex_feedback_pinned=true;codex_submit_accepted=false;
+     ui_text(codex_voice_hint,"");
+     snprintf(codex_receipt_before_send,sizeof(codex_receipt_before_send),"%s",text(item(item(shown,workspace_key()),"receipts"),codex_selected));
+-    ui_text(codex_receipt,querying?"正在核对送达记录…":!strcmp(operation,"interrupt")?"正在请求停止…":workspace_client?"正在发送到 Claude…":"正在发送到 Codex…");
++    ui_text(codex_receipt,querying?(codex_auto_query&&codex_retry_count>=3?"送达尚未确认，稍后自动核对":"正在核对送达记录…"):!strcmp(operation,"interrupt")?"正在请求停止…":workspace_client?"正在发送到 Claude…":"正在发送到 Codex…");
+     ui_text(lv_obj_get_child(codex_send_button,0),querying?"核对送达":"发送中…");
+     lv_obj_add_state(codex_list,LV_STATE_DISABLED);lv_obj_add_state(codex_project_picker,LV_STATE_DISABLED);
+     lv_obj_add_state(codex_input,LV_STATE_DISABLED);lv_obj_add_state(codex_send_button,LV_STATE_DISABLED);
+@@ -2230,10 +2230,16 @@
+         else return;
+     }
+     if(current_page!=8||quick_visible||saver||photo_flow||photo_open_pending||codex_waiting||codex_send_queued||codex_voice_waiting||codex_voice_start_pending||
+-       codex_reading||codex_syncing||codex_load_waiting||codex_remote_busy()||codex_retry_count>=3||now<codex_retry_at)return;
++       codex_reading||codex_syncing||codex_load_waiting||codex_remote_busy()||now<codex_retry_at)return;
+     codex_auto_query=true;codex_begin_action("receipt");
+-    if(codex_waiting){codex_retry_count++;codex_retry_at=now+(2000<<codex_retry_count);}
+-    else codex_auto_query=false;
++    if(codex_waiting){
++        if(codex_retry_count<3)codex_retry_count++;
++        // A queued Claude turn may run much longer than the initial retries.
++        // Keep querying its existing receipt at a bounded low frequency; never
++        // resubmit the message or abandon a possibly delivered draft.
++        codex_retry_at=now+(codex_retry_count<3?(2000<<codex_retry_count):30000);
++    }
++    else {codex_auto_query=false;codex_retry_at=now+5000;}
+ }
+ // Interrupt may restore a confirmed queued draft on the host. Reload only an
+ // unchanged empty composer; the normal revision guard protects edits in flight.
+@@ -3545,8 +3551,8 @@
+             }
+             if(d&&d->request[0])lv_obj_add_state(codex_input,LV_STATE_DISABLED);
+             codex_control_style();
+-            if(code==504&&d&&d->request[0]&&(!codex_querying||(codex_auto_query&&codex_retry_count<3)))
+-                snprintf(status,sizeof(status),"正在核对送达记录…");
++            if(code==504&&d&&d->request[0]&&(!codex_querying||codex_auto_query))
++                snprintf(status,sizeof(status),"%s",codex_auto_query&&codex_retry_count>=3?"送达尚未确认，稍后自动核对":"正在核对送达记录…");
+             if(code==202)snprintf(status,sizeof(status),"%s",!strcmp(codex_action,"interrupt")?"已请求停止":!strcmp(codex_action,"steer")?"已追加，可查看会话动态":"已发送，可查看会话动态");
+             codex_auto_query=false;
+             snprintf(last_codex_status, sizeof(last_codex_status), "%s", status);
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2491,10 +2491,25 @@
+             preview_result_code=504;tick(NULL);
+             assert(!strcmp(lv_label_get_text(lv_obj_get_child(codex_send_button,0)),"核对送达"));
+             if(attempt<2)assert(!strcmp(lv_label_get_text(codex_receipt),"正在核对送达记录…"));
+-            else {assert(!strcmp(lv_label_get_text(codex_receipt),"送达尚未确认，正在保留草稿"));capture("claude-receipt-unconfirmed");}
++            else {assert(!strcmp(lv_label_get_text(codex_receipt),"送达尚未确认，稍后自动核对"));capture("claude-receipt-unconfirmed");}
+         }
+         assert(codex_retry_count==3&&preview_sync_count==queries+3);
+-        codex_recovery_tick(esp_timer_get_time()/1000+60000);assert(!codex_waiting&&preview_submit_count==sends);
++        char pending_id[37];snprintf(pending_id,sizeof(pending_id),"%s",d->request);
++        int64_t now=esp_timer_get_time()/1000+60000;codex_recovery_tick(now);
++        assert(codex_waiting&&!strcmp(preview_operation,"receipt")&&preview_submit_count==sends);
++        assert(!strcmp(preview_request_id,pending_id)&&codex_retry_count==3&&codex_retry_at==now+30000);
++        assert(!strcmp(lv_label_get_text(codex_receipt),"送达尚未确认，稍后自动核对"));
++        preview_result_code=504;tick(NULL);assert(d->request[0]&&!strcmp(lv_label_get_text(codex_receipt),"送达尚未确认，稍后自动核对"));
++        codex_reading=codex_syncing=codex_load_waiting=false;codex_read_next=999999;
++        codex_recovery_tick(now+29999);assert(!codex_waiting);
++        preview_submit_enabled=false;codex_recovery_tick(now+30000);
++        assert(!codex_waiting&&codex_retry_at==now+35000&&!strcmp(d->request,pending_id));
++        preview_submit_enabled=true;codex_recovery_tick(now+34999);assert(!codex_waiting);
++        codex_recovery_tick(now+35000);assert(codex_waiting&&!strcmp(preview_request_id,pending_id));
++        preview_result_code=202;tick(NULL);
++        assert(!d->request[0]&&!lv_obj_has_state(codex_input,LV_STATE_DISABLED)&&preview_submit_count==sends);
++        lv_textarea_set_text(codex_input,"下一条");assert(!strcmp(lv_textarea_get_text(codex_input),"下一条"));
++        puts("LONG_APPEND_RECOVERY_OK continued receipt only, stable status, 30-second backoff, no duplicate, input restored");
+         // Each actual client notice chooses its own spoken prompt.
+         const char *clients[]={"codexTasks","claudeTasks"};
+         const char *ids[]={"11111111-1111-4111-8111-111111111111","22222222-2222-4222-8222-222222222222"};
+@@ -2534,13 +2549,15 @@
+         int64_t saved_time=preview_now_us;preview_now_us+=7000000;codex_control_style();
+         assert(!lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
+         preview_now_us=saved_time;codex_control_style();assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
+-        for(int i=0;i<2;i++) {
++        for(int i=0;i<4;i++) {
+             codex_reading=codex_syncing=codex_load_waiting=false;codex_read_next=999999;
+             codex_retry_at=0;last_received=esp_timer_get_time()/1000;codex_recovery_tick(esp_timer_get_time()/1000);
+             assert(codex_waiting&&!strcmp(preview_operation,"receipt")&&preview_submit_count==sent);
+             assert(!strcmp(lv_label_get_text(lv_obj_get_child(codex_send_button,0)),"核对送达"));
+-            preview_result_code=i?202:504;tick(NULL);
+-            if(!i)assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++            if(i>=3)assert(!strcmp(lv_label_get_text(codex_receipt),"送达尚未确认，稍后自动核对"));
++            preview_result_code=i==3?202:504;tick(NULL);
++            if(i<2)assert(lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));
++            if(i==2){assert(!lv_obj_has_state(codex_send_button,LV_STATE_DISABLED));capture("claude-append-slow-check");}
+         }
+         assert(!d->request[0]&&!lv_obj_has_state(codex_input,LV_STATE_DISABLED));
+         assert(preview_submit_count==sent&&!lv_textarea_get_text(codex_input)[0]);

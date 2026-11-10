@@ -15,6 +15,10 @@ final class MacTab5LocalDiagnostics {
     private let clock: () -> TimeInterval
     private var lastDeviceWrite: TimeInterval = 0 // diagnostics queue only
     private var lastVoiceWrite = -Double.infinity, lastVoiceState: Int?
+    private static let deviceNumericKeys = ["uiPage", "uptimeMs", "uiAgeMs", "uiDataAgeMs",
+        "internalFree", "psramFree", "saverActive", "pcWakeCount", "lcdUnderruns",
+        "flushCount", "flushErrors", "backlightPercent", "backlightChanges"]
+    private static let deviceTextKeys = ["displayDiag", "galleryDiag", "usbDiag"]
     private static let voiceBounds = ["state": 5, "chunks": 601, "audioMs": 60000, "startupMs": 180000,
         "captureReadyMs": 180000, "firstResultMs": 180000, "stopToFinalMs": 180000, "finalToResponseMs": 180000]
     init(directory: URL? = nil, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
@@ -26,7 +30,8 @@ final class MacTab5LocalDiagnostics {
             }) else { throw MacTab5Error.invalidPacket }
         })
         deviceFile = MacProfileFile("tab5-device-diagnostics.json", directory: directory, initial: { [:] }, validate: {
-            guard $0.count <= 13, Set($0.keys).isSubset(of: ["uiPage","uptimeMs","uiAgeMs","uiDataAgeMs","internalFree","psramFree","displayDiag","galleryDiag","usbDiag","pid","time"]) else { throw MacTab5Error.invalidPacket }
+            let allowed = Set(Self.deviceNumericKeys + Self.deviceTextKeys + ["pid", "time"])
+            guard Set($0.keys).isSubset(of: allowed) else { throw MacTab5Error.invalidPacket }
         })
         assetFile = MacProfileFile<[String: Int]>("tab5-cover-diagnostics.json", directory: directory, initial: { [:] }, validate: {
             guard $0.count <= 14, Set($0.keys).isSubset(of: ["width","height","bytes","offset","passes","jpeg","confirmed","limited","usbChunks","generation","acknowledgements","pid","time"]) else { throw MacTab5Error.invalidPacket }
@@ -43,7 +48,7 @@ final class MacTab5LocalDiagnostics {
     func request(_ label: String, status: Int, outcome: String?) {
         guard ["发送消息", "追加消息", "查询送达", "确认送达", "提交草稿", "定位会话"].contains(label) else { return }
         // outcome is already allowlisted by MacTab5InteractionDiagnostics.
-        let allowed = ["composer_changed", "delivery_baseline_unavailable", "desktop_storage_unavailable", "native_submit_unavailable", "conversation_target_or_text_changed", "question_target_or_text_changed", "desktop_draft_present", "desktop_attachments_present", "desktop_photo_append_unsupported", "pending_delivery_changed", "task_waiting_for_input", "task_busy_or_state_unknown", "turn_changed",
+        let allowed = ["composer_changed", "delivery_baseline_unavailable", "desktop_storage_unavailable", "native_submit_unavailable", "native_input_unavailable", "native_session_unavailable", "native_session_changed", "native_history_or_state_unconfirmed", "pending_delivery_requires_receipt", "conversation_target_or_text_changed", "question_target_or_text_changed", "desktop_draft_present", "desktop_attachments_present", "desktop_photo_append_unsupported", "pending_delivery_changed", "task_waiting_for_input", "task_busy_or_state_unknown", "turn_changed",
             "delivery_unknown", "receipt_not_found", "request_id_conflict", "desktop_result_unknown", "desktop_foreground_unconfirmed",
             "desktop_steer_requires_expected_turn_support", "codex_or_private_storage_unavailable", "codex_catalog_stale",
             "codex_send_not_enabled", "invalid_request", "codex_read_only_connection"]
@@ -71,12 +76,13 @@ final class MacTab5LocalDiagnostics {
         }
     }
     func device(_ root: [String: Any]) {
-        guard root["type"] as? String == "tab5_ack" else { return }
+        guard root["type"] as? String == "tab5_ack",
+              MacTab5Protocol.integer(root["uptimeMs"]) != nil else { return }
         var values: [String: String] = [:]
-        for key in ["uiPage","uptimeMs","uiAgeMs","uiDataAgeMs","internalFree","psramFree"] {
+        for key in Self.deviceNumericKeys {
             if let value = MacTab5Protocol.integer(root[key]) { values[key] = String(value) }
         }
-        for key in ["displayDiag","galleryDiag","usbDiag"] {
+        for key in Self.deviceTextKeys {
             if let value = root[key] as? String, value.utf8.count <= 1024,
                value.range(of: "^[A-Za-z0-9,;_.:/ -]*$", options: .regularExpression) != nil { values[key] = value }
         }
