@@ -2,6 +2,8 @@
 
 Windows 是本次后续发布的唯一负责人。本文件是开发交接和候选准备，不是发布指令、已冻结候选或正式发布记录。首先按 [跨平台交接](WINDOWS-HANDOFF-TAB5-PROVIDER-STABILITY-20261110.md) 完成 Windows 对齐；统一流程见 [开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md)和[发布自动化](../RELEASE-AUTOMATION.md)。
 
+后续用户要求一个项目只显示一次并可滚动更多会话；[项目列表设计与 LIST1 累计补丁](TAB5-PROJECT-PICKER-20261110.md)取代该功能的 ICON2 交接。ICON2 的以下身份和验收仍是真实历史，不自动转移到新的源码或构建物。Windows Codex 桥接目前每项目只提供 8 条，必须在 Windows 对齐并完成原生验证。
+
 ## 源码、范围与候选身份
 
 - Windows 最近已核对的开发基线是 `codex/windows-dynamic-microphone-20261105` 的 `6456c169c3f92222c1a233489da36af347b8ed28`。Mac 交接分支含独立后续工作；以实际远端和待合并变更为准，选择性整合，避免以旧 Windows 文件覆盖 Windows 开发。两端桥接如同次交付，必须从同一个最终候选源码 SHA 各自原生构建。

@@ -133,7 +133,9 @@ final class MacTab5Codex {
             return task
         }
         let tasks = taskActivity?.apply(projected) ?? projected
-        value["overviewTask"] = Self.overview(tasks)
+        var overview = Self.overview(tasks)
+        overview?.removeValue(forKey: "_folderParent")
+        value["overviewTask"] = overview
         let viewed = (projection["replyView"] as? [String: Any])?["taskId"] as? String
         let savedPins = Set((try? taskPins?.read()) ?? [])
         let ordered = tasks.filter { savedPins.contains($0["id"] as? String ?? "") } + tasks.filter { !savedPins.contains($0["id"] as? String ?? "") }
@@ -153,6 +155,22 @@ final class MacTab5Codex {
         // their ninth and older tasks. Task IDs and operation bindings stay intact.
         var projects: [[String: Any]] = [], counts: [String: Int] = [:], positions: [String: Int] = [:]
         for task in selected { if let id = task["projectId"] as? String { counts[id, default: 0] += 1 } }
+        var projectNames: [String: String] = [:], projectParents: [String: String] = [:]
+        for task in selected {
+            guard let id = task["projectId"] as? String else { continue }
+            projectNames[id] = task["folder"] as? String ?? "Codex"
+            projectParents[id] = task["_folderParent"] as? String ?? ""
+        }
+        let names = Dictionary(grouping: projectNames.keys, by: { projectNames[$0] ?? "" })
+        for ids in names.values where ids.count > 1 {
+            for id in ids {
+                let parent = projectParents[id] ?? ""
+                let sameParent = ids.filter { projectParents[$0] == parent }.count > 1
+                let name = projectNames[id] ?? "Codex"
+                projectNames[id] = parent.isEmpty ? "\(id.prefix(4))/\(name)" :
+                    sameParent ? "\(parent)-\(id.prefix(4))/\(name)" : "\(parent)/\(name)"
+            }
+        }
         var included = Set<String>()
         selected = selected.compactMap { original in
             guard let id = original["projectId"] as? String else { return nil }
@@ -161,10 +179,11 @@ final class MacTab5Codex {
             let pageID = page == 0 ? id : String(MacTab5Protocol.sha256(Data("\(id):page:\(page)".utf8)).prefix(16))
             if !included.contains(pageID) {
                 included.insert(pageID)
-                let name = original["folder"] as? String ?? "Codex"
-                projects.append(["id": pageID, "name": total > 1 ? "\(name) · \(page + 1)/\(total)" : name])
+                let name = projectNames[id] ?? "Codex"
+                projects.append(["id": pageID, "name": total > 1 ? "\(page + 1)/\(total) · \(name)" : name])
             }
             var task = original; task["projectId"] = pageID
+            task.removeValue(forKey: "_folderParent")
             task["pinned"] = savedPins.contains(task["id"] as? String ?? "")
             return task
         }
@@ -298,9 +317,16 @@ final class MacTab5Codex {
                     !$0.value.contains("\0") && !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             }
             pinTitles = [:]
+            var projectIdentities: [String: MacCodexProjectIdentity.Value] = [:]
             var catalog: [[String: Any]] = threads.compactMap { root -> [String: Any]? in
                 guard let id = Self.id(root["id"]), let cwd = root["cwd"] as? String else { return nil }
-                let folder = URL(fileURLWithPath: cwd).lastPathComponent
+                let identity: MacCodexProjectIdentity.Value?
+                if provider == "Claude" { identity = nil }
+                else {
+                    if projectIdentities[cwd] == nil { projectIdentities[cwd] = MacCodexProjectIdentity.resolve(cwd) }
+                    identity = projectIdentities[cwd]
+                }
+                let folder = identity?.name ?? URL(fileURLWithPath: cwd).lastPathComponent
                 let title = (root["name"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? cachedNames[id] ?? (provider == "Claude" ? "Claude Code" : "Codex 会话")
                 pinTitles[id] = String(title.prefix(2048)) + (title.count > 2048 ? "…" : "")
                 // Match the desktop's recent-activity order. The device sorts
@@ -310,8 +336,9 @@ final class MacTab5Codex {
                     .first(where: { (0...253_402_300_799).contains($0) }) ?? 0
                 let state = rpc == nil && mutable() ? Self.taskState(root["status"] as? [String: Any] ?? [:]) : "unknown"
                 let project = provider == "Claude" ? root["projectId"] as? String : nil
-                var row: [String: Any] = ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": project.flatMap { MacTab5Protocol.isHex($0,count:16) ? $0:nil } ?? String(MacTab5Protocol.sha256(Data(cwd.utf8)).prefix(16)), "updatedAt": updated, "state": state, "companionState": state,
+                var row: [String: Any] = ["id": id, "title": String(title.prefix(80)), "folder": String(folder.prefix(48)), "projectId": project.flatMap { MacTab5Protocol.isHex($0,count:16) ? $0:nil } ?? String(MacTab5Protocol.sha256(Data((identity?.key ?? cwd).utf8)).prefix(16)), "updatedAt": updated, "state": state, "companionState": state,
                         "waitingKind": state == "waiting" ? Self.waitingKind(root["status"] as? [String: Any] ?? [:]) : ""]
+                if let identity { row["_folderParent"] = String(identity.parent.prefix(48)) }
                 if provider == "Claude", let source = root["source"] as? [String: String],
                    let id = source["id"], let label = source["label"], let kind = source["kind"],
                    MacClaudeSessionSource(id: id, label: label, kind: kind).valid { row["source"] = source }

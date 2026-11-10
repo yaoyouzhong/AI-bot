@@ -14,6 +14,7 @@
 | Claude 目录 | 待开发、待 Windows 验证 | Windows `ClaudeCatalog.Refresh` 发布扫描结果，`ClaudeWorkspace.Snapshot` 使用该目录。复核短暂空扫描、恢复、长期真实空目录和禁用路径；与 Codex 独立处理。不要借用另一会话的控制或回执。 |
 | 原生 Terminal 发送状态 | 待 Windows 验证 | Mac 的 TCC 权限复查是平台专用实现；Windows 依据自己的终端权限、会话身份与输入目标判断，验证稳定性并保持发送前检查。 |
 | TAB5 UI 与设备保护 | Mac 构建及 USB 有限真机通过；Windows 构建和 Windows 桥接真机待验证 | 在已核验的 R4 工程上应用下述累计补丁；验证一个、两个、更多厂商、短暂缺项、持续空目录、切换与未读角标。设备端防抖适用于两种桥接。 |
+| 项目列表辨识 | Mac 与新 TAB5 固件开发中；Windows 待开发 | [项目显示设计](TAB5-PROJECT-PICKER-20261110.md)要求经 Git 元数据确认的同仓库 worktree 合并，同名不同仓库区分；新固件将验证通过的项目分页合并并滚动，旧固件保持分页。Windows 自行实现路径处理，并调整每项目 8 条的桥接侧上限，保留会话真实目标和草稿。 |
 
 ## TAB5 源码与重建
 

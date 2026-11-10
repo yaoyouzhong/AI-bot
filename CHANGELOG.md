@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - On Mac, retain the last usable provider catalog through a brief empty scan and resume updates on recovery. Sending still rechecks the actual target and permissions.
 - Keep the last confirmed ready indication during a Mac Terminal automation-permission refresh; explicit denial or timeout restores the unavailable state.
 - Replace TAB5 dialogue labels with provider icons, enlarge common icons and unread numbers, and retain entries, the current session and drafts across brief missing snapshots.
+- On Mac, group sessions from the same Git repository's main directory and worktrees and distinguish different projects with the same name. New TAB5 firmware scrolls through more sessions within one project; older firmware shows page numbers first.
 - Windows catalog stability, native builds and device acceptance remain pending; see the cross-platform handoff. These notes describe unreleased work.
 
 ### Existing Mac Claude terminal windows (in development)
