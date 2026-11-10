@@ -2,6 +2,32 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacTab5CodexTests: XCTestCase {
+    func testTransientEmptyCatalogRetainsBothProvidersIndependently() throws {
+        for provider in ["Codex", "Claude"] {
+            var now = 0.0, empty = false, enabled = true, failed = false
+            let task = UUID().uuidString.lowercased()
+            let workspace = MacTab5Codex(store: try store(), enabled: { enabled }, clock: { now },
+                call: { _, _ in
+                    if failed { throw MacTab5CodexFailure.timeout }
+                    return ["data": empty ? [] : [["id": task, "cwd": "/fixture", "name": "test"]]]
+                }, provider: provider)
+            func count() -> Int { (workspace.snapshot()?["tasks"] as? [[String: Any]])?.count ?? 0 }
+            workspace.refresh(); XCTAssertEqual(count(), 1)
+            empty = true; now = 1; workspace.refresh()
+            XCTAssertEqual(count(), 1); XCTAssertEqual(workspace.taskCatalog().count, 1)
+            now = 7; workspace.refresh(); XCTAssertEqual(count(), 1)
+            empty = false; workspace.refresh(); XCTAssertEqual(count(), 1)
+            empty = true; now = 10; workspace.refresh(); XCTAssertEqual(count(), 1)
+            now = 18; workspace.refresh(); XCTAssertEqual(count(), 0)
+            empty = false; workspace.refresh(); XCTAssertEqual(count(), 1)
+            empty = true; now = 20; workspace.refresh()
+            failed = true; now = 25; workspace.refresh()
+            failed = false; now = 30; workspace.refresh(); XCTAssertEqual(count(), 1)
+            now = 38; workspace.refresh(); XCTAssertEqual(count(), 0)
+            empty = false; workspace.refresh(); XCTAssertEqual(count(), 1)
+            enabled = false; workspace.refresh(); XCTAssertNil(workspace.snapshot())
+        }
+    }
     func testRecencyOrderAndDeviceTimestampDoNotPromoteRecordOnlyUpdates() throws {
         let ids = (0..<4).map { _ in UUID().uuidString.lowercased() }
         // Desktop order is 1,2,3,4; record updates would produce 1,4,2,3.

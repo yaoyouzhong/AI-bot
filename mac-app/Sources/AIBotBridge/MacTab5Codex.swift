@@ -20,6 +20,9 @@ final class MacTab5Codex {
     private var cachedNames: [String: String] = [:]
     private var listSortKey = "recency_at"
     private var catalogUpdated: TimeInterval = -.infinity
+    // A single empty scan can be a transient provider restart. Do not replace
+    // an established catalog until emptiness persists across refreshes.
+    private var emptyCatalogSince: TimeInterval?
     // Guarded by stateLock, independent of the last reply viewed.
     private typealias NativeControl = (value: Any, at: TimeInterval, observedAt: TimeInterval)
     private var nativeControls: [String: NativeControl] = [:]
@@ -221,7 +224,7 @@ final class MacTab5Codex {
     }
     deinit { timer?.cancel(); nativeSelectedTimer?.cancel() }
     func refresh() {
-        guard enabled() else { rpc?.stop(); desktop?.reset(); onDisable?(); stateLock.lock(); projection = [:]; nativeControls = [:]; catalogUpdated = -.infinity; note = "尚未启用"; stateLock.unlock(); return }
+        guard enabled() else { rpc?.stop(); desktop?.reset(); onDisable?(); stateLock.lock(); projection = [:]; nativeControls = [:]; catalogUpdated = -.infinity; emptyCatalogSince = nil; note = "尚未启用"; stateLock.unlock(); return }
         guard refreshGate.try() else { return }
         defer { refreshGate.unlock() }
         // Native owner/transcript scans can take time. Let device RPCs use the
@@ -266,6 +269,19 @@ final class MacTab5Codex {
             threads.removeAll { Self.isOpenClawWorkspace($0["cwd"] as? String ?? "") }
             if !holdsGate { guard gate.try() else { return }; holdsGate = true }
             guard enabled() else { return }
+            let hasUsableTask = threads.contains { Self.id($0["id"]) != nil && $0["cwd"] is String }
+            stateLock.lock()
+            let previousHasTasks = !(projection["tasks"] as? [[String: Any]] ?? []).isEmpty
+            if !hasUsableTask && previousHasTasks {
+                let now = clock()
+                if emptyCatalogSince == nil { emptyCatalogSince = now }
+                if let since = emptyCatalogSince, now >= since, now - since < 8 {
+                    stateLock.unlock()
+                    return
+                }
+            }
+            emptyCatalogSince = nil
+            stateLock.unlock()
             if provider == "Claude" {
                 for thread in threads {
                     guard let task = Self.id(thread["id"]), let observation = thread["nativeReplyObservation"] as? MacClaudeReplyObservation else { continue }
@@ -282,7 +298,7 @@ final class MacTab5Codex {
                     !$0.value.contains("\0") && !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             }
             pinTitles = [:]
-            catalog = threads.compactMap { root -> [String: Any]? in
+            var catalog: [[String: Any]] = threads.compactMap { root -> [String: Any]? in
                 guard let id = Self.id(root["id"]), let cwd = root["cwd"] as? String else { return nil }
                 let folder = URL(fileURLWithPath: cwd).lastPathComponent
                 let title = (root["name"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? cachedNames[id] ?? (provider == "Claude" ? "Claude Code" : "Codex 会话")
@@ -339,6 +355,7 @@ final class MacTab5Codex {
             }
             stateLock.lock()
             catalogUpdated = clock()
+            self.catalog = catalog
             nativeControls = nativeControls.filter { seenTasks.contains($0.key) }
             nativeControls.merge(observedControls) { current, next in current.observedAt > next.observedAt ? current : next }
             projection["tasks"] = catalog
@@ -353,6 +370,7 @@ final class MacTab5Codex {
             }
         } catch {
             stateLock.lock(); note = provider == "Claude" ? "Claude 暂不可读，保留最近数据。请检查 CLI、目录与本机私密存储。" : Self.connectionFailure(error); projection["control"] = NSNull()
+            emptyCatalogSince = nil
             nativeControls = nativeControls.mapValues { $0.observedAt > listStarted ? $0 : (NSNull(), clock(), listStarted) }
             if var tasks = projection["tasks"] as? [[String: Any]] {
                 for index in tasks.indices { tasks[index]["companionState"] = "unknown" }
