@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Dialogue catalogs and native Terminal
+- On Mac, retain the last usable provider catalog through a brief empty scan and resume updates on recovery. Sending still rechecks the actual target and permissions.
+- Keep the last confirmed ready indication during a Mac Terminal automation-permission refresh; explicit denial or timeout restores the unavailable state.
+- Replace TAB5 dialogue labels with provider icons, enlarge common icons and unread numbers, and retain entries, the current session and drafts across brief missing snapshots.
+- Windows catalog stability, native builds and device acceptance remain pending; see the cross-platform handoff. These notes describe unreleased work.
+
 ### Existing Mac Claude terminal windows (in development)
 - Add window input for already-open native Claude Code sessions in Terminal, including text, images, queued follow-ups and exact-turn interruption; retain public replies and delivery receipts from the original session.
 - Preserve recent client activity across midnight while resetting daily usage; reject window input while macOS is locked and keep drafts after preparation failures.
