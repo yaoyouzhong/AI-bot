@@ -1,0 +1,23 @@
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R4-LIST1";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R5";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/tests/ui-preview/CMakeLists.txt b/tests/ui-preview/CMakeLists.txt
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -206,8 +206,8 @@
+ add_executable(ui-preview preview.c "${ROOT}/firmware/main/tab5_font_24.c" "${ROOT}/firmware/main/tab5_font_30.c" "${ROOT}/firmware/main/tab5_digits_72.c" "${ROOT}/firmware/main/tab5_digits_96.c" "${ROOT}/firmware/main/tab5_timer_digits_192.c" "${ROOT}/firmware/main/link_state.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
+ set(UI_SHA_ROOT "${ROOT}/.tools/esp-idf/components/mbedtls/mbedtls")
+ target_sources(ui-preview PRIVATE "${UI_SHA_ROOT}/library/sha256.c" "${UI_SHA_ROOT}/library/platform_util.c")
+-target_include_directories(ui-preview PRIVATE "${UI_SHA_ROOT}/include" "${ROOT}/tests/ui-preview/photo-crypto-stubs")
+-target_compile_definitions(ui-preview PRIVATE MBEDTLS_CONFIG_FILE="photo-crypto-config.h")
++target_include_directories(ui-preview PRIVATE "${UI_SHA_ROOT}/include")
++target_compile_definitions(ui-preview PRIVATE MBEDTLS_CONFIG_FILE="${ROOT}/tests/ui-preview/photo-crypto-stubs/photo-crypto-config.h")
+ target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/codex_companion.c" "${ROOT}/firmware/main/claude_companion.c")
+ add_executable(claude-companion-test claude_companion_test.c "${ROOT}/firmware/main/claude_companion.c" "${ROOT}/firmware/main/codex_companion.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
+ target_include_directories(claude-companion-test PRIVATE "${ROOT}/firmware/main" "${ROOT}/.tools/esp-idf/components/json/cJSON")
