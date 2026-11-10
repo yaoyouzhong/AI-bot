@@ -49,6 +49,26 @@ internal sealed partial class Tab5Service
 
                 string nonce=Guid.NewGuid().ToString("N");service.Respond(pair.DeviceId,nonce,Tab5Protocol.Proof(key,$"GET|{pair.DeviceId}|{nonce}"));
                 var image=new Tab5OtaPackage(new byte[65536],new string('a',64),"0.2.255-ui",new string('b',32));
+                // A fresh same-version boot can release the lease, but a
+                // stale, busy, unbound or still-streaming observation cannot.
+                service.OfferOta(image);var bootDelivery=service._otaDelivery!;service.BeginOtaDelivery(bootDelivery);
+                bootDelivery.Committed=bootDelivery.DataStarted=bootDelivery.FinalReleased=true;bootDelivery.FinalAt=1000;
+                JsonElement UsbBoot(long uptime=4000,long sequence=7,string? id=null,string? host=null,bool owned=true,string diag="0,0,0,0",string? version=null)=>
+                    JsonSerializer.SerializeToElement(new{deviceId=id??pair.DeviceId,currentHostId=host??Tab5HostBinding.Id(pair),firmware=version??image.Version,usbHostAuthenticated=owned,sequence,uptimeMs=uptime,otaDiag=diag});
+                void Lease(){Interlocked.Exchange(ref service._rpcOtaUntil,Environment.TickCount64+90000);}
+                void StillLeased(string message){if(Interlocked.Read(ref service._rpcOtaUntil)==0)throw new Exception(message);}
+                Lease();service.ObserveOtaRebootUsb(UsbBoot(),7,1000,7000);StillLeased("pre-final request released lease");
+                service.ObserveOtaRebootUsb(UsbBoot(uptime:6000),7,6000,7000);StillLeased("old boot released lease");
+                service.ObserveOtaRebootUsb(UsbBoot(sequence:8),7,6000,7000);StillLeased("wrong sequence released lease");
+                service.ObserveOtaRebootUsb(UsbBoot(id:"112233445566"),7,6000,7000);StillLeased("wrong device released lease");
+                service.ObserveOtaRebootUsb(UsbBoot(host:new string('c',32)),7,6000,7000);StillLeased("wrong host released lease");
+                service.ObserveOtaRebootUsb(UsbBoot(owned:false),7,6000,7000);StillLeased("unbound USB released lease");
+                service.ObserveOtaRebootUsb(UsbBoot(diag:"0,0,0,1"),7,6000,7000);StillLeased("busy OTA released lease");
+                service.ObserveOtaRebootUsb(UsbBoot(version:"0.2.254-ui"),7,6000,7000);StillLeased("wrong version released lease");
+                service._otaTransfers=1;service.ObserveOtaRebootUsb(UsbBoot(),7,6000,7000);StillLeased("active stream released lease");service._otaTransfers=0;
+                service.ObserveOtaRebootUsb(UsbBoot(),7,6000,7000);
+                if(Interlocked.Read(ref service._rpcOtaUntil)!=0||service.UpgradeBootSummary=="启动核验通过")throw new Exception("Reboot lease release confused with boot verification");
+                service.CancelOta();
                 JsonElement Frame(){using var doc=JsonDocument.Parse(service.CurrentFrame!);return doc.RootElement.Clone();}
                 async Task<JsonElement> Rpc(object payload,string transport="BLE") {
                     string n=Guid.NewGuid().ToString("N");var packet=Tab5Protocol.Encrypt(key,n,JsonSerializer.SerializeToUtf8Bytes(payload,JsonDefaults.Options));

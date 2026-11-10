@@ -93,12 +93,12 @@ internal sealed class Tab5ConnectionForm : Form
         bootRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));bootRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         var bootState=new Label{AutoSize=true,Anchor=AnchorStyles.Left,ForeColor=SettingsWindow.Muted,Margin=new Padding(0,4,8,4)};
         var verifyOta=new Button{Text="核验启动",Anchor=AnchorStyles.Right,Margin=Padding.Empty};StyleCompactButton(verifyOta);bootRow.Controls.Add(bootState,0,0);bootRow.Controls.Add(verifyOta,1,0);upgrade.Controls.Add(bootRow);
-        bool verifying=false,otaResult=false;
+        bool verifying=false,otaResult=false,otaFailed=false;
         var releaseNotes=new Tab5ReleaseNotes{Dock=DockStyle.Fill};upgrade.Controls.Add(releaseNotes);
-        verifyOta.Click+=async(_,_)=>{verifying=true;verifyOta.Enabled=false;bootState.Text="正在核验启动…";try{await service.VerifyUpgradeAsync(_stop.Token);if(!IsDisposed){result.Text="";otaResult=false;}}catch(OperationCanceledException){}catch(Exception ex){if(!IsDisposed){result.Text=ex.Message;otaResult=true;}}finally{verifying=false;if(!IsDisposed)UpdateOffer();}};
+        verifyOta.Click+=async(_,_)=>{verifying=true;otaFailed=false;verifyOta.Enabled=false;bootState.Text="正在核验启动…";try{await service.VerifyUpgradeAsync(_stop.Token);if(!IsDisposed){result.Text="";otaResult=false;}}catch(OperationCanceledException){}catch(Exception ex){if(!IsDisposed){result.Text=ex.Message;otaResult=otaFailed=true;}}finally{verifying=false;if(!IsDisposed)UpdateOffer();}};
         void UpdateOffer() {
             var presentation=service.UpgradeStatusText;otaStatus.SetStatus(presentation);
-            if(otaResult&&presentation.State is "设备已运行" or "已核验" or "正在停止" or "已停止"){result.Text="";otaResult=false;}
+            if(otaResult&&!otaFailed&&presentation.State is "设备已运行" or "已核验" or "正在停止" or "已停止"){result.Text="";otaResult=false;}
             startOta.Enabled=service.CanStartOta;offerOta.Enabled=service.CanSelectOta;
             startOta.Text=service.SameOtaVersion?"重新安装":"开始升级";
             if(!verifying)bootState.Text=service.UpgradeBootSummary;
@@ -116,10 +116,10 @@ internal sealed class Tab5ConnectionForm : Form
         UpdateOffer();
         startOta.Click+=async(_,_)=> {
             if(service.SameOtaVersion&&MessageBox.Show(this,"将重新传输并写入所选的同版本固件，保留当前设置。请保持供电。", "重新安装当前版本？",MessageBoxButtons.OKCancel,MessageBoxIcon.Information)!=DialogResult.OK)return;
-            startOta.Enabled=false;otaResult=true;
+            startOta.Enabled=false;otaResult=true;otaFailed=false;result.Text="正在准备升级…";
             try {await service.StartOtaAsync(_stop.Token);if(!IsDisposed)result.Text=service.RemoteOtaStatus;}
             catch(OperationCanceledException){}
-            catch(Exception ex) when(ex is IOException or InvalidOperationException){if(!IsDisposed)result.Text=ex.Message;}
+            catch(Exception ex) when(ex is IOException or InvalidOperationException){if(!IsDisposed){result.Text=ex.Message;otaFailed=true;}}
             finally{if(!IsDisposed)UpdateOffer();}
         };
         offerOta.Click+=(_,_)=> {
@@ -128,11 +128,11 @@ internal sealed class Tab5ConnectionForm : Form
             try{
                 var candidate=Tab5OtaPackage.Load(pick.FileName);
                 if(MessageBox.Show(this,$"TAB5 固件 {candidate.Version}\n大小：{candidate.Image.Length:N0} 字节\nSHA-256：{candidate.Sha256}\nESP32-P4 镜像结构和内置校验通过。\n\n{candidate.Notes}\n\n提供后可点击电脑“开始升级”；旧设备需先在 TAB5 完成一次升级。", "确认固件",MessageBoxButtons.OKCancel,MessageBoxIcon.Information)!=DialogResult.OK)return;
-                service.OfferOta(candidate);UpdateOffer();result.Text="已提供固件，等待设备确认。";
+                service.OfferOta(candidate);otaFailed=otaResult=false;UpdateOffer();result.Text="已提供固件，等待设备确认。";
             }
             catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException){result.Text=ex.Message;}
         };
-        cancelOta.Click+=(_,_)=>{try{if(service.OtaStarted)service.StopOta();else service.CancelOta();result.Text="";otaResult=false;UpdateOffer();}catch(InvalidOperationException ex){result.Text=ex.Message;}};
+        cancelOta.Click+=(_,_)=>{try{if(service.OtaStarted)service.StopOta();else service.CancelOta();result.Text="";otaResult=otaFailed=false;UpdateOffer();}catch(InvalidOperationException ex){result.Text=ex.Message;}};
         bool busy=false,loading=false;
         FormClosing+=(_,e)=>{
             if(busy||verifying||service.Busy||benchmarkCancel is not null) {

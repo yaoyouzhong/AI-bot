@@ -13,7 +13,8 @@ internal sealed partial class Tab5Service
         internal readonly CancellationTokenSource Stop=new();
         internal bool Started,Committed,DataStarted,FinalReleased,StopRequested,Signalled,Confirmed;
         internal string Device="",Host="",OriginalVersion="";
-        internal long StopAt,CommitUntil,ConfirmAfter;
+        internal string StartFailure="";
+        internal long StopAt,CommitUntil,ConfirmAfter,FinalAt;
     }
     private sealed record OtaStopProbe(OtaDelivery Delivery,string Challenge,long Started,long? UsbSequence=null);
     private OtaDelivery? _otaDelivery;
@@ -119,7 +120,28 @@ internal sealed partial class Tab5Service
             delivery.Stop.Token.ThrowIfCancellationRequested();
             if(!ReferenceEquals(_otaDelivery,delivery)||!ReferenceEquals(_ota,delivery.Image))throw new OperationCanceledException();
             Interlocked.Exchange(ref _rpcOtaUntil,Environment.TickCount64+90000);
-            if(end==length)delivery.FinalReleased=true;
+            if(end==length&&!delivery.FinalReleased){delivery.FinalReleased=true;delivery.FinalAt=Environment.TickCount64;}
+        }
+    }
+
+    // A same-version reinstall cannot be recognized by version alone. Release
+    // the transfer lease only after a fresh, bound USB acknowledgement proves
+    // a reboot occurred after the final byte was released. Boot verification
+    // remains a separate exact-image/partition check.
+    private void ObserveOtaRebootUsb(JsonElement ack,long sequence,long requestStarted,long now)
+    {
+        lock(_lifecycle) {
+            var d=_otaDelivery;var pair=_store.Current;
+            if(d is not {FinalReleased:true,StopRequested:false,FinalAt:>0}||pair is null||
+               !ReferenceEquals(_ota,d.Image)||_otaTransfers!=0||d.Device!=pair.DeviceId||d.Host!=Tab5HostBinding.Id(pair)||
+               requestStarted<=d.FinalAt||now<requestStarted||Text(ack,"deviceId")!=d.Device||
+               Text(ack,"currentHostId")!=d.Host||Text(ack,"firmware")!=d.Image.Version||
+               !ack.TryGetProperty("usbHostAuthenticated",out var owned)||owned.ValueKind!=JsonValueKind.True||
+               !ack.TryGetProperty("sequence",out var seq)||!seq.TryGetInt64(out var observed)||observed!=sequence||
+               !ack.TryGetProperty("uptimeMs",out var time)||!time.TryGetInt64(out long uptime)||uptime<0||uptime>=requestStarted-d.FinalAt)return;
+            string[] diag=Text(ack,"otaDiag").Split(',');
+            if(diag.Length!=4||!diag.All(p=>uint.TryParse(p,out _))||diag[3]!="0")return;
+            Interlocked.Exchange(ref _rpcOtaUntil,0);
         }
     }
 }

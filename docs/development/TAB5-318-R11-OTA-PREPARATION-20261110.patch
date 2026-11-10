@@ -1,0 +1,302 @@
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R10";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R11";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -442,6 +442,11 @@
+ static char network_options[WIFI_PROFILE_LIMIT][33],network_forget_ssid[33];
+ static int network_option_count;
+ static lv_obj_t *ota_button,*ota_hint,*ota_layer,*ota_progress,*ota_title,*ota_note;
++static char ota_feedback[160],ota_feedback_sha[65];
++static bool ota_local_preparing,ota_remote_preparing;
++static int64_t ota_local_deadline;
++static char ota_local_offer[33],ota_local_sha[65];
++static bool ota_pause_background(void) {return current_page==9||ota_local_preparing||ota_remote_preparing;}
+ static lv_obj_t *flash_entry,*flash_layer,*flash_details,*flash_start,*flash_cancel,*flash_close;
+ static bool flash_feedback_pinned;
+ static lv_obj_t *ota_success_icon,*ota_version,*ota_version_track;
+@@ -1342,7 +1347,7 @@
+     if(codex_drafts)for(int i=0;i<80;i++)if(codex_drafts[i].client==workspace_client&&codex_drafts[i].dirty&&!codex_drafts[i].request[0]){d=&codex_drafts[i];break;}
+     // A queued client choice has priority over starting another background
+     // load. Dirty drafts above still finish saving under their original client.
+-    if(!d) {if(workspace_switch_pending>=0)return;d=codex_draft_for(codex_selected,true);if(!d||d->loaded||d->request[0])return;}
++    if(!d) {if(workspace_switch_pending>=0||ota_pause_background())return;d=codex_draft_for(codex_selected,true);if(!d||d->loaded||d->request[0])return;}
+     snprintf(codex_sync_op,sizeof(codex_sync_op),"%s",d->dirty?"draft-save":"draft-load");
+     codex_uuid(codex_sync_request);snprintf(codex_sync_task,sizeof(codex_sync_task),"%s",d->id);codex_sync_revision=d->revision;codex_sync_client=workspace_client;
+     codex_sync_next=now+4000;
+@@ -3437,19 +3442,29 @@
+         ota_update_completion_presented();
+     }
+ }
++static void ota_feedback_set(const char *message) {
++    snprintf(ota_feedback,sizeof(ota_feedback),"%s",message?message:"");
++    char offer[33],version[32];ota_feedback_sha[0]=0;
++    (void)ota_update_offer_snapshot(offer,ota_feedback_sha,version);
++    ui_text(ota_hint,ota_feedback);
++}
++static bool ota_background_busy(void) {
++    return !codex_voice_waiting&&!codex_waiting&&!codex_send_queued&&!photo_flow&&!camera_preview_busy()&&
++        (codex_reading||codex_syncing||codex_load_waiting);
++}
+ static const char *ota_prepare(void) {
+-    if(ota_update_busy()||flash_benchmark_busy()){return "device_busy";}
++    if(ota_update_busy()||flash_benchmark_busy()){ota_feedback_set("设备正在升级或测速，请稍后重试。");return "device_busy";}
+     if(codex_voice_waiting||codex_waiting||codex_reading||codex_send_queued||codex_syncing||codex_load_waiting||photo_flow||camera_preview_busy()) {
+-        ui_text(ota_hint,"请先结束录音、拍照或网络操作，再升级。");return "device_busy";
++        ota_feedback_set("操作尚未结束，升级未开始，请稍后重试。");return "device_busy";
+     }
+     if(codex_drafts)for(int i=0;i<80;i++) {
+-        if(codex_drafts[i].request[0]){ui_text(ota_hint,"尚有消息未确认送达，请先查询送达结果。");return "draft_pending";}
++        if(codex_drafts[i].request[0]){ota_feedback_set("尚有消息未确认送达，请先查询送达结果。");return "draft_pending";}
+         if(codex_drafts[i].dirty&&strcmp(codex_drafts[i].id,codex_selected)) {
+-            ui_text(ota_hint,"其他会话的草稿正在同步，请稍后升级。");return "draft_pending";
++            ota_feedback_set("其他会话的草稿正在同步，请稍后升级。");return "draft_pending";
+         }
+     }
+-    if(!codex_save_draft()){ui_text(ota_hint,"草稿保存失败，升级未开始。");return "draft_save_failed";}
+-    if(rpc_ota_link_select()==LINK_NONE){ui_text(ota_hint,"固件升级请连接 Wi-Fi、USB 或蓝牙。");return "no_link";}
++    if(!codex_save_draft()){ota_feedback_set("草稿保存失败，升级未开始。");return "draft_save_failed";}
++    if(rpc_ota_link_select()==LINK_NONE){ota_feedback_set("固件升级请连接 Wi-Fi、USB 或蓝牙。");return "no_link";}
+     return NULL;
+ }
+ static const char *ota_begin(const char *offer,const char *sha) {
+@@ -3457,6 +3472,7 @@
+     tab5_draw_cache_drop();
+     screen_preview_cache_reclaim(true);
+     if(ota_update_request_checked(offer,sha)) {
++        ota_feedback_set("");ota_local_preparing=false;
+         ota_completion_render_pending=ota_completion_rendered=false;
+         ui_text(ota_title,"正在更新 TAB5");tint(ota_title,INK);
+         lv_obj_set_y(ota_title,180);lv_obj_set_y(ota_progress,350);
+@@ -3471,24 +3487,40 @@
+         visible(ota_layer,true);lv_obj_move_foreground(ota_layer);
+         ui_text(ota_progress,"正在准备固件更新…");
+         return NULL;
+-    }else ui_text(ota_hint,"暂时无法开始，请重新提供固件。");
++    }else ota_feedback_set("暂时无法开始，请重新提供固件。");
+     return "start_failed";
+ }
+ static lv_obj_t *ota_confirm,*ota_confirm_text;
+ static char ota_confirm_id[33],ota_confirm_sha[65];
++static void ota_local_prepare_tick(int64_t now) {
++    if(!ota_local_preparing)return;
++    if(current_page!=9||!ota_update_offer_matches(ota_local_offer,ota_local_sha)) {
++        ota_local_preparing=false;ota_feedback_set("升级准备已取消，请重新确认固件。");return;
++    }
++    if(ota_background_busy()&&now<ota_local_deadline)return;
++    ota_local_preparing=false;
++    (void)ota_begin(ota_local_offer,ota_local_sha);
++}
+ static void ota_confirm_action(lv_event_t *e) {
+     bool install=(intptr_t)lv_event_get_user_data(e)==1;
+     visible(ota_confirm,false);
+     if(install) {
+-        if(ota_update_offer_matches(ota_confirm_id,ota_confirm_sha))
+-            (void)ota_begin(ota_confirm_id,ota_confirm_sha);
+-        else ui_text(ota_hint,"固件已变化，请重新确认。");
++        if(ota_update_offer_matches(ota_confirm_id,ota_confirm_sha)) {
++            if(ota_background_busy()) {
++                snprintf(ota_local_offer,sizeof(ota_local_offer),"%s",ota_confirm_id);
++                snprintf(ota_local_sha,sizeof(ota_local_sha),"%s",ota_confirm_sha);
++                ota_local_preparing=true;ota_local_deadline=esp_timer_get_time()/1000+12000;
++                ota_feedback_set("正在等待读取或草稿同步完成…");
++            }else (void)ota_begin(ota_confirm_id,ota_confirm_sha);
++        }else ota_feedback_set("固件已变化，请重新确认。");
+     }
+     ota_confirm_id[0]=ota_confirm_sha[0]=0;
+ }
+ static void ota_action(lv_event_t *e) {
+     (void)e;char version[32];
+-    if(!ota_update_offer_snapshot(ota_confirm_id,ota_confirm_sha,version))return;
++    if(ota_local_preparing){ota_local_preparing=false;ota_feedback_set("已取消升级准备，未写入固件。");return;}
++    ota_feedback_set("");
++    if(!ota_update_offer_snapshot(ota_confirm_id,ota_confirm_sha,version)){ota_feedback_set("暂无可升级固件，请在电脑选择固件。");return;}
+     if(!ota_confirm) {
+         ota_confirm=shape(lv_screen_active(),0,0,1280,720,0x000000,0);
+         ui_bg_opa(ota_confirm,LV_OPA_60,0);lv_obj_add_flag(ota_confirm,LV_OBJ_FLAG_CLICKABLE);
+@@ -3603,7 +3635,7 @@
+         visible(ota_layer,true);lv_obj_move_foreground(ota_layer);return;
+     } else if(ota_layer&&!lv_obj_has_flag(ota_layer,LV_OBJ_FLAG_HIDDEN)) {
+         visible(ota_layer,false);
+-        char status[160];ota_update_status(status,sizeof(status));ui_text(ota_hint,status);
++        char status[160];ota_update_status(status,sizeof(status));ota_feedback_set(status);
+     }
+     tab5_draw_cache_maintain_reserve();
+     bool changed = false;
+@@ -3703,7 +3735,7 @@
+     if(interacting&&!lv_obj_has_flag(tabs,LV_OBJ_FLAG_HIDDEN))return;
+     codex_read_finish(now);
+     codex_navigation_timeout(now);
+-    if(!quick_visible&&codex_nav_queued&&!codex_reading&&now>=codex_read_next)codex_reply_refresh(NULL);
++    if(!quick_visible&&!ota_pause_background()&&codex_nav_queued&&!codex_reading&&now>=codex_read_next)codex_reply_refresh(NULL);
+     workspace_stop_tick();codex_sync_tick(now);workspace_switch_tick();workspace_open_tick();
+     photo_open_tick();
+     codex_voice_pending_tick(now);
+@@ -3713,8 +3745,8 @@
+     }
+     codex_control_style();
+     codex_recovery_tick(now);
+-    if(!quick_visible&&!photo_open_pending&&!photo_flow)codex_prefetch_tick(now);
+-    if(!quick_visible&&current_page==8&&!saver&&!photo_flow&&!codex_reading&&now>=codex_read_next) {
++    if(!quick_visible&&!ota_pause_background()&&!photo_open_pending&&!photo_flow)codex_prefetch_tick(now);
++    if(!quick_visible&&!ota_pause_background()&&current_page==8&&!saver&&!photo_flow&&!codex_reading&&now>=codex_read_next) {
+         if(!codex_nav_pending&&!lv_obj_has_flag(codex_reply_overlay,LV_OBJ_FLAG_HIDDEN)&&lv_obj_get_scroll_bottom(codex_reply_scroll)>24)codex_reply_follow=false;
+         codex_reply_refresh(NULL);
+     }
+@@ -3757,6 +3789,7 @@
+             }
+         }
+     }
++    ota_local_prepare_tick(now);
+     if (current_page == 9) {
+     device_config cfg = device_get_config();
+     char ota_state[160]="未开始";
+@@ -3768,17 +3801,22 @@
+     ota_update_offer_details(offered_version,sizeof(offered_version),notes,sizeof(notes));
+     bool same_version=offered&&!strcmp(offered_version,ota_installed_version);
+     bool installed=!strcmp(ota_state,"已是最新版本");
+-    ui_text(ota_hint,offered||installed||!strcmp(ota_state,"电脑已停止提供固件")?"":ota_state);
+-    if(offered&&upgrade_link==LINK_NONE)ui_text(ota_hint,"请连接 Wi-Fi、USB 或蓝牙后升级。");
++    if(ota_feedback[0]) {
++        char id[33],sha[65],version[32];
++        if(!ota_update_offer_snapshot(id,sha,version)||strcmp(sha,ota_feedback_sha))ota_feedback[0]=0;
++    }
++    ui_text(ota_hint,ota_feedback[0]?ota_feedback:offered||installed||!strcmp(ota_state,"电脑已停止提供固件")?"":ota_state);
++    tint(ota_hint,ota_feedback[0]&&!ota_local_preparing&&!ota_remote_preparing?0xE6B65C:MUTED);
++    if(!ota_feedback[0]&&offered&&upgrade_link==LINK_NONE)ui_text(ota_hint,"请连接 Wi-Fi、USB 或蓝牙后升级。");
+     const char *note_text=notes[0]?notes:"暂无更新说明";
+     if(strcmp(ota_notes_cached,note_text)&&ota_notes_render(ota_notes,note_text)) {
+         snprintf(ota_notes_cached,sizeof(ota_notes_cached),"%s",note_text);
+         lv_obj_update_layout(ota_notes_box);lv_obj_scroll_to_y(ota_notes_box,0,LV_ANIM_OFF);
+     }
+     ota_offer_layout(offered);
+-    bool can_upgrade=offered&&upgrade_link!=LINK_NONE;
++    bool can_upgrade=ota_local_preparing||(offered&&upgrade_link!=LINK_NONE);
+     if(can_upgrade)lv_obj_remove_state(ota_button,LV_STATE_DISABLED);else lv_obj_add_state(ota_button,LV_STATE_DISABLED);
+-    ui_text(lv_obj_get_child(ota_button,0),same_version?"重新安装":!offered?"立即升级":upgrade_link==LINK_USB?"通过 USB 升级":upgrade_link==LINK_WIFI?"通过 Wi-Fi 升级":upgrade_link==LINK_BLE?"通过蓝牙升级":"等待连接");
++    ui_text(lv_obj_get_child(ota_button,0),ota_local_preparing?"取消准备":same_version?"重新安装":!offered?"立即升级":upgrade_link==LINK_USB?"通过 USB 升级":upgrade_link==LINK_WIFI?"通过 Wi-Fi 升级":upgrade_link==LINK_BLE?"通过蓝牙升级":"等待连接");
+     if(offered)ui_text_fmt(ota_offer_title,same_version?"%s · 当前版本，可重新安装":"%s · 有新固件可用",offered_version);
+     else ui_text(ota_offer_title,installed?"当前固件已安装":"暂无可升级固件");
+     ui_text(ota_empty_hint,installed?"当前固件与电脑提供的版本一致。":"在电脑端选择固件后，版本与更新说明会显示在这里。");
+--- a/firmware/main/ota_remote.inc
++++ b/firmware/main/ota_remote.inc
+@@ -3,6 +3,8 @@
+ static cJSON *remote_ota_reply;
+ static int remote_ota_stage;
+ static int64_t remote_ota_retry,remote_ota_until;
++static int64_t remote_ota_wait_at;
++static char remote_ota_wait_id[33];
+ static bool remote_ota_hex(const char *s,size_t n) {
+     if(!s||strlen(s)!=n)return false;
+     for(size_t i=0;i<n;i++)if(!((s[i]>='0'&&s[i]<='9')||(s[i]>='a'&&s[i]<='f')))return false;
+@@ -26,6 +28,15 @@
+         cJSON_IsNumber(clock)&&clock->valuedouble>0&&cJSON_IsNumber(expires)&&expires->valuedouble>0&&expires->valuedouble<=9007199254740991.0&&
+         expires->valuedouble==(int64_t)expires->valuedouble&&expires->valuedouble>=clock->valuedouble+now-received&&expires->valuedouble<=clock->valuedouble+45000&&
+         cJSON_IsNumber(version)&&version->valuedouble==1&&remote_ota_hex(id,32)&&remote_ota_hex(offer,32)&&remote_ota_hex(sha,64);
++    ota_remote_preparing=fresh&&(strcmp(id,remote_ota_id)||remote_ota_stage==1)&&!ota_update_busy();
++    if(ota_remote_preparing&&ota_update_offer_matches(offer,sha)) {
++        if(strcmp(remote_ota_wait_id,id)) {
++            snprintf(remote_ota_wait_id,sizeof(remote_ota_wait_id),"%s",id);remote_ota_wait_at=now;
++        }
++        if(ota_background_busy()&&now-remote_ota_wait_at<12000) {
++            ota_feedback_set("正在等待读取或草稿同步完成…");return;
++        }
++    }
+     // A fresh frame may reach LVGL before the network worker updates the offer cache.
+     // Wait within the command's existing deadline; never reject or write the other image.
+     if(fresh&&!ota_update_busy()&&!ota_update_offer_matches(offer,sha))return;
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2637,6 +2637,87 @@
+         for(unsigned i=0;i<4;i++){const char *message=codex_rejection_feedback(reasons[i]);assert(strlen(message)<96);ui_text(codex_receipt,message);capture(files[i]);}
+         assert(!strstr(codex_rejection_feedback("untrusted-reason"),"untrusted-reason"));
+         puts("CODEX_REJECTION_OK draft retained and failure not success");return 0;
++    }
++    if(getenv("TAB5_OTA_REMOTE_WAIT_ONLY")) {
++        preview_ota_available=true;wifi_connected=true;
++        codex_voice_waiting=codex_waiting=codex_send_queued=codex_syncing=codex_load_waiting=false;
++        cJSON *frame=cJSON_Parse("{\"epochMilliseconds\":1000000,\"pcInput\":{\"session\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"connectionHealth\":{\"otaCommand\":{\"version\":1,\"requestId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"offerId\":\"11111111111111111111111111111111\",\"sha256\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"expiresAt\":1030000}}}");
++        assert(frame);unsigned starts=preview_ota_starts,reports=preview_remote_reports;
++        codex_reading=true;ota_remote_tick(frame,LINK_WIFI,100,100);
++        assert(ota_remote_preparing&&preview_remote_reports==reports&&preview_ota_starts==starts);
++        ota_remote_tick(NULL,LINK_NONE,101,101);
++        assert(!ota_remote_preparing&&preview_ota_starts==starts); // Cancellation while draining.
++        ota_remote_tick(frame,LINK_WIFI,102,102);codex_reading=false;
++        ota_remote_tick(frame,LINK_WIFI,103,103);
++        assert(!strcmp(preview_remote_stage,"ready")&&preview_ota_starts==starts);
++        ota_remote_tick(frame,LINK_WIFI,104,104);
++        assert(preview_ota_starts==starts+1&&!strcmp(preview_remote_stage,"started"));
++        ota_remote_tick(frame,LINK_WIFI,105,105);ota_remote_tick(frame,LINK_WIFI,106,106);
++        assert(preview_ota_starts==starts+1);
++        preview_ota_busy=false;remote_ota_stage=0;remote_ota_id[0]=0;preview_remote_result_ready=false;
++        cJSON *command=item(item(frame,"connectionHealth"),"otaCommand");
++        cJSON_ReplaceItemInObjectCaseSensitive(command,"requestId",cJSON_CreateString("cccccccccccccccccccccccccccccccc"));
++        codex_reading=true;ota_remote_tick(frame,LINK_WIFI,200,200);
++        ota_remote_tick(frame,LINK_WIFI,12201,12201);
++        assert(!strcmp(preview_remote_stage,"rejected")&&preview_ota_starts==starts+1);
++        assert(strstr(ota_feedback,"升级未开始"));
++        cJSON_Delete(frame);
++        puts("OTA_REMOTE_WAIT_OK drain, cancelled intent, paired ready-commit, exactly once, bounded refusal");return 0;
++    }
++    if(getenv("TAB5_OTA_BUSY_ONLY")) {
++        page(9);settings_select(3);preview_ota_available=true;wifi_connected=true;
++        ota_installed_version="0.2.30-ui";preview_result_code=-1;
++        codex_voice_waiting=codex_waiting=codex_send_queued=codex_syncing=codex_load_waiting=false;
++        unsigned starts=preview_ota_starts;
++        codex_reading=true;ota_action(NULL);
++        lv_obj_t *confirm=lv_obj_get_child(lv_obj_get_child(ota_confirm,0),3);
++        lv_obj_send_event(confirm,LV_EVENT_CLICKED,NULL);tick(NULL);
++        assert(ota_local_preparing&&!preview_ota_busy&&preview_ota_starts==starts);
++        assert(!strcmp(lv_label_get_text(lv_obj_get_child(ota_button,0)),"取消准备"));
++        assert(strstr(lv_label_get_text(ota_hint),"正在等待"));capture("ota-wait-background");
++        ota_action(NULL);codex_reading=false;tick(NULL);
++        assert(!ota_local_preparing&&preview_ota_starts==starts);
++        assert(strstr(lv_label_get_text(ota_hint),"已取消"));
++        codex_reading=true;ota_action(NULL);lv_obj_send_event(confirm,LV_EVENT_CLICKED,NULL);
++        ota_local_prepare_tick(ota_local_deadline);codex_reading=false;
++        for(int n=0;n<4;n++)tick(NULL);
++        assert(!ota_local_preparing&&preview_ota_starts==starts);
++        assert(strstr(lv_label_get_text(ota_hint),"升级未开始"));capture("ota-wait-timeout");
++        codex_reading=true;ota_action(NULL);lv_obj_send_event(confirm,LV_EVENT_CLICKED,NULL);
++        preview_ota_available=false;ota_local_prepare_tick(esp_timer_get_time()/1000);
++        assert(!ota_local_preparing&&preview_ota_starts==starts);preview_ota_available=true;
++        ota_action(NULL);lv_obj_send_event(confirm,LV_EVENT_CLICKED,NULL);
++        page(0);tick(NULL);assert(!ota_local_preparing&&preview_ota_starts==starts);page(9);settings_select(3);
++        codex_reading=false;
++        bool *protected_flags[]={&codex_voice_waiting,&codex_waiting,&codex_send_queued};
++        for(unsigned n=0;n<3;n++) {
++            *protected_flags[n]=true;ota_action(NULL);lv_obj_send_event(confirm,LV_EVENT_CLICKED,NULL);
++            assert(!ota_local_preparing&&!preview_ota_busy&&preview_ota_starts==starts);
++            *protected_flags[n]=false;
++        }
++        strcpy(codex_selected,"11111111-1111-4111-8111-111111111111");
++        codex_draft *draft=codex_draft_for(codex_selected,true);assert(draft);
++        draft->loaded=true;codex_set_text("keep this draft");
++        strcpy(draft->request,"33333333-3333-4333-8333-333333333333");
++        ota_action(NULL);lv_obj_send_event(confirm,LV_EVENT_CLICKED,NULL);tick(NULL);
++        assert(preview_ota_starts==starts&&strstr(lv_label_get_text(ota_hint),"未确认送达"));
++        assert(draft->request[0]&&!strcmp(lv_textarea_get_text(codex_input),"keep this draft"));
++        capture("ota-pending-message");draft->request[0]=0;
++        preview_checkpoint_ok=false;ota_action(NULL);lv_obj_send_event(confirm,LV_EVENT_CLICKED,NULL);
++        assert(preview_ota_starts==starts&&strstr(lv_label_get_text(ota_hint),"草稿保存失败"));preview_checkpoint_ok=true;
++        draft->dirty=false;draft->loaded=false;codex_sync_next=0;last_received=esp_timer_get_time()/1000;
++        int syncs=preview_sync_count;codex_sync_tick(esp_timer_get_time()/1000);
++        assert(preview_sync_count==syncs); // No new hidden load during settings.
++        draft->dirty=true;preview_submit_enabled=true;codex_sync_next=0;last_received=esp_timer_get_time()/1000;codex_sync_tick(esp_timer_get_time()/1000);
++        assert(preview_sync_count==syncs+1&&!strcmp(preview_operation,"draft-save"));
++        codex_syncing=false;draft->dirty=false;draft->loaded=true;
++        codex_reading=true;ota_action(NULL);lv_obj_send_event(confirm,LV_EVENT_CLICKED,NULL);
++        codex_reading=false;ota_local_prepare_tick(esp_timer_get_time()/1000);
++        assert(preview_ota_busy&&preview_ota_starts==starts+1&&!ota_local_preparing);
++        ota_local_prepare_tick(esp_timer_get_time()/1000);
++        assert(preview_ota_starts==starts+1);
++        assert(!strcmp(lv_textarea_get_text(codex_input),"keep this draft"));
++        puts("OTA_BUSY_OK waiting, cancel, timeout, changed offer, page exit, protected operations, pending request, save failure, quiet load, dirty save, resume once");return 0;
+     }
+     if(getenv("TAB5_OTA_CONFIRM_ONLY")) {
+         page(9);settings_select(3);preview_ota_available=true;wifi_connected=true;

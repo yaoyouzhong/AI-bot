@@ -128,6 +128,15 @@ internal static class Tab5RemoteOtaSelfTest
             if(pending.IsCompleted||!service.RemoteOtaPending||!service.CanStopOta||
                beforeReinstall.GetProperty("data").GetProperty("ota").GetProperty("offerId").GetString()==frame.GetProperty("data").GetProperty("ota").GetProperty("offerId").GetString())throw new Exception("Same version consumed reinstall or reused offer");
             await Ack(frame,"rejected","draft_save_failed");try{await pending;throw new Exception("Reinstall ignored draft failure");}catch(IOException){}
+            for(int refresh=0;refresh<3;refresh++) {
+                service.ObserveFirmware(pair.DeviceId,"0.2.286-ui");Fresh();
+                var refused=service.UpgradeStatusText;
+                if(refused.State!="升级未开始"||!refused.Hint.Contains("草稿保存失败"))throw new Exception("Same-version heartbeat erased rejected reinstall");
+            }
+            service.CancelOta();
+            if(service.UpgradeStatusText.Title!="未选择固件")throw new Exception("Cancelled offer retained refusal card");
+            service.OfferOta(image with {Version="0.2.286-ui"});
+            if(service.UpgradeStatusText.State=="升级未开始")throw new Exception("New offer retained old refusal");
             string failedNonce=Guid.NewGuid().ToString("N");
             if((await service.RpcAsync(pair.DeviceId,failedNonce,new string('0',64),new byte[28],CancellationToken.None,transport:"USB")).Status!=401||
                 service.CanStartOta||!service.OtaStartHint.Contains("固件尚未传输"))throw new Exception("Unauthenticated USB left firmware installation enabled");

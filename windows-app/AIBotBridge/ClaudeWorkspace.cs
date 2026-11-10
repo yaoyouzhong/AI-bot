@@ -147,19 +147,27 @@ internal sealed partial class ClaudeWorkspace:IDisposable
         if(!_enabled())return(403,new{error="claude_disabled"});await _gate.WaitAsync(token);
         try{
             var journal=Journal(device);
-            string task=Text(root,"taskId"),op=Text(root,"op"),request=Text(root,"requestId"),text=Text(root,"message"),expected=Text(root,"expectedTurn");var entry=_catalog.Resolve(task);if(entry is null)return(404,new{error="task_not_in_recent_catalog"});
-            if(op=="read")return await ReadAsync(entry,root,device,token);
+            string task=Text(root,"taskId"),op=Text(root,"op"),request=Text(root,"requestId"),text=Text(root,"message"),expected=Text(root,"expectedTurn");var entry=_catalog.Resolve(task);
+            // Device drafts belong to the paired device and can outlive a
+            // transient catalog entry. Preserve them even when a session has
+            // disappeared; session actions still require a resolved entry.
+            if(entry is null&&op is not ("draft-save" or "draft-load"))return(404,new{error="task_not_in_recent_catalog"});
+            if(op=="read")return await ReadAsync(entry!,root,device,token);
             if(!Guid.TryParse(request,out var requestGuid))return(400,new{error="invalid_request"});request=requestGuid.ToString();
             string[] images=root.TryGetProperty("images",out var imageList)&&imageList.ValueKind==JsonValueKind.Array?imageList.EnumerateArray().Select(v=>v.GetString()??"").ToArray():[];
             if(images.Length>3||Encoding.UTF8.GetByteCount(text)>2000)return(400,new{error="invalid_request"});
             if(op is "draft-save" or "draft-load"){
+                if(!Guid.TryParse(task,out _))return(400,new{error="invalid_request"});
+                if(entry is null&&op=="draft-save"&&text.Length==0&&images.Length==0&&journal.Pending(task) is not null)
+                    return(409,new{error="pending_delivery_requires_receipt"});
                 if(op=="draft-save"){_images.Resolve(device,task,images,false);journal.SaveDraft(task,text,images,device);}
                 else{
                     var pending=journal.Pending(task);
                     lock(_sync){_draftDevice=device;_draftTask=task;_draft=new{taskId=task,requestId=request,text=journal.Draft(task),images=journal.Images(task),pendingRequest=pending?.Id??"",operation=pending?.Operation??"",expectedTurn=pending?.ExpectedTurn??""};}
-                    if(_nativeClients)QueueSelectedProbe(entry);
+                    if(_nativeClients&&entry is not null)QueueSelectedProbe(entry);
                 }
                 return(200,new{status="saved",taskId=task,requestId=request});}
+            if(entry is null)return(404,new{error="task_not_in_recent_catalog"});
             if(op=="read-ack"){lock(_sync){if(!_readReceipts.TryGetValue(request,out var receipt)||receipt.Device!=device||receipt.Task!=task||receipt.Turn!=Text(root,"turnId")||_ready.TryGetValue(task,out var ready)&&ready!=receipt.Turn)return(409,new{error="read_receipt_expired"});_read[task]=receipt.Turn;}return(200,new{accepted=true});}
             var record=journal.Find(request);
             if(op=="receipt-confirm"&&_nativeClients){

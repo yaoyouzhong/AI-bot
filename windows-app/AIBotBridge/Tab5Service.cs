@@ -432,6 +432,9 @@ internal sealed partial class Tab5Service : IDisposable
         if(client.Length>0&&client is not ("codex" or "claude"))return(400,new{error="invalid_client"});
         if(_nativeAcceptance is not null&&!_nativeAcceptance.Allows(id,client,operation,root))return(409,new{error="outside_acceptance_case"});
         (int Status,object Body) ObserveDraft((int Status,object Body) result){
+            // Diagnose a stalled device-side save without recording content,
+            // session identities, or changing the draft/receipt state.
+            if(operation=="draft-save")Tab5LocalDiagnostics.Write($"TAB5_DRAFT_SAVE client={(client=="claude"?"claude":"codex")} status={result.Status}");
             if(operation is "draft-save" or "draft-load" or "receipt" && Guid.TryParse(taskId.GetString(),out var task) && Guid.TryParse(requestId,out var request))
                 DraftObservation?.Invoke(client=="claude"?"claude":"codex",operation,task.ToString(),request.ToString(),result.Status);
             return result;
@@ -684,7 +687,8 @@ internal sealed partial class Tab5Service : IDisposable
                             byte[] wire=_usbState.Wire(frame,_usbPacked,_usbDelta&&!refreshHost,_usbStatusMaximum);
                             using var sent=JsonDocument.Parse(frame);
                             long statusSequence=sent.RootElement.GetProperty("sequence").GetInt64();
-                            var stopProbe=CaptureOtaStopProbe(statusSequence.ToString(System.Globalization.CultureInfo.InvariantCulture),Environment.TickCount64,statusSequence);
+                            long statusStarted=Environment.TickCount64;
+                            var stopProbe=CaptureOtaStopProbe(statusSequence.ToString(System.Globalization.CultureInfo.InvariantCulture),statusStarted,statusSequence);
                             var result=await Tab5UsbStatus.SendAsync(frame,wire,
                                 bytes=>Tab5UsbShortPacket.Line(port,Tab5Protocol.Prefix+Encoding.UTF8.GetString(bytes)),
                                 ()=>ReadReplyAsync(port,"tab5_ack",token),next=>{
@@ -694,6 +698,7 @@ internal sealed partial class Tab5Service : IDisposable
                             using var ack=result.Ack;
                             if(ack.RootElement.GetProperty("deviceId").GetString()!=pairing.DeviceId ||
                                 ack.RootElement.GetProperty("sequence").GetInt64()!=sent.RootElement.GetProperty("sequence").GetInt64()) throw new IOException("TAB5 数据确认不匹配。");
+                            ObserveOtaRebootUsb(ack.RootElement,statusSequence,statusStarted,Environment.TickCount64);
                             _usbState.Confirm(frame,result.Retried?frame:wire);
                             if(refreshHost||result.Retried)_usbHostFullStatusAt=Environment.TickCount64;
                             if(result.Retried)Interlocked.Increment(ref _usbStatusRecoverySucceeded);

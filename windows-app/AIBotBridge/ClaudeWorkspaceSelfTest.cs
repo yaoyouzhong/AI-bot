@@ -30,6 +30,18 @@ internal static class ClaudeWorkspaceSelfTest
                 return(reply.Status,JsonSerializer.SerializeToElement(reply.Body));
             }
             JsonElement Snapshot(string device="device-a")=>JsonSerializer.SerializeToElement(workspace.Snapshot(device:device));
+            string absent=Guid.NewGuid().ToString();
+            async Task<int> Missing(string op,string text="",string device="device-a") {
+                var request=JsonSerializer.SerializeToElement(new{op,taskId=absent,requestId=Guid.NewGuid().ToString(),message=text,images=Array.Empty<string>()});
+                return (await workspace.HandleAsync(request,device,default)).Status;
+            }
+            Check(await Missing("draft-save","待保存的合成草稿")==200,"offline session draft save");
+            Check(await Missing("draft-load")==200&&Snapshot().GetProperty("draftView").GetProperty("text").GetString()=="待保存的合成草稿","offline session draft restore");
+            Check(await Missing("draft-load",device:"device-b")==200&&Snapshot("device-b").GetProperty("draftView").GetProperty("text").GetString()=="","offline draft isolation");
+            Check(await Missing("send","not authorized") == 404,"offline session send blocked");
+            var offlineUnknown=new Tab5SendRecord(Guid.NewGuid().ToString(),absent,"fixture","send","","dispatching","",0,Device:"device-a");
+            workspace.Journal("device-a").Save(offlineUnknown);
+            Check(await Missing("draft-save")==409&&workspace.Journal("device-a").Pending(absent)?.Id==offlineUnknown.Id&&workspace.Journal("device-a").Draft(absent)=="待保存的合成草稿","offline empty save must not discard an unknown receipt or draft");
             Check((await Rpc("draft-save","私有合成草稿")).Status==200,"draft save");
             Check((await Rpc("draft-load")).Status==200&&Snapshot().GetProperty("draftView").GetProperty("text").GetString()=="私有合成草稿","draft restore");
             Check(Snapshot("device-b").GetProperty("draftView").ValueKind==JsonValueKind.Null,"draft leaked across devices");

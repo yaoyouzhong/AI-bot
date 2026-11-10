@@ -81,6 +81,7 @@ internal sealed partial class Tab5Service
                         "offer_changed"=>"设备上的固件与本次请求不一致，请重新提供固件。",
                         "no_link"=>"设备没有可用的升级通道。",
                         _=>"设备未能开始升级，请查看设备状态。"};
+                    if(_otaDelivery is {} failed)failed.StartFailure=_remoteOtaStatus;
                     r.Completion.TrySetException(new IOException(_remoteOtaStatus));return(200,new{accepted=true});
                 default:return(400,new{error="invalid_stage",commit=false});
             }

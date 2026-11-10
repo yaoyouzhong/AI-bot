@@ -1,0 +1,274 @@
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R8";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R10";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/firmware/main/draw_cache.c
++++ b/firmware/main/draw_cache.c
+@@ -40,6 +40,13 @@
+ static unsigned staging_size;
+ static cache_entry *staging_owner;
+ static uint8_t *staging_native;
++// After publication the retired buffers differ from that page only in the
++// repaired rectangle. Reuse this baseline instead of cloning two full pages
++// for every animated widget. Changing owner loses this relationship.
++static cache_entry *staging_base;
++static bool staging_base_native;
++static lv_area_t staging_changed,seed_area,seed_native_area;
++static unsigned seed_offset,seed_native_offset,seed_bytes,seed_native_bytes;
+ lv_obj_t *tab5_draw_cache_native_strip;
+ static const void *native_pixels;
+ static lv_area_t native_area;
+@@ -148,6 +155,7 @@
+ }
+ static void free_pixels(cache_entry *e) {
+     if(staging_owner==e)staging_owner=NULL;
++    if(staging_base==e)staging_base=NULL;
+     if(!e->pixels)return;
+     if(e->native){tab5_native_cache_bytes-=e->pixels->data_size;free(e->native);e->native=NULL;}
+     e->native_valid=e->native_building=false;
+@@ -165,6 +173,7 @@
+ void tab5_draw_cache_drop(void) {
+     for(unsigned i=0;i<CACHE_SLOTS;i++)release(&entries[i]);
+     free(staging_allocation);staging_allocation=NULL;staging_size=0;staging_owner=NULL;
++    staging_base=NULL;
+     free(staging_native);staging_native=NULL;native_pixels=NULL;
+ }
+ unsigned tab5_draw_cache_trim_hidden(unsigned bytes) {
+@@ -199,6 +208,7 @@
+     unsigned released=(staging_allocation?staging_size:0)+(staging_native?staging_size:0);
+     if(staging_owner){staging_owner->row=0;staging_owner->native_building=false;}
+     staging_owner=NULL;
++    staging_base=NULL;
+     lv_image_cache_drop(&staging);
+     free(staging_allocation);free(staging_native);
+     staging_allocation=NULL;staging_native=NULL;staging_size=0;
+@@ -240,6 +250,17 @@
+     return malloc(bytes);
+ #endif
+ }
++static unsigned seed_copy(uint8_t *dst,const uint8_t *src,unsigned stride,
++                          const lv_area_t *area,unsigned *offset,unsigned bytes,unsigned budget) {
++    unsigned began=*offset,row_bytes=(unsigned)lv_area_get_width(area)*2;
++    while(*offset<bytes&&budget) {
++        unsigned row=*offset/row_bytes,column=*offset%row_bytes;
++        unsigned count=LV_MIN(row_bytes-column,budget);
++        size_t at=((size_t)area->y1+row)*stride+(unsigned)area->x1*2+column;
++        memcpy(dst+at,src+at,count);*offset+=count;budget-=count;
++    }
++    return *offset-began;
++}
+ void tab5_draw_cache_step_budget(lv_obj_t *obj,unsigned pixels) {
+     if(!pixels||(tab5_draw_cache_interaction&&tab5_draw_cache_interaction(obj)))return;
+     if(!eligible(obj)||capturing)return;
+@@ -290,7 +311,7 @@
+     // displace a complete page while the user drags between tabs.
+     if(staging_size!=e->pixels->data_size) {
+         free(staging_native);staging_native=NULL;
+-        free(staging_allocation);staging_allocation=NULL;staging_size=0;staging_owner=NULL;
++        free(staging_allocation);staging_allocation=NULL;staging_size=0;staging_owner=NULL;staging_base=NULL;
+         if(!cache_room(e->pixels->data_size,ASSET_RESERVE))return;
+ #ifdef ESP_PLATFORM
+         staging_allocation=heap_caps_aligned_alloc(128,e->pixels->data_size,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+@@ -306,19 +327,42 @@
+     if(staging_owner!=e){
+         void *memory=staging.data;
+         if(lv_draw_buf_init(&staging,w,h,LV_COLOR_FORMAT_RGB565,e->pixels->header.stride,memory,staging_size)!=LV_RESULT_OK)return;
+-        staging_owner=e;e->row=0;
+-    }
+-    if(e->revision!=e->captured_revision){
+-        if(e->row)tab5_cache_restart_count++;
+-        e->row=0;e->captured_revision=e->revision;
+-    }
+-    if(e->row==0) {
+         bool wanted=tab5_draw_cache_native_strip&&lv_obj_get_parent(obj)==tab5_draw_cache_native_strip&&!(w&1)&&!(h&1);
+         if(wanted&&!e->native){e->native=native_allocate(e->pixels->data_size);if(e->native)tab5_native_cache_bytes+=e->pixels->data_size;}
+         if(wanted&&e->native&&!staging_native)staging_native=native_allocate(staging_size);
+         e->native_building=wanted&&e->native&&staging_native;
+-        if(e->native_building&&e->native_valid)memcpy(staging_native,e->native,e->pixels->data_size);
+-        if(e->has_image)memcpy(staging.data,e->pixels->data,e->pixels->data_size);
++        lv_area_t full={0,0,(int)w-1,(int)h-1};
++        seed_area=staging_base==e?staging_changed:full;
++        lv_area_t native_seed=staging_base==e&&staging_base_native?staging_changed:full;
++        seed_native_area=(lv_area_t){native_seed.y1,(int)w-1-native_seed.x2,native_seed.y2,(int)w-1-native_seed.x1};
++        // A complete reraster needs no old pixels. Otherwise seed only from
++        // the immutable published image, within the caller's per-tick budget.
++        bool full_redraw=!e->has_image||!e->has_dirty||lv_area_is_equal(&e->dirty,&full)||
++                         (e->native_building&&!e->native_valid);
++        seed_bytes=!full_redraw?(unsigned)lv_area_get_size(&seed_area)*2:0;
++        seed_native_bytes=!full_redraw&&e->native_building?(unsigned)lv_area_get_size(&seed_native_area)*2:0;
++        seed_offset=seed_native_offset=0;
++        staging_base=NULL;staging_owner=e;e->row=0;
++    }
++    if(seed_offset<seed_bytes||seed_native_offset<seed_native_bytes) {
++        // Main-page snapshots are speculative background work. Keep the
++        // existing small interaction-repair latency for settings, whose cache
++        // also serves a held vertical drag (not the horizontal page strip).
++        bool background=tab5_draw_cache_native_strip&&lv_obj_get_parent(obj)==tab5_draw_cache_native_strip;
++        unsigned budget=background?LV_MIN(pixels,UINT32_MAX/2)*2:UINT32_MAX;
++        budget-=seed_copy(staging.data,e->pixels->data,e->pixels->header.stride,
++                          &seed_area,&seed_offset,seed_bytes,budget);
++        if(budget&&seed_native_offset<seed_native_bytes)
++            seed_copy(staging_native,e->native,h*2,&seed_native_area,&seed_native_offset,seed_native_bytes,budget);
++        // Do not add a raster pass to a copy tick. Incoming widget updates
++        // accumulate in dirty; they must not restart an unchanged baseline.
++        if(background)return;
++    }
++    if(e->revision!=e->captured_revision){
++        if(e->row)tab5_cache_restart_count++;
++        e->row=0;e->captured_revision=e->revision;
++    }
++    if(e->row==0) {
+         e->region=e->has_image&&e->has_dirty?e->dirty:(lv_area_t){0,0,(int)w-1,(int)h-1};
+         if(e->native_building&&!e->native_valid)e->region=(lv_area_t){0,0,(int)w-1,(int)h-1};
+         lv_area_t bounds={0,0,(int)w-1,(int)h-1};
+@@ -356,6 +400,8 @@
+         lv_draw_buf_t previous=e->storage;e->storage=staging;staging=previous;
+         void *allocation=e->allocation;e->allocation=staging_allocation;staging_allocation=allocation;
+         staging_owner=NULL;
++        staging_base=e->has_image?e:NULL;staging_changed=e->region;
++        staging_base_native=e->native_building&&e->native_valid;
+         if(e->native_building){uint8_t *old=e->native;e->native=staging_native;staging_native=old;}
+         e->native_valid=e->native_building;
+         e->valid=e->has_image=true;e->has_dirty=false;tab5_cache_builds++;
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -242,6 +242,10 @@
+ target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/wifi_profiles.c")
+ target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/reply_document.c")
+ target_sources(ui-preview PRIVATE "${ROOT}/firmware/main/draw_cache.c")
++add_executable(draw-cache-seed-test draw_cache_seed_test.c)
++target_link_libraries(draw-cache-seed-test PRIVATE lvgl)
++target_include_directories(draw-cache-seed-test PRIVATE "${ROOT}/firmware/main")
++target_compile_options(draw-cache-seed-test PRIVATE /UNDEBUG /utf-8)
+ target_include_directories(ui-preview PRIVATE "${ROOT}/firmware/main" "${ROOT}/.tools/esp-idf/components/json/cJSON")
+ target_link_libraries(ui-preview PRIVATE lvgl)
+ target_compile_definitions(ui-preview PRIVATE TAB5_LOCAL_ART=$<BOOL:${TAB5_PREVIEW_LOCAL_ART}>)
+--- /dev/null
++++ b/tests/ui-preview/draw_cache_seed_test.c
+@@ -0,0 +1,101 @@
++#include <assert.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include "lvgl.h"
++#ifndef CACHE_SOURCE
++#define CACHE_SOURCE "../../firmware/main/draw_cache.c"
++#define CACHE_ROTATE "../../firmware/components/esp_lvgl_port/src/lvgl9/tab5_rotate_rgb565.h"
++#endif
++#undef assert
++#define assert(x) do { if(!(x)){fprintf(stderr,"CHECK_FAILED %s at %s:%d\n",#x,__FILE__,__LINE__);exit(2);} } while(0)
++// Count the real cache's seed copies, not LVGL's unrelated raster operations.
++#include CACHE_ROTATE
++static size_t copied, largest, total;
++static void *counted_copy(void *d,const void *s,size_t n) {
++    copied+=n;total+=n;if(n>largest)largest=n;return memcpy(d,s,n);
++}
++#define memcpy counted_copy
++#include CACHE_SOURCE
++#undef memcpy
++
++static unsigned worst_tick;
++static unsigned step(lv_obj_t *page,unsigned pixels,bool bounded) {
++    copied=0;tab5_draw_cache_step_budget(page,pixels);
++    if(copied>worst_tick)worst_tick=(unsigned)copied;
++    if(bounded)assert(copied<=(size_t)pixels*2);
++    return (unsigned)copied;
++}
++static void warm(lv_obj_t *page,bool bounded) {
++    for(unsigned i=0;i<100&&!tab5_draw_cache_is_ready(page);i++)step(page,1280*64,bounded);
++    assert(tab5_draw_cache_is_ready(page));
++}
++static lv_obj_t *make_page(lv_obj_t *parent,int x) {
++    lv_obj_t *p=lv_obj_create(parent);lv_obj_remove_style_all(p);
++    lv_obj_set_size(p,1220,516);lv_obj_set_pos(p,x,0);
++    lv_obj_set_style_bg_color(p,lv_color_hex(0x102030),0);
++    lv_obj_set_style_bg_opa(p,LV_OPA_COVER,0);
++    lv_obj_remove_flag(p,LV_OBJ_FLAG_SCROLLABLE);return p;
++}
++static void check_image(lv_obj_t *page) {
++    cache_entry *e=find(page);assert(e&&e->valid&&e->native_valid);
++    size_t n=e->pixels->data_size;uint8_t *normal=malloc(n),*native=malloc(n);
++    assert(normal&&native);memcpy(normal,e->pixels->data,n);memcpy(native,e->native,n);
++    // Force an independent full raster of the same widget tree and compare
++    // both orientation buffers byte-for-byte, including untouched regions.
++    e->has_image=false;e->native_valid=false;e->valid=false;
++    e->has_dirty=false;e->revision++;warm(page,true);
++    assert(!memcmp(normal,e->pixels->data,n));
++    assert(!memcmp(native,e->native,n));free(normal);free(native);
++}
++static void flush(lv_display_t *d,const lv_area_t *a,uint8_t *p){(void)a;(void)p;lv_display_flush_ready(d);}
++int main(int argc,char **argv) {
++    bool baseline=argc>1&&!strcmp(argv[1],"baseline");
++    printf("CACHE_TEST_MODE baseline=%d argc=%d\n",baseline,argc);fflush(stdout);
++    lv_init();lv_display_t *d=lv_display_create(1280,720);
++    static uint16_t display_buffer[1280*32];
++    lv_display_set_buffers(d,display_buffer,NULL,sizeof(display_buffer),LV_DISPLAY_RENDER_MODE_PARTIAL);
++    lv_display_set_flush_cb(d,flush);
++    lv_obj_t *strip=lv_obj_create(lv_screen_active());lv_obj_remove_style_all(strip);
++    lv_obj_set_size(strip,2440,516);lv_obj_remove_flag(strip,LV_OBJ_FLAG_SCROLLABLE);
++    lv_obj_t *a=make_page(strip,0),*b=make_page(strip,1220);
++    lv_obj_t *tile=lv_obj_create(a);lv_obj_remove_style_all(tile);
++    lv_obj_set_pos(tile,20,20);lv_obj_set_size(tile,32,24);
++    lv_obj_set_style_bg_opa(tile,LV_OPA_COVER,0);
++    lv_obj_set_style_bg_color(tile,lv_color_hex(0x112233),0);
++    lv_obj_update_layout(lv_screen_active());
++    tab5_draw_cache_init();tab5_draw_cache_native_strip=strip;
++    warm(a,!baseline);warm(b,!baseline);warm(a,!baseline);
++    total=largest=worst_tick=0;
++    for(unsigned i=0;i<30;i++) {
++        lv_obj_set_style_bg_color(tile,lv_color_hex(0x334400+i*257),0);
++        // Model updates at different positions while an old complete
++        // snapshot remains available to a swipe.
++        lv_obj_set_pos(tile,20+(int)(i%4)*40,20+(int)(i%3)*32);
++        lv_obj_update_layout(a);warm(a,!baseline);
++    }
++    printf("CACHE_REPAIR_MEASURE baseline=%d copies=%zu largest=%zu worstTick=%u\n",baseline,total,largest,worst_tick);
++    fflush(stdout);
++    if(baseline)return 0;
++    assert(worst_tick<=1280*64*2);
++    assert(total<8u*1024u*1024u);
++    check_image(a);
++    // Switching staging owners, incoming updates during seeding, and
++    // reclamation must retain the old published image until a full commit.
++    lv_obj_set_style_bg_color(b,lv_color_hex(0x789ABC),0);warm(b,true);
++    lv_obj_set_style_bg_color(tile,lv_color_hex(0xAB3421),0);
++    cache_entry *e=find(a);uint8_t *published=e->pixels->data;
++    uint8_t *saved=malloc(e->pixels->data_size);assert(saved);
++    memcpy(saved,published,e->pixels->data_size);
++    step(a,512,true);assert(!memcmp(saved,published,e->pixels->data_size));
++    lv_obj_set_pos(tile,710,350);lv_obj_update_layout(a);
++    step(a,512,true);assert(!memcmp(saved,published,e->pixels->data_size));
++    tab5_draw_cache_reclaim_staging();
++    assert(!memcmp(saved,published,e->pixels->data_size));free(saved);
++    warm(a,true);check_image(a);
++    lv_obj_set_size(a,1000,500);lv_obj_update_layout(a);warm(a,true);check_image(a);
++    tab5_draw_cache_drop();lv_obj_delete(strip);
++    puts("CACHE_SEED_OK bounded copies, complete publication, both rotations, owner switch, mid-copy update, reclaim, resize");
++    return 0;
++}
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -777,7 +777,17 @@
+     lv_obj_invalidate(lv_screen_active());lv_refr_now(display);
+     camera_audit_tree(lv_screen_active(),false);*cached_tasks+=camera_draw_tasks;
+     if(getenv("TAB5_SCROLL_DRAW_AUDIT"))printf("SCROLL_DRAW page=%d partial=%d fill=%u image=%u argb=%u tasks=%u\n",current_page,partial,audit_fill_pixels,audit_image_pixels,audit_argb_pixels,camera_draw_tasks);
+-    assert(!memcmp(expected,partial?camera_partial_pixels:preview_buffer,sizeof(preview_buffer)));
++    const uint16_t *compared=partial?camera_partial_pixels:preview_buffer;
++    if(memcmp(expected,compared,sizeof(preview_buffer))) {
++        unsigned count=0;int x1=1280,y1=720,x2=0,y2=0;
++        for(int y=0;y<720;y++)for(int x=0;x<1280;x++)if(expected[y*1280+x]!=compared[y*1280+x]) {
++            count++;x1=LV_MIN(x1,x);y1=LV_MIN(y1,y);x2=LV_MAX(x2,x);y2=LV_MAX(y2,y);
++        }
++        printf("CACHE_PIXEL_MISMATCH partial=%d count=%u rect=%d,%d,%d,%d\n",partial,count,x1,y1,x2,y2);fflush(stdout);
++        FILE *pixels=fopen("cache-expected.rgb565","wb");assert(pixels);fwrite(expected,1,sizeof(preview_buffer),pixels);fclose(pixels);
++        pixels=fopen("cache-actual.rgb565","wb");assert(pixels);fwrite(compared,1,sizeof(preview_buffer),pixels);fclose(pixels);
++    }
++    assert(!memcmp(expected,compared,sizeof(preview_buffer)));
+     if(partial) {
+         lv_display_set_buffers(display,preview_buffer,NULL,sizeof(preview_buffer),LV_DISPLAY_RENDER_MODE_FULL);
+         lv_display_set_flush_cb(display,preview_flush);free(camera_partial_pixels);camera_partial_pixels=NULL;

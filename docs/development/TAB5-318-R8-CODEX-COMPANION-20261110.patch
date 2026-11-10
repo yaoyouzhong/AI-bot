@@ -1,0 +1,47 @@
+diff --git a/firmware/main/ui_codex_companion.h b/firmware/main/ui_codex_companion.h
+--- a/firmware/main/ui_codex_companion.h
++++ b/firmware/main/ui_codex_companion.h
+@@ -42,8 +42,9 @@
+ 
+ static void companion_home_create(lv_obj_t *parent) {
+     home_companion=lv_image_create(parent);
+-    lv_obj_set_pos(home_companion,522,28);
+-    lv_image_set_pivot(home_companion,0,0);lv_image_set_scale(home_companion,235);
++    // Reduce the overview art slightly around its existing center.
++    lv_obj_set_pos(home_companion,528,34);
++    lv_image_set_pivot(home_companion,0,0);lv_image_set_scale(home_companion,220);
+     lv_obj_remove_flag(home_companion,LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
+     visible(home_companion,false);
+     claude_pet_create(&home_claude,parent,458,4,284,215);
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R6";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R8";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/tests/ui-preview/codex_companion_ui_test.h b/tests/ui-preview/codex_companion_ui_test.h
+--- a/tests/ui-preview/codex_companion_ui_test.h
++++ b/tests/ui-preview/codex_companion_ui_test.h
+@@ -11,13 +11,15 @@
+     assert(!lv_obj_has_flag(home_companion,LV_OBJ_FLAG_HIDDEN));
+     assert(lv_obj_get_parent(home_companion)==lv_obj_get_parent(home_task_action));
+     lv_area_t pet,button,title;lv_obj_get_coords(home_companion,&pet);lv_obj_get_coords(home_task_action,&button);lv_obj_get_coords(home_task_title,&title);
+-    assert(pet.x1==570&&pet.y1==138&&title.x2<pet.x1);
++    assert(title.x2<pet.x1);
+     lv_area_t project,status;lv_obj_get_coords(home_task_note,&project);lv_obj_get_coords(model_state[1],&status);
+     assert(project.x1==title.x1&&project.x2<pet.x1&&project.y2<title.y1);
+-    assert(status.x1==pet.x1&&lv_obj_get_width(model_state[1])==176&&lv_obj_has_flag(model_dot[1],LV_OBJ_FLAG_HIDDEN));
+-    int pet_width=(CODEX_COMPANION_WIDTH*lv_image_get_scale_x(home_companion)+128)/256;
++    const int scale=lv_image_get_scale_x(home_companion);
++    int pet_width=(CODEX_COMPANION_WIDTH*scale+128)/256,pet_height=(CODEX_COMPANION_HEIGHT*scale+128)/256;
++    assert(status.x1==pet.x1&&lv_obj_get_width(model_state[1])==pet_width&&lv_obj_has_flag(model_dot[1],LV_OBJ_FLAG_HIDDEN));
++    assert(abs(2*pet.x1+pet_width-1316)<=1&&abs(2*pet.y1+pet_height-467)<=1);
+     assert(abs((status.x1+status.x2+1)-(2*pet.x1+pet_width))<=1);
+-    assert(pet.y1+CODEX_COMPANION_HEIGHT*235/256<button.y1);
++    assert(pet.y1+pet_height<button.y1);
+     assert(lv_image_get_src(home_companion)==lv_image_get_src(companion_saver_image));
+     uint8_t *allocation=companion_pixels;
+     const char *names[]={"idle","working","confirm","answer","waiting","done","blocked","stopped","unknown"};

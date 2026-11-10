@@ -180,7 +180,7 @@ internal sealed partial class Tab5Service
         if(!probe) {
             if(_otaDelivery is not {} delivery||delivery.StopRequested||!ReferenceEquals(offer,delivery.Image))return(404,new{error="offer_changed"});
             BeginOtaDelivery(delivery);delivery.Committed=delivery.DataStarted=true;
-            if(offset+count==offer.Image.Length)delivery.FinalReleased=true;
+            if(offset+count==offer.Image.Length&&!delivery.FinalReleased){delivery.FinalReleased=true;delivery.FinalAt=now;}
             if(now>=Interlocked.Read(ref _rpcOtaUntil)){
                 Interlocked.Exchange(ref _usbRpcGateWaitMs,0);Interlocked.Exchange(ref _usbRpcGateWaitPeakMs,0);
             }

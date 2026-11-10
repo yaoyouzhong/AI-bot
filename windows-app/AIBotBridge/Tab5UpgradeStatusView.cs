@@ -39,6 +39,10 @@ internal sealed partial class Tab5Service
         get {
             lock(_lifecycle) {
             if(_otaDelivery is {StopRequested:true} stopped)return new(stopped.Image.Version,stopped.Confirmed?"已停止":"正在停止",OtaStopHint,"","");
+            // An old image with the same public version does not acknowledge
+            // this attempt. Retain its refusal until a new offer or real data.
+            if(HasOta&&_otaDelivery is {DataStarted:false,StartFailure.Length:>0} rejected)
+                return new(rejected.Image.Version,"升级未开始",rejected.StartFailure,"","");
             var image=Volatile.Read(ref _ota);var view=DeviceView;
             bool reinstalling=_otaDelivery is {Started:true} d&&d.OriginalVersion==d.Image.Version&&UpgradeBootSummary!="启动核验通过";
             var value=Tab5UpgradeStatusText.Create(image?.Version,view.Online,!reinstalling&&view.Online&&view.Firmware==image?.Version,
