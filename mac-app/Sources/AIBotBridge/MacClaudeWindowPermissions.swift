@@ -1,44 +1,76 @@
 import AppKit
 import ApplicationServices
 
+final class MacClaudeAutomationProbe {
+    private static let unconfirmed = OSStatus(-1744)
+    private struct Check {
+        var status = MacClaudeAutomationProbe.unconfirmed
+        var checked = -Double.infinity
+        var pending: DispatchGroup?
+        func recent(at now: Double) -> OSStatus? { now - checked < 3 ? status : nil }
+    }
+    private let clock: () -> Double
+    private let lock = NSLock()
+    private var checks: [pid_t: Check] = [:]
+
+    init(clock: @escaping () -> Double = { ProcessInfo.processInfo.systemUptime }) { self.clock = clock }
+
+    func status(pid: pid_t, request: Bool, observing: Bool, permission: @escaping () -> OSStatus) -> OSStatus {
+        if request {
+            let result = permission()
+            lock.lock(); checks[pid] = .init(status: result, checked: clock()); lock.unlock()
+            return result
+        }
+        let now = clock()
+        lock.lock()
+        var check = checks[pid] ?? Check()
+        if check.pending == nil, now - check.checked < 1 { lock.unlock(); return check.status }
+        let pending: DispatchGroup
+        if let current = check.pending { pending = current }
+        else {
+            if checks.count > 16 { checks = checks.filter { $0.value.pending != nil } }
+            pending = DispatchGroup(); pending.enter()
+            check.pending = pending; checks[pid] = check
+            DispatchQueue.global(qos: .utility).async {
+                let result = permission()
+                self.lock.lock()
+                if self.checks[pid]?.pending === pending {
+                    self.checks[pid] = .init(status: result, checked: self.clock())
+                }
+                self.lock.unlock()
+                pending.leave()
+            }
+        }
+        lock.unlock()
+        // A refresh in flight is not a denial. Only passive presentation can
+        // keep showing a recently checked result while that refresh runs.
+        if observing, let recent = check.recent(at: now) { return recent }
+        _ = pending.wait(timeout: .now() + 0.1)
+        lock.lock(); defer { lock.unlock() }
+        guard let result = checks[pid], result.pending == nil else { return Self.unconfirmed }
+        return result.status
+    }
+
+    func isChecking(_ pid: pid_t) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return checks[pid]?.pending != nil
+    }
+}
+
 enum MacClaudeWindowPermissions {
     static let hosts = [("Terminal", "com.apple.Terminal")]
     static var accessible: Bool { AXIsProcessTrusted() && CGPreflightPostEventAccess() }
 
-    private struct Check { var status: OSStatus; var checked: Double; var running: Bool }
-    private static let lock = NSLock()
-    private static var checks: [pid_t: Check] = [:]
+    private static let probe = MacClaudeAutomationProbe()
     private static func permission(_ app: NSRunningApplication, request: Bool) -> OSStatus {
         let target = NSAppleEventDescriptor(processIdentifier: app.processIdentifier)
         return AEDeterminePermissionToAutomateTarget(target.aeDesc, typeWildCard, typeWildCard, request)
     }
-    static func automation(_ app: NSRunningApplication, request: Bool) -> OSStatus {
+    static func automation(_ app: NSRunningApplication, request: Bool, observing: Bool = false) -> OSStatus {
         guard !app.isTerminated else { return OSStatus(procNotFound) }
-        let pid = app.processIdentifier
-        if request {
-            let status = permission(app, request: true)
-            lock.lock(); checks[pid] = .init(status: status, checked: ProcessInfo.processInfo.systemUptime, running: false); lock.unlock()
-            return status
+        return probe.status(pid: app.processIdentifier, request: request, observing: observing) {
+            permission(app, request: request)
         }
-        // TCC may block even a no-prompt query while another app has an open
-        // consent dialog. Keep UI/capability polling bounded and fail closed.
-        let now = ProcessInfo.processInfo.systemUptime
-        lock.lock()
-        if let cached = checks[pid], cached.running || now - cached.checked < 1 {
-            lock.unlock(); return cached.status
-        }
-        if checks.count > 16 { checks = checks.filter { $0.value.running } }
-        checks[pid] = .init(status: OSStatus(-1744), checked: now, running: true)
-        lock.unlock()
-        let finished = DispatchSemaphore(value: 0)
-        DispatchQueue.global(qos: .utility).async {
-            let status = permission(app, request: false)
-            lock.lock(); checks[pid] = .init(status: status, checked: ProcessInfo.processInfo.systemUptime, running: false); lock.unlock()
-            finished.signal()
-        }
-        _ = finished.wait(timeout: .now() + 0.1)
-        lock.lock(); defer { lock.unlock() }
-        return checks[pid]?.status ?? OSStatus(-1744)
     }
 
     static func summary() -> String {
@@ -46,7 +78,7 @@ enum MacClaudeWindowPermissions {
         for (name, bundle) in hosts {
             if let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first {
                 let status = automation(app, request: false)
-                lock.lock(); let checking = checks[app.processIdentifier]?.running == true; lock.unlock()
+                let checking = probe.isChecking(app.processIdentifier)
                 lines.append(name + (checking ? " 自动化权限核验中" : status == noErr ? " 自动化权限已就绪" : " 自动化权限待设置"))
             } else {
                 let installed = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) != nil

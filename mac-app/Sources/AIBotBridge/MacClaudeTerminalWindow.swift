@@ -54,10 +54,13 @@ final class MacClaudeTerminalWindow: MacClaudeQueueReceiptSession {
         !FileManager.default.fileExists(atPath: config.appendingPathComponent("keybindings.json").path)
     }
 
+    func inputPermission(observing: Bool) -> Bool {
+        defaultBindings && MacScreenLockObservation.shared.displayedValue != true && MacClaudeWindowPermissions.accessible &&
+            MacClaudeWindowPermissions.automation(host, request: false, observing: observing) == noErr
+    }
+
     func allows(_ operation: String, images: Bool) -> Bool {
-        guard defaultBindings, MacScreenLockObservation.shared.displayedValue != true, MacClaudeWindowPermissions.accessible,
-              MacClaudeWindowPermissions.automation(host, request: false) == noErr,
-              let state = try? state() else { return false }
+        guard inputPermission(observing: false), let state = try? state() else { return false }
         if operation == "send" { return state == "idle" }
         return (operation == "steer" || operation == "interrupt" && !images) && ["busy", "working"].contains(state)
     }

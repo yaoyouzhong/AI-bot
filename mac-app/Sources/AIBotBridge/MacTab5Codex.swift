@@ -827,10 +827,12 @@ final class MacTab5Codex {
         return .error(503, "codex_or_private_storage_unavailable")
     }
     private func receiptResult(_ root: [String: Any]) -> MacTab5RPCResult { .init(root["status"] as? Int ?? 504, root["body"] as? [String: Any] ?? ["error": "delivery_unknown"]) }
-    private func readThread(_ task: String, selected: String = "", offset: Int = 0) throws -> [String: Any] {
+    private func readThread(_ task: String, selected: String = "", offset: Int = 0, observeControls: Bool = false) throws -> [String: Any] {
         // The public child remains read-only even when desktop control is ready.
         let readOnly = rpc != nil || !mutable()
-        let result = try call("thread/read", ["threadId": task, "includeTurns": !readOnly])
+        var params: [String: Any] = ["threadId": task, "includeTurns": !readOnly]
+        if provider == "Claude", observeControls { params["observeControls"] = true }
+        let result = try call("thread/read", params)
         guard var thread = result["thread"] as? [String: Any], Self.id(thread["id"]) == task else { throw MacTab5CodexFailure.protocolError }
         guard readOnly, provider != "Claude" else { return thread }
         let history = try MacCodexPublicHistory.read(task: task, selected: selected, offset: offset,
@@ -918,7 +920,7 @@ final class MacTab5Codex {
                 latest["turns"] = [turn]
             }
             thread = latest
-        } else { thread = try readThread(task, selected: selected, offset: offset) }
+        } else { thread = try readThread(task, selected: selected, offset: offset, observeControls: true) }
         if let controlToken, desktop != nil { liveControl?.accept(controlToken, state: live) }
         var turns = thread["turns"] as? [[String: Any]] ?? []
         if let live {

@@ -44,7 +44,7 @@ final class MacClaudeNativeBackend {
     private func save(_ id:String,_ record:Record)throws{recordsGate.lock();defer{recordsGate.unlock()};var values=try records();guard values.count<512||values[id] != nil else{throw MacTab5Error.unavailable};values[id]=record;try store.write("native-requests",JSONEncoder().encode(values))}
     func stop(){generationGate.lock();generation += 1;generationGate.unlock()}
     private func currentGeneration()->Int{generationGate.lock();defer{generationGate.unlock()};return generation}
-    func thread(_ entry: MacClaudeCatalog.Entry, includeHistory: Bool, live: Set<UUID>? = nil, liveObservedAt: TimeInterval? = nil) throws -> [String: Any] {
+    func thread(_ entry: MacClaudeCatalog.Entry, includeHistory: Bool, live: Set<UUID>? = nil, liveObservedAt: TimeInterval? = nil, observing: Bool = false) throws -> [String: Any] {
         let absent = live?.contains(entry.session) == false
         let observedAt = (absent ? liveObservedAt : nil) ?? ProcessInfo.processInfo.systemUptime
         let ownership = absent ? .unavailable : owner(entry.session)
@@ -80,9 +80,10 @@ final class MacClaudeNativeBackend {
             : state == "idle" ? ["type":"idle"] : ["type":"notLoaded"]
         var control: [String: Any]?
         if let client, historyValue?.limited == false, state == "idle" || running {
-            let canSend = state == "idle" && client.allows("send", images: false)
-            let canSteer = exactRunningTurn && !waiting && client.allows("steer", images: false)
-            let canInterrupt = exactRunningTurn && !waiting && client.allows("interrupt", images: false)
+            let observedPermission = observing && !waiting ? (client as? MacClaudeTerminalWindow)?.inputPermission(observing: true) : nil
+            let canSend = state == "idle" && (observedPermission ?? client.allows("send", images: false))
+            let canSteer = exactRunningTurn && !waiting && (observedPermission ?? client.allows("steer", images: false))
+            let canInterrupt = exactRunningTurn && !waiting && (observedPermission ?? client.allows("interrupt", images: false))
             if waiting || canSend || canSteer || canInterrupt {
                 control = ["taskId": entry.alias, "turnId": turns.last?["id"] as? String ?? "",
                            "running": running, "waiting": waiting, "canSend": canSend, "canSteer": canSteer, "canInterrupt": canInterrupt]

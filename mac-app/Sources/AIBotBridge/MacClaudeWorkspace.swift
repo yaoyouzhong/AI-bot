@@ -125,7 +125,7 @@ final class MacClaudeWorkspaceBackend {
     }
     func probeNativeControl(_ task: String) -> [String: Any]? {
         guard let entry = catalog.resolve(task), let native else { return nil }
-        return try? native.thread(entry, includeHistory: false)
+        return try? native.thread(entry, includeHistory: false, observing: true)
     }
     func call(_ method: String, _ params: [String:Any]) throws -> [String:Any] {
         if method == "thread/list" {
@@ -138,14 +138,14 @@ final class MacClaudeWorkspaceBackend {
             let liveObservedAt = ProcessInfo.processInfo.systemUptime
             let live = native?.liveSessions()
             return ["data":slice.map { entry -> [String:Any] in
-                let info = (try? native?.thread(entry, includeHistory: false, live: live, liveObservedAt: liveObservedAt)) ?? (try? thread(entry,history:false)) ?? [:]
+                let info = (try? native?.thread(entry, includeHistory: false, live: live, liveObservedAt: liveObservedAt, observing: true)) ?? (try? thread(entry,history:false,observing:true)) ?? [:]
                 var row: [String: Any] = ["id":entry.alias,"name":entry.title,"cwd":entry.directory.isEmpty ? "/项目待确认":entry.directory,"projectId":entry.project,"updatedAt":entry.updated,"status":info["status"] ?? ["type":"notLoaded"]]
                 for key in ["source", "nativeControl", "nativeObservedAt", "nativeReplyObservation"] { row[key] = info[key] }
                 return row
             },"nextCursor":cursor+slice.count < rows.count ? String(cursor+slice.count) as Any:NSNull()]
         }
         guard let task = params["threadId"] as? String, let entry = catalog.resolve(task) else { throw MacTab5Error.unavailable }
-        if method == "thread/read" { return ["thread":try thread(entry)] }
+        if method == "thread/read" { return ["thread":try thread(entry,observing:params["observeControls"] as? Bool == true)] }
         if method == "thread/resume" { return [:] } // Resume occurs only after the durable journal write.
         guard let request = MacTab5Codex.id(params["requestId"]) else { throw MacTab5Error.invalidPacket }
         if let native { return try native.call(method,entry:entry,params:params) }
@@ -208,8 +208,8 @@ final class MacClaudeWorkspaceBackend {
         lock.lock(); owners[entry.alias] = owner; lock.unlock()
         do { try stream.start(); return owner } catch { stream.stop(); lock.lock(); owner.ended = true; lock.unlock(); throw error }
     }
-    private func thread(_ entry: MacClaudeCatalog.Entry, history: Bool = true) throws -> [String:Any] {
-        if let native { return try native.thread(entry,includeHistory:history) }
+    private func thread(_ entry: MacClaudeCatalog.Entry, history: Bool = true, observing: Bool = false) throws -> [String:Any] {
+        if let native { return try native.thread(entry,includeHistory:history,observing:observing) }
         var turns: [[String:Any]] = [], limited = false
         if history {
             let value = try MacClaudeHistory.read(root:root,session:entry.session,key:key()); turns = value.turns; limited = value.limited
