@@ -1,5 +1,7 @@
 # 0.6.18 / TAB5 0.2.318-ui 发布准备
 
+> 2026-11-10 更新：下文保留当时的历史基线和证据，当前 Windows 负责人应以[最新交接](development/WINDOWS-RELEASE-PREPARATION-20261110.md)及[双语说明草稿](development/WINDOWS-RELEASE-DRAFT-20261110.md)为准；最新 Mac 开发候选与 TAB5 R6 的身份和未验收项已单独登记。
+
 本页是发布准备记录，当前公开下载仍为 Windows／Mac 0.6.17、TAB5 0.2.313-ui。用户于 2026-11-07 选择 Windows、Mac 和 TAB5 一起准备，等待 Mac 原包验收。目标 Windows x64、Apple Silicon Mac 0.6.18 与 TAB5 0.2.318-ui；`desktopPlatform=all`，ESP8266 0.5.8 和图库保持不变。当前先不发布，不创建正式标签或替换公开附件。
 
 Claude Code 原会话接入、来源标签与后续交互优化已在 Windows/TAB5 本地候选实现，见[原会话接入记录](development/CLAUDE-CODE-NATIVE-ALIGNMENT-20261105.md)及[最新来源标签验收](development/TAB5-SESSION-SOURCE-20261107.md)。Mac 需按[功能对齐交接](development/MAC-0618-FUNCTION-ALIGNMENT-20261107.md)补差异并原生验证。`778e433` 桥接包不再作为本次最终候选；旧包和原范围证据保留，但不通过改名复用。

@@ -10,7 +10,7 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 - Combine verifiably related session pages into one project entry and scroll through more conversations. Keep distinct projects separate; older bridge transport limits still apply.
 - Show unread conversations first within the current project. Bring new unread replies into view once the list is idle, without changing the selected conversation.
 - Retain the original Codex completion prompt and match its voice in the new Claude completion prompt.
-- Mac USB acceptance confirmed LIST1 boot, one entry for a verified project, scrolling to older sessions, and preserved display settings. Windows offscreen rendering covered the project list and host-input wake. The final R5 image needs separate device acceptance.
+- Mac USB acceptance confirmed LIST1 boot, one entry for a verified project, scrolling to older sessions, and preserved display settings. Windows later validated R6 boot and the user confirmed unread priority; Mac-to-R6 unread behavior remains to be checked. Public redistribution of the R6 Claude audio remains unresolved.
 
 ## 0.2.318-ui - 2026-11-05
 

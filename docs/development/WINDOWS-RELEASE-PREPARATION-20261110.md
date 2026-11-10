@@ -1,38 +1,31 @@
-# Windows 发布准备：TAB5 对话入口与跨端对齐
+# Windows 主导发布：双平台与 TAB5 交接（2026-11-10）
 
-Windows 是本次后续发布的唯一负责人。本文件是开发交接和候选准备，不是发布指令、已冻结候选或正式发布记录。首先按 [跨平台交接](WINDOWS-HANDOFF-TAB5-PROVIDER-STABILITY-20261110.md) 完成 Windows 对齐；统一流程见 [开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md)和[发布自动化](../RELEASE-AUTOMATION.md)。
+Windows 是后续发布的唯一负责人。本记录准备源码、说明及验收材料，不是正式发布指令或已冻结的发布候选。用户本次授权 Mac 提交并推送交接；不在本步骤创建标签、上传附件或公开发布。统一步骤见[开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md)与[发布自动化](../RELEASE-AUTOMATION.md)。
 
-后续用户要求一个项目只显示一次并可滚动更多会话；[项目列表设计与 LIST1 累计补丁](TAB5-PROJECT-PICKER-20261110.md)取代该功能的 ICON2 交接。ICON2 的以下身份和验收仍是真实历史，不自动转移到新的源码或构建物。Windows Codex 桥接目前每项目只提供 8 条，必须在 Windows 对齐并完成原生验证。
+## 来源、范围与版本
 
-## 源码、范围与候选身份
+- Mac 交接分支为 `codex/mac-native-claude-alignment-20261107`，已包含 Windows `020d248978d011a3a9169a46dca09d11fe47e168`，以及 Mac 未读同步源码 `2365e94d84a4496abd95f1e8d32abda8b411c86b`；后续提交为交接资料。Windows 先获取该分支，检查实际远端状态并整合，不能用旧分支覆盖任一端的工作。最终候选需在日志、版本和范围确定后重新指定完整 SHA。
+- 2026-11-10 只读核对：公开桌面版为 `v0.6.17`，TAB5 为 `tab5-v0.2.313-ui`；远端未找到 `v0.6.18` 或 `tab5-v0.2.318-ui` 标签。本仓库目标登记为桥接 `VERSION=0.6.18`、`desktopPlatform=all`、TAB5 `versions/TAB5=0.2.318-ui`。发布时再确认远端；ESP8266 和图库没有本轮重编、重编号或发布计划。
+- 双平台发布必须从同一个最终候选源码 SHA 各自在原生系统构建并验收。Windows 接收后先确认与最终说明有关的代码是否再变；仅说明/交接修改不使未变原包的具体功能证据失效，但旧包的源码身份不能改写。完整候选、安装包、固件及私有验收截图不随 Git 传输。
+- 待审校的[双语用户说明草稿](WINDOWS-RELEASE-DRAFT-20261110.md)同时覆盖现有目标版本条目和 `Unreleased / 未发布`。发布负责人确定范围与实际日期后，把相关内容合入四份中英文组件 CHANGELOG 的目标版本段，并清空对应未发布段，再运行 `extract_release_notes.py ... --require-final`。不要把 2026-11-05 的旧日期当成实际发布日期。最终说明、sidecar 和镜像必须匹配。
 
-- Windows 最近已核对的开发基线是 `codex/windows-dynamic-microphone-20261105` 的 `6456c169c3f92222c1a233489da36af347b8ed28`。Mac 交接分支含独立后续工作；以实际远端和待合并变更为准，选择性整合，避免以旧 Windows 文件覆盖 Windows 开发。两端桥接如同次交付，必须从同一个最终候选源码 SHA 各自原生构建。
-- 当前仓库的待发布版本源为桥接 `VERSION=0.6.18`、TAB5 `versions/TAB5=0.2.318-ui`；这只是当前登记，**不是对最终发布版本或范围的决定**。Windows 完成对齐后核对已发布标签与版本，按最终范围维护 `release-manifest.json` 的平台、组件版本及中英文更新日志。ESP8266 和图库只在实际变化时参与。
-- Mac 已运行的本地桥接候选源码 `6f3d27317d397b3305b454450ca61eda89d2c1fb`，主程序 SHA-256 `0c215c09271a5caed627a41ce93dcc63f42c3467ec1d18f9c30b5b0d3f99306b`；安装前后加密草稿摘要一致。它不是同最终整合源码构建的正式 Mac ZIP，也没有记录公证或正式安装包验收。最终候选发生代码变化时，只复用确有依据的未变路径证据。
-- Mac 真机已验收的 TAB5 应用 BIN：`0.2.318-ui · R4-ICON2`，7,002,608 字节，SHA-256 `fcee93bffeffba6c8fa01e4ab04ff7bbc890647349c0a9bae422b7c2e114a2c6`，ELF SHA-256 `1f82688bfde3c11b66717e5a1b9cdfbf5326e0d62372182f164c43840a2c0c82`。实际 sidecar 文件 SHA-256 `884ee9bcf9930d1d7e93d2f76d73de8e1c540592d34359db34dfa411767d78f6`；说明文本 SHA-256 `b6216ec55473dbe03962cfa38935bc91db4ae2206ace43a08f0dd6cedf67e86e`。USB 启动、VALID 分区与展示设置保留已验，不能把其他构建认作同一原包。
-- 上述本地 BIN、sidecar 与 Mac 应用位于 Mac 的忽略目录，不随 Git 分支传输，也不是已经冻结的发布包。Windows 如要晋级这份原包，需取得并核对原字节，补齐同应用的首刷包和与镜像匹配的完整源码包后按工具封存；重新构建会产生新身份，须对新包完成受影响验收。不能用旧 .318 原包的 SHA 或旧验收冒充 ICON2。
+## 已有证据与未验收项
 
-## 当前实际 TAB5 说明
+| 对象 | 已有证据 | 不能替代的工作 |
+| --- | --- | --- |
+| Windows 桥接 | Windows 来源 `c9e817c55c1b16d6984b5af93e1e88d8f2e991e0` 的本地安装 DLL SHA-256 `ead4787f2194ada2ebcbfc18da6bae3a7df3c0025829541e7c3c299842f5fd07`；Release、`--status-once`、语音准备和 Claude 回归、安装文件和资料保留检查通过；首次语音允许后继续本次录音由用户确认。详见 [Windows 交接](MAC-HANDOFF-FROM-WINDOWS-20261110.md)。Windows 已将同项目上限提高到 64、总目录上限 80，旧固件继续分页，不再是每项目只发 8 条。 | 该 DLL 不是本次共同最终源码构建的完整发布候选。最终 Windows 原包的安装与启动、受影响功能和单次授权升级 B、常驻桥接 OTA、Wi-Fi 自动回连及实际已读耗时按受影响范围补验。电脑自动发起升级此前未进入传输，不能记为通过。 |
+| Mac 桥接 | macOS 27.3 arm64 的 `2365e94d84a4496abd95f1e8d32abda8b411c86b` 本地开发候选：主程序 SHA-256 `3c3ad6b952ccb1bb81e406bd87de77eb54abcfa5509f3cd599a91a51c313d561`；ZIP 19,638,533 字节，SHA-256 `d18992eaba58ada2fc3fe959ad25e54968381e507124f76ab2c65cc835b53075`。512 项测试中 4 跳过、其余通过；额外隔离校验通过；开发签名、安装和后台 USB 检查通过。详见 [Mac 结果](MAC-WINDOWS-R6-ALIGNMENT-20261110.md)。 | ZIP 是本机开发签名、未公证的本地候选，不随 Git 推送且不自动构成可公开晋级包。真实终端窗口投递及已有草稿保护、独立身份首次语音授权与识别、设备接收隔离新回复及已读消退耗时未完成。无窗口环回测试、历史包或截图不能冒充这些验收。 |
+| TAB5 R6 | `0.2.318-ui · R6`：BIN 7,027,136 字节，SHA-256 `de7cfc8515fec52e8990af04c86ca8d767dbe9208dc5e5cdb08606bb28549303`，ELF SHA-256 `40cc39cbe8ba92e2dd763d2fa58cc1409a238fdc28bf320556ef13d70c2af153`。Windows 用户确认未读优先显示；原包经设备发起 Wi-Fi 升级，核验分区 VALID、ELF、Wi-Fi 和 USB 恢复。Mac 连同一 R6 时确认 USB 工作，R6 UI 离屏回归覆盖 64 条、手势与未读排序。详见 [R6 记录](TAB5-318-R6-UNREAD-PRIORITY.md)。 | Mac 下新回复置顶实测未完成；实际 sidecar、完整源码、首刷包和升级包须与所选应用字节一一绑定。R6 使用 Huihui Claude 提示音，当前**没有确认该 PCM 的公开再分发许可**；R6 本地实测不等于可公开发布，须先查明许可或更换具备授权的素材并对新镜像重新记录受影响验收。 |
 
-已验收应用的实际 sidecar 为：
+R4、ICON2 和 LIST1 的验收分别保留原身份；不可将其哈希、版本或验收直接套到 R6 或重建包。R6 源码重放顺序为 [.318/R4 增量](tab5-318-r4-source/README.md) → [LIST1](TAB5-PROJECT-SCROLL-LIST1-20261110.patch) → [R5](TAB5-318-R5-RELEASE-NOTICE.patch) → [R6](TAB5-318-R6-UNREAD-PRIORITY.patch)，本地授权素材边界见 [R5 记录](TAB5-318-R5-RELEASE-NOTICE.md)。旧 `tab5-318-refresh-source` ZIP 已被 R4 增量取代；不要将历史文档里该旧文件的预检发现误写成当前结果。
 
-```text
-## 对话页
-- Codex 和 Claude 改用图标切换。
-- 优化厂商入口稳定性，放大图标和未读数字。
-```
+## 当前预检与发布负责人步骤
 
-本次中英文 `CHANGELOG` 与 TAB5 中英文日志新增 `Unreleased / 未发布` 草稿；Windows 负责人合并两端最终范围后，按实际版本和同一日期整理正式中英文条目。对用户尚未验收的内容保持原有证据边界，不把待验证写成已完成。实际升级说明须与最终 BIN 的版本、SHA-256 相符，使用实际 sidecar 做离屏预览。
+1. 此次在 Mac 对当前工作树运行 `python3 scripts/check_public_content.py`：3,127 个文件、0 项发现；这是有限模式扫描，不替代素材来源和授权核验。`check_version.py --component all` 与 `download_catalog.py check` 通过。说明提取、版本、下载索引、发布流水线、打包及续传工具回归通过，详见 Mac 交接提交。发布前对最终源码再次执行。
+2. 核对两端未验收项和 TAB5 提示音再分发依据，明确实际交付范围。关键发送正确性、草稿与安装升级路径不通过时阻止对应平台晋级；未知项不得记作通过。沿用用户确认的宣传片顺序；只替换会误导的页面或镜头，记录仍适用素材的复用依据。
+3. 确定版本、实际日期、完整中英文说明及共同源码 SHA；从干净源码原生构建和冻结所需桌面候选，或在同 SHA、同包哈希及证据条件确实成立时复用。TAB5 使用原生材料核对首刷、升级、sidecar、应用和对应完整源码并封存；替换包要登记新身份与受影响验收。
+4. 按 `release_pipeline.py record` 记录每份实际候选及 `release-review`，包含证据、签名/公证状态、许可证、第三方声明、SHA-256 和剩余限制。完成原包校验后，由 Windows 负责人在适用的正式发布授权内统一创建标签、晋级和收尾；核对公开页面、中英文下载入口、安装说明与真实下载链接。
 
-## 后续执行清单
+## English handoff
 
-1. Windows 完成两家目录稳定性、原生 Terminal 发送状态及设备联动的实现与回归，按 `AGENTS.md` 在 Windows 执行 Release 构建与 `--status-once`，记录安装、升级、设置和草稿保留；不将 Mac 结果当作 Windows 通过。
-2. 在独立 TAB5 工程应用经核对的 R4 基线与 ICON2 累计补丁。完整首刷 ZIP、升级 ZIP、实际 sidecar 和对应源码包必须绑定同一应用 SHA；保存旧候选并使用 [本地固件流程](../TAB5-FIRMWARE-WORKFLOW.md)。电脑端、ESP8266、TAB5 分别按其版本线决定是否发布。
-3. 收集 Windows 和 Mac 各自原生包、源码身份、实际安装/启动记录及受影响真机结果；完成许可证、第三方声明、校验文件与 [发布收尾清单](../RELEASE-CHECKLIST.md)。此前 Mac 的 511 项 Swift 测试 0 失败、4 跳过；TAB5 六帧跨约 46 秒均显示两个厂商且发送可用，非连续观察；真实未读角标视觉和长期稳定性待确认。
-4. 本次源码公开内容预检报告现有 `docs/development/tab5-318-refresh-source/source-overlay.zip` 为 `unreviewed-binary-or-artwork`（3090 文件、1 项）。素材的来源、许可及公开打包边界须按现有来源记录处理并通过实际预检，不能绕过或把本地构建通过写成公开包合规。
-5. 版本与中英文说明就绪后，以最终干净源码 SHA 运行 `candidate.yml` 或原生流程，冻结对应候选；TAB5 按 `prepare_release_assets.py --component tab5 --tab5-source ...` 和 `release_pipeline.py seal --tab5-source ...` 核验源码。为每个候选用 `release_pipeline.py record` 记录安装、设备与 `release-review`，候选 SHA、包 SHA 和记录一致后再晋级。
-6. 用户后续明确正式发布范围时，Windows 发布负责人按 [发布自动化](../RELEASE-AUTOMATION.md)统一完成候选预检、标签、原包晋级、服务器摘要、公开及中英文下载和媒体收尾；不为纯文档变化重建已冻结原包。保留既有宣传视频结构，仅更新受到界面变化影响的镜头和素材。
-
-## English release handoff
-
-Windows owns the subsequent coordinated release. Finish Windows-specific catalog stability, native-terminal and device validation first; freeze the final shared desktop source and independently version TAB5. The Mac bridge and TAB5 application identities above describe locally validated candidates, not transferable release archives or acceptance of rebuilt bytes. Final first-install, OTA and source packages must bind the same TAB5 application SHA. Prepare matching bilingual release notes, licenses and checksums, resolve the existing public-content guard finding, and record actual package-specific Windows, Mac and device evidence before promotion.
+Windows owns the subsequent coordinated release. The Mac handoff branch contains the Windows `020d248` baseline plus the Mac read-state alignment. Desktop and TAB5 candidate versions remain independently tracked. The Windows DLL, Mac development ZIP, and TAB5 R6 image above have different source and acceptance identities and are not frozen public release packages. Finalize the bilingual draft and actual release date, select a common desktop source, validate and freeze native packages, and record exact-file evidence. The R6 Claude audio currently lacks established public redistribution rights. Outstanding real-device, first-consent, native-window and installation checks must not be marked passed without evidence. Preserve the approved video structure and update only misleading material.
