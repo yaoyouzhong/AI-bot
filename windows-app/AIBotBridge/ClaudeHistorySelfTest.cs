@@ -11,8 +11,15 @@ internal static class ClaudeHistorySelfTest
             byte[] key=Enumerable.Range(0,32).Select(i=>(byte)i).ToArray();var value=ClaudeHistory.Read(root,session,key);string json=JsonSerializer.Serialize(value.Turns);
             if(value.Turns.Count!=2||json.Contains("Excluded")||json.Contains(session.ToString())||!json.Contains("\\u7B2C")&&!json.Contains("第一轮公开回复")||!value.Accepted.Contains(second.ToString()))throw new InvalidOperationException("Claude public branch isolation failed");
             var catalog=new ClaudeCatalog(root,()=>key);catalog.Refresh();var entries=catalog.Snapshot();if(entries.Count!=1||entries[0].Session!=session||entries[0].Alias==session.ToString()||entries[0].Directory!=root)throw new InvalidOperationException("Claude opaque catalog failed");
-            Directory.Move(root,root+"-moved");try{catalog.Refresh();throw new InvalidOperationException("Failed scan was accepted");}catch(DirectoryNotFoundException){}finally{Directory.Move(root+"-moved",root);}
-            if(catalog.Snapshot().Count!=1)throw new InvalidOperationException("Claude catalog failure cleared data");
+            Directory.Move(root,root+"-moved");
+            try{
+                if(catalog.Refresh())throw new InvalidOperationException("Failed scan was accepted");
+                var cached=catalog.DisplaySnapshot();
+                if(cached.Fresh||!cached.Items.SequenceEqual(entries))throw new InvalidOperationException("Claude catalog failure lost the last visible list or marked it fresh");
+                if(catalog.Snapshot().Count!=0||catalog.Resolve(entries[0].Alias)!=null)throw new InvalidOperationException("Stale Claude list allowed session routing");
+            }finally{Directory.Move(root+"-moved",root);}
+            if(!catalog.Refresh()||!catalog.DisplaySnapshot().Fresh||catalog.Resolve(entries[0].Alias)!=entries[0])
+                throw new InvalidOperationException("Restored Claude directory did not recover fresh session routing");
             var grouped=new ClaudeCatalog(root,()=>key,()=>[
                 new(Guid.NewGuid(),DateTimeOffset.UtcNow,"Same directory",root.ToUpperInvariant()+Path.DirectorySeparatorChar),
                 new(Guid.NewGuid(),DateTimeOffset.UtcNow,"Other workspace",Path.Combine(root,"other","workspace")),
