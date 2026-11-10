@@ -19,11 +19,12 @@ HD_CATALOG = ROOT / "gallery-hd-downloads.json"
 CENTER = REPO + "/blob/main/DOWNLOADS.md"
 HD_GUIDE = REPO + "/blob/main/docs/GALLERY-HD.md"
 ESP_FLASH_TEMPLATE = "AI-bot-esp8266-{version}-flash.zip"
+INSTALL_DOWNLOADS = ("windows", "macos", "esp8266", "tab5-first", "tab5-upgrade")
 # id: component, asset template, Chinese label, English label
 SPECS = {
     "windows": ("bridge", TEMPLATES["windows"][0], "Windows 桥接 · Windows 10/11 x64", "Windows bridge · Windows 10/11 x64"),
     "macos": ("bridge", TEMPLATES["macos"][0], "Mac 桥接 · macOS 13+ / Apple Silicon", "Mac bridge · macOS 13+ / Apple Silicon"),
-    "esp8266": ("esp8266", TEMPLATES["esp8266"][0], "ESP8266 小屏 · 首刷／升级通用", "ESP8266 display · first install / upgrade"),
+    "esp8266": ("esp8266", ESP_FLASH_TEMPLATE, "ESP8266 小屏 · 首刷／升级通用", "ESP8266 display · first install / upgrade"),
     "tab5-first": ("tab5", TEMPLATES["tab5-first"][0], "TAB5 · 出厂系统首次安装", "TAB5 · first install from factory system"),
     "tab5-upgrade": ("tab5", TEMPLATES["tab5-upgrade"][0], "TAB5 · 已有 AI-bot 升级", "TAB5 · upgrade existing AI-bot"),
     "calligraphy": ("gallery", TEMPLATES["calligraphy"][0], "每日书法 · 标准版", "Daily Calligraphy · standard"),
@@ -66,7 +67,7 @@ def validate(data):
         pattern = r"\d{4}\.\d{2}\.\d{2}(?:\.\d+)?" if component == "gallery" else r"\d+\.\d+\.\d+" + (r"-ui" if component == "tab5" else "")
         filenames = artifact_names(key, version)
         if key == 'esp8266':
-            filenames += (ESP_FLASH_TEMPLATE.format(version=version),)
+            filenames = (ESP_FLASH_TEMPLATE.format(version=version),)
         if not re.fullmatch(pattern, version) or item["file"] not in filenames:
             raise ValueError(f"Wrong version/package for {key}")
         tag_component, tag_version = release_target(item["tag"])
@@ -123,11 +124,11 @@ def discover(releases):
             except ValueError:
                 continue
             for asset in release["assets"]:
-                match = match_artifact(key, asset["name"])
                 if key == 'esp8266':
                     flash = re.fullmatch(r'AI-bot-esp8266-(\d+\.\d+\.\d+)-flash\.zip', asset['name'])
-                    if flash:
-                        match = (flash.group(1), -1)
+                    match = (flash.group(1), 0) if flash else None
+                else:
+                    match = match_artifact(key, asset["name"])
                 if not match:
                     continue
                 version, priority = match
@@ -190,7 +191,7 @@ def gallery_display_version(category, package_version, language="zh"):
     return (f"{edition}（包 {package_version}）" if language == "zh"
             else f"{edition} (package {package_version})")
 
-def table(data, language="zh", tag=None):
+def table(data, language="zh", tag=None, *, install_only=False):
     entries = copy.deepcopy(data["downloads"])
     changed = set()
     if tag:
@@ -214,36 +215,38 @@ def table(data, language="zh", tag=None):
                     entries[key] = target
                 changed.add(key)
     zh = language == "zh"
-    hd = load_hd()
+    hd_catalog = {} if install_only else load_hd()
+    hd = hd_catalog.get("collections", {})
     lines = ["| 用途 | 版本 | 下载 | SHA-256 |" if zh else "| Use | Version | Download | SHA-256 |", "| --- | --- | --- | --- |"]
-    for key, spec in SPECS.items():
+    for key in INSTALL_DOWNLOADS if install_only else SPECS:
+        spec = SPECS[key]
         item = entries[key]
         version = gallery_display_version(key, item["version"], language) + ((" · 本次发布" if zh else " · this release") if key in changed else "")
         label = "下载" if zh else "Download"
         if "size" in item:
             label += f" · {item['size'] / 1024:.0f} KiB" if item['size'] < 1048576 else f" · {item['size'] / 1048576:.0f} MiB"
         lines.append(f"| {spec[2 if zh else 3]} | {version} | [{label}]({asset_url(item)}) | [SHA-256]({asset_url(item, checksum_name(item))}) |")
-        if key in hd["collections"]:
-            collection = hd["collections"][key]
+        if key in hd:
+            collection = hd[key]
             title = spec[2].replace("标准版", "高清完整版") if zh else spec[3].replace("standard", "complete HD")
             label = ("下载" if zh else "Download") + f" · {collection['size'] / 1073741824:.2f} GiB"
-            lines.append(f"| {title} | {gallery_display_version(key, hd['version'], language)} | [{label}]({HD_GUIDE}#download) | [SHA-256]({HD_GUIDE}#{key}) |")
+            lines.append(f"| {title} | {gallery_display_version(key, hd_catalog['version'], language)} | [{label}]({HD_GUIDE}#download) | [SHA-256]({HD_GUIDE}#{key}) |")
     return "\n".join(lines)
 
 
 def guidance(language):
     if language == "zh":
-        return f"[安装与刷机]({REPO}/blob/main/docs/INSTALL.zh.md) · [图库指南]({REPO}/blob/main/docs/GALLERY-PACKS.md)"
-    return f"[Installation and flashing]({REPO}/blob/main/docs/INSTALL.zh.md) · [Artwork guide]({REPO}/blob/main/docs/GALLERY-PACKS.md)"
+        return f"[安装与刷机]({REPO}/blob/main/docs/INSTALL.zh.md)"
+    return f"[Installation and flashing]({REPO}/blob/main/docs/INSTALL.zh.md)"
 
 
 def block(data, language):
-    return f"{START}\n{table(data, language)}\n\n{guidance(language)}\n{END}"
+    return f"{START}\n{table(data, language, install_only=True)}\n\n{guidance(language)}\n{END}"
 
 
 def sync(data, check=False):
     for lang, name, readme in (("zh", "DOWNLOADS.md", "README.md"), ("en", "DOWNLOADS.en.md", "README.en.md")):
-        title = "# AI-bot 完整下载\n\n[English](DOWNLOADS.en.md)" if lang == "zh" else "# AI-bot downloads\n\n[简体中文](DOWNLOADS.md)"
+        title = "# AI-bot 程序与固件下载\n\n[English](DOWNLOADS.en.md)" if lang == "zh" else "# AI-bot app and firmware downloads\n\n[简体中文](DOWNLOADS.md)"
         outputs = {ROOT / name: f"{title}\n\n{block(data, lang)}\n"}
         path = ROOT / readme
         text = path.read_text(encoding="utf-8")

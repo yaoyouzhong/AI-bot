@@ -189,6 +189,23 @@ class DownloadCatalogTests(unittest.TestCase):
     def test_readmes_and_centers_match_index(self):
         catalog.sync(self.data, check=True)
 
+    def test_public_downloads_only_list_apps_and_firmware(self):
+        entries = self.data["downloads"]
+        for lang in ("zh", "en"):
+            public = catalog.block(self.data, lang)
+            for key in ("windows", "macos", "esp8266", "tab5-first", "tab5-upgrade"):
+                self.assertIn(catalog.asset_url(entries[key]), public)
+            self.assertEqual(public.count("[SHA-256]"), 5)
+            for key in ("calligraphy", "painting"):
+                self.assertNotIn(catalog.asset_url(entries[key]), public)
+            self.assertNotIn(catalog.HD_GUIDE, public)
+        releases = self.releases() + [{
+            "tag_name": "esp8266-v99.0.0", "published_at": "2026-11-10",
+            "assets": [{"name": "AI-bot-esp8266-99.0.0-firmware.zip", "size": 100, "digest": "sha256:" + "a" * 64},
+                       {"name": "SHA256SUMS.txt"}],
+        }]
+        self.assertEqual(catalog.discover(releases)["downloads"]["esp8266"], entries["esp8266"])
+
     def test_canonical_names_win_over_compatibility_aliases_at_same_version(self):
         releases = self.releases()
         expected = copy.deepcopy(self.data)

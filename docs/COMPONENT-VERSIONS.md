@@ -75,7 +75,7 @@ Windows 0.6.2 的[统一更新入口](UPDATES.md)还提供每日检查、同版�
 
 ## 文档与媒体同步
 
-完整用户下载入口为根目录 [DOWNLOADS.md](../DOWNLOADS.md) / [DOWNLOADS.en.md](../DOWNLOADS.en.md)。`download-catalog.json` 只登记已公开稳定版本的七类下载（Windows、Mac、ESP8266 通用包、TAB5 首刷／升级、书法、名画），不把本地候选当成已发布。
+用户下载入口为根目录 [DOWNLOADS.md](../DOWNLOADS.md) / [DOWNLOADS.en.md](../DOWNLOADS.en.md)。页面只列 Windows、Mac 安装包、ESP8266 精简刷机包及 TAB5 首刷／升级包；小屏新版发布齐备精简包和对应校验文件后才进入下载中心。[组件源码及构建材料](COMPONENTS.md)和[可选图库](GALLERY-PACKS.md)分别提供。内部索引 `download-catalog.json` 仍登记已公开的书法和名画包，用于下载核对。
 
 维护流程：
 
@@ -90,9 +90,9 @@ python scripts/download_catalog.py verify-online
 python scripts/test_download_catalog.py
 ```
 
-`extract_release_notes.py` 自动在组件更新说明前添加完整下载表、固定入口和安装提示；本次组件使用目标标签的附件地址，其余沿用索引中的正式版本。草稿中的本次组件链接要到该 Release 公开且附件齐全后才可公开下载；原有打包检查继续验证本次组件的附件，下载索引检查不代替安装或真机验收。组件发布后重新 `refresh`、`sync` 并审查索引变动，使固定下载中心指向最新正式版本；旧 Release 内的固定入口仍可找到新版。上述命令只读取网络、修改本地文件，不推送或发布。
+`extract_release_notes.py` 在组件更新说明前添加统一下载入口。组件发布后重新 `refresh`、`sync` 并审查索引变动，使下载中心指向最新的正式安装包；原有打包检查继续验证本次组件的附件，下载索引检查不代替安装或真机验收。上述命令只读取网络、修改本地文件，不推送或发布。
 
-`verify_release_local.ps1` 检查下载中心/README 是否与索引一致并运行边界测试。说明提取器已接入完整下载表；新晋级入口公开后会刷新索引和下载表。生成文档默认留在本地，已有推送授权时可用 `--commit-closeout` 只提交指定生成文件；网站上的内容以实际推送及 Release 说明更新为准。
+`verify_release_local.ps1` 检查下载中心/README 是否与索引一致并运行边界测试。生成文档默认留在本地，已有推送授权时可用 `--commit-closeout` 只提交指定生成文件；网站上的内容以实际推送及 Release 说明更新为准。
 
 每次正式发布后核对并同步受影响的主页介绍、安装手册与说明、下载入口，逐项记录[发布收尾清单](RELEASE-CHECKLIST.md)的结果。小更新复用仍准确的截图和视频；只有会误导用户的部分才替换，登记新素材来源及 SHA-256。区分当前说明与历史验收记录。
 
