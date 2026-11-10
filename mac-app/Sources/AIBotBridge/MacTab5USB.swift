@@ -314,7 +314,7 @@ final class MacTab5USB {
                     previewPublication.acknowledge(root)
                     if fullRefresh { leaseCadence.acknowledge(started:started) }
                     service.usbState("数据已确认", confirmed: true)
-                    service.observeUSBInfo(ack)
+                    service.observeUSBInfo(ack, requestStarted:started, sequence:sequence)
                     statusCadence.acknowledge(started: started, finished: ProcessInfo.processInfo.systemUptime,
                                              urgent: urgent || previewUrgent, interval: MacTab5StatusCadence.interval(for: music, at: Date()))
                     lastMusic = music
@@ -446,7 +446,7 @@ final class MacTab5USB {
         statusDelta.acknowledge(frame, sequence: sequence)
         previewPublication.acknowledge(root)
         leaseCadence.acknowledge(started: started)
-        service.usbState("数据已确认", confirmed: true); service.observeUSBInfo(ack)
+        service.usbState("数据已确认", confirmed: true); service.observeUSBInfo(ack, requestStarted:started, sequence:sequence)
         service.usbOperationHeartbeat()
         let music = service.currentMusic
         statusCadence.acknowledge(started: started, finished: ProcessInfo.processInfo.systemUptime,

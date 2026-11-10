@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Keep the last usable provider catalog through brief interruptions and refresh it once the host responds. Sending still verifies the live target and permissions.
 - Group the main checkout and verified worktrees of the same Git repository into one Codex project. Keep separate projects with the same name distinct.
 - Clear an observed Codex unread reply on the next valid sync after the desktop marker clears. Other accounts, conversations and newer replies keep their own unread state.
+- Preserve and restore device-bound drafts when a conversation leaves the recent list. Reject an empty draft that would erase an unresolved delivery; sending still requires the live conversation.
 
 ### Native Claude Code terminals
 - Discover Windows and Mac native terminals by process and session identity without a fixed Claude Code version list. Check the target, permissions and composer before sending.
@@ -18,6 +19,8 @@ All notable changes to this project will be documented in this file.
 - Reuse Doubao automatic detection when its resolved input already matches the selected DJI microphone. Continue to verify the endpoint, restore temporary selections and respect manual changes.
 - On Windows, continue the same TAB5 recording after microphone approval and restore focus to the verified editor. Voice guidance wraps to fit the window.
 - Windows bridge upgrades use one administrator approval and can carry forward applicable LAN firewall permissions. The resident bridge can serve TAB5 upgrades without a separate SettingsProbe process.
+- Keep the device's upgrade refusal reason visible through repeated version updates, including same-version reinstalls.
+- After a completed USB transfer, use a bound authenticated reboot observation to start exact-image verification without waiting for the full transfer lease.
 
 ### Scope
 - Desktop bridge for Windows x64 and Apple Silicon Mac. TAB5 and ESP8266 firmware have independent release versions.

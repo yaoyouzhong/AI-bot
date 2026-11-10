@@ -22,7 +22,9 @@ enum MacOrphanDraftValidation {
         try check("saved under device and task",(saved["device-A|"+task] as? [String:Any])?["text"] as? String == "kept fixture")
         let disk = try FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil)
         try check("encrypted on disk",disk.count == 1 && (try Data(contentsOf:disk[0])).range(of:Data("kept fixture".utf8)) == nil)
-        for op in ["draft-load","read","send","steer","interrupt"] {
+        try check("unknown draft can be reloaded without catalog",codex.handle(request("draft-load"),device:"device-A").status == 200 && (codex.snapshot(device:"device-A")?["draftView"] as? [String:Any])?["text"] as? String == "kept fixture")
+        try check("unknown draft remains device isolated",codex.handle(request("draft-load"),device:"device-B").status == 200 && (codex.snapshot(device:"device-B")?["draftView"] as? [String:Any])?["text"] as? String == "")
+        for op in ["read","send","steer","interrupt"] {
             try check("unknown task cannot " + op,codex.handle(request(op),device:"device-A").status == 404)
         }
         try check("no implicit task selection or IPC",calls == 0 && !codex.contains(task))

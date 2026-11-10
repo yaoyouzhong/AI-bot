@@ -59,8 +59,10 @@ final class MacTab5CodexSynchronizationTests: XCTestCase {
         func load(_ task: String, request: String = UUID().uuidString, device: String = "A") -> Int {
             codex.handle(["op": "draft-load", "taskId": task, "requestId": request], device: device).status
         }
-        XCTAssertEqual(load(UUID().uuidString), 404); XCTAssertEqual(load(api.task, request: "invalid"), 400)
+        XCTAssertEqual(load(api.task, request: "invalid"), 400)
         enabled = false; XCTAssertEqual(load(api.task), 403); XCTAssertEqual(keyReads, 0); enabled = true
+        XCTAssertEqual(load(UUID().uuidString), 200)
+        XCTAssertEqual((codex.snapshot(device:"A")?["draftView"] as? [String: Any])?["text"] as? String, "")
         XCTAssertEqual(codex.handle(["op": "draft-save", "taskId": api.task, "requestId": UUID().uuidString, "message": "unsent draft"], device: "A").status, 200)
         now = 31; XCTAssertFalse(codex.contains(api.task))
         // Stale display data must still allow recovery of an encrypted local draft.

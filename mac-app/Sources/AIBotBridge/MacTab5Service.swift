@@ -241,7 +241,7 @@ final class MacTab5Service {
         firmware = version; firmwareDevice = pair.deviceId
         firmwareControl.observeVersion(version)
     }
-    func observeUSBInfo(_ root: [String: Any]) {
+    func observeUSBInfo(_ root: [String: Any], requestStarted: TimeInterval? = nil, sequence: Int64? = nil) {
         lock.lock(); defer { lock.unlock() }
         guard root["deviceId"] as? String == pairing?.deviceId else { return }
         localDiagnostics?.device(root)
@@ -249,6 +249,10 @@ final class MacTab5Service {
         usbReportedActive = (root["active"] as? String).flatMap { ["USB", "Wi-Fi", "BLE", "Offline"].contains($0) ? $0 : nil }
         if let ids = root["assetIds"] as? String { assets.acknowledge(ids) }
         if let version = root["firmware"] as? String, version.utf8.count <= 40 { firmware = version; firmwareDevice = pairing?.deviceId; firmwareControl.observeVersion(version) }
+        if let pair = pairing, pair.confirmed, let requestStarted, let sequence {
+            firmwareControl.observeUSBRestart(root, device:pair.deviceId, host:MacTab5HostBinding.id(pair), sequence:sequence,
+                                              started:requestStarted, finished:ProcessInfo.processInfo.systemUptime, activeOperations:activeOperations)
+        }
         firmwareControl.observeDeviceOTA(root["otaDiag"])
         if let context = diagnosticContextLocked() { deviceDiagnostics.recordUSB(root,context:context) }
     }
