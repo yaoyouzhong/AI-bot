@@ -8,6 +8,18 @@ internal sealed record ComponentUpdate(string Component, string Version, Version
 
 internal static class ComponentUpdateCatalog
 {
+    internal static bool Prefer(ComponentUpdate candidate, ComponentUpdate previous) =>
+        candidate.Number > previous.Number ||
+        candidate.Number == previous.Number && candidate.Component == "esp8266" &&
+        EspPackagePriority(candidate.Package) > EspPackagePriority(previous.Package);
+
+    private static int EspPackagePriority(UpdateAsset? asset) => asset?.Name switch {
+        null => -1,
+        var name when name.EndsWith("-flash.zip",StringComparison.Ordinal) => 2,
+        var name when name.EndsWith("-firmware.zip",StringComparison.Ordinal) => 1,
+        _ => 0
+    };
+
     internal static UpdateAsset? ReadAsset(string tag,JsonElement item) {
         string file=item.GetProperty("name").GetString()??"";
         if(!item.TryGetProperty("browser_download_url",out var url)||
@@ -28,6 +40,7 @@ internal static class ComponentUpdateCatalog
             string notes = release.TryGetProperty("body", out var body) ? body.GetString() ?? "暂无更新说明。" : "暂无更新说明。";
             foreach (var (component, prefix, assetPrefix, assetSuffix, canonical) in new[] {
                 ("bridge", "bridge-v", "AI-bot-bridge-v", "-windows-x64-setup.exe", true),
+                ("esp8266", "esp8266-v", "AI-bot-esp8266-", "-flash.zip", true),
                 ("esp8266", "esp8266-v", "AI-bot-esp8266-", "-firmware.zip", true),
                 ("tab5", "tab5-v", "AI-bot-tab5-", "-upgrade.zip", true),
                 ("bridge", "bridge-v", "AIBotBridge-", "-setup-win-x64.exe", false),
@@ -47,15 +60,17 @@ internal static class ComponentUpdateCatalog
                     // Legacy bundle assets carry their own versions. A component tag must match its package.
                     if (ownTag && tag[prefix.Length..] != version) continue;
                     var package=ReadAsset(tag,asset);
-                    if (!result.TryGetValue(component, out var previous) || number > previous.Number ||
-                        number == previous.Number && canonical && package is not null && previous.Package?.Name.StartsWith(assetPrefix,StringComparison.Ordinal)!=true)
-                    {
-                        UpdateAsset? Asset(JsonElement item)=>ReadAsset(tag,item);
-                        var checksum=release.GetProperty("assets").EnumerateArray()
-                            .Where(a=>a.GetProperty("name").GetString()==name+".sha256"||a.GetProperty("name").GetString()=="SHA256SUMS.txt")
-                            .OrderBy(a=>a.GetProperty("name").GetString()==name+".sha256"?0:1).Select(Asset).FirstOrDefault(a=>a is not null);
-                        result[component] = new(component, version, number, notes,package,checksum);
-                    }
+                    bool compact=assetSuffix=="-flash.zip";
+                    if(compact && (!ownTag || package is null || package.Size<=0 || package.Size>256L*1024*1024)) continue;
+                    var checksum=release.GetProperty("assets").EnumerateArray()
+                        .Where(a=>a.GetProperty("name").GetString()==name+".sha256"||!compact&&a.GetProperty("name").GetString()=="SHA256SUMS.txt")
+                        .OrderBy(a=>a.GetProperty("name").GetString()==name+".sha256"?0:1)
+                        .Select(a=>ReadAsset(tag,a)).FirstOrDefault(a=>a is not null&&(!compact||a.Size is >0 and <=256*1024));
+                    if(compact && checksum is null) continue;
+                    var candidate=new ComponentUpdate(component,version,number,notes,package,checksum);
+                    if (!result.TryGetValue(component, out var previous) || Prefer(candidate,previous) ||
+                        component!="esp8266" && number == previous.Number && canonical && package is not null && previous.Package?.Name.StartsWith(assetPrefix,StringComparison.Ordinal)!=true)
+                        result[component] = candidate;
                 }
             }
         }

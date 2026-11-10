@@ -8,6 +8,15 @@ struct MacComponentRelease {
     let asset: Asset, checksum: Asset?
 }
 enum MacReleaseCatalog {
+    static func prefers(_ candidate: MacComponentRelease, over previous: MacComponentRelease) -> Bool {
+        guard let next = version(candidate.version), let old = version(previous.version) else { return false }
+        if next != old { return old.lexicographicallyPrecedes(next) }
+        guard candidate.component == "esp8266" else { return false }
+        func priority(_ asset: MacComponentRelease.Asset) -> Int {
+            asset.name.hasSuffix("-flash.zip") ? 2 : asset.name.hasSuffix("-firmware.zip") ? 1 : 0
+        }
+        return priority(candidate.asset) > priority(previous.asset)
+    }
     static func version(_ value: String) -> [Int]? {
         guard value.range(of:"^[0-9]+\\.[0-9]+\\.[0-9]+(?:-ui)?$",options:.regularExpression) != nil else { return nil }
         let parts = (value.hasSuffix("-ui") ? String(value.dropLast(3)):value).split(separator:".").compactMap { Int($0) }
@@ -23,11 +32,17 @@ enum MacReleaseCatalog {
                 return .init(name:name,url:url,size:size)
             }
             let files = assets.compactMap(asset)
-            for (component,prefix,suffix,tagPrefix) in [("bridge","AI-bot-bridge-v","-macos-arm64.zip","bridge-v"),("bridge","AIBotBridge-","-local-candidate-macos-arm64.zip","bridge-v"),("esp8266","AI-bot-esp8266-","-firmware.zip","esp8266-v"),("esp8266","AI-bot-","-firmware-materials.zip","esp8266-v"),("tab5","AI-bot-tab5-","-upgrade.zip","tab5-v"),("tab5","TAB5-upgrade-",".zip","tab5-v")] {
+            for (component,prefix,suffix,tagPrefix) in [("bridge","AI-bot-bridge-v","-macos-arm64.zip","bridge-v"),("bridge","AIBotBridge-","-local-candidate-macos-arm64.zip","bridge-v"),("esp8266","AI-bot-esp8266-","-flash.zip","esp8266-v"),("esp8266","AI-bot-esp8266-","-firmware.zip","esp8266-v"),("esp8266","AI-bot-","-firmware-materials.zip","esp8266-v"),("tab5","AI-bot-tab5-","-upgrade.zip","tab5-v"),("tab5","TAB5-upgrade-",".zip","tab5-v")] {
                 for file in files where file.name.hasPrefix(prefix) && file.name.hasSuffix(suffix) && file.name.count > prefix.count + suffix.count {
                     let text = String(file.name.dropFirst(prefix.count).dropLast(suffix.count))
                     guard version(text) != nil, tag == tagPrefix + text || tag.hasPrefix("v") && version(String(tag.dropFirst())) != nil else { continue }
-                    let checksum = files.first { $0.name == file.name + ".sha256" } ?? files.first { $0.name == "SHA256SUMS.txt" }
+                    let sidecar = files.first { $0.name == file.name + ".sha256" }
+                    let compact = suffix == "-flash.zip"
+                    if compact {
+                        guard tag == tagPrefix + text, !text.hasSuffix("-ui"), file.size <= 256 * 1024 * 1024,
+                              let sidecar, sidecar.size <= 256 * 1024 else { continue }
+                    }
+                    let checksum = sidecar ?? files.first { $0.name == "SHA256SUMS.txt" }
                     releases.append(.init(component:component,version:text,notes:row["body"] as? String ?? "暂无更新说明。",tag:tag,asset:file,checksum:checksum))
                 }
             }
@@ -113,7 +128,10 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
             for page in 1...10 {
                 let data = try await self.bytes(URL(string:"https://api.github.com/repos/yaoyouzhong/AI-bot/releases?per_page=100&page=\(page)")!,maximum:2*1024*1024)
                 let (releases,count) = try MacReleaseCatalog.parse(data)
-                for r in releases { if result[r.component] == nil || MacReleaseCatalog.version(result[r.component]!.version)!.lexicographicallyPrecedes(MacReleaseCatalog.version(r.version)!) { result[r.component] = r } }
+                for r in releases {
+                    if let previous = result[r.component], !MacReleaseCatalog.prefers(r, over: previous) { continue }
+                    result[r.component] = r
+                }
                 if count < 100 { complete = true; break }
             }
             guard complete else { throw MacTab5LocalError.invalid("发布记录超过查询范围。") }

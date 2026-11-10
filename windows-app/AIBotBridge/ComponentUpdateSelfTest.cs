@@ -40,6 +40,17 @@ internal static class ComponentUpdateSelfTest
            found["esp8266"].Package?.Name!="AI-bot-esp8266-0.5.4-firmware.zip"||
            found["tab5"].Package?.Name!="AI-bot-tab5-0.2.206-ui-upgrade.zip")
             throw new InvalidOperationException("Canonical packages, firmware versions without v and compatibility aliases must agree.");
+        const string flash="AI-bot-esp8266-0.5.8-flash.zip", full="AI-bot-esp8266-0.5.8-firmware.zip";
+        var compactRelease=Release("esp8266-v0.5.8",[flash,flash+".sha256"]);
+        var fullRelease=Release("esp8266-v0.5.8",[full,"SHA256SUMS.txt"]);
+        ComponentUpdate Select(params object[] rows) {
+            using var data=JsonDocument.Parse(JsonSerializer.Serialize(rows));
+            return ComponentUpdateCatalog.Read(data.RootElement)["esp8266"];
+        }
+        if(Select(fullRelease,compactRelease).Package?.Name!=flash||Select(compactRelease,fullRelease).Package?.Name!=flash||
+           Select(Release("esp8266-v0.5.8",[flash,full,"SHA256SUMS.txt"])).Package?.Name!=full||
+           Select(compactRelease,Release("esp8266-v0.5.9",["AI-bot-esp8266-0.5.9-firmware.zip","SHA256SUMS.txt"])).Version!="0.5.9")
+            throw new InvalidOperationException("ESP8266 must prefer a verified compact option only at the same release version.");
         Console.WriteLine("COMPONENT_UPDATE_SELF_TEST_OK independent versions, stable selection, legacy bundles");
     }
 }
