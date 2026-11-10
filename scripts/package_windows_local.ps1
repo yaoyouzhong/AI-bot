@@ -34,7 +34,7 @@ try {
     python -c "import pathlib,sys; sys.path.insert(0,sys.argv[1]); from collect_distribution_materials import manifest; manifest(pathlib.Path(sys.argv[2]))" $PSScriptRoot $stage
     if ($LASTEXITCODE -ne 0) { throw 'Windows file manifest failed' }
     $version = (Get-Content (Join-Path $sourceRoot 'VERSION') -Raw).Trim()
-    $firmwareVersion = (Get-Content (Join-Path $sourceRoot 'firmware\VERSION') -Raw).Trim()
+    $firmwareVersion = (Get-Content (Join-Path $sourceRoot 'esp8266\VERSION') -Raw).Trim()
     $zip = Join-Path $sourceRoot (ArtifactName 'windows-zip' $version)
     # Python ZIP operations support long dependency-notice paths on Windows.
     # Compress-Archive in Windows PowerShell 5.1 fails after publish succeeds.

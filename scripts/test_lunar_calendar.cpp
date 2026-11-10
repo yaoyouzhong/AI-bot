@@ -1,7 +1,7 @@
 #include <cstdio>
-#include "../firmware/include/LunarCalendar.h"
-#include "../firmware/include/LunarText.h"
-#include "../firmware/include/ScreenSaverGeometry.h"
+#include "../esp8266/include/LunarCalendar.h"
+#include "../esp8266/include/LunarText.h"
+#include "../esp8266/include/ScreenSaverGeometry.h"
 int main(int argc, char** argv) {
     if(argc != 2) return 2;
     FILE* file = fopen(argv[1],"r"); if(!file) return 3;

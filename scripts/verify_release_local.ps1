@@ -49,7 +49,7 @@ try {
         powershell -NoProfile -File scripts/run_public_self_test.ps1 -BridgeDll .\windows-app\AIBotBridge\bin\Release\net8.0-windows10.0.19041.0\AIBotBridge.dll
         if ($LASTEXITCODE -ne 0) { throw 'Public self-test failed' }
         if ($Firmware) {
-            python -m platformio run -d firmware
+            python -m platformio run -d esp8266
             if ($LASTEXITCODE -ne 0) { throw 'Isolated firmware build failed' }
         }
         $sourceManifest = @($files | Sort-Object -Unique | ForEach-Object {

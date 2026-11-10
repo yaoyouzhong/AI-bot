@@ -4,7 +4,7 @@ See Claude Code and Codex activity, model quotas, and computer status on an ESP8
 
 [Complete downloads](DOWNLOADS.en.md) · [Installation guide](docs/INSTALL.zh.md) · [Release notes](docs/RELEASE-0.6.18.md) · [简体中文](README.md)
 
-**Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](firmware/)
+**Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
 ## Downloads and device pairing
 

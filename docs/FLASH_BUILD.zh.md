@@ -12,7 +12,7 @@ TAB5 首次安装和升级不使用本页的 PlatformIO / ESP8266 地址，见[�
 
 ## 1. 核对硬件，并留好回退材料
 
-查看板卡型号、屏幕驱动及商家引脚说明，再与[实际配置](../firmware/platformio.ini)比对：
+查看板卡型号、屏幕驱动及商家引脚说明，再与[实际配置](../esp8266/platformio.ini)比对：
 
 | 屏幕信号 | ESP8266 GPIO | 常见 NodeMCU 丝印 |
 | --- | ---: | --- |
@@ -72,17 +72,17 @@ COM5      USB-SERIAL CH340 (COM5)
 以下命令在包含 `firmware/` 的**仓库根目录**执行：
 
 ```powershell
-.\.venv-flash\Scripts\python.exe -m platformio run -d firmware
+.\.venv-flash\Scripts\python.exe -m platformio run -d esp8266
 ```
 
 等进程结束，输出应有 `SUCCESS`。这一步只编译，不写入设备。
-生成的文件位于 `firmware/.pio/build/nodemcuv2/firmware.bin`。
+生成的文件位于 `esp8266/.pio/build/nodemcuv2/firmware.bin`。
 若失败，先处理第一条实际错误；不要上传旧目录里遗留的 BIN。
 
 确认你准备好替换设备程序后，指定真实端口上传：
 
 ```powershell
-.\.venv-flash\Scripts\python.exe -m platformio run -d firmware -t upload --upload-port COM5
+.\.venv-flash\Scripts\python.exe -m platformio run -d esp8266 -t upload --upload-port COM5
 ```
 
 上传期间保持供电和数据线连接。PlatformIO 根据本仓库 `nodemcuv2` 环境处理芯片及上传参数，

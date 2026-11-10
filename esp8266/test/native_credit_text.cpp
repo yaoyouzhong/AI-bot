@@ -1,5 +1,5 @@
 // Compile after PlatformIO resolves the existing TFT_eSPI dependency:
-// clang++ -std=c++17 -Ifirmware/src -Ifirmware/.pio/libdeps/nodemcuv2/TFT_eSPI firmware/test/native_credit_text.cpp -o /tmp/credit-text-test
+// clang++ -std=c++17 -Iesp8266/src -Iesp8266/.pio/libdeps/nodemcuv2/TFT_eSPI esp8266/test/native_credit_text.cpp -o /tmp/credit-text-test
 #include <cassert>
 #include <cstdint>
 #include <fstream>

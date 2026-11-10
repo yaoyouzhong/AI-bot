@@ -195,7 +195,7 @@ def collect_firmware(stage: Path, core: Path):
     evidence = verify_evidence()
     if stage.exists():
         raise ValueError("Use a new firmware package directory")
-    firmware = ROOT / "firmware"
+    firmware = ROOT / "esp8266"
     binary = firmware / ".pio/build/nodemcuv2/firmware.bin"
     if not binary.is_file():
         raise ValueError("Build firmware from this source snapshot before packaging")

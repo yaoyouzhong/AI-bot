@@ -22,4 +22,4 @@ for code in range(32, 127):
     packed = [alpha[i] * 16 + alpha[i + 1] for i in range(0, 128, 2)]
     lines.append('  {' + ','.join(f'0x{x:02x}' for x in packed) + '}, // ' + str(code))
 lines += ['};', '']
-Path('firmware/src/StockCodeGlyphs.h').write_text('\n'.join(lines))
+Path('esp8266/src/StockCodeGlyphs.h').write_text('\n'.join(lines))

@@ -22,7 +22,7 @@ def prepare(source, output, expected_sha256):
             raise ValueError('Output version/name mismatch')
         tag = f'esp8266-v{version}'
         materials = f'https://github.com/yaoyouzhong/AI-bot/releases/tag/{tag}'
-        source_url = f'https://github.com/yaoyouzhong/AI-bot/tree/{tag}/firmware'
+        source_url = f'https://github.com/yaoyouzhong/AI-bot/tree/{tag}'
         readme = (f'ESP8266 {version} flash package / 刷机包\n\n'
                   f'Flash firmware.bin with the AI-bot bridge. / 使用 AI-bot 桥接刷写 firmware.bin。\n'
                   f'Full corresponding source, build materials and notices / 对应完整源码、构建材料及许可：{materials}\n'

@@ -44,7 +44,7 @@ def package(output):
         destination.write_bytes(data)
         inventory.append(f"{hashlib.sha256(data).hexdigest()}  {name}")
     (audit / "SOURCE_FILES.sha256").write_text("\n".join(inventory)+"\n", encoding="utf-8")
-    run([sys.executable, "-m", "platformio", "run", "-d", "firmware"], audit)
+    run([sys.executable, "-m", "platformio", "run", "-d", "esp8266"], audit)
     version = versions(audit)["esp8266"]
     stage = audit / artifact_name("esp8266", version).removesuffix(".zip")
     run([sys.executable, "scripts/collect_distribution_materials.py", "firmware", "--stage", str(stage)], audit)

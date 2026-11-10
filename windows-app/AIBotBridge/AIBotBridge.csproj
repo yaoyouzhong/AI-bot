@@ -21,14 +21,14 @@
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
     <EmbeddedResource Include="Assets\app-icon.ico" />
     <EmbeddedResource Include="Assets\flash-icon.ico" />
-    <EmbeddedResource Include="../../firmware/src/StockCodeGlyphs.h" LogicalName="AIBotBridge.StockCodeGlyphs" />
+    <EmbeddedResource Include="../../esp8266/src/StockCodeGlyphs.h" LogicalName="AIBotBridge.StockCodeGlyphs" />
     <EmbeddedResource Include="../../licenses/font-awesome/OFL.txt" LogicalName="AIBotBridge.FontAwesome.OFL" />
     <EmbeddedResource Include="../../licenses/font-awesome/LICENSE.txt" LogicalName="AIBotBridge.FontAwesome.Notice" />
     <EmbeddedResource Include="Assets\runtime-health.wav" LogicalName="AIBotBridge.RuntimeHealthSound" />
     <EmbeddedResource Include="../../docs/art-guides/catalog.zh.json" LogicalName="AIBotBridge.ArtGuides" WithCulture="false" Condition="'$(LocalArt)' == 'true'" />
     <EmbeddedResource Include="../../CHANGELOG.zh.md" LogicalName="AIBotBridge.Notes.bridge" WithCulture="false" />
     <EmbeddedResource Include="../../docs/development/TAB5-CHANGELOG.zh.md" LogicalName="AIBotBridge.Notes.tab5" WithCulture="false" />
-    <EmbeddedResource Include="../../firmware/CHANGELOG.zh.md" LogicalName="AIBotBridge.Notes.esp8266" WithCulture="false" />
+    <EmbeddedResource Include="../../esp8266/CHANGELOG.zh.md" LogicalName="AIBotBridge.Notes.esp8266" WithCulture="false" />
     <Content Include="Assets\flash-icon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Assets\DailyArt\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(LocalArt)' == 'true'" />
     <Content Include="TestFixtures\claude_sprite.h" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

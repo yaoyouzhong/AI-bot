@@ -1,6 +1,6 @@
 import AppKit
 
-// Generated from firmware/src/StockCodeGlyphs.h (TFT_eSPI Font 4; see THIRD_PARTY_NOTICES.md).
+// Generated from esp8266/src/StockCodeGlyphs.h (TFT_eSPI Font 4; see THIRD_PARTY_NOTICES.md).
 // Keep this table synchronized with the firmware when its glyphs change.
 enum MacStockCodeRaster {
     static let glyphs = Data(base64Encoded: """

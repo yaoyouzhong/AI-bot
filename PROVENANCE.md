@@ -49,7 +49,7 @@ code to 姚有忠; this does not authorize copying the surrounding third-party f
   `2dafc6b64d8c230be0320093d331c912f59b989a`.
 - `MigratedWeather/WindowsLocation.cs` and `WeatherSettingsForm.cs`: same legacy directory,
   introduced in `512707360a40e5029f5ec7f6d5d408b1f95f7e14`.
-- `firmware/src/WeatherAnimations.h`: maintainer-authored geometric weather animations
+- `esp8266/src/WeatherAnimations.h`: maintainer-authored geometric weather animations
   from legacy `firmware/src/main.cpp`, lines 2274–2455 at the reviewed checkout.
   `WeatherAnimations.cs` ports that geometry to the independent GDI drawing adapter.
   No bitmap, vendor logo, main pet sprite, or framework source was included.

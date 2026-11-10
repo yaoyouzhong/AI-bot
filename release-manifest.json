@@ -8,9 +8,9 @@
       "changelogs": ["CHANGELOG.md", "CHANGELOG.zh.md"]
     },
     "esp8266": {
-      "versionFile": "firmware/VERSION",
+      "versionFile": "esp8266/VERSION",
       "tagPrefix": "esp8266-v",
-      "changelogs": ["firmware/CHANGELOG.md", "firmware/CHANGELOG.zh.md"]
+      "changelogs": ["esp8266/CHANGELOG.md", "esp8266/CHANGELOG.zh.md"]
     },
     "tab5": {
       "versionFile": "versions/TAB5",

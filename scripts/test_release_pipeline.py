@@ -334,7 +334,7 @@ class UploadAndScopeTests(unittest.TestCase):
                     upload('owner/repo','test',root,manifest,root/'state.json',require_draft=True)
 
     def test_docs_and_release_tools_do_not_compile_products(self):
-        for paths in [['README.md','docs/RELEASE-CHECKLIST.md'],['scripts/release_pipeline.py','.github/workflows/promote.yml'],['firmware/CHANGELOG.zh.md']]:
+        for paths in [['README.md','docs/RELEASE-CHECKLIST.md'],['scripts/release_pipeline.py','.github/workflows/promote.yml'],['esp8266/CHANGELOG.zh.md']]:
             result=classify(paths)
             self.assertTrue(result['tools'])
             self.assertFalse(any(result[k] for k in ('windows','macos','firmware')))
@@ -342,7 +342,7 @@ class UploadAndScopeTests(unittest.TestCase):
     def test_changed_and_deleted_product_paths_are_not_suppressed(self):
         self.assertTrue(classify(['windows-app/AIBotBridge/Program.cs'])['windows'])
         self.assertTrue(classify(['mac-app/Sources/AIBotBridge/SerialBridge.swift','docs/removed.swift'])['macos'])
-        self.assertTrue(classify(['firmware/src/main.cpp'])['firmware'])
+        self.assertTrue(classify(['esp8266/src/main.cpp'])['firmware'])
         tooling=classify(['tools/probe_windows_claude_workspace.py'])
         self.assertTrue(tooling['tools'])
         self.assertFalse(any(tooling[k] for k in ('windows','macos','firmware')))

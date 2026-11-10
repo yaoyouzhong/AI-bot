@@ -15,7 +15,7 @@ def classify(paths):
             result["windows"] = True
         elif path.startswith("mac-app/"):
             result["macos"] = True
-        elif path.startswith("firmware/"):
+        elif path.startswith(("esp8266/", "firmware/")):
             result["docs" if path.endswith(".md") else "firmware"] = True
         elif path == "VERSION":
             result["windows"] = result["macos"] = True

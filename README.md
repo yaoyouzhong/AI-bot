@@ -4,7 +4,7 @@
 
 [完整下载中心](DOWNLOADS.md) · [安装指南](docs/INSTALL.zh.md) · [更新说明](docs/RELEASE-0.6.18.md) · [English](README.en.md)
 
-**源码：** [Windows 桥接](windows-app/) · [Mac 桥接](mac-app/) · [TAB5 大屏固件](tab5/) · [ESP8266 小屏固件](firmware/)
+**源码：** [Windows 桥接](windows-app/) · [Mac 桥接](mac-app/) · [TAB5 大屏固件](tab5/) · [ESP8266 小屏固件](esp8266/)
 
 ## 下载与搭配
 

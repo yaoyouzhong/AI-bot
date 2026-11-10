@@ -30,7 +30,7 @@ final class StockAlignmentTests: XCTestCase {
     }
     func testGlyphTableMatchesFirmwareAndTruncation() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let source = try String(contentsOf: root.appendingPathComponent("firmware/src/StockCodeGlyphs.h"), encoding: .utf8)
+        let source = try String(contentsOf: root.appendingPathComponent("esp8266/src/StockCodeGlyphs.h"), encoding: .utf8)
         let table = try XCTUnwrap(source.components(separatedBy: "stockCodeGlyphs[95][64]").last)
         let regex = try NSRegularExpression(pattern: "0x([0-9a-fA-F]{2})\\b")
         let bytes = regex.matches(in: table, range: NSRange(table.startIndex..., in: table)).map { UInt8(table[Range($0.range(at: 1), in: table)!], radix: 16)! }

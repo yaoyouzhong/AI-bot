@@ -37,7 +37,7 @@ acceptance. Test images and profiles remain under ignored `artifacts/`.
 ```powershell
 dotnet build windows-app\AIBotBridge\AIBotBridge.csproj -c Release
 dotnet run --project windows-app\AIBotBridge\AIBotBridge.csproj -- --status-once
-python -m platformio run -d firmware
+python -m platformio run -d esp8266
 ```
 
 The `--status-once` command must emit valid JSON without starting the tray UI. Firmware validation must end with a successful PlatformIO build. Serial or display changes additionally require a real-device result.

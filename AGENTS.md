@@ -8,7 +8,7 @@
 
 - `windows-app/`：Windows 10/11 托盘桥接程序，负责 AI 状态和额度、天气、股票、系统监控、音乐、桌宠、屏保以及 USB 优先/Wi-Fi 回退。
 - `mac-app/`：macOS 菜单栏桥接程序，提供与平台能力相符的状态、额度、系统监控、音乐、股票、桌宠、设备控制和 LAN 配对功能。
-- `firmware/`：ESP8266/ESP-12S 固件，负责全部显示页面、USB/Wi-Fi 双通道、独立时钟、桌宠和设备管理。
+- `esp8266/`：ESP8266/ESP-12S 固件，负责全部显示页面、USB/Wi-Fi 双通道、独立时钟、桌宠和设备管理。
 - `docs/`：协议、架构、来源和发布说明。
 - `.github/workflows/`：按变更范围验证、原生候选构建和已验收原包晋级。
 
@@ -22,7 +22,7 @@
 - USB 连续 8 秒无有效心跳后必须自动恢复 Wi-Fi HTTP 轮询；桥接恢复后自动回到用户配置页面。
 - 网络和供应商请求失败时保留最近一次成功的可显示数据，不能用空结果覆盖缓存。
 - `tokens_today` 只描述本机可见日志；供应商账户额度必须来自供应商接口或明确的本地授权状态，二者不得混算。
-- 桥接版本源为根目录 `VERSION`；ESP8266 使用 `firmware/VERSION`，TAB5 待发布镜像版本登记在 `versions/TAB5`。三者独立编号，不因另一组件更新而重编号或要求一起刷机。`release-manifest.json` 登记各自标签与更新日志，详见 `docs/COMPONENT-VERSIONS.md`。
+- 桥接版本源为根目录 `VERSION`；ESP8266 使用 `esp8266/VERSION`，TAB5 待发布镜像版本登记在 `versions/TAB5`。三者独立编号，不因另一组件更新而重编号或要求一起刷机。`release-manifest.json` 登记各自标签与更新日志，详见 `docs/COMPONENT-VERSIONS.md`。
 - 组件正式发布使用带注释的 `vX.Y.Z`（电脑端）、`esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui` 标签；0.5.0 及更早的 `vX.Y.Z` 保留组合版语义，旧 `bridge-vX.Y.Z` 仅作历史兼容别名。自动发布衔接先应用并验证已授权的工作流更新。
 - README、CHANGELOG 的中英文内容必须同步。
 
@@ -47,7 +47,7 @@ dotnet run --project windows-app\AIBotBridge\AIBotBridge.csproj -- --status-once
 固件代码变更：
 
 ```powershell
-python -m platformio run -d firmware
+python -m platformio run -d esp8266
 ```
 
 macOS 代码变更（只能在 macOS 上执行）：
