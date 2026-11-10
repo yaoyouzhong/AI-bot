@@ -1,5 +1,7 @@
 # AI-bot 安装与刷机指南
 
+第一次安装？请先按[首次安装图文指南](FIRST-INSTALL.zh.md)逐步操作。
+
 适用于 **Windows 0.6.18、Mac 0.6.18、TAB5 0.2.318-ui、ESP8266 0.5.8**，说明更新于 2026-11-10。Windows 与 Apple Silicon Mac 均支持两类设备。
 
 **先安装电脑应用，再按设备当前系统选择路线。** 第一次只需完成 USB 接入、添加设备和屏幕检查；模型账号、语音、Wi-Fi 和图库都可稍后设置。
@@ -15,13 +17,13 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 
 ## 1. 下载与安装
 
-从[完整下载中心](https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.md)一次找到电脑桥接、小屏固件、TAB5 首刷／升级包与书法／名画图库。已有图库无需重下。按用途选择：
+从[下载中心](../DOWNLOADS.md)下载电脑桥接、小屏固件或 TAB5 首刷／升级包。按用途选择：
 
 | 你要做什么 | 下载什么 |
 | --- | --- |
 | Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-bridge-v0.6.18-windows-x64-setup.exe) |
 | Mac 安装应用（macOS 13+、M 系列芯片） | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-bridge-v0.6.18-macos-arm64.zip) |
-| ESP8266 首刷或更新 | [ESP8266 精简刷机 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) · [完整源码与构建材料](https://github.com/yaoyouzhong/AI-bot/releases/tag/esp8266-v0.5.8) |
+| ESP8266 首刷或更新 | [ESP8266 精简刷机 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) |
 | TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-first-install.zip) |
 | TAB5 已安装 AI-bot，更新固件 | [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-upgrade.zip) |
 

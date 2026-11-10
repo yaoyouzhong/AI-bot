@@ -2,7 +2,7 @@
 
 在 ESP8266 小屏或 M5Stack TAB5 上查看 Claude Code、Codex、模型额度和电脑状态。
 
-[完整下载中心](DOWNLOADS.md) · [安装指南](docs/INSTALL.zh.md) · [更新说明](docs/RELEASE-0.6.18.md) · [English](README.en.md)
+[完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](docs/RELEASE-0.6.18.md) · [English](README.en.md)
 
 **源码：** [Windows 桥接](windows-app/) · [Mac 桥接](mac-app/) · [TAB5 大屏固件](tab5/) · [ESP8266 小屏固件](esp8266/)
 
@@ -17,7 +17,7 @@
 | TAB5 · 出厂系统首次安装 | 0.2.318-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
 | TAB5 · 已有 AI-bot 升级 | 0.2.318-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
 
-[安装与刷机](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md)
+[首次安装图文指南](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/FIRST-INSTALL.zh.md) · [升级与排错](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md)
 <!-- downloads:end -->
 
 ## 选择桌面屏幕

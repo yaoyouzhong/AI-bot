@@ -18,6 +18,7 @@ CATALOG = ROOT / "download-catalog.json"
 HD_CATALOG = ROOT / "gallery-hd-downloads.json"
 CENTER = REPO + "/blob/main/DOWNLOADS.md"
 HD_GUIDE = REPO + "/blob/main/docs/GALLERY-HD.md"
+FIRST_INSTALL_GUIDE = REPO + "/blob/main/docs/FIRST-INSTALL.zh.md"
 ESP_FLASH_TEMPLATE = "AI-bot-esp8266-{version}-flash.zip"
 INSTALL_DOWNLOADS = ("windows", "macos", "esp8266", "tab5-first", "tab5-upgrade")
 # id: component, asset template, Chinese label, English label
@@ -55,6 +56,10 @@ def asset_url(item, filename=None):
 
 def checksum_name(item):
     return item['file'] + '.sha256' if item['file'] == ESP_FLASH_TEMPLATE.format(version=item['version']) else 'SHA256SUMS.txt'
+
+
+def display_size(size):
+    return f"{size / 1024:.0f} KiB" if size < 1048576 else f"{size / 1048576:.0f} MiB"
 
 
 def validate(data):
@@ -224,7 +229,7 @@ def table(data, language="zh", tag=None, *, install_only=False):
         version = gallery_display_version(key, item["version"], language) + ((" · 本次发布" if zh else " · this release") if key in changed else "")
         label = "下载" if zh else "Download"
         if "size" in item:
-            label += f" · {item['size'] / 1024:.0f} KiB" if item['size'] < 1048576 else f" · {item['size'] / 1048576:.0f} MiB"
+            label += f" · {display_size(item['size'])}"
         lines.append(f"| {spec[2 if zh else 3]} | {version} | [{label}]({asset_url(item)}) | [SHA-256]({asset_url(item, checksum_name(item))}) |")
         if key in hd:
             collection = hd[key]
@@ -236,8 +241,8 @@ def table(data, language="zh", tag=None, *, install_only=False):
 
 def guidance(language):
     if language == "zh":
-        return f"[安装与刷机]({REPO}/blob/main/docs/INSTALL.zh.md)"
-    return f"[Installation and flashing]({REPO}/blob/main/docs/INSTALL.zh.md)"
+        return f"[首次安装图文指南]({FIRST_INSTALL_GUIDE}) · [升级与排错]({REPO}/blob/main/docs/INSTALL.zh.md)"
+    return f"[Illustrated first install]({FIRST_INSTALL_GUIDE}) · [English quick start]({REPO}/blob/main/docs/INSTALL.zh.md#english-quick-start)"
 
 
 def block(data, language):
@@ -261,8 +266,29 @@ def sync(data, check=False):
                 path.write_text(content, encoding="utf-8", newline="\n")
 
 
-def release_intro():
-    return f"[完整下载中心]({CENTER}) · [Downloads]({REPO}/blob/main/DOWNLOADS.en.md)\n\n"
+def release_intro(tag=None):
+    center = (f"[首次安装图文 / Illustrated first install]({FIRST_INSTALL_GUIDE}) · "
+              f"[完整下载中心]({CENTER}) · [All downloads]({REPO}/blob/main/DOWNLOADS.en.md)\n\n")
+    if tag is None:
+        return center
+    labels = {
+        "windows": "Windows 10/11 x64 安装器 / Windows installer",
+        "macos": "Mac（Apple Silicon）/ Mac (Apple Silicon)",
+        "esp8266": "ESP8266 小屏刷机包 / ESP8266 flash package",
+        "tab5-first": "TAB5 首次安装 / TAB5 first install",
+        "tab5-upgrade": "TAB5 已有 AI-bot 升级 / TAB5 upgrade",
+    }
+    entries = load()["downloads"]
+    links = []
+    for key in INSTALL_DOWNLOADS:
+        item = entries[key]
+        if item["tag"] != tag:
+            continue
+        size = display_size(item["size"])
+        links.append(f"- [{labels[key]} · {size}]({asset_url(item)})")
+    if not links:
+        return center
+    return "**推荐下载 / Recommended downloads**\n\n" + "\n".join(links) + "\n\n" + center
 
 
 def main():

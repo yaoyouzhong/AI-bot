@@ -11,5 +11,5 @@
 | TAB5 · 出厂系统首次安装 | 0.2.318-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
 | TAB5 · 已有 AI-bot 升级 | 0.2.318-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
 
-[安装与刷机](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md)
+[首次安装图文指南](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/FIRST-INSTALL.zh.md) · [升级与排错](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md)
 <!-- downloads:end -->

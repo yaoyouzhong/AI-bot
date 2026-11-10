@@ -454,7 +454,7 @@ def closeout(*, repository=None, tags=(), commit=False):
             header = re.search(r"^## " + re.escape(version) + r" - \d{4}-\d{2}-\d{2}", body, re.M)
             if not header:
                 raise ValueError("Custom Release body needs an explicit editorial download-link update")
-            updated = release_intro() + body[header.start():]
+            updated = release_intro(tag) + body[header.start():]
             if updated != body:
                 import tempfile
                 with tempfile.TemporaryDirectory(prefix="aibot-release-notes-") as temp:

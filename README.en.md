@@ -2,7 +2,7 @@
 
 See Claude Code and Codex activity, model quotas, and computer status on an ESP8266 display or M5Stack TAB5.
 
-[Complete downloads](DOWNLOADS.en.md) · [Installation guide](docs/INSTALL.zh.md) · [Release notes](docs/RELEASE-0.6.18.md) · [简体中文](README.md)
+[Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](docs/RELEASE-0.6.18.md) · [简体中文](README.md)
 
 **Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
@@ -17,7 +17,7 @@ See Claude Code and Codex activity, model quotas, and computer status on an ESP8
 | TAB5 · first install from factory system | 0.2.318-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
 | TAB5 · upgrade existing AI-bot | 0.2.318-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
 
-[Installation and flashing](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md)
+[Illustrated first install](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/FIRST-INSTALL.zh.md) · [English quick start](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md#english-quick-start)
 <!-- downloads:end -->
 
 ## Choose a desktop display
