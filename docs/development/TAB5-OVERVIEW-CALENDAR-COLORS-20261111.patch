@@ -1,0 +1,147 @@
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R5";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R6";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/firmware/main/ui_dashboard.h
++++ b/firmware/main/ui_dashboard.h
+@@ -2,7 +2,7 @@
+ #define PLAN_GOLD 0xE8D09D
+ static uint32_t usage_color(int used) {return used>=100?RED:used>=90?AMBER:BLUE;}
+ static uint32_t codex_usage_color(double used) {return used<0?MUTED:used>90?RED:used>=75?AMBER:GREEN;}
+-static lv_obj_t *home_date, *home_day, *home_weekday, *home_lunar, *home_holiday;
++static lv_obj_t *home_date, *home_day, *home_weekday, *home_lunar, *home_term, *home_holiday;
+ static lv_obj_t *home_weather, *home_temperature, *home_panels[3];
+ static lv_obj_t *home_brand_labels[3],*home_brand_marks[3];
+ // Provider order matches the existing quotaDetails contract; zero means auto.
+@@ -104,12 +104,13 @@
+     ui_text_font(home_day,&tab5_digits_96,0);
+     home_weekday=label(date,"",6,187,388,false);
+     home_lunar=muted(date,"",6,235,388);
++    home_term=muted(date,"",224,235,170);tint(home_term,BLUE);visible(home_term,false);
+     home_holiday=muted(date,"",6,283,388);
+     shape(date,6,340,388,1,TRACK,0);
+     home_temperature=label(date,"--",6,361,280,true);
+     home_weather_icon=weather_icon_create_set(date,294,349,112);
+     home_weather=muted(date,"等待天气",6,431,388);
+-    lv_obj_t *single[]={home_date,home_weekday,home_lunar,home_holiday,home_weather};
++    lv_obj_t *single[]={home_date,home_weekday,home_lunar,home_term,home_holiday,home_weather};
+     for(int i=0;i<5;i++){lv_obj_set_height(single[i],32);lv_label_set_long_mode(single[i],LV_LABEL_LONG_DOT);}
+     home_calendar_action=overview_hit(date,0,0,400,330,12);
+     home_weather_action=overview_hit(date,0,344,400,132,2);
+--- a/firmware/main/ui_calendar.h
++++ b/firmware/main/ui_calendar.h
+@@ -146,7 +146,6 @@
+     cJSON_ArrayForEach(b,item(calendar_detail(),"birthdays")) {int next=calendar_birthday_next(b,serial),days=next-serial;if(next>=serial&&days<delta&&days<=num(b,"remind")){nearest=b;delta=days;}}
+     calendar_has_birthday=nearest!=NULL;
+     if(nearest) {if(!delta)ui_text_fmt(home_holiday,"今天 · %s的生日",text(nearest,"name"));else ui_text_fmt(home_holiday,"%s的生日 · 还有 %d 天",text(nearest,"name"),delta);tint(home_holiday,PLAN_GOLD);}
+-    else tint(home_holiday,MUTED);
+     static int notified_day;
+     int64_t now=esp_timer_get_time()/1000;
+     if(nearest&&prefs.alerts&&notified_day!=serial&&now>=alert_until&&!home_task_unread&&!saver) {
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2938,13 +2938,28 @@
+     ui_text_fmt(home_date,"%d 年 %d 月 %d 日",local.tm_year+1900,local.tm_mon+1,local.tm_mday);
+     ui_text_fmt(home_day,"%02d:%02d",local.tm_hour,local.tm_min);
+     ui_text(home_weekday,days[local.tm_wday]);
++    int year=local.tm_year+1900,month=local.tm_mon+1,day=local.tm_mday;
++    int schedule_kind;
++    calendar_holiday(year,month*100+day,&schedule_kind);
++    uint32_t day_color=INK;
++    if(schedule_kind==2)day_color=AMBER;
++    else if(schedule_kind==1)day_color=GREEN;
++    else if(local.tm_wday==6)day_color=0xA2B7FF;
++    else if(local.tm_wday==0)day_color=0xD7AED5;
++    tint(home_weekday,day_color);
++
+     const char *today_prefix="今日";
+-    if(today && !strncmp(term,today_prefix,strlen(today_prefix)) && term[strlen(today_prefix)])
+-        ui_text_fmt(home_lunar,"%s · %s",lunar,term+strlen(today_prefix));
+-    else
+-        ui_text(home_lunar,lunar);
+-    calendar_set_today(local.tm_year+1900,local.tm_mon+1,local.tm_mday);
+-    if(!calendar_has_birthday)ui_text(home_holiday,holiday);
++    const char *today_term=!strncmp(term,today_prefix,strlen(today_prefix))
++        ? term+strlen(today_prefix) : !term[0] ? calendar_term(year,month*100+day) : "";
++    ui_text(home_lunar,lunar);
++    lv_obj_set_width(home_lunar,today_term[0]?204:388);
++    ui_text(home_term,today_term);
++    visible(home_term,today_term[0]);
++    calendar_set_today(year,month,day);
++    if(!calendar_has_birthday) {
++        ui_text(home_holiday,holiday);
++        tint(home_holiday,schedule_kind?day_color:MUTED);
++    }
+     static bool clock_sized;
+     if(!clock_sized) {clock_layout();clock_sized=true;}
+     music_empty_refresh();
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2451,6 +2451,45 @@
+     cJSON_AddItemToObject(shown,"pcInput",cJSON_Parse("{\"session\":\"preview-session\",\"sequence\":1}"));
+     cJSON_AddItemToObject(shown,"codexTasks",cJSON_Parse("{\"projects\":[{\"id\":\"aaaaaaaaaaaaaaaa\",\"name\":\"M5Stack TAB5\"},{\"id\":\"bbbbbbbbbbbbbbbb\",\"name\":\"biaoshu\"}],\"tasks\":[{\"id\":\"01a0cc69-2782-7650-9903-303578a0296e\",\"title\":\"检查 TAB5 设备连接\",\"folder\":\"M5Stack TAB5\",\"projectId\":\"aaaaaaaaaaaaaaaa\"},{\"id\":\"01a0cc69-2782-7650-9903-303578a0296f\",\"title\":\"修复标书资料导入\",\"folder\":\"biaoshu\",\"projectId\":\"bbbbbbbbbbbbbbbb\"}],\"receipts\":{}}"));
+     render(); clock_music(10000,true); images_tick(150);
++    if(getenv("TAB5_OVERVIEW_CALENDAR_COLOR_ONLY")) {
++        const struct {
++            const char *name,*date,*holiday,*term;
++            int month,day;
++            uint32_t day_color,holiday_color;
++        } cases[]={
++            {"workday","2026-09-24","工作日 · 距中秋节假期 1 天","",9,24,INK,MUTED},
++            {"saturday","2026-10-17","周末","",10,17,0xA2B7FF,MUTED},
++            {"sunday","2026-10-18","周末","",10,18,0xD7AED5,MUTED},
++            {"holiday","2026-10-01","国庆节假期 · 休息","",10,1,GREEN,GREEN},
++            {"makeup","2026-10-10","调休 · 补班","",10,10,AMBER,AMBER},
++            {"term","2026-10-08","工作日","寒露",10,8,INK,MUTED},
++            {"holiday-term","2026-04-05","清明节假期 · 休息","清明",4,5,GREEN,GREEN},
++        };
++        cJSON *calendar=item(shown,"calendar");
++        cJSON_DeleteItemFromObject(item(calendar,"detail"),"birthdays");
++        cJSON_AddItemToArray(item(item(calendar,"detail"),"holidays"),
++                            cJSON_Parse("{\"start\":404,\"end\":406,\"name\":\"清明节\"}"));
++        cJSON_DeleteItemFromObject(shown,"epochMilliseconds");
++        page(0);
++        for(unsigned i=0;i<sizeof(cases)/sizeof(cases[0]);i++) {
++            int serial=cal_serial(2026,cases[i].month,cases[i].day)-cal_serial(1970,1,1);
++            int64_t local_epoch=(int64_t)serial*86400+10*3600+15*60;
++            cJSON_ReplaceItemInObject(shown,"epochUtc",cJSON_CreateNumber((double)(local_epoch-(int)num(shown,"utcOffsetSeconds"))));
++            cJSON_ReplaceItemInObject(calendar,"date",cJSON_CreateString(cases[i].date));
++            cJSON_ReplaceItemInObject(calendar,"lunar",cJSON_CreateString("农历初十"));
++            cJSON_ReplaceItemInObject(calendar,"holidayLabel",cJSON_CreateString(cases[i].holiday));
++            cJSON_ReplaceItemInObject(calendar,"solarTermLabel",cJSON_CreateString(""));
++            last_received=12000+i*1000;clock_music(last_received,true);
++            assert(lv_color_eq(lv_obj_get_style_text_color(home_weekday,0),lv_color_hex(cases[i].day_color)));
++            assert(lv_color_eq(lv_obj_get_style_text_color(home_holiday,0),lv_color_hex(cases[i].holiday_color)));
++            assert(!strcmp(lv_label_get_text(home_term),cases[i].term));
++            assert(lv_obj_has_flag(home_term,LV_OBJ_FLAG_HIDDEN)==!cases[i].term[0]);
++            assert(lv_color_eq(lv_obj_get_style_text_color(home_term,0),lv_color_hex(BLUE)));
++            char name[72];snprintf(name,sizeof(name),"overview-calendar-%s",cases[i].name);capture(name);
++        }
++        puts("OVERVIEW_CALENDAR_COLOR_OK weekday Saturday Sunday official holiday makeup term and overlap");
++        return 0;
++    }
+     if(getenv("TAB5_CLOCK_DAY_ONLY")) {
+         const char *inputs[]={"周末","工作日","周末 · 距春节假期 12 天","工作日 · 距中秋节假期 2 天","调休 · 补班","国庆节假期 · 休息","节假日安排待更新","周末活动","工作日程",""};
+         const char *expected[]={"","","距春节假期 12 天","距中秋节假期 2 天","调休 · 补班","国庆节假期 · 休息","节假日安排待更新","周末活动","工作日程",""};
+@@ -3021,7 +3060,8 @@
+     lv_obj_send_event(weather_nav[2],LV_EVENT_CLICKED,NULL);assert(!strcmp(lv_label_get_text(day_rain[0]),"降水 2.4 mm"));capture("weather-seven-days");
+     weather_forecast_render(NULL);capture("weather-forecast-unavailable");assert(!lv_obj_has_flag(forecast_empty[1],LV_OBJ_FLAG_HIDDEN));
+     weather_forecast_render(weather_data);lv_obj_send_event(weather_nav[0],LV_EVENT_CLICKED,NULL);workbench_return(NULL);
+-    assert(!strcmp(lv_label_get_text(home_lunar),"八月十三 · 秋分"));
++    assert(!strcmp(lv_label_get_text(home_lunar),"八月十三"));
++    assert(!lv_obj_has_flag(home_term,LV_OBJ_FLAG_HIDDEN)&&!strcmp(lv_label_get_text(home_term),"秋分"));
+     cJSON *home_fixture=shown;
+     int64_t home_saved_offline=offline_since;link_kind home_saved_link=last_link;
+     offline_since=-1;last_link=LINK_USB;
+@@ -3059,6 +3099,7 @@
+     cJSON_ReplaceItemInObject(item(shown,"calendar"),"solarTermLabel",cJSON_CreateString("下个节气 寒露 10-08"));
+     clock_music(11000,true);
+     assert(!strcmp(lv_label_get_text(home_lunar),"八月十三"));
++    assert(lv_obj_has_flag(home_term,LV_OBJ_FLAG_HIDDEN));
+     assert(!strchr(lv_label_get_text(home_weather),'\n'));
+     assert(!strcmp(lv_label_get_text(home_values[1]),"75.37"));
+     assert(!strcmp(lv_label_get_text(home_values[2]),"96.72"));

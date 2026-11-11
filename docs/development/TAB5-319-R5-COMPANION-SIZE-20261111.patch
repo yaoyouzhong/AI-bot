@@ -1,0 +1,30 @@
+--- a/firmware/main/ui_claude_companion.h
++++ b/firmware/main/ui_claude_companion.h
+@@ -104,7 +104,7 @@
+     }
+     int scale=view==&home_claude?(int)info.scale_q8:(int)info.saver_scale_q8;
+     // Keep the original aspect ratio and balance the visible area with Codex.
+-    scale=(scale*209+128)/256;
++    scale=(scale*200+128)/256;
+     int lift=view==&saver_claude?(int)info.saver_lift:0;
+     if(view->last_frame!=(int)info.frame||view->last_scale!=scale||view->last_lift!=lift) {
+         // Match the Codex overview actor center. Fixed clip anchors preserve
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R4";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R5";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/firmware/main/display_diagnostics.c
++++ b/firmware/main/display_diagnostics.c
+@@ -148,7 +148,7 @@
+     if(used<size)snprintf(out+used,size-used,";ime,%s,%u",ime,(unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+     used=(unsigned)strlen(out);
+     unsigned sequence=underrun_sequence;
+-    if(used<size)snprintf(out+used,size-used,";fifo,1,%u,%u,%u",
++    if(used<size&&frame_count)snprintf(out+used,size-used,";fifo,1,%u,%u,%u",
+         (unsigned)MIPI_DSI_BRIDGE.raw_buf_almost_empty_thrd.dsi_raw_buf_almost_empty_thrd,
+         (unsigned)MIPI_DSI_BRIDGE.dma_req_cfg.dma_burst_len,
+         (unsigned)MIPI_DSI_BRIDGE.dpi_misc_config.fifo_underrun_discard_vcnt);

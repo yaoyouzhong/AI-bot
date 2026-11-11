@@ -1,0 +1,32 @@
+--- a/components/esp_lcd/dsi/esp_lcd_panel_dpi.c
++++ b/components/esp_lcd/dsi/esp_lcd_panel_dpi.c
+@@ -324,14 +324,17 @@
+                                               panel_config->video_timing.v_size,
+                                               panel_config->video_timing.vsync_front_porch);
+     mipi_dsi_brg_ll_set_num_pixel_bits(hal->bridge, panel_config->video_timing.h_size * panel_config->video_timing.v_size * bits_per_pixel);
+-    mipi_dsi_brg_ll_set_underrun_discard_count(hal->bridge, panel_config->video_timing.h_size);
++    mipi_dsi_brg_ll_set_underrun_discard_count(hal->bridge,
++        panel_config->video_timing.vsync_pulse_width + panel_config->video_timing.vsync_back_porch +
++        panel_config->video_timing.v_size + panel_config->video_timing.vsync_front_porch);
+     // set input color space
+     mipi_dsi_brg_ll_set_input_color_space(hal->bridge, COLOR_SPACE_TYPE(in_color_format));
+     // use the DW_GDMA as the flow controller
+     mipi_dsi_brg_ll_set_flow_controller(hal->bridge, MIPI_DSI_LL_FLOW_CONTROLLER_DMA);
+     mipi_dsi_brg_ll_set_multi_block_number(hal->bridge, DPI_PANEL_MIN_DMA_NODES_PER_LINK);
+-    mipi_dsi_brg_ll_set_burst_len(hal->bridge, 256);
+-    mipi_dsi_brg_ll_set_empty_threshold(hal->bridge, 1024 - 256);
++    /* TAB5 LCD refill margin */
++    mipi_dsi_brg_ll_set_burst_len(hal->bridge, 128);
++    mipi_dsi_brg_ll_set_empty_threshold(hal->bridge, 1024 - 128);
+     // enable DSI bridge
+     mipi_dsi_brg_ll_enable(hal->bridge, true);
+     mipi_dsi_brg_ll_update_dpi_config(hal->bridge);
+@@ -425,7 +428,7 @@
+         .dst = {
+             .addr = MIPI_DSI_BRG_MEM_BASE,
+             .burst_mode = DW_GDMA_BURST_MODE_FIXED,
+-            .burst_items = DW_GDMA_BURST_ITEMS_256,
++            .burst_items = DW_GDMA_BURST_ITEMS_128,
+             .burst_len = 16,
+             .width = DW_GDMA_TRANS_WIDTH_64,
+         },

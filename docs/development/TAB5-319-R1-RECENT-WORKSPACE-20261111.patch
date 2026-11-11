@@ -1,0 +1,236 @@
+diff --git a/firmware/CMakeLists.txt b/firmware/CMakeLists.txt
+--- a/firmware/CMakeLists.txt
++++ b/firmware/CMakeLists.txt
+@@ -1,6 +1,6 @@
+ cmake_minimum_required(VERSION 3.16)
+ include("${CMAKE_CURRENT_LIST_DIR}/../cmake/WindowsNinjaResponseFiles.cmake")
+-set(PROJECT_VER "0.2.217-ui")
++set(PROJECT_VER "0.2.319-ui")
+ option(TAB5_LOCAL_ART "Build daily art support; collections are installed separately" ON)
+ if(TAB5_LOCAL_VERSION)
+     set(PROJECT_VER "${TAB5_LOCAL_VERSION}")
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R13";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R1";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/firmware/main/ui.c b/firmware/main/ui.c
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -402,11 +402,14 @@
+ static char workspace_tasks[2][37],workspace_projects[2][17];
+ static int workspace_switch_pending=-1;
+ static int64_t workspace_switch_hint_at;
++static bool workspace_recent_entry;
+ static bool workspace_stopping;
+ static void workspace_stop_tick(void);
+ static const char *workspace_name(void){return workspace_client?"claude":"codex";}
+ static const char *workspace_key(void){return workspace_client?"claudeTasks":"codexTasks";}
+ static bool workspace_choose(unsigned next);
++static void workspace_cancel_recent_entry(void);
++static bool workspace_focus_recent_entry(void);
+ static void workspace_changed(lv_event_t *e);
+ static void workspace_switch_tick(void);
+ static link_kind last_link = LINK_NONE;
+@@ -822,6 +825,7 @@
+     settings_feedback("已保存到 TAB5",false);
+ }
+ static void page_select(int index,bool move_strip) {
++    if(index!=8)workspace_cancel_recent_entry();
+     if(index!=8&&codex_project_picker)lv_dropdown_close(codex_project_picker);
+     if(current_page==7&&index!=7)clock_return_page=-1;
+     if(index!=4&&health_open)health_leave_system();
+@@ -1585,6 +1589,7 @@
+         snprintf(codex_cache_session,sizeof(codex_cache_session),"%s",cache_session);
+     }
+     if (!codex_list || !shown || codex_waiting || codex_voice_waiting || codex_send_queued) return;
++    if(workspace_recent_entry&&workspace_focus_recent_entry())return;
+     cJSON *remote = item(shown, workspace_key()), *tasks = item(remote, "tasks"), *projects=item(remote,"projects");
+     int count = cJSON_GetArraySize(tasks);
+     // A transient empty snapshot must not discard the selected task, its
+@@ -1999,13 +2004,23 @@
+ }
+ static void workspace_open_task(unsigned client,const char *task,int return_page) {
+     if(strlen(task)!=36)return;
++    workspace_cancel_recent_entry();
+     workspace_open_return=return_page==8?8:0;
+     workspace_open_reply[0]=0;
+     if(codex_notices)for(int i=0;i<80;i++)if(!strcmp(codex_notices[i].task,task)&&codex_notices[i].unread){snprintf(workspace_open_reply,sizeof(workspace_open_reply),"%s",codex_notices[i].turn);break;}
+     snprintf(workspace_open_target,sizeof(workspace_open_target),"%s",task);workspace_open_client=client;workspace_open_deadline=esp_timer_get_time()/1000+15000;
+     workspace_open_tick();
+ }
+-static void workspace_changed(lv_event_t *e){workspace_open_target[0]=0;workspace_choose((unsigned)(uintptr_t)lv_event_get_user_data(e));}
++static void workspace_cancel_recent_entry(void) {
++    if(!workspace_recent_entry)return;
++    workspace_recent_entry=false;
++    if(workspace_switch_pending>=0){workspace_switch_pending=-1;ui_text(codex_voice_hint,"");}
++}
++static void workspace_changed(lv_event_t *e) {
++    workspace_cancel_recent_entry();
++    workspace_open_target[0]=0;
++    workspace_choose((unsigned)(uintptr_t)lv_event_get_user_data(e));
++}
+ static void workspace_switch_tick(void) {
+     if(workspace_switch_pending<0)return;
+     if(!workspace_switch_busy()&&!workspace_dirty())workspace_apply((unsigned)workspace_switch_pending);
+@@ -2014,29 +2029,52 @@
+ static void codex_selected_changed(lv_event_t *e) {
+     int index=(int)(intptr_t)lv_event_get_user_data(e);
+     if(index<0||index>=8||!codex_task_ids[index][0])return;
++    workspace_cancel_recent_entry();
+     codex_default_pending=false;
+     codex_select_task(codex_task_ids[index]);
+ }
+ static void codex_list_scrolled(lv_event_t *e) {
+     (void)e;if(!codex_list_rebinding&&current_page==8)render_codex();
+ }
+-static bool codex_default_focus(bool all_projects) {
+-    if(codex_waiting||codex_voice_waiting||codex_send_queued||!codex_save_draft())return false;
++static cJSON *workspace_latest_task(unsigned client,bool all_projects) {
+     cJSON *latest=NULL,*task=NULL;
+-    cJSON_ArrayForEach(task,item(item(shown,workspace_key()),"tasks")) {
++    cJSON_ArrayForEach(task,item(item(shown,client?"claudeTasks":"codexTasks"),"tasks")) {
+         if(strlen(text(task,"id"))!=36)continue;
+         if(!all_projects&&codex_project_selected[0]&&strcmp(workspace_project_root(text(task,"projectId")),codex_project_selected))continue;
+         if(!latest||num(task,"updatedAt")>num(latest,"updatedAt"))latest=task;
+     }
+-    if(!latest)return false;
++    return latest;
++}
++static void workspace_focus_default(cJSON *latest) {
+     // Reveal the newly chosen default in the virtual list. The renderer still
+     // gives newly promoted unread rows and active gestures their usual priority.
+     codex_default_pending=false;codex_restore_project=true;
+-    const char *project=workspace_project_root(text(latest,"projectId"));
+-    snprintf(codex_project_selected,sizeof(codex_project_selected),"%s",strlen(project)==16?project:"");
+     char id[37];snprintf(id,sizeof(id),"%s",text(latest,"id"));
+     if(!strcmp(id,codex_selected))render_codex();else codex_select_task(id);
++}
++static bool codex_default_focus(bool all_projects) {
++    if(codex_waiting||codex_voice_waiting||codex_send_queued||!codex_save_draft())return false;
++    cJSON *latest=workspace_latest_task(workspace_client,all_projects);
++    if(!latest)return false;
++    workspace_focus_default(latest);
+     return true;
++}
++static bool workspace_focus_recent_entry(void) {
++    if(workspace_switch_pending>=0||workspace_switch_input_busy())return false;
++    unsigned other=1-workspace_client;
++    cJSON *latest=workspace_latest_task(workspace_client,true);
++    cJSON *other_latest=workspace_latest_task(other,true);
++    // A tie keeps the current client. Missing catalogs have no candidate.
++    if(other_latest&&(!latest||num(other_latest,"updatedAt")>num(latest,"updatedAt")))return workspace_choose(other);
++    if(!latest||!codex_save_draft())return false;
++    workspace_recent_entry=false;
++    workspace_focus_default(latest);
++    return true;
++}
++static void workspace_enter_recent(void) {
++    workspace_recent_entry=true;
++    codex_default_pending=false;
++    render_codex();
+ }
+ static void codex_reply_refresh(lv_event_t *e) {
+     if(codex_nav_timed_out)return;
+@@ -2320,6 +2358,7 @@
+     if(codex_waiting||codex_voice_waiting||codex_send_queued)return;
+     int index=lv_dropdown_get_selected(lv_event_get_target(e));
+     if(index<0||index>=codex_project_count)return;
++    workspace_cancel_recent_entry();
+     codex_default_pending=false;
+     if(!codex_save_draft())return;
+     codex_bookmark_save();
+@@ -2335,6 +2374,7 @@
+ static void codex_input_focus(lv_event_t *e) {
+     (void)e;
+     if(codex_waiting||codex_voice_waiting)return;
++    workspace_cancel_recent_entry();
+     codex_draft *d=codex_draft_for(codex_selected,false);if(d&&d->request[0]){ui_text(codex_receipt,"请先查询上一条消息是否送达");return;}
+     lv_obj_set_height(codex_input,112);
+     lv_obj_remove_flag(codex_keyboard, LV_OBJ_FLAG_HIDDEN);
+@@ -3989,7 +4029,7 @@
+     bool default_codex=primary_pages[slot]==8&&current_page!=8;
+     if(primary_pages[slot]==1&&current_page!=1){selected_quota=1;lv_dropdown_set_selected(quota_picker,1);render_quota();}
+     page_select(primary_pages[slot],false);
+-    if(default_codex){codex_default_pending=codex_default_all=true;render_codex();}
++    if(default_codex)workspace_enter_recent();
+     last_change = esp_timer_get_time() / 1000;
+     saver = false;
+     if (current_page < 8 && prefs.selected>=0) {
+@@ -4080,7 +4120,7 @@
+     if(target==1){selected_quota=1;lv_dropdown_set_selected(quota_picker,1);render_quota();}
+     bool default_codex=target==8&&current_page!=8;
+     page(target);
+-    if(default_codex){codex_default_pending=codex_default_all=true;render_codex();}
++    if(default_codex)workspace_enter_recent();
+     if(target<8&&prefs.selected>=0){ui_preferences next=prefs;next.selected=target;display_preferences_commit(&next);}
+ }
+ static void workbench_return(lv_event_t *e) {
+diff --git a/tests/ui-preview/preview.c b/tests/ui-preview/preview.c
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2196,6 +2196,7 @@
+     if(getenv("TAB5_CANCELLED_DRAFT_ONLY")){check_cancelled_draft_refresh();return 0;}
+     if(getenv("TAB5_WORKSPACE_PARITY_ONLY")){check_workspace_parity_ui();return 0;}
+     if(getenv("TAB5_WORKSPACE_SWITCH_SYNC_ONLY")){check_workspace_switch_sync();return 0;}
++    if(getenv("TAB5_WORKSPACE_RECENT_ENTRY_ONLY")){check_workspace_recent_entry();return 0;}
+     if(getenv("TAB5_CLAUDE_COMPANION_ONLY")){check_claude_companion_ui();return 0;}
+     if(getenv("TAB5_CODEX_COMPANION_ONLY")){check_codex_companion_ui();return 0;}
+     if(getenv("TAB5_PINYIN_ONLY")) {
+diff --git a/tests/ui-preview/workspace_switch_sync_test.h b/tests/ui-preview/workspace_switch_sync_test.h
+--- a/tests/ui-preview/workspace_switch_sync_test.h
++++ b/tests/ui-preview/workspace_switch_sync_test.h
+@@ -1,5 +1,49 @@
+ static void workspace_switch_settle_animation(void) {
+     for(int i=0;i<20;i++){lv_tick_inc(50);lv_anim_refr_now();}
++}
++static void check_workspace_recent_entry(void) {
++    const char *fixture="{\"pcInput\":{\"session\":\"recent-entry\"},"
++        "\"codexTasks\":{\"tasks\":[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"title\":\"Codex 较早会话\",\"updatedAt\":100},"
++        "{\"id\":\"11111111-1111-4111-8111-111111111112\",\"title\":\"Codex 最近会话\",\"updatedAt\":200}]},"
++        "\"claudeTasks\":{\"tasks\":[{\"id\":\"22222222-2222-4222-8222-222222222221\",\"title\":\"Claude 较早会话\",\"updatedAt\":150},"
++        "{\"id\":\"22222222-2222-4222-8222-222222222222\",\"title\":\"Claude 最近会话\",\"updatedAt\":300}]}}";
++    cJSON_Delete(shown);shown=cJSON_Parse(fixture);assert(shown);
++    cJSON *codex=cJSON_GetArrayItem(item(item(shown,"codexTasks"),"tasks"),1);
++    cJSON *claude=cJSON_GetArrayItem(item(item(shown,"claudeTasks"),"tasks"),1);
++    last_received=preview_now_us/1000;
++    int submissions=preview_submit_count;
++    page(0);lv_obj_send_event(workbench_nav[1],LV_EVENT_CLICKED,NULL);
++    assert(current_page==8&&workspace_client==1&&!strcmp(codex_selected,text(claude,"id")));
++    workspace_switch_settle_animation();capture("recent-entry-cloud");
++
++    cJSON_SetNumberValue(item(codex,"updatedAt"),400);render_codex();
++    assert(workspace_client==1&&!strcmp(codex_selected,text(claude,"id")));
++    page(1);lv_tabview_set_active(tabs,1,LV_ANIM_OFF);lv_obj_send_event(tabs,LV_EVENT_VALUE_CHANGED,NULL);
++    assert(current_page==8&&workspace_client==0&&!strcmp(codex_selected,text(codex,"id")));
++    workspace_switch_settle_animation();capture("recent-entry-codex");
++
++    // Equal timestamps keep the current tab. A manual selection stays put
++    // even when another client has the latest task.
++    cJSON_SetNumberValue(item(claude,"updatedAt"),400);
++    page(0);lv_obj_send_event(workbench_nav[1],LV_EVENT_CLICKED,NULL);
++    assert(workspace_client==0&&!strcmp(codex_selected,text(codex,"id")));
++    lv_obj_send_event(workspace_buttons[1],LV_EVENT_CLICKED,NULL);
++    cJSON_SetNumberValue(item(codex,"updatedAt"),500);render_codex();
++    assert(workspace_client==1&&!strcmp(codex_selected,text(claude,"id")));
++
++    codex_set_text("保留未发送草稿");assert(codex_save_draft());
++    codex_draft *draft=codex_draft_for(codex_selected,false);assert(draft&&draft->dirty);
++    page(0);lv_obj_send_event(workbench_nav[1],LV_EVENT_CLICKED,NULL);
++    assert(workspace_client==1&&workspace_switch_pending==0);
++    // Leaving the page cancels a queued automatic switch. A new entry may
++    // still complete the switch after the existing save acknowledges.
++    page(0);assert(workspace_switch_pending<0&&workspace_client==1);
++    lv_obj_send_event(workbench_nav[1],LV_EVENT_CLICKED,NULL);
++    assert(workspace_switch_pending==0);
++    draft->dirty=false;workspace_switch_tick();
++    assert(workspace_client==0&&!strcmp(codex_selected,text(codex,"id")));
++    assert(!strcmp(draft->text,"保留未发送草稿")&&preview_submit_count==submissions);
++    puts("WORKSPACE_RECENT_ENTRY_OK bottom_navigation, other_page_swipe, both_clients, ties, no_refresh_override, draft_guard, abandoned_entry, no_submission");
+ }
+ static void check_workspace_switch_sync(void) {
+     const char *fixture="{\"epochMilliseconds\":1793758000000,\"pcInput\":{\"session\":\"workspace-fixture\"},\"codex\":{\"state\":\"idle\"},\"claude\":{\"state\":\"idle\"},\"codexTasks\":{\"projects\":[{\"id\":\"1111111111111111\",\"name\":\"AI-bot · Codex\"}],\"tasks\":[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"projectId\":\"1111111111111111\",\"title\":\"切换验收 · Codex\",\"updatedAt\":1793758000}]},\"claudeTasks\":{\"projects\":[{\"id\":\"2222222222222222\",\"name\":\"AI-bot · Claude\"}],\"tasks\":[{\"id\":\"22222222-2222-4222-8222-222222222222\",\"projectId\":\"2222222222222222\",\"title\":\"切换验收 · Claude\",\"updatedAt\":1793758001}]}}";

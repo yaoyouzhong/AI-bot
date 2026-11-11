@@ -1,0 +1,349 @@
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R1";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R2";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/firmware/main/claude_companion.c b/firmware/main/claude_companion.c
+--- a/firmware/main/claude_companion.c
++++ b/firmware/main/claude_companion.c
+@@ -5,18 +5,39 @@
+ #else
+ #define CLAUDE_HAS_ART 0
+ #endif
++#if CLAUDE_HAS_ART && __has_include("claude_headphones_data.inc")
++#include "claude_headphones_data.inc"
++#define CLAUDE_HAS_HEADPHONES 1
++_Static_assert(HEADPHONES_WIDTH * HEADPHONES_HEIGHT * 3 <= CLAUDE_COMPANION_FRAME_BYTES, "Headphones frame exceeds decode buffer");
++#else
++#define CLAUDE_HAS_HEADPHONES 0
++#endif
+ 
+ bool claude_companion_asset_available(void) { return CLAUDE_HAS_ART; }
+-unsigned claude_companion_frame_count(void) {
++static unsigned claude_base_frame_count(void) {
+ #if CLAUDE_HAS_ART
+     return sizeof(claude_pet_frames)/sizeof(claude_pet_frames[0]);
+ #else
+     return 0;
+ #endif
+ }
++unsigned claude_companion_frame_count(void) {
++#if CLAUDE_HAS_HEADPHONES
++    return claude_base_frame_count()+HEADPHONES_FRAMES;
++#else
++    return claude_base_frame_count();
++#endif
++}
+ claude_companion_frame_info claude_companion_frame(codex_companion_state state,int64_t elapsed,bool repeat_completion) {
+     claude_companion_frame_info result={0};
+ #if CLAUDE_HAS_ART
++#if CLAUDE_HAS_HEADPHONES
++    if(state==CODEX_COMPANION_WORKING) {
++        unsigned local=(unsigned)((uint64_t)(elapsed>0?elapsed:0)/HEADPHONES_DELAY_MS%HEADPHONES_FRAMES);
++        return (claude_companion_frame_info){claude_base_frame_count()+local,HEADPHONES_WIDTH,HEADPHONES_HEIGHT,
++            HEADPHONES_WIDTH-1,384u,HEADPHONES_HEIGHT,4u,1024u,0u};
++    }
++#endif
+     unsigned group=4; // Unknown: search/exploration, using the original space clip.
+     if(state==CODEX_COMPANION_WORKING)group=0;
+     else if(state==CODEX_COMPANION_IDLE)group=0;
+@@ -51,6 +72,18 @@
+ bool claude_companion_decode(unsigned frame,uint8_t *output,size_t capacity,unsigned *width,unsigned *height) {
+ #if CLAUDE_HAS_ART
+     if(frame>=claude_companion_frame_count())return false;
++#if CLAUDE_HAS_HEADPHONES
++    if(frame>=claude_base_frame_count()) {
++        unsigned local=frame-claude_base_frame_count();
++        unsigned w=HEADPHONES_WIDTH,h=HEADPHONES_HEIGHT;
++        size_t start=claude_headphones_offsets[local],end=claude_headphones_offsets[local+1];
++        if(capacity<w*h*3u||end<=start||end>sizeof(claude_headphones_stream))return false;
++        if(!codex_companion_unpack(claude_headphones_stream+start,end-start,claude_headphones_palette,claude_headphones_alpha,output,w*h))return false;
++        if(width)*width=w;
++        if(height)*height=h;
++        return true;
++    }
++#endif
+     unsigned w=claude_pet_frames[frame].width,h=claude_pet_frames[frame].height;
+     size_t offset=claude_pet_frames[frame].offset,size=claude_pet_frames[frame].size;
+     if(capacity<w*h*3u||offset>sizeof(claude_pet_stream)||size>sizeof(claude_pet_stream)-offset)return false;
+diff --git a/firmware/main/claude_companion.h b/firmware/main/claude_companion.h
+--- a/firmware/main/claude_companion.h
++++ b/firmware/main/claude_companion.h
+@@ -1,6 +1,6 @@
+ #pragma once
+ #include "codex_companion.h"
+-#define CLAUDE_COMPANION_FRAME_BYTES (40 * 33 * 3)
++#define CLAUDE_COMPANION_FRAME_BYTES (106 * 67 * 3)
+ typedef struct {
+     unsigned frame, width, height, anchor_x2, scale_q8, anchor_y2, saver_scale, saver_scale_q8, saver_lift;
+ } claude_companion_frame_info;
+diff --git a/firmware/main/ui_claude_companion.h b/firmware/main/ui_claude_companion.h
+--- a/firmware/main/ui_claude_companion.h
++++ b/firmware/main/ui_claude_companion.h
+@@ -83,7 +83,14 @@
+ static void claude_pet_tick(claude_pet_view *view,codex_companion_state value,int64_t now,bool show) {
+     if(!view->root)return;
+     visible(view->root,show);if(!show)return;
+-    if(!claude_pixels){claude_pixels=lv_malloc(CLAUDE_COMPANION_FRAME_BYTES);if(!claude_pixels)return;}
++    if(!claude_pixels){
++#ifdef ESP_PLATFORM
++        claude_pixels=heap_caps_malloc(CLAUDE_COMPANION_FRAME_BYTES,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++#else
++        claude_pixels=lv_malloc(CLAUDE_COMPANION_FRAME_BYTES);
++#endif
++        if(!claude_pixels)return;
++    }
+     claude_companion_frame_info info=claude_companion_frame(value,now-claude_mood_started,view==&saver_claude);
+     if(info.frame!=claude_rendered_frame) {
+         unsigned w,h;
+diff --git a/tests/ui-preview/claude_companion_test.c b/tests/ui-preview/claude_companion_test.c
+--- a/tests/ui-preview/claude_companion_test.c
++++ b/tests/ui-preview/claude_companion_test.c
+@@ -4,16 +4,25 @@
+ #include <string.h>
+ 
+ int main(int argc,char **argv) {
+-    assert(claude_companion_asset_available()&&claude_companion_frame_count()==378);
++    unsigned frame_count=claude_companion_frame_count();
++    assert(claude_companion_asset_available()&&(frame_count==378||frame_count==384));
++    bool headphones=frame_count==384;
+     unsigned work=claude_companion_frame(CODEX_COMPANION_WORKING,0,false).frame;
+     assert(claude_companion_frame(CODEX_COMPANION_WORKING,1000,false).frame!=work);
+-    assert(claude_companion_frame(CODEX_COMPANION_WORKING,7000,false).frame==work);
++    if(headphones) {
++        assert(work==378&&claude_companion_frame(CODEX_COMPANION_WORKING,720,false).frame==work);
++        for(unsigned i=0;i<6;i++) {
++            claude_companion_frame_info first=claude_companion_frame(CODEX_COMPANION_WORKING,i*120,false);
++            claude_companion_frame_info last=claude_companion_frame(CODEX_COMPANION_WORKING,i*120+119,true);
++            assert(first.frame==work+i&&last.frame==first.frame&&first.width==106&&first.height==67);
++        }
++    } else assert(claude_companion_frame(CODEX_COMPANION_WORKING,7000,false).frame==work);
+     assert(claude_companion_frame(CODEX_COMPANION_DONE,7000,false).frame==claude_companion_frame(CODEX_COMPANION_DONE,70000,false).frame);
+     assert(claude_companion_frame(CODEX_COMPANION_STOPPED,0,false).frame==claude_companion_frame(CODEX_COMPANION_STOPPED,70000,false).frame);
+     assert(claude_companion_frame(CODEX_COMPANION_WAITING,3400,false).frame!=claude_companion_frame(CODEX_COMPANION_UNKNOWN,3400,false).frame);
+     assert(claude_companion_frame(CODEX_COMPANION_DONE,7000,true).frame!=claude_companion_frame(CODEX_COMPANION_DONE,7000,false).frame);
+     claude_companion_frame_info relaxed=claude_companion_frame(CODEX_COMPANION_IDLE,0,false),inhale=claude_companion_frame(CODEX_COMPANION_IDLE,1800,false),loop=claude_companion_frame(CODEX_COMPANION_IDLE,3600,false);
+-    assert(relaxed.frame==work&&inhale.frame==work&&loop.frame==work);
++    assert(relaxed.frame==0&&inhale.frame==relaxed.frame&&loop.frame==relaxed.frame);
+     assert(inhale.scale_q8>relaxed.scale_q8&&inhale.scale_q8-relaxed.scale_q8<=16&&loop.scale_q8==relaxed.scale_q8);
+     assert(inhale.saver_scale_q8-relaxed.saver_scale_q8==128&&loop.saver_scale_q8==relaxed.saver_scale_q8);
+     assert(relaxed.saver_lift==0&&inhale.saver_lift==12&&loop.saver_lift==0);
+@@ -32,12 +41,13 @@
+         assert(width&&height&&width*height*3<=sizeof(buffer)&&width%2==0);
+         if(dump){fwrite(&width,4,1,dump);fwrite(&height,4,1,dump);fwrite(buffer,1,width*height*3,dump);}
+     }
+-    assert(!claude_companion_decode(378,buffer,sizeof(buffer),NULL,NULL));
++    assert(!claude_companion_decode(frame_count,buffer,sizeof(buffer),NULL,NULL));
+     const codex_companion_state states[]={CODEX_COMPANION_WORKING,CODEX_COMPANION_IDLE,CODEX_COMPANION_WAITING,CODEX_COMPANION_DONE,CODEX_COMPANION_UNKNOWN,CODEX_COMPANION_STOPPED};
+-    const unsigned counts[]={28,44,101,73,131,1};
++    const unsigned counts[]={headphones?6u:28u,44,101,73,131,1};
+     unsigned aligned=0;
+     for(unsigned group=0;group<6;group++)for(unsigned i=0;i<counts[group];i++) {
+-        claude_companion_frame_info f=claude_companion_frame(states[group],(i*1000+11)/12,true);
++        unsigned at=headphones&&group==0?i*120:(i*1000+11)/12;
++        claude_companion_frame_info f=claude_companion_frame(states[group],at,true);
+         unsigned w,h;assert(claude_companion_decode(f.frame,buffer,sizeof(buffer),&w,&h));
+         int left=152-(int)(f.anchor_x2*f.scale_q8+256)/512;
+         int top=130-(int)(f.anchor_y2*f.scale_q8+256)/512;
+@@ -48,8 +58,8 @@
+         }
+         aligned++;
+     }
+-    assert(aligned==378);
++    assert(aligned==(headphones?356u:378u));
+     if(dump)fclose(dump);
+-    puts("CLAUDE_COMPANION_OK all_378_frames, bounds, continuous_work, completion_hold, static_rest");
++    puts(headphones?"CLAUDE_COMPANION_OK all_384_frames, six_frame_work_only, 120ms_loop, bounds, completion_hold, static_rest":"CLAUDE_COMPANION_OK all_378_frames, bounds, continuous_work, completion_hold, static_rest");
+     return 0;
+ }
+diff --git a/tests/ui-preview/claude_companion_ui_test.h b/tests/ui-preview/claude_companion_ui_test.h
+--- a/tests/ui-preview/claude_companion_ui_test.h
++++ b/tests/ui-preview/claude_companion_ui_test.h
+@@ -33,6 +33,19 @@
+     for(int i=0;i<24;i++){lv_tick_inc(16);lv_indev_read(automation_input);}
+     assert(!automation_pressed&&lv_obj_get_scroll_y(scroll)>80);cJSON_Delete(f);lv_obj_delete(scroll);
+     puts("TAB5_UI_AUTOMATION_REAL_POINTER_OK four rotations, real scrolling, bounds, replay, stale/link rejection and cancelled release");
++}
++static void capture_headphones_working(claude_pet_view *view,const char *surface) {
++    if(claude_companion_frame_count()!=384)return;
++    for(unsigned i=0;i<6;i++) {
++        claude_pet_tick(view,CODEX_COMPANION_WORKING,claude_mood_started+i*120,true);
++        lv_obj_update_layout(lv_screen_active());
++        assert(claude_rendered_frame==378+i&&!lv_obj_has_flag(view->root,LV_OBJ_FLAG_HIDDEN));
++        assert(lv_obj_get_x(view->image)>=0&&lv_obj_get_y(view->image)>=0);
++        assert(lv_obj_get_x(view->image)+(106*view->last_scale+255)/256<=view->width);
++        assert(lv_obj_get_y(view->image)+(67*view->last_scale+255)/256<=view->height);
++        char name[64];snprintf(name,sizeof(name),"headphones-%s-%02u",surface,i);
++        capture(name);
++    }
+ }
+ // Use the actual widgets. Only input telemetry and time are fixtures.
+ static void check_claude_companion_ui(void) {
+@@ -99,6 +112,7 @@
+             claude_pet_tick(&home_claude,claude_mood,idle_at+3600,true);assert(home_claude.last_scale==low);
+         }
+         char name[80];snprintf(name,sizeof(name),"claude-overview-%s",names[i]);capture(name);
++        if(i==0)capture_headphones_working(&home_claude,"overview");
+         int64_t started=claude_mood_started;
+         saver_style=UI_SAVER_CLAUDE;saver_enter(false);
+         struct tm local={.tm_hour=10,.tm_min=15};companion_saver_time(&local);
+@@ -114,7 +128,9 @@
+             claude_pet_tick(&saver_claude,claude_mood,preview_now_us/1000,true);
+             assert(claude_rendered_frame!=first_frame&&claude_mood==CODEX_COMPANION_DONE&&claude_mood_started==started);
+         }
+-        snprintf(name,sizeof(name),"claude-saver-%s",names[i]);capture(name);saver_leave();
++        snprintf(name,sizeof(name),"claude-saver-%s",names[i]);capture(name);
++        if(i==0)capture_headphones_working(&saver_claude,"saver");
++        saver_leave();
+         claude_pet_tick(&home_claude,claude_mood,preview_now_us/1000,true);
+         if(i==3)assert(claude_rendered_frame==claude_companion_frame(CODEX_COMPANION_DONE,70000,false).frame);
+     }
+diff --git a/scripts/package_claude_headphones.py b/scripts/package_claude_headphones.py
+new file mode 100644
+--- /dev/null
++++ b/scripts/package_claude_headphones.py
+@@ -0,0 +1,111 @@
++"""Pack the authorized six-frame Claude working clip for the TAB5 renderer."""
++
++import argparse
++import hashlib
++import json
++import struct
++from pathlib import Path
++
++from package_codex_companion import array, pack
++
++
++APET_SHA256 = "8c9e76f5f42e041ecd135df5c060dc29f6c69eb5ec6ec6cc6c15381d22fc03e5"
++SOURCE_COMMIT = "5f52a39bd5c4245aff24bfa3a23cde2d62d57e3c"
++
++
++def eye_pixels(frame, width, height):
++    """Preserve the two enclosed black eyes while keying out the backdrop."""
++    remaining = {position for position, color in enumerate(frame) if color == 0}
++    eyes = []
++    while remaining:
++        component = [remaining.pop()]
++        for position in component:
++            x, y = position % width, position // width
++            for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
++                neighbor = ny * width + nx
++                if 0 <= nx < width and 0 <= ny < height and neighbor in remaining:
++                    remaining.remove(neighbor)
++                    component.append(neighbor)
++        rows = [position // width for position in component]
++        # The verified source uses pure black for eyes in these rows, as well
++        # as for the outer background and the opening above the head.
++        if min(rows) >= 56 and max(rows) <= 63:
++            eyes.append(component)
++    if len(eyes) != 2:
++        raise ValueError("Original eye regions did not match the authorized clip")
++    return {position for component in eyes for position in component}
++
++
++def encode(raw: bytes):
++    if hashlib.sha256(raw).hexdigest() != APET_SHA256:
++        raise ValueError("Only the authorized promotional clip is accepted")
++    magic, version, count, source_width, source_height, reserved = struct.unpack_from("<4sBBHHH", raw)
++    delays = struct.unpack_from("<6H", raw, 12)
++    if (magic, version, count, source_width, source_height, reserved, delays) != (
++        b"APET", 2, 6, 111, 120, 0, (120,) * 6
++    ):
++        raise ValueError("Unexpected APET dimensions, frame count or timing")
++
++    pixels = source_width * source_height
++    frames = [struct.unpack_from(f"<{pixels}H", raw, 24 + index * pixels * 2) for index in range(count)]
++    visible = [position for frame in frames for position, color in enumerate(frame) if color != 0]
++    x_values = [position % source_width for position in visible]
++    y_values = [position // source_width for position in visible]
++    left, top, right, bottom = min(x_values), min(y_values), max(x_values) + 1, max(y_values) + 1
++    visible_width = right - left
++    width, height = visible_width + visible_width % 2, bottom - top
++
++    colors = sorted(set().union(*(set(frame) for frame in frames)))
++    if len(colors) > 255:
++        raise ValueError("Too many RGB565 colors for lossless indexing")
++    indices = {color: index for index, color in enumerate(colors)}
++    palette = colors + [0] * (256 - len(colors))
++    alpha = [255] * len(colors) + [0] * (256 - len(colors))
++    stream = bytearray()
++    offsets = [0]
++    for frame in frames:
++        eyes = eye_pixels(frame, source_width, source_height)
++        cropped = bytearray()
++        for y in range(top, bottom):
++            for x in range(width):
++                position = y * source_width + left + x
++                color = frame[position] if x < visible_width else 0
++                cropped.append(indices[color] if x < visible_width and (color or position in eyes) else 255)
++        stream.extend(pack(cropped))
++        offsets.append(len(stream))
++    if len(stream) > 65535:
++        raise ValueError("Packed clip exceeds the 16-bit frame index")
++
++    source = [
++        f"/* Third-party clip, esp8266-ai {SOURCE_COMMIT}. See licenses/companion-art/NOTICE.md. */",
++        f"enum {{ HEADPHONES_WIDTH={width}, HEADPHONES_HEIGHT={height}, HEADPHONES_FRAMES={count}, HEADPHONES_DELAY_MS={delays[0]} }};",
++        array("claude_headphones_palette", "uint16_t", palette),
++        array("claude_headphones_alpha", "uint8_t", alpha),
++        array("claude_headphones_stream", "uint8_t", stream, 24),
++        array("claude_headphones_offsets", "uint16_t", offsets),
++    ]
++    meta = dict(sourceCommit=SOURCE_COMMIT, sourcePath="firmware/include/img/claude_sprite.h",
++                inputSha256=APET_SHA256, frameCount=count, frameDelayMs=list(delays),
++                sourceWidth=source_width, sourceHeight=source_height,
++                crop=[left, top, right, bottom], width=width, height=height,
++                opaqueColors=len(colors), encodedBytes=len(stream),
++                conversion="Original RGB565 colors and frame order; black backdrop keyed while retaining both black eyes; union crop; indexed PackBits",
++                authorization="2026-11-11 user confirmed public redistribution in AI-bot TAB5 firmware; outside MIT")
++    return "\n".join(source) + "\n", meta
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--input", type=Path, required=True)
++    parser.add_argument("--output", type=Path, required=True)
++    args = parser.parse_args()
++    source, meta = encode(args.input.read_bytes())
++    content = source.encode("utf-8")
++    args.output.write_bytes(content)
++    meta["includeSha256"] = hashlib.sha256(content).hexdigest()
++    args.output.with_suffix(".json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
++    print(f"CLAUDE_HEADPHONES_READY {meta['frameCount']} frames, {meta['encodedBytes']} packed bytes")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/licenses/companion-art/NOTICE.md b/licenses/companion-art/NOTICE.md
+--- a/licenses/companion-art/NOTICE.md
++++ b/licenses/companion-art/NOTICE.md
+@@ -7,7 +7,13 @@
+ 
+ Artwork, character designs and product marks remain their respective owners' property and are **outside AI-bot's MIT grant**. State meanings, frame selection, playback, positioning and procedural backgrounds are AI-bot contributions. No endorsement or broader trademark right is claimed. This notice does not grant rights beyond the recorded distribution scope.
+ 
+-本记录覆盖上述素材随本次 AI-bot 固件及对应来源材料公开分发，不将其改为 MIT 授权。来源、指纹、生成数据和相应声明随固件及源码材料保留。此前旧 Claude 动画的宣传视频授权仍只适用于对应视频，没有用于本次固件，也不扩展为对旧项目其他素材的授权。
++本节覆盖上述官方素材随 AI-bot 固件及对应来源材料公开分发。来源、指纹、生成数据和相应声明随固件及源码材料保留。两套官方素材均在 MIT 授权范围之外。
++
++## Legacy Claude headphones animation / 旧版 Claude 耳机动画
++
++2026-11-11，项目维护者明确确认宣传片所用的原版戴耳机六帧可随 AI-bot TAB5 固件公开分发。素材来自 `yaoyouzhong/esp8266-ai` 提交 `5f52a39bd5c4245aff24bfa3a23cde2d62d57e3c` 的 `firmware/include/img/claude_sprite.h`。本机原版 APET 与该提交的 RGB565 像素逐帧一致，SHA-256 为 `8c9e76f5f42e041ecd135df5c060dc29f6c69eb5ec6ec6cc6c15381d22fc03e5`。第三方素材在 MIT 授权范围之外。
++
++The project owner confirmed public distribution of these six frames with AI-bot TAB5 firmware on 2026-11-11. TAB5 plays them in their original order at 120 ms per frame for Claude's working state in Overview and the Claude screensaver. The encoded include SHA-256 is `e3be2cbac23df48a2cde61e2bdece24abb3470387da659296aecbdb133cb088b`.
+ 
+ ## Native preview media
+ 
+diff --git a/THIRD_PARTY_NOTICES.md b/THIRD_PARTY_NOTICES.md
+--- a/THIRD_PARTY_NOTICES.md
++++ b/THIRD_PARTY_NOTICES.md
+@@ -161,4 +161,6 @@
+ 
+ ## Native companion redistribution authorization (2026-11-04)
+ 
+-OpenAI and Anthropic retain their artwork rights. The project owner confirmed redistribution authorization for both supplied sets with AI-bot firmware. See licenses/companion-art/NOTICE.md. Artwork is outside the project MIT grant; the earlier promo-only animation is not used.
++OpenAI and Anthropic retain their artwork rights. The project owner confirmed redistribution authorization for both supplied sets with AI-bot firmware. See licenses/companion-art/NOTICE.md. Artwork is outside the project MIT grant.
++
++On 2026-11-11 the project owner separately confirmed that the six-frame Claude headphones clip from esp8266-ai commit 5f52a39bd5c4245aff24bfa3a23cde2d62d57e3c can be distributed with TAB5 firmware. It plays in the Claude working state in 319-R2. The third-party animation remains outside the MIT grant. Its provenance and fingerprints are in licenses/companion-art/NOTICE.md.

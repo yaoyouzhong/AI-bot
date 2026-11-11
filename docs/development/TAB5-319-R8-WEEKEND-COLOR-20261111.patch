@@ -1,0 +1,31 @@
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R7";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R8";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2944,8 +2944,7 @@
+     uint32_t day_color=INK;
+     if(schedule_kind==2)day_color=AMBER;
+     else if(schedule_kind==1)day_color=GREEN;
+-    else if(local.tm_wday==6)day_color=0xA2B7FF;
+-    else if(local.tm_wday==0)day_color=0xD7AED5;
++    else if(local.tm_wday==6||local.tm_wday==0)day_color=0xA2B7FF;
+     tint(home_weekday,day_color);
+ 
+     const char *today_prefix="今日";
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2459,7 +2459,7 @@
+         } cases[]={
+             {"workday","2026-09-24","工作日 · 距中秋节假期 1 天","",9,24,INK,INK},
+             {"saturday","2026-10-17","周末","",10,17,0xA2B7FF,0xA2B7FF},
+-            {"sunday","2026-10-18","周末","",10,18,0xD7AED5,0xD7AED5},
++            {"sunday","2026-10-18","周末","",10,18,0xA2B7FF,0xA2B7FF},
+             {"holiday","2026-10-01","国庆节假期 · 休息","",10,1,GREEN,GREEN},
+             {"makeup","2026-10-10","调休 · 补班","",10,10,AMBER,AMBER},
+             {"term","2026-10-08","工作日","寒露",10,8,INK,INK},

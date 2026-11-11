@@ -1,0 +1,29 @@
+{
+  "sourceCommit": "5f52a39bd5c4245aff24bfa3a23cde2d62d57e3c",
+  "sourcePath": "firmware/include/img/claude_sprite.h",
+  "inputSha256": "8c9e76f5f42e041ecd135df5c060dc29f6c69eb5ec6ec6cc6c15381d22fc03e5",
+  "frameCount": 6,
+  "frameDelayMs": [
+    120,
+    120,
+    120,
+    120,
+    120,
+    120
+  ],
+  "sourceWidth": 111,
+  "sourceHeight": 120,
+  "crop": [
+    3,
+    34,
+    108,
+    101
+  ],
+  "width": 106,
+  "height": 67,
+  "opaqueColors": 254,
+  "encodedBytes": 11080,
+  "conversion": "Original RGB565 colors and frame order; black backdrop keyed while retaining both black eyes; union crop; indexed PackBits",
+  "authorization": "2026-11-11 user confirmed public redistribution in AI-bot TAB5 firmware; outside MIT",
+  "includeSha256": "e3be2cbac23df48a2cde61e2bdece24abb3470387da659296aecbdb133cb088b"
+}

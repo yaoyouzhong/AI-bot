@@ -1,0 +1,154 @@
+{
+  "version": "0.2.319-ui",
+  "internalRevision": "R8",
+  "baselineArchiveSha256": "a4b96b24bc51810ade2b73096661fa6baac6effcad3173a3c452b8c24af8534f",
+  "applicationSha256": "4975be6d23d5779020b82f3528289d34c32c269d884b1e3a74fe9d171d286f36",
+  "elfSha256": "dcda815a58abd646eaecfb1ee25337deae3cd153ba0ba9fa03a3eef2058c7462",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 285,
+      "sha256": "785f8ce0c7e6854fd1a12780f340cce2521f775d0d6af9b53a16f0125715b2fd"
+    },
+    {
+      "path": "RESOLVED-INPUTS.json",
+      "bytes": 1563329,
+      "sha256": "351dedbf9ba1ec9a1bfa34528070e709368d84a1024f61daec8ffa805b6135c2"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "bytes": 14680,
+      "sha256": "70ce39f49f32e30ed31e667c4f5beb53cf37aa790b5a3977a4b26c08de87bb24"
+    },
+    {
+      "path": "sdk/esp-idf-r8-dpi.patch",
+      "bytes": 1899,
+      "sha256": "6f1b956fedbdf75a2a5fc71c8d74f77c05ea4985d82eb626b3db3b6bc7481246"
+    },
+    {
+      "path": "source/THIRD_PARTY_NOTICES.md",
+      "bytes": 14680,
+      "sha256": "70ce39f49f32e30ed31e667c4f5beb53cf37aa790b5a3977a4b26c08de87bb24"
+    },
+    {
+      "path": "source/firmware/CMakeLists.txt",
+      "bytes": 2210,
+      "sha256": "c3f841fb9d5ca701bb88a3abfd51560baf4f34d8792eecc9bf2126f2361412c4"
+    },
+    {
+      "path": "source/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c",
+      "bytes": 58673,
+      "sha256": "54ef99610e266d438c5c1667d94546690392a39572c1bb7720c178780ec21ef1"
+    },
+    {
+      "path": "source/firmware/main/build_revision.h",
+      "bytes": 305,
+      "sha256": "59c63918bdcb3dca4dcac9accd14b344fb125fca273de9b546f9bb1527f34199"
+    },
+    {
+      "path": "source/firmware/main/claude_companion.c",
+      "bytes": 4805,
+      "sha256": "783a36e35dc98715e3b69058d65a3ff3789666e5464bbe455380c11e4c507d47"
+    },
+    {
+      "path": "source/firmware/main/claude_companion.h",
+      "bytes": 577,
+      "sha256": "e381ebd338e6ccfc11962379632bf73c57e0c76ff9e6bdd21ed6617065a70951"
+    },
+    {
+      "path": "source/firmware/main/claude_headphones_data.inc",
+      "bytes": 43709,
+      "sha256": "e3be2cbac23df48a2cde61e2bdece24abb3470387da659296aecbdb133cb088b"
+    },
+    {
+      "path": "source/firmware/main/claude_headphones_data.json",
+      "bytes": 842,
+      "sha256": "cdf6a5ba1604add3f9cd66e46f140339919402297c27011be7434e84cb6451a0"
+    },
+    {
+      "path": "source/firmware/main/crash_record.c",
+      "bytes": 14612,
+      "sha256": "e680e04fec2b57b4aa7fa24062f1b6e582d8e608f522dc130533196ca329acba"
+    },
+    {
+      "path": "source/firmware/main/crash_record.h",
+      "bytes": 1846,
+      "sha256": "98d5eee032de0e5fb8159aff1d83adeef49203dd603e3d73172317066d856f25"
+    },
+    {
+      "path": "source/firmware/main/display_diagnostics.c",
+      "bytes": 9426,
+      "sha256": "f7fa1da47ff451e3f3c55767c161882aafc18fcb6a0fbde730291ac9b3179f9c"
+    },
+    {
+      "path": "source/firmware/main/main.c",
+      "bytes": 3409,
+      "sha256": "068cb062433fe03b50bf87de38d6f7e1a4f05f3472cb00e747b350e2b820608c"
+    },
+    {
+      "path": "source/firmware/main/ui.c",
+      "bytes": 323355,
+      "sha256": "727b280d618d3c540ce6f16d837ee5afdf06ac210c34da45b819b0d5e6a1569e"
+    },
+    {
+      "path": "source/firmware/main/ui_calendar.h",
+      "bytes": 13675,
+      "sha256": "97c938a658f7def7309697fb76871597462e67bc879d06f482ee312dcee56249"
+    },
+    {
+      "path": "source/firmware/main/ui_claude_companion.h",
+      "bytes": 7413,
+      "sha256": "e0dd82d6688549844e1ea33cd884c05ac95a84067e48dafd5ffd9fd87fdd2670"
+    },
+    {
+      "path": "source/firmware/main/ui_codex_companion.h",
+      "bytes": 7065,
+      "sha256": "a7c766017694f9d697838370afcdc4df839dd67ffc8cd15170e833b66089d5bc"
+    },
+    {
+      "path": "source/firmware/main/ui_dashboard.h",
+      "bytes": 30213,
+      "sha256": "24244b91977b3f59d0e0c83b93ddad3b143f2caf022e418a82c5aa2af863be5f"
+    },
+    {
+      "path": "source/licenses/companion-art/NOTICE.md",
+      "bytes": 4199,
+      "sha256": "c5a7febd4a23bca6be641a5e1970507a29af1e4b14b8568e2046ba42295ff8d0"
+    },
+    {
+      "path": "source/scripts/apply-display-diagnostics.py",
+      "bytes": 3715,
+      "sha256": "fc6c701d44fd8f0ec6954782e3c40517c11673ddc6a2d132e37918bd82559023"
+    },
+    {
+      "path": "source/scripts/package_claude_headphones.py",
+      "bytes": 5445,
+      "sha256": "f07b1a3eb5597a9d5aeae465d37fad1ef7f939af1098691aff2a0c1a3b782db2"
+    },
+    {
+      "path": "source/tests/ui-preview/claude_companion_test.c",
+      "bytes": 4663,
+      "sha256": "f20f817d2e84412da118d1c17b35f767afe6458cbd6056bbaf2a1254dee23ada"
+    },
+    {
+      "path": "source/tests/ui-preview/claude_companion_ui_test.h",
+      "bytes": 19150,
+      "sha256": "1f92a4f56e0ddd18d42d3fc29fbb9ea6f0e91be1b4810211b7d7374dd3e42217"
+    },
+    {
+      "path": "source/tests/ui-preview/codex_companion_ui_test.h",
+      "bytes": 7076,
+      "sha256": "a55fb1f935e9ff4e18cd8a5782cbe7a930df7f4aa4a76220c6f8deadf808391b"
+    },
+    {
+      "path": "source/tests/ui-preview/preview.c",
+      "bytes": 481319,
+      "sha256": "f75411a7ad258646ea8d61e587621406016680ef43a2e932f1459d8fd3f88c93"
+    },
+    {
+      "path": "source/tests/ui-preview/workspace_switch_sync_test.h",
+      "bytes": 11795,
+      "sha256": "64506e8392bbd577823b3d6957529fa62fa204cd7e3c08eaf5bde72015a0e974"
+    }
+  ]
+}
