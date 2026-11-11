@@ -1,0 +1,126 @@
+--- a/firmware/CMakeLists.txt
++++ b/firmware/CMakeLists.txt
+@@ -1,6 +1,6 @@
+ cmake_minimum_required(VERSION 3.16)
+ include("${CMAKE_CURRENT_LIST_DIR}/../cmake/WindowsNinjaResponseFiles.cmake")
+-set(PROJECT_VER "0.2.319-ui")
++set(PROJECT_VER "0.2.320-ui")
+ option(TAB5_LOCAL_ART "Build daily art support; collections are installed separately" ON)
+ if(TAB5_LOCAL_VERSION)
+     set(PROJECT_VER "${TAB5_LOCAL_VERSION}")
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1470,6 +1470,7 @@
+     cJSON_AddItemToObject(payload,"replyView",cJSON_Duplicate(view,true));
+     codex_cache_store(payload);cJSON_Delete(payload);
+ }
++#include "ui_project_groups.h"
+ static void render_home_task(void) {
+     bool fresh=offline_since<0&&last_link!=LINK_NONE;
+     if(fresh)home_companion_provider=companion_provider_resolve(shown,home_models);
+@@ -1540,6 +1541,10 @@
+         ui_text(home_system_values[0],cpu);ui_text(home_system_values[1],memory);
+     }
+     const char *folder=valid?text(recent,"folder"):"";
++    char project_name[160];
++    int project_page,project_pages;
++    if(strchr(folder,'/')&&workspace_page_name(folder,&project_page,&project_pages,project_name,sizeof(project_name)))
++        folder=project_name;
+     if(folder[0]&&strcmp(folder,"--"))ui_text_fmt(home_task_note,"项目 · %s",folder);else ui_text(home_task_note,"");
+     companion_home_enabled=home_companion_provider==1&&valid&&codex_companion_asset_available();
+     visible(home_companion,companion_home_enabled&&companion_pixels!=NULL);
+@@ -1565,7 +1570,6 @@
+         strcmp(body,"Codex 正在处理，等待新的动态…")&&strcmp(body,"暂未收到会话动态。")&&
+         strcmp(body,"正在读取会话动态…");
+ }
+-#include "ui_project_groups.h"
+ #include "ui_session_source.h"
+ #include "ui_session_unread.h"
+ static bool codex_list_can_reveal(void) {
+--- a/firmware/main/ui_runtime_health.h
++++ b/firmware/main/ui_runtime_health.h
+@@ -46,7 +46,15 @@
+     return NULL;
+ }
+ static bool health_bridge_fresh(void) {
+-    return last_received>0&&esp_timer_get_time()/1000-last_received<8000;
++    int64_t now=esp_timer_get_time()/1000;
++    // Rendering is deferred during gestures. Link freshness follows the
++    // authenticated receive timestamps even while the visible snapshot waits.
++    if(xSemaphoreTake(device_mutex,0)) {
++        bool fresh=link_state_active(&device_links,now)!=LINK_NONE;
++        xSemaphoreGive(device_mutex);
++        return fresh;
++    }
++    return last_received>0&&now>=last_received&&now-last_received<8000;
+ }
+ static const char *health_stale_title(void) {
+     return health_bridge_fresh()?"监控数据已过期":"桥接连接已中断";
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R8";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R1";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2380,6 +2380,22 @@
+     }
+     const char *annual_readers=getenv("TAB5_GALLERY_LONG_READERS");if(annual_readers){check_annual_long_reader_ui(annual_readers);return 0;}
+ #endif
++    if(getenv("TAB5_OVERVIEW_PROJECT_ONLY")) {
++        cJSON_Delete(shown);
++        shown=cJSON_Parse("{\"codexTasks\":{\"overviewTask\":{\"id\":\"00000000-0000-0000-0000-000000000001\","
++                          "\"title\":\"TAB5 project preview\",\"folder\":\"1/2 · AI-bot\",\"state\":\"idle\"}}}");
++        assert(shown);
++        home_companion_provider=1;
++        page(0);
++        render_home_task();
++        assert(!strcmp(lv_label_get_text(home_task_note),"项目 · AI-bot"));
++        capture("overview-project-name");
++        cJSON_SetValuestring(item(item(item(shown,"codexTasks"),"overviewTask"),"folder"),"AI-bot · 2/2");
++        render_home_task();
++        assert(!strcmp(lv_label_get_text(home_task_note),"项目 · AI-bot"));
++        puts("TAB5_OVERVIEW_PROJECT_NAME_OK");
++        return 0;
++    }
+     const char *health_fixtures=getenv("TAB5_RUNTIME_HEALTH_FIXTURES");
+     if(health_fixtures){check_runtime_health_ui(health_fixtures);return 0;}
+     if(getenv("TAB5_GALLERY_MOTION_ONLY")) {
+--- a/tests/ui-preview/runtime_health_test.h
++++ b/tests/ui-preview/runtime_health_test.h
+@@ -34,6 +34,8 @@
+     cJSON *fixtures=cJSON_Parse(buffer);free(buffer);assert(fixtures);
+     cJSON *scenario=NULL;int count=0;
+     prefs.alerts=true;preview_now_us=20000000;last_received=20000;alert_until=0;
++    link_state_init(&device_links);
++    assert(link_state_receive(&device_links,LINK_USB,"health-fixture",1,last_received));
+     unsigned reply_sounds=preview_chimes;
+     cJSON_ArrayForEach(scenario,item(fixtures,"scenarios")) {
+         cJSON_Delete(shown);shown=cJSON_Duplicate(item(scenario,"data"),true);assert(shown);
+@@ -178,14 +180,20 @@
+     preview_now_us+=9000000;health_render();assert(strstr(lv_label_get_text(health_vpn),"中断"));capture("runtime-health-disconnected");
+     check_health_disconnected_redraw();
+     health_detail_group(1);assert(!strcmp(lv_label_get_text(health_detail_reason),"桥接连接已中断"));check_health_detail_layout();capture("runtime-health-disconnected-details");check_health_disconnected_redraw();health_detail_close(NULL);
+-    // New authenticated data must refresh the same open page automatically.
+-    last_received=preview_now_us/1000;health_notice_tick(last_received);
++    // A gesture may delay rendering, but a fresh Wi-Fi frame restores link health.
++    assert(link_state_receive(&device_links,LINK_WIFI,"health-fixture",2,preview_now_us/1000));
++    assert(preview_now_us/1000-last_received>=8000);
++    health_notice_tick(preview_now_us/1000);
++    assert(health_bridge_fresh());
++    assert(strcmp(lv_label_get_text(banner),"桥接连接已中断"));
+     assert(!strstr(lv_label_get_text(health_vpn),"中断"));
+     assert(health_trend_values[9]!=LV_CHART_POINT_NONE);
+     preview_now_us+=9000000;health_notice_tick(preview_now_us/1000);
+     check_health_disconnected_redraw();
+     health_close(NULL);page(0);alert_visual_tick(29000);health_notice_tick(29000);assert(!strcmp(lv_label_get_text(banner),"桥接连接已中断"));capture("runtime-health-home-disconnected");
+-    last_received=preview_now_us/1000;health_notice_tick(last_received);
++    last_received=preview_now_us/1000;
++    assert(link_state_receive(&device_links,LINK_USB,"health-fixture",3,last_received));
++    health_notice_tick(last_received);
+     assert(strcmp(lv_label_get_text(banner),"桥接连接已中断"));
+     cJSON_Delete(fixtures);
+     puts("RUNTIME_HEALTH_UI_OK protocol_fixtures, compact_home, System_detail_entry, PAC_restart_advice, repeated_event, compact_cause_and_advice, hierarchical_back, unknown_disabled, stale_monitor, disconnected, offline_no_redraw, automatic_reconnect");

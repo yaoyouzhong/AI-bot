@@ -45,8 +45,10 @@ internal sealed partial class Tab5Service
     // carries the bridge's once-per-second snapshot with measured 250 ms raw
     // samples. Duplicate sample sequences leave numbers and curves unchanged.
     internal byte[]? TelemetryFrame(int channel,bool supported,bool compressionSafe=true,bool preferMetrics=false,bool deltaSupported=false,int maximum=Tab5Protocol.MaximumFrame)
+        =>SelectTelemetryFrame(CurrentFrameForMaximum(maximum),channel,supported,compressionSafe,preferMetrics,deltaSupported,maximum);
+
+    private byte[]? SelectTelemetryFrame(byte[]? full,int channel,bool supported,bool compressionSafe,bool preferMetrics,bool deltaSupported,int maximum)
     {
-        var full=CurrentFrameForMaximum(maximum);
         if(full is null||!supported)return full;
         bool settingsPending=DisplayCommand is not null||RemoteOtaPending;
         lock(_telemetryLock) {
@@ -122,7 +124,7 @@ internal sealed partial class Tab5Service
     private byte[]? MetricsFrame(bool compressionSafe=false)
     {
         var pair=_store.Current;var metrics=SystemMetricsCapture?.Invoke();
-        if(pair is null||metrics is null||CurrentFrame is null)return null;
+        if(pair is null||metrics is null)return null;
         byte[] frame=JsonSerializer.SerializeToUtf8Bytes(new {
             version=1,type="tab5_metrics",deviceId=pair.DeviceId,session=_session,
             sequence=Interlocked.Increment(ref _sequence),
@@ -165,5 +167,5 @@ internal sealed partial class Tab5Service
         if(!await gate.WaitAsync(0,token))return false;
         try {await send();return true;}finally{gate.Release();}
     }
-    internal byte[]? UsbMetricsFrame()=>BackgroundTransferPaused?null:MetricsFrame();
+    internal byte[]? UsbMetricsFrame()=>BackgroundTransferPaused||CurrentFrame is null?null:MetricsFrame();
 }

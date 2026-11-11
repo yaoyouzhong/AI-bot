@@ -6,6 +6,8 @@
 
 历史固件保存在 `artifacts/firmware/tab5/versions/<版本>/<镜像哈希前缀>-<说明哈希前缀>/`，修改说明也保留独立归档。已有 development 目录保留为构建、预览和验收证据，不再让用户从这些目录选择新固件。
 
+开始新一轮开发前先核对公开发布记录。TAB5 正式版本公开后，后续新改动递增正式版本号，内部修订从 R1 开始。例如 0.2.319-ui 发布后，首个新候选为 320-R1。
+
 开发验收的小修复可继续使用同一个待发布版本号，用构建标识及 BIN SHA-256/ELF 指纹区分候选，不为每次编译或小修复递增正式版本号。新候选独立归档，保留之前的原包和验收；同版本更新仍须核对实际运行镜像，不能仅看设备版本文字。正式发布时统一确定对外版本，已有原包不得重新改版本后套用旧验收。
 
 从 2026-11-09 起，新的本地修订同时使用易读的内部编号，例如 `318-R1`、`318-R2`。正式版本源、镜像应用描述和设备协议版本保持 `0.2.318-ui`，不要拼接修订后缀，否则现有 Mac/Windows 桥接会误判能力。内部编号以 `AIBOT_INTERNAL_REVISION=R3` 等独立标记编入镜像，在设备升级页当前版本旁显示。`prepare_tab5_firmware.ps1 -InternalRevision R3` 校验镜像标记后记录 `releaseVersion`、`internalRevision`、`internalVersion`，归档目录包含修订号；不靠改名伪造版本。固件内容改变后递增 R，已冻结原包的复制、验证或安装不递增；旧原包和未安装的 R1/R2 试制包保留摘要与历史记录，不追溯改写。正式发布仍须按最终原包和源码身份验收。
@@ -31,6 +33,8 @@ Windows 候选可在 development 目录构建和自检，实际运行沿用固�
 ## English
 
 New local revisions use a readable identifier such as `318-R3`, embedded as a separate `AIBOT_INTERNAL_REVISION=R3` marker and displayed beside the installed version. Keep the pending release, application descriptor and wire version at `0.2.318-ui` so existing Mac/Windows capability checks remain compatible. The preparation tool verifies the marker with `-InternalRevision R3` before writing revision metadata and a revision-specific archive. Increment the revision for changed firmware content; copying, verification and installation preserve it. Existing images, including the uninstalled R1/R2 prototypes, remain unchanged.
+
+Check the public release record before starting a new development cycle. After a TAB5 version is published, increment the release version for new changes and restart internal revisions at R1. For example, the first new candidate after 0.2.319-ui is 320-R1.
 
 Small fixes during development acceptance may retain the pending release version. Distinguish candidates by build ID and BIN/ELF fingerprints, archive each original separately, and verify the running image even when the version text is unchanged. Choose the public version for the formal release; never relabel an accepted binary and reuse its prior acceptance.
 

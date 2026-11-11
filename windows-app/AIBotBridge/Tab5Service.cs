@@ -30,9 +30,11 @@ internal sealed partial class Tab5Service : IDisposable
     // Only an explicitly constructed diagnostic service injects test activity.
     internal Func<long?>? DiagnosticInputClock {get;init;}
     private readonly string _session=Guid.NewGuid().ToString("N");
-    private byte[]? _frame;
-    private bool _frameMayContainResource;
-    private byte[]? _legacyStatusFrame;
+    private sealed record StatusPublication(byte[] Frame, byte[] LegacyFrame, long PublishedAt, bool MayContainResource)
+    {
+        internal byte[] ForMaximum(int maximum) => Frame.Length <= maximum - 28 ? Frame : LegacyFrame;
+    }
+    private StatusPublication? _publishedStatus;
     private int _statusMaximum=Tab5Protocol.MaximumFrame,_usbStatusMaximum=Tab5Protocol.MaximumFrame;
     private StatusSnapshot? _lastSnapshot;
     private long _sequence;
@@ -186,7 +188,6 @@ internal sealed partial class Tab5Service : IDisposable
     private long _usbResourceChunks;
     private string? _host;
     private int _port;
-    private long _publishedAt;
     private volatile string _statusFrameDiagnostic="尚未生成";
     private bool _statusFrameDegraded;
     private long _statusFallbacks,_statusRecoveries;
@@ -279,7 +280,6 @@ internal sealed partial class Tab5Service : IDisposable
         _lastSnapshot=snapshot;
         var pairing=_store.Current; if(pairing is null) return;
         var resource=BackgroundAssetTransferPaused?null:_assets.Next(snapshot);var sequence=Interlocked.Increment(ref _sequence);
-        _frameMayContainResource=resource is not null;
         var advertisedImage=Volatile.Read(ref _ota);
         var health=ConnectionHealthFor(snapshot,advertisedImage);
         var bound=ActivitySourceEnabled?ClaudeWorkspace.Selection(SessionActivityReader.Signals.ClaudeIdentity.Select(snapshot.CapturedAt),snapshot.CapturedAt):null;
@@ -305,9 +305,10 @@ internal sealed partial class Tab5Service : IDisposable
             degraded=bytes.Length>target;deferredFields=[];
             return degraded?Tab5StatusRecovery.Build(bytes,previous,out deferredFields,cap):bytes;
         }
-        var frame=Build(maximum,Volatile.Read(ref _frame),out int initialBytes,out int taskLimit,out bool degraded,out var skipped);
+        var previous=Volatile.Read(ref _publishedStatus);
+        var frame=Build(maximum,previous?.Frame,out int initialBytes,out int taskLimit,out bool degraded,out var skipped);
         var legacy=frame.Length>Tab5StatusCapacity.Budget(Tab5Protocol.MaximumFrame)
-            ?Build(Tab5Protocol.MaximumFrame,Volatile.Read(ref _legacyStatusFrame),out _,out _,out _,out _):frame;
+            ?Build(Tab5Protocol.MaximumFrame,previous?.LegacyFrame,out _,out _,out _,out _):frame;
         string deferred="";
         if(degraded) {
             if(!_statusFrameDegraded)_statusFallbacks++;
@@ -316,39 +317,43 @@ internal sealed partial class Tab5Service : IDisposable
             _statusFrameDegraded=false;_statusRecoveries++;
         }
         _statusFrameDiagnostic=$"bytes={frame.Length}; initialBytes={initialBytes}; maximum={maximum-28}; target={budget}; legacyBytes={legacy.Length}; taskLimit={taskLimit}; degraded={_statusFrameDegraded}; fallbacks={_statusFallbacks}; recoveries={_statusRecoveries}"+deferred;
-        Volatile.Write(ref _legacyStatusFrame,legacy);
-        Volatile.Write(ref _frame,frame);
         long tick=PublicationClock();
+        long publishedAt=musicOnly && previous is not null ? previous.PublishedAt : tick;
+        Volatile.Write(ref _publishedStatus,new(frame,legacy,publishedAt,resource is not null));
         Interlocked.Exchange(ref _musicPublishedAt,tick);
-        if(!musicOnly)Interlocked.Exchange(ref _publishedAt,tick);
         }
     }
     private void Republish() {lock(_publishLock){if(_lastSnapshot is {} snapshot)Publish(snapshot);}}
     internal Func<MusicSnapshot?>? MusicCapture {get;set;}
     internal Func<long> PublicationClock {get;set;}=()=>Environment.TickCount64;
-    internal byte[]? CurrentFrame {
-        get {
-            long age=PublicationClock()-Interlocked.Read(ref _publishedAt);
-            // Reuse the cached non-music state; a clock update must not wait for
-            // the tray's two-second tick or rescan activity/quotas on each sample.
-            if(age is >=0 and <6000 && PublicationClock()-Interlocked.Read(ref _musicPublishedAt)>=500 && MusicCapture is {} capture) {
-                lock(_publishLock) {
-                    if(PublicationClock()-Interlocked.Read(ref _musicPublishedAt)>=500 && _lastSnapshot is {} snapshot &&
-                       capture() is {} music && music.Title.Length>0) {
-                        var now=DateTimeOffset.Now;
-                        Publish(snapshot with {Music=music,CapturedAt=now,EpochUtc=now.ToUnixTimeSeconds(),Time=now.ToString("HH:mm:ss")},true);
-                    }
+    private StatusPublication? FreshPublication() {
+        var status=Volatile.Read(ref _publishedStatus);
+        return status is not null && PublicationClock()-status.PublishedAt is >=0 and <6000 ? status : null;
+    }
+    private void RefreshMusicFrame() {
+        // Refresh music against the cached non-music state.
+        if(FreshPublication() is not null && PublicationClock()-Interlocked.Read(ref _musicPublishedAt)>=500 && MusicCapture is {} capture) {
+            lock(_publishLock) {
+                if(PublicationClock()-Interlocked.Read(ref _musicPublishedAt)>=500 && _lastSnapshot is {} snapshot &&
+                   capture() is {} music && music.Title.Length>0) {
+                    var now=DateTimeOffset.Now;
+                    Publish(snapshot with {Music=music,CapturedAt=now,EpochUtc=now.ToUnixTimeSeconds(),Time=now.ToString("HH:mm:ss")},true);
                 }
             }
-            return PublicationClock()-Interlocked.Read(ref _publishedAt)<6000 ? Volatile.Read(ref _frame) : null;
+        }
+    }
+    internal byte[]? CurrentFrame {
+        get {
+            RefreshMusicFrame();
+            return FreshPublication()?.Frame;
         }
     }
     internal byte[]? CurrentFrameForMaximum(int maximum) {
         lock(_publishLock) {
-            if(BackgroundAssetTransferPaused&&_frameMayContainResource&&_lastSnapshot is {} snapshot)Publish(snapshot);
+            if(BackgroundAssetTransferPaused&&_publishedStatus?.MayContainResource==true&&_lastSnapshot is {} snapshot)Publish(snapshot);
         }
-        var frame=CurrentFrame;
-        return frame is null||frame.Length<=maximum-28?frame:Volatile.Read(ref _legacyStatusFrame);
+        RefreshMusicFrame();
+        return FreshPublication()?.ForMaximum(maximum);
     }
     internal byte[]? Discover(byte[] packet,System.Net.IPAddress peer) {
         var pair=_store.Current;var host=_host;var port=_port;
@@ -360,16 +365,23 @@ internal sealed partial class Tab5Service : IDisposable
     internal void SetBinding(LanPairing? binding) { _host=binding?.Address.ToString(); _port=binding?.Port??0; }
     internal byte[]? Respond(string id,string nonce,string proof,string? assets=null,string? assetsProof=null,string? firmware=null,string? firmwareProof=null)
     {
-        var pairing=_store.Current; var frame=CurrentFrameForMaximum(Tab5Protocol.MaximumFrame);
-        if(pairing is null || pairing.DeviceId!=id || !Tab5Protocol.ValidNonce(nonce) || frame is null) return null;
+        var pairing=_store.Current;
+        if(pairing is null || pairing.DeviceId!=id || !Tab5Protocol.ValidNonce(nonce)) return null;
         var key=Convert.FromBase64String(pairing.Key);
         if(!Tab5Protocol.Verify(key,"GET|"+id+"|"+nonce,proof)) return null;
         int maximum=Tab5Protocol.MaximumFrame;
-        if(firmware is not null&&firmware.Length<=31&&Tab5Protocol.Verify(key,"FIRMWARE|"+nonce+"|"+firmware,firmwareProof)) {
-            maximum=Tab5StatusCapacity.ForFirmware(firmware);
-            ObserveFirmware(id,firmware);
-            frame=CurrentFrameForMaximum(maximum)??frame;
-            if(Version.TryParse(firmware.Split('-')[0],out var version)&&version>=new Version(0,2,40))frame=TelemetryFrame(1,true,version>=new Version(0,2,42),maximum:maximum)??frame;
+        bool verifiedFirmware=firmware is not null&&firmware.Length<=31&&Tab5Protocol.Verify(key,"FIRMWARE|"+nonce+"|"+firmware,firmwareProof);
+        if(verifiedFirmware) {
+            maximum=Tab5StatusCapacity.ForFirmware(firmware!);
+            ObserveFirmware(id,firmware!,republishOnCapacityChange:false);
+        }
+        // An HTTP status poll must not wait for the next catalog or music capture.
+        var status=FreshPublication();
+        if(status is null||status.MayContainResource&&BackgroundAssetTransferPaused)return null;
+        var frame=status.ForMaximum(maximum);
+        if(frame.Length>maximum-28)return null;
+        if(verifiedFirmware&&Version.TryParse(firmware!.Split('-')[0],out var version)&&version>=new Version(0,2,40)) {
+            frame=SelectTelemetryFrame(frame,1,true,version>=new Version(0,2,42),false,false,maximum)!;
         }
         Interlocked.Exchange(ref _wifiRequestAt,Environment.TickCount64);
         if(Tab5Assets.ValidIds(assets)&&Tab5Protocol.Verify(key,"ASSETS|"+nonce+"|"+assets,assetsProof))_assets.Acknowledge(assets);

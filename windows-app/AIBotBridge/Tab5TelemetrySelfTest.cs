@@ -159,7 +159,45 @@ internal static class Tab5TelemetrySelfTest
             service.ResetTelemetryChannel(2);
             if(!IsFull(service.TelemetryFrame(2,true,true,true,true)!))throw new Exception("Reconnect reused stale delta baseline");
             Console.WriteLine("TAB5_DELTA_ACK_OK baseline only after ACK; changed snapshot sends delta; reconnect returns full state");
+            VerifyWifiStatusDuringPublicationAsync(service,store).GetAwaiter().GetResult();
         }finally{Directory.Delete(directory,true);}
+    }
+    private static async Task VerifyWifiStatusDuringPublicationAsync(Tab5Service service,Tab5PairingStore store) {
+        long clock=1000;
+        service.PublicationClock=()=>Interlocked.Read(ref clock);
+        service.Publish(SessionActivityReader.Capture());
+        Interlocked.Exchange(ref clock,1600);
+        using var entered=new ManualResetEventSlim();
+        using var release=new ManualResetEventSlim();
+        service.MusicCapture=()=>{
+            entered.Set();
+            if(!release.Wait(TimeSpan.FromSeconds(10)))throw new TimeoutException("Fixture did not release publication");
+            return null;
+        };
+        var publishing=Task.Factory.StartNew(()=>service.CurrentFrame,CancellationToken.None,TaskCreationOptions.LongRunning,TaskScheduler.Default);
+        try {
+            if(!entered.Wait(TimeSpan.FromSeconds(5)))throw new TimeoutException("Publication did not enter the music reader");
+            var pair=store.Current!;
+            var key=Convert.FromBase64String(pair.Key);
+            const string firmware="0.2.319-ui";
+            byte[]? Read() {
+                string nonce=Guid.NewGuid().ToString("N");
+                return service.Respond(pair.DeviceId,nonce,Tab5Protocol.Proof(key,"GET|"+pair.DeviceId+"|"+nonce),
+                    firmware:firmware,firmwareProof:Tab5Protocol.Proof(key,"FIRMWARE|"+nonce+"|"+firmware));
+            }
+            if(await Task.Run(Read).WaitAsync(TimeSpan.FromSeconds(2)) is not {Length:>28})
+                throw new Exception("Wi-Fi did not return the latest complete frame while publication was blocked");
+            Interlocked.Exchange(ref clock,7000);
+            if(await Task.Run(Read).WaitAsync(TimeSpan.FromSeconds(2)) is not null)
+                throw new Exception("Wi-Fi accepted an expired publication");
+            Console.WriteLine("TAB5_WIFI_STATUS_PUBLICATION_OK fresh authenticated read during publication; expired frame rejected");
+        } finally {
+            release.Set();
+            await publishing;
+            service.MusicCapture=null;
+            service.PublicationClock=()=>Environment.TickCount64;
+            service.ResetTelemetryChannel(1);
+        }
     }
     private static async Task VerifyUsbSchedulingAsync() {
         using var gate=new SemaphoreSlim(1,1);await gate.WaitAsync();

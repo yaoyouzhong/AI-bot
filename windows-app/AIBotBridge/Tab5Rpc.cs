@@ -37,12 +37,12 @@ internal sealed partial class Tab5Service
             }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or CryptographicException){return "profile-check="+ex.GetType().Name;}
         }
     }
-    internal void ObserveFirmware(string id,string version) {
+    internal void ObserveFirmware(string id,string version,bool republishOnCapacityChange=true) {
         if(_store.Current?.DeviceId!=id)return;
         _firmware.Observe(id,version);
         _assets.ObserveFirmware(version);
         int maximum=Tab5StatusCapacity.ForFirmware(version);
-        if(Interlocked.Exchange(ref _statusMaximum,maximum)!=maximum)Republish();
+        if(Interlocked.Exchange(ref _statusMaximum,maximum)!=maximum&&republishOnCapacityChange)Republish();
         if(Volatile.Read(ref _ota)?.Version==version&&
             !(_otaDelivery is {Started:true} delivery&&delivery.OriginalVersion==delivery.Image.Version)) {
             Interlocked.Exchange(ref _rpcOtaUntil,0);
