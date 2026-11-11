@@ -300,7 +300,7 @@ internal static class Program
         if(args.Length==2&&args[0]=="--preview-tab5-voice-settings"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Tab5VoiceSelfTest.PreviewSettings(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-unified-updates"){AppPaths.BeginPublicSelfTest();UpdateSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==2&&args[0]=="--self-test-update-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Application.SetUnhandledExceptionMode(UnhandledExceptionMode.ThrowException);UpdateUiSelfTest.Run(args[1]);return;}
-        if(args.Length==2&&args[0]=="--self-test-update-live"){AppPaths.BeginPublicSelfTest();UpdateLiveSelfTest.RunAsync(args[1]).GetAwaiter().GetResult();return;}
+        if(args.Length==2&&args[0]=="--self-test-update-live"||args is ["--self-test-update-live",_,"esp8266"]){AppPaths.BeginPublicSelfTest();UpdateLiveSelfTest.RunAsync(args[1],args.Length==3?args[2]:"tab5").GetAwaiter().GetResult();return;}
         if(args.Length==0||!args[0].StartsWith("--self-test-",StringComparison.Ordinal)) {
             try { AppProfileGuard.EnsureDesktopProfile(); }
             catch(IOException ex) {

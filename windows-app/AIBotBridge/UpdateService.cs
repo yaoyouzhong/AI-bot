@@ -38,7 +38,7 @@ internal sealed class UpdateService : IDisposable
                 byte[] bytes=await ReadAsync(new($"https://api.github.com/repos/yaoyouzhong/AI-bot/releases?per_page=100&page={page}"),2*1024*1024,deadline.Token);
                 using var doc=JsonDocument.Parse(bytes);
                 foreach(var item in ComponentUpdateCatalog.Read(doc.RootElement))
-                    if(!next.TryGetValue(item.Key,out var old)||item.Value.Number>old.Number)next[item.Key]=item.Value;
+                    if(!next.TryGetValue(item.Key,out var old)||ComponentUpdateCatalog.Prefer(item.Value,old))next[item.Key]=item.Value;
                 foreach(var item in GalleryUpdateCatalog.Read(doc.RootElement))
                     if(!galleries.TryGetValue(item.Key,out var old)||item.Value.Number>old.Number)galleries[item.Key]=item.Value;
                 if(doc.RootElement.GetArrayLength()<100){Available=next;Galleries=galleries;CheckedAt=DateTimeOffset.UtcNow;Error=null;Changed?.Invoke();return;}

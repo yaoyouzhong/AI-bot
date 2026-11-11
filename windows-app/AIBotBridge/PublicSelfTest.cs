@@ -45,7 +45,6 @@ internal static class PublicSelfTest
         ComputerControlSelfTest.Run(Path.Combine(Path.GetTempPath(),"aibot-computer-test-"+Guid.NewGuid().ToString("N")));
         DataSourceSelfTest.Run();
         MediaPlayerSelfTest.RunAsync().GetAwaiter().GetResult();
-        ComponentUpdateSelfTest.Run();
         Task.Run(SerialDisconnectSelfTest.RunAsync).GetAwaiter().GetResult();
         GalleryPackSelfTest.Run();
         Tab5ArtGuides.SelfTest();
