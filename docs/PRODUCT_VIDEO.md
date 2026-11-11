@@ -1,12 +1,32 @@
 # 产品介绍视频 / Product introduction video
 
+## 2026-11-11 · 电脑端高清赏析 / Desktop HD artwork
+
+新版长 2 分 08 秒。1:43 起展示 TAB5 横竖屏名画和书法，1:51 起展示 Windows 原生图库全屏欣赏高清原作和缩放细节。两种电脑端作品各展示 5.5 秒。配乐在艺术段落续接原有乐句，片尾随之顺延。 / The 2:08 edition shows TAB5 landscape and portrait artwork from 1:43 and the native Windows fullscreen HD viewer and zoom from 1:51. Each desktop artwork is shown for 5.5 seconds. The original musical phrase is extended during the art section.
+
+https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
+
+[网页版 MP4 / Web MP4](https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8) · [1080p MP4](https://github.com/user-attachments/assets/c59ef11c-2a93-4a07-b5a4-505361062766) · [高清图库 / HD collections](GALLERY-HD.md)
+
+| 文件 / File | SHA-256 |
+| --- | --- |
+| 1080p MP4 | `16b464d4376948390446823d8739f941f53471272bffc5ac85be5a93fc4540f5` |
+| 网页版 / Web MP4 | `d9ee301b8524335d357fdb5b965fc3bb0a1612d9ab02669e95d8c7f91844d` |
+
+- 莫奈《睡莲》 / Claude Monet, *Water Lilies (Agapanthus)*，克利夫兰艺术博物馆 / Cleveland Museum of Art，1960.81，CC0。[馆藏 / Collection record](https://www.clevelandart.org/art/1960.81)
+- 蘇軾〈北宋蘇東坡書黃州寒食詩　卷〉 / Su Shi, *The Cold Food Observance*，國立故宮博物院（台北） / National Palace Museum, Taipei，購書001001N000000000，[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。影片展示高清图像第一段及放大局部。 / The video shows the first section of the HD image and a zoomed detail. [館藏與圖像授權 / Collection and image license](https://digitalarchive.npm.gov.tw/opendata/Pub/Detail/14714?dep=P&mode=full)
+
+## 2026-11-10 历史版 / November 10 edition
+
 2026-11-10 更新了对话界面等受影响的镜头，保留原有展示顺序与音轨；画面使用合成数据的原生界面演示。Updated UI scenes retain the original sequence and soundtrack; native interface scenes use synthetic data.
 
-[观看新版 / Watch updated video](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-web-20261110.mp4) · [下载 1080p / Download 1080p](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-20261110.mp4) · [工程源码 / Source](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-source-20261110.zip)
+[下载网页版 / Download web MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-web-20261110.mp4) · [下载 1080p / Download 1080p](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-20261110.mp4) · [工程源码 / Source](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-source-20261110.zip)
 
-新版 SHA-256：1080p `0a86972fd08fb7580859f8cf069856adc2098f1479042c6ec19e2d27b17555e1`；网页播放版 `0130c620df5ea9cade397fdbd9faf7591effc1f88967e264f890b25ffea9cd71`；工程 `1461e27b74b94a98b76600ef9ffdd21ce2c5149991ede3101062a382a1defb7c`。
+SHA-256：1080p `0a86972fd08fb7580859f8cf069856adc2098f1479042c6ec19e2d27b17555e1`；网页播放版 `0130c620df5ea9cade397fdbd9faf7591effc1f88967e264f890b25ffea9cd71`；工程 `1461e27b74b94a98b76600ef9ffdd21ce2c5149991ede3101062a382a1defb7c`。
 
-中英文主页内嵌的是同一份 11 月 10 日网页版 MP4。 / Both homepages embed the same November 10 web MP4. [GitHub 播放附件 / GitHub playback attachment](https://github.com/user-attachments/assets/492a7cd4-601f-42a6-a88a-ec870055e1b8)
+[11 月 10 日 GitHub 播放附件 / November 10 GitHub playback attachment](https://github.com/user-attachments/assets/492a7cd4-601f-42a6-a88a-ec870055e1b8)
+
+## 2026-11-02 历史版 / November 2 edition
 
 以下为 2026-11-02 历史版本及其来源说明。The following describes the historical November 2 edition and its sources.
 

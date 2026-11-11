@@ -62,11 +62,11 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 这段项目介绍对照展示 TAB5 大屏与 ESP8266 小屏的共有功能，并单独介绍 TAB5 的总览、会话、语音草稿、相机、电脑控制、日程和艺术屏保。画面使用原生界面演示数据与硬件合成图，非硬件实拍。
 
-下方可直接播放 2026 年 11 月 10 日新版，包含更新后的对话界面等镜头。
+下方可直接播放 2026 年 11 月 11 日版（2 分 08 秒）。从 1:51 起，可看电脑端全屏欣赏莫奈《睡莲》和苏轼《黄州寒食诗帖》，并放大查看细节。
 
-https://github.com/user-attachments/assets/492a7cd4-601f-42a6-a88a-ec870055e1b8
+https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 
-[下载网页版 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-web-20261110.mp4) · [下载 1080p MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-20261110.mp4) · [视频与来源](docs/PRODUCT_VIDEO.md)
+[网页版 MP4](https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8) · [1080p MP4](https://github.com/user-attachments/assets/c59ef11c-2a93-4a07-b5a4-505361062766) · [视频与来源](docs/PRODUCT_VIDEO.md)
 
 ## 能做什么
 
@@ -80,7 +80,7 @@ https://github.com/user-attachments/assets/492a7cd4-601f-42a6-a88a-ec870055e1b8
 <tr><td nowrap="nowrap"><strong>天气与行情</strong></td><td>两种屏幕展示天气和自选股票；TAB5 还可查看小时及七日天气预报。</td></tr>
 <tr><td nowrap="nowrap"><strong>音乐与电脑状态</strong></td><td>查看播放信息、封面以及电脑 CPU、内存和网络状态。<br>TAB5 音乐页可按播放器能力控制播放；支持范围因 Windows、Mac 和播放器而异。<a href="docs/MEDIA-PLAYERS.md">媒体支持说明</a></td></tr>
 <tr><td nowrap="nowrap"><strong>电脑控制</strong></td><td>TAB5 可调节音量、静音、锁屏、解锁及打开快捷项。<br>Windows 与 Mac 的解锁配置和权限要求不同。<a href="docs/COMPUTER-CONTROL.md">使用说明</a></td></tr>
-<tr><td nowrap="nowrap"><strong>时钟与屏保</strong></td><td>两种屏幕均有时钟；TAB5 提供多种表盘、倒计时、全年点阵及十二月历。<br>可选名画、书法图库支持横竖屏欣赏。</td></tr>
+<tr><td nowrap="nowrap"><strong>时钟与屏保</strong></td><td>两种屏幕均有时钟；TAB5 提供多种表盘、倒计时、全年点阵及十二月历，名画与书法图库支持横竖屏欣赏。<br>电脑端安装<a href="docs/GALLERY-HD.md">高清图库</a>后，可全屏欣赏名画和书法原作，放大查看细节并阅读作品导读。</td></tr>
 <tr><td nowrap="nowrap"><strong>桌宠与显示</strong></td><td>按 AI 状态显示桌宠；选择固定页面、轮播或智能跟随，配置页面、顺序与间隔。</td></tr>
 <tr><td nowrap="nowrap"><strong>设备与监控</strong></td><td>管理设备、连接与独立更新：小屏支持 USB / Wi-Fi，TAB5 还支持蓝牙。<br>Windows 运行监控及 TAB5 诊断页提供状态、原因与建议。<a href="docs/RUNTIME-MONITOR.md">运行监控</a></td></tr>
 </tbody>

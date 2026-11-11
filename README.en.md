@@ -62,11 +62,11 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 This project introduction compares the shared features of TAB5 and the ESP8266 display, then presents TAB5 highlights including overview, conversations, voice drafts, camera attachments, computer controls, agenda and art screensavers. Native interface footage uses demonstration data and composite hardware images, not hardware photography.
 
-Play the November 10, 2026 edition below. It includes refreshed dialogue interface footage and other updated scenes.
+Play the November 11, 2026 edition below (2:08). At 1:51, the desktop viewer shows Monet's *Water Lilies* and Su Shi's *The Cold Food Observance* fullscreen, then zooms in on the details.
 
-https://github.com/user-attachments/assets/492a7cd4-601f-42a6-a88a-ec870055e1b8
+https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 
-[Download web MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-web-20261110.mp4) · [Download 1080p MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-20261110.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)
+[Web MP4](https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8) · [1080p MP4](https://github.com/user-attachments/assets/c59ef11c-2a93-4a07-b5a4-505361062766) · [Media credits](docs/PRODUCT_VIDEO.md)
 
 ## What it does
 
@@ -80,7 +80,7 @@ https://github.com/user-attachments/assets/492a7cd4-601f-42a6-a88a-ec870055e1b8
 <tr><td nowrap="nowrap"><strong>Weather &amp; stocks</strong></td><td>Both displays show weather and watchlists; TAB5 also shows hourly and seven-day forecasts.</td></tr>
 <tr><td nowrap="nowrap"><strong>Music &amp; PC status</strong></td><td>View media details, artwork and computer CPU, memory and network activity.<br>TAB5 can control supported players; availability varies by Windows, Mac and player. <a href="docs/MEDIA-PLAYERS.md">Media support</a></td></tr>
 <tr><td nowrap="nowrap"><strong>Computer control</strong></td><td>TAB5 can adjust volume, mute, lock, unlock and open configured shortcuts.<br>Unlock setup and permissions differ on Windows and Mac. <a href="docs/COMPUTER-CONTROL.md">Guide</a></td></tr>
-<tr><td nowrap="nowrap"><strong>Clocks &amp; screensavers</strong></td><td>Both devices show a clock; TAB5 adds clock faces, countdowns, annual dots and a floral calendar.<br>Optional painting and calligraphy collections support landscape and portrait viewing.</td></tr>
+<tr><td nowrap="nowrap"><strong>Clocks &amp; screensavers</strong></td><td>Both devices show a clock. TAB5 adds clock faces, countdowns, annual dots, a floral calendar and landscape or portrait viewing for paintings and calligraphy.<br>Install the <a href="docs/GALLERY-HD.md">HD collections</a> to view original paintings and calligraphy fullscreen on your computer, zoom in on details and read the artwork guides.</td></tr>
 <tr><td nowrap="nowrap"><strong>Pets &amp; display</strong></td><td>Show pets with AI activity; choose a fixed page, cycling or smart following, with page order and interval.</td></tr>
 <tr><td nowrap="nowrap"><strong>Devices &amp; monitoring</strong></td><td>Manage connections and independent updates: ESP8266 uses USB / Wi-Fi; TAB5 also supports Bluetooth.<br>Windows runtime monitoring and TAB5 diagnostics show status, causes and advice. <a href="docs/RUNTIME-MONITOR.md">Runtime monitor</a></td></tr>
 </tbody>
