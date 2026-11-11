@@ -11,4 +11,4 @@ Artwork, character designs and product marks remain their respective owners' pro
 
 ## Native preview media
 
-`docs/assets/screens/tab5-companion-savers-0312-preview.png` is a composite of two separately rendered production LVGL savers. The clock is synthetic demonstration data; the image is not hardware photography and does not show both mascots simultaneously on a device. The user separately accepted the actual TAB5 placement, backgrounds and time typography. Its SHA-256 is registered in `licenses/materials.json`.
+`docs/assets/screens/tab5-companion-savers-0312-preview.png` is a composite of two separately rendered production LVGL savers. The 2026-11-11 composite preserves every pixel of the original 1280 × 720 `companion-saver-working.ppm` and `claude-saver-working.ppm` renders from 0.2.312-ui. The clock is synthetic demonstration data; the image is not hardware photography and does not show both mascots simultaneously on a device. The user separately accepted the actual TAB5 placement, backgrounds and time typography. Its SHA-256 is registered in `licenses/materials.json`.

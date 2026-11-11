@@ -62,11 +62,11 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 这段项目介绍对照展示 TAB5 大屏与 ESP8266 小屏的共有功能，并单独介绍 TAB5 的总览、会话、语音草稿、相机、电脑控制、日程和艺术屏保。画面使用原生界面演示数据与硬件合成图，非硬件实拍。
 
-下方可直接播放 2026 年 11 月 2 日版。11 月 10 日版更新了对话界面等镜头。
+下方可直接播放 2026 年 11 月 10 日新版，包含更新后的对话界面等镜头。
 
-https://github.com/user-attachments/assets/b83202d5-70ba-431b-841e-f7f11d8f6892
+https://github.com/user-attachments/assets/492a7cd4-601f-42a6-a88a-ec870055e1b8
 
-[下载 11 月 10 日新版 · 网页版 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-web-20261110.mp4) · [下载 1080p MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-20261110.mp4) · [视频与来源](docs/PRODUCT_VIDEO.md)
+[下载网页版 MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-web-20261110.mp4) · [下载 1080p MP4](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.18/AI-bot-project-overview-20261110.mp4) · [视频与来源](docs/PRODUCT_VIDEO.md)
 
 ## 能做什么
 

@@ -6,6 +6,8 @@
 
 新版 SHA-256：1080p `0a86972fd08fb7580859f8cf069856adc2098f1479042c6ec19e2d27b17555e1`；网页播放版 `0130c620df5ea9cade397fdbd9faf7591effc1f88967e264f890b25ffea9cd71`；工程 `1461e27b74b94a98b76600ef9ffdd21ce2c5149991ede3101062a382a1defb7c`。
 
+中英文主页内嵌的是同一份 11 月 10 日网页版 MP4。 / Both homepages embed the same November 10 web MP4. [GitHub 播放附件 / GitHub playback attachment](https://github.com/user-attachments/assets/492a7cd4-601f-42a6-a88a-ec870055e1b8)
+
 以下为 2026-11-02 历史版本及其来源说明。The following describes the historical November 2 edition and its sources.
 
 本轮媒体复用：经用户确认，小幅变化且通用介绍仍准确时，可保留现有截图和影片。0.6.16 的功能细节通过下方发布补充说明，影片本体、封面及原媒体摘要保持；不将复用描述为重新制作。 / Media reuse: the user allows accurate screenshots and the general overview film to remain for minor changes. The release supplement covers the current details; encoded video, covers and their original hashes are retained and are not claimed as newly produced.
