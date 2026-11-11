@@ -8,6 +8,12 @@
       "evidence": "Bridge-only v0.6.19 for Windows x64 and macOS arm64; successful native builds and seal in Actions 42984952727. Bilingual release notes, scoped update behavior, asset digests, LICENSE and THIRD_PARTY_NOTICES verified. Public ESP8266 compact ZIP selection and checksum passed in the Windows upstream handoff and local macOS source smoke test without writing hardware. Existing images and video remain accurate; reuse. Actual installation/startup checks remain separate and pending. See docs/development/WINDOWS-RELEASE-0619-HANDOFF-20261111.md.",
       "baselineSource": null,
       "reason": null
+    },
+    "macos-install-startup": {
+      "result": "passed",
+      "evidence": "2026-11-11 Apple Silicon: exact frozen macOS ZIP SHA-256 5318e75f25710a853f8e2926965e2d8b10de17ccf1b995a926a038d63e6e7754 installed over the local 0.6.18 app; installed files and source verified. Normal startup and restart passed. All 41 non-cache settings and 43 tracked profile files retained; original ESP8266 and TAB5 credentials authenticated to the running candidate on loopback. Both existing nonempty Codex and Claude drafts were read back byte-for-byte for text and with identical attachment references. No send, re-pair, or flash. Physical links and unrelated OS permissions were outside this check. See docs/development/WINDOWS-RELEASE-0619-HANDOFF-20261111.md.",
+      "baselineSource": null,
+      "reason": null
     }
   }
 }

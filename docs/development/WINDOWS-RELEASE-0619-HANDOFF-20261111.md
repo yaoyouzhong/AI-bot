@@ -29,11 +29,11 @@ Actions 批次 **42984952727** 的 Windows、Mac 与冻结作业全部通过。�
 | `AI-bot-bridge-v0.6.19-source.zip` | 161,411,549 | `8e224bce0e89f77450f3d89809da580d5def89629153d8af1a2e5dec0d447600` |
 
 - **Windows**：原生 Release 构建和源码与解压便携包的独立桌面自测通过，111 个归档文件逐一校验；最终安装器未签名。最终源码归档 3,045 个文件（含清单），未纳入独立 TAB5 源码。实际安装器覆盖安装、启动及资料保留待验证。
-- **macOS**：Actions 中 514 项 Swift 测试，5 跳过、0 失败；Apple Silicon ZIP 已在本机隔离解压，逐文件校验通过，App 读回 0.6.19 和共同源码 SHA；严格签名验证通过，临时签名、未公证，与 0.6.18 公共包的签名类型相同。从同一原包执行 `--self-test-flash-tool`、`--self-test-tab5-ui`，离屏窗口版本读回正确。常规覆盖安装、启动与权限／资料保留待验证。
-- [验收记录](WINDOWS-RELEASE-0619-ACCEPTANCE-20261111.json)已绑定该候选并登记 `release-review`。两端的 `*-install-startup` 尚未通过，工具会阻止晋级；本交接未创建标签或 Release。
+- **macOS**：Actions 中 514 项 Swift 测试，5 跳过、0 失败；从同一 ZIP 执行 `--self-test-flash-tool`、`--self-test-tab5-ui`，离屏窗口版本读回正确。临时签名、未公证，与 0.6.18 公共包的签名类型相同。本机从开发签名 0.6.18 覆盖安装、正常启动和再次启动均通过，资料核验见下。
+- [验收记录](WINDOWS-RELEASE-0619-ACCEPTANCE-20261111.json)已绑定该候选，`release-review` 和 `macos-install-startup` 已通过。剩余 `windows-install-startup` 仍阻止晋级；本交接未创建标签或 Release。
 
-1. 拉取交接分支并保留候选源码提交的祖先关系。取回同一 Actions 批次的 `release-candidate-bridge`，核对 `CANDIDATE.json`；从原包验收，文档后续提交无需重建。Windows 补实际安装器安装、启动及资料保留，确认本次更新路径；Mac 的常规覆盖升级、权限和实际资料读回以实际候选验收结果为准。
-2. 按[统一开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md)补记 `windows-install-startup` 和 `macos-install-startup`。关键项或任何失败项不得沿用为通过。通过后由 Windows 负责人晋级同一冻结原包及对应源码标签，详见[发布自动化](../RELEASE-AUTOMATION.md)。
+1. 拉取交接分支并保留候选源码提交的祖先关系。取回同一 Actions 批次的 `release-candidate-bridge`，核对 `CANDIDATE.json`；从原包验收，文档后续提交无需重建。Windows 补实际安装器安装、启动及资料保留，确认本次更新路径。
+2. 按[统一开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md)补记 `windows-install-startup`。若已有同一候选的本地验收文件，保留 Windows 记录，用 `record` 合入本交接的 Mac 通过证据。通过后由 Windows 负责人晋级同一冻结原包及对应源码标签，详见[发布自动化](../RELEASE-AUTOMATION.md)。
 3. 双语说明已在 [中文 CHANGELOG](../../CHANGELOG.zh.md#0619---2026-11-11)、[English changelog](../../CHANGELOG.md#0619---2026-11-11) 和 [0.6.19 发布说明](../RELEASE-0.6.19.md)；[更新指南](../UPDATES.md)与[安装指南](../INSTALL.zh.md)已补新版操作说明。正式附件上线后，按[收尾清单](../RELEASE-CHECKLIST.md)刷新 README 和下载中心的生成块，更新两份 README 的顶部说明与链接，以及 `docs/INSTALL.zh.md` 和 `docs/FIRST-INSTALL.zh.md` 的当前版本、安装器及校验入口。发布前保留现有公开链接。
 4. 主页更新用语：**Windows／Mac 桥接 0.6.19 会优先下载经过校验的 ESP8266 精简刷机包。设备固件无需随桥接更新。** / **Windows and Mac bridge 0.6.19 prefers the compact ESP8266 flash package and verifies it before handoff. Device firmware does not need to be updated with the bridge.** 既有主页截图、宣传片、封面和工程仍准确，复用原素材及既有播放证据；只变后台下载包选择。0.6.18 对话与 TAB5 .318 的历史发布说明保留。
 
@@ -57,3 +57,11 @@ python scripts/release_pipeline.py status $candidateDir $acceptanceRecord --expe
 python scripts/release_pipeline.py promote $candidateDir $acceptanceRecord --expected-source $candidateSource --repo yaoyouzhong/AI-bot
 # 预检通过后在同一 promote 命令追加 --execute --publish。
 ```
+
+## Mac 原包覆盖安装验收 · 2026-11-11
+
+- **安装和启动通过。** Apple Silicon / macOS 27.3。原安装为本机开发签名的 0.6.18（源码 `dd5692653b372268eb60bc5c369abb132483b3a1`）。正常退出并留存旧 App 和资料备份后，将上表冻结 ZIP 的 App 放回 `/Applications/AIBotBridge.app`。已安装 App 的 17 个归档文件、0.6.19 版本、嵌入的共同源码 SHA、arm64 和严格签名均核对通过。常规后台启动和再启动均成功；验收后保留 0.6.19 运行。
+- **设置保留。** 安装前、安装启动后、再启动后对照，41 项非缓存偏好完全一致，偏好无缺项；四项变化均为额度或行情缓存的运行时刷新。包含两台设备登记、议程、生日、常用任务、萌宠和私有会话资料在内的 43 个受检文件内容完全一致。
+- **原配对可用。** 同一钥匙串资料项在三次检查中未被改写；常规启动及再启动后，用原 ESP8266 凭据请求实际新版进程的本地状态端点获 HTTP 200，用原 TAB5 配对密钥通过带挑战值的状态认证并解密正确响应。未重配对。
+- **草稿可读。** 36 个私有存储文件逐一保持原字节。Codex 和 Claude 草稿日志经原钥匙串密钥认证解密，分别保留 15 条和 8 条记录；各有 1 条非空草稿，均由实际运行的 0.6.19 经加密 `draft-load` 读回，与安装前的文字及附件引用完全匹配。未发送、确认、清除或改写草稿。
+- **验证边界。** 配对和草稿使用本机回环协议验收，未重测物理 USB／无线连线、设备显示、录音及其他 macOS 权限。没有重刷设备、改系统权限或发布。私有备份、草稿正文、配对凭据和本地探针输出均未提交。
