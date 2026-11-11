@@ -2,18 +2,18 @@
   "schemaVersion": 1,
   "downloads": {
     "windows": {
-      "version": "0.6.18",
-      "tag": "v0.6.18",
-      "file": "AI-bot-bridge-v0.6.18-windows-x64-setup.exe",
-      "size": 32032475,
-      "sha256": "d955b9640c079cd870516540c9752db0e088becb6e5357cdad540d610c925108"
+      "version": "0.6.19",
+      "tag": "v0.6.19",
+      "file": "AI-bot-bridge-v0.6.19-windows-x64-setup.exe",
+      "size": 32031255,
+      "sha256": "1378d04a5bab59891ee0f9e5e37421ce48ed0e15ef42e69247c6321f43eb0bc7"
     },
     "macos": {
-      "version": "0.6.18",
-      "tag": "v0.6.18",
-      "file": "AI-bot-bridge-v0.6.18-macos-arm64.zip",
-      "size": 19880753,
-      "sha256": "bfad289a34536e72803bf4861a2ae916641c902a0c19db0bcb97c26340c4c77b"
+      "version": "0.6.19",
+      "tag": "v0.6.19",
+      "file": "AI-bot-bridge-v0.6.19-macos-arm64.zip",
+      "size": 19881856,
+      "sha256": "5318e75f25710a853f8e2926965e2d8b10de17ccf1b995a926a038d63e6e7754"
     },
     "esp8266": {
       "version": "0.5.8",
