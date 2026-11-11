@@ -10,6 +10,8 @@
 
 ## 1. 固定范围，取得候选
 
+用户未指定组件时，「发布版本」覆盖所有待发布更新。开始时运行 `python scripts/release_pipeline.py scope --online`，逐项核对 Windows、Mac、ESP8266 和 TAB5 的公开版本、待发版本及本地 TAB5 候选。发现未登记版本的功能改动时，先确认归属并登记版本；有待发组件缺候选或验收时，把缺项写进同一发布计划。
+
 先完成版本声明和最终中英文更新日志，再选定源码 SHA。优先查找已有候选：同源码、同文件哈希、原生构建与检查记录完整时直接使用。普通代码 CI 的编译输出不是完整发布包，不冒充可晋级候选。
 
 需要新候选时，在干净的指定提交上运行 `candidate.yml`；选择 `bridge`、`esp8266` 或一次构建两者的 `bundle`，桥接平台选 `all`、`windows` 或 `macos`。双平台包从同一 SHA 在各自操作系统构建。候选流程在原生打包成功后登记文件来源，汇集时拒绝混合源码或变化的文件，输出：
@@ -57,7 +59,7 @@ python scripts/release_pipeline.py promote $candidate $acceptance --repo yaoyouz
   "schemaVersion": 1,
   "repository": "yaoyouzhong/AI-bot",
   "candidates": [
-    {"directory": "bridge", "acceptance": "bridge-acceptance.json"},
+    {"directory": "bridge", "acceptance": "bridge-acceptance.json", "minimalBridgeAssets": true},
     {"directory": "esp8266", "acceptance": "esp8266-acceptance.json"},
     {"directory": "tab5", "acceptance": "tab5-acceptance.json"}
   ]
@@ -65,12 +67,12 @@ python scripts/release_pipeline.py promote $candidate $acceptance --repo yaoyouz
 ```
 
 ```powershell
-python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json
+python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json --publish
 # 在已有正式发布授权内执行；三个组件发布后只做一次下载元数据收尾
 python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json --execute --publish
 ```
 
-只列本次变化的组件。执行前先预检全部验收；网络失败可能让部分组件先公开，记录会明确完成到哪里，重试同一命令继续，不能声称跨三个 Release 是原子操作。
+只列本次变化的组件。执行前先预检全部验收并对照公开下载清单，缺少任一待发组件时停止在建标签前。用户明确指定部分组件时，用 `--scope-reason` 记录原指令，发布报告会同时列出本轮未纳入的更新。网络失败可能让部分组件先公开，记录会明确完成到哪里，重试同一命令继续。
 
 也可显式调度 `promote.yml`，提供成功的 `candidate.yml` 批次 ID、组件、`record` 生成的完整验收 JSON 和 `publish`。它取回该批次的原候选并核对 SHA，不调用构建；默认 `publish=false`。输入只通过环境变量交给 JSON 解析器，不拼接进 shell。多组件发布在本地用 `promote-set` 可统一收尾；独立组件适合 Actions 晋级入口。TAB5 用本地晋级入口，不伪造原生 Actions 批次。
 
@@ -83,6 +85,19 @@ python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json 
 负责人只做一轮语义复核：受影响主页亮点、安装说明、兼容性和媒体是否准确。下载表可自动生成，功能文案不能由哈希推断。小更新复用仍准确的截图、视频和播放结果，仅更新会误导用户的部分；完成 [收尾清单](RELEASE-CHECKLIST.md) 并保留限制后交付。该复核由 Agent 完成，不要求用户再批准已授权的普通收尾。
 
 宣传视频保持当前已确认的展示顺序和整体结构。媒体更新只替换相应页面或镜头，或增加必要内容，保持既有段落的相对顺序；未经用户另行明确要求，不大幅改版、重排顺序或整片重做。自动化不得把“同步视频”解释成重新设计整支宣传片。
+
+## 下个版本起的 Assets 整理约定
+
+用户于 2026-11-11 确认从下个版本开始整理。此约定适用于新发布，现有已发布附件和下载链接继续可用。
+
+- Assets 保留可直接安装或刷写的产物：Windows 安装程序、Mac 应用 ZIP、TAB5 首刷与升级 ZIP、ESP8266 精简刷机 ZIP，以及更新器需要的 `SHA256SUMS.txt` 和精简 ZIP 的 `.sha256`。
+- `LICENSE`、`THIRD_PARTY_NOTICES.md` 保留在包内；确认包内齐全后，后续版本不再重复上传独立声明附件。
+- `CANDIDATE.json`、验收记录、额外源码包与构建依赖、宣传视频移至对应构建归档、开发资源或演示页面，保留来源、校验与引用关系，不作为普通用户安装附件。
+- 兼容文件名别名只有在确认已有桥接客户端具备升级路径后才退役。GitHub 自动生成的 Source code ZIP/tar.gz 入口保留。
+- 桥接独立发布在确认安装包内已包含许可声明后，使用 `promote --minimal-bridge-assets`。它保留 Windows 安装器、Mac 应用 ZIP、兼容的 Windows 安装器别名与对应校验清单。冻结清单、验收记录、便携包和额外源码包仍在构建归档。
+- TAB5 使用 `promote --minimal-tab5-assets`，发布首刷 ZIP、升级 ZIP、兼容升级别名和校验清单。完整源码随候选封存，在发布页链接到对应的 Git 源码路径。
+
+Starting with the next release, Assets will contain installable/flashable packages and updater-required checksums. Keep licenses and third-party notices inside packages. Archive candidate/acceptance metadata, extra source/build resources and media at their appropriate linked locations. For a bridge-only release, use `promote --minimal-bridge-assets` after checking the bundled notices. It keeps both platform installers, the Windows compatibility alias and the checksums. Retire aliases after verifying an upgrade path for existing clients. Existing published assets, URLs and GitHub-generated source archives remain available.
 
 ## 重试与边界
 

@@ -15,7 +15,7 @@ import subprocess
 import sys
 
 from artifact_names import COMPONENT_KEYS, UPDATE_ALIASES, name as artifact_name, names, resolve
-from component_versions import ROOT, components, versions
+from component_versions import ROOT, components, desktop_platform, versions
 from github_cli import run_cli
 from prepare_release_assets import prepare
 from upload_release_resumable import upload
@@ -238,22 +238,33 @@ def readiness(directory, acceptance, *, expected_source=None):
     return candidate, data, pending
 
 
-def stage(directory, acceptance, output, *, allow_deferred=False):
-    candidate, data, pending = readiness(directory, acceptance)
-    if pending and not (allow_deferred and all(data['checks'].get(c, {}).get('result') == 'deferred' and data['checks'][c].get('reason', '').strip() for c in pending)):
-        raise ValueError("Pending or failed acceptance: " + ", ".join(pending))
-    directory, output = Path(directory), Path(output)
-    build = read(directory / "BUILD.json")
-    wanted = {n: n for n in ("LICENSE", "THIRD_PARTY_NOTICES.md")}
+def publication_assets(candidate, build, *, minimal_bridge_assets=False, minimal_tab5_assets=False):
+    if minimal_bridge_assets and candidate["component"] != "bridge":
+        raise ValueError("Minimal bridge assets require a bridge candidate")
+    if minimal_tab5_assets and candidate["component"] != "tab5":
+        raise ValueError("Minimal TAB5 assets require a TAB5 candidate")
+    minimal = minimal_bridge_assets or minimal_tab5_assets
+    wanted = {} if minimal else {n: n for n in ("LICENSE", "THIRD_PARTY_NOTICES.md")}
     for key in ("windows", "macos", "esp8266", "tab5-first", "tab5-upgrade"):
         found = [n for n in names(key, candidate["version"]) if n in build["packageHashes"]]
         if found:
             wanted[artifact_name(key, candidate["version"])] = found[0]
             if key in UPDATE_ALIASES:
                 wanted[names(key, candidate["version"])[1]] = found[0]
-    if build.get("tab5Source"):
+    if build.get("tab5Source") and not minimal_tab5_assets:
         name = build["tab5Source"]["file"]
         wanted[name] = name
+    return wanted
+
+
+def stage(directory, acceptance, output, *, allow_deferred=False, minimal_bridge_assets=False, minimal_tab5_assets=False):
+    candidate, data, pending = readiness(directory, acceptance)
+    if pending and not (allow_deferred and all(data['checks'].get(c, {}).get('result') == 'deferred' and data['checks'][c].get('reason', '').strip() for c in pending)):
+        raise ValueError("Pending or failed acceptance: " + ", ".join(pending))
+    directory, output = Path(directory), Path(output)
+    minimal = minimal_bridge_assets or minimal_tab5_assets
+    wanted = publication_assets(candidate, read(directory / "BUILD.json"),
+                                minimal_bridge_assets=minimal_bridge_assets, minimal_tab5_assets=minimal_tab5_assets)
     output.mkdir(parents=True, exist_ok=True)
     for target, source in wanted.items():
         dest = output / safe_name(target)
@@ -263,14 +274,17 @@ def stage(directory, acceptance, output, *, allow_deferred=False):
             shutil.copyfile(directory / source, dest)
         if file_record(dest) != candidate['files'][source]:
             raise ValueError('Copied publication asset differs from accepted bytes: ' + target)
-    write(output / "CANDIDATE.json", candidate)
-    if not pending:
-        write(output / "ACCEPTANCE.json", data)
-    expected = set(wanted) | {"CANDIDATE.json", "SHA256SUMS.txt"} | (set() if pending else {"ACCEPTANCE.json"})
+    expected = set(wanted) | {"SHA256SUMS.txt"}
+    if not minimal:
+        write(output / "CANDIDATE.json", candidate)
+        expected.add("CANDIDATE.json")
+        if not pending:
+            write(output / "ACCEPTANCE.json", data)
+            expected.add("ACCEPTANCE.json")
     if {p.name for p in output.iterdir()} - expected:
         raise ValueError("Unexpected publication payload files")
     checksums = "".join(f"{digest(p)}  {p.name}\n" for p in sorted(output.iterdir()) if p.name != "SHA256SUMS.txt")
-    (output / "SHA256SUMS.txt").write_text(checksums, encoding="ascii")
+    (output / "SHA256SUMS.txt").write_text(checksums, encoding="ascii", newline="\n" if minimal else None)
     return {p.name: file_record(p) for p in output.iterdir()}
 
 
@@ -324,7 +338,59 @@ def verify_remote(release, manifest):
             raise ValueError("Remote digest mismatch: " + name)
 
 
-def promote(directory, acceptance, repository, *, execute=False, publish=False, expected_source=None, commit_closeout=False, run_closeout=True, allow_deferred=False):
+def release_scope(candidates=(), *, online=False, reason=None):
+    """Compare all declared component targets with the published download catalog."""
+    from download_catalog import discover, load, public_releases
+
+    targets = versions()
+    public = (discover(public_releases()) if online else load())["downloads"]
+    tab5 = ROOT / "artifacts/firmware/tab5/latest/manifest.json"
+    platform = desktop_platform()
+    slots = {"bridge": ("windows", "macos"), "esp8266": ("esp8266",),
+             "tab5": ("tab5-first", "tab5-upgrade")}
+
+    def number(version):
+        if not re.fullmatch(r"\d+\.\d+\.\d+(?:-ui)?", version):
+            raise ValueError("Invalid stable release version: " + version)
+        return tuple(map(int, version.removesuffix("-ui").split(".")))
+
+    if tab5.is_file():
+        targets["tab5"] = max(targets["tab5"], read(tab5)["version"], key=number)
+    covered = {}
+    for candidate in candidates:
+        component = candidate["component"]
+        keys = slots[component]
+        if component == "bridge" and candidate["desktopPlatform"] != "all":
+            keys = (candidate["desktopPlatform"],)
+        targets[component] = max(targets[component], candidate["version"], key=number)
+        for key in keys:
+            covered[key] = max(covered.get(key, "0.0.0"), candidate["version"], key=number)
+
+    rows, omitted = {}, []
+    for component, keys in slots.items():
+        target = targets[component]
+        for key in keys:
+            if component == "bridge" and platform not in ("all", key) and key not in covered:
+                continue
+            published, selected = public[key]["version"], covered.get(key)
+            pending = number(target) > number(published)
+            rows[key] = {"target": target, "published": published, "selected": selected, "pending": pending}
+            if pending and (selected is None or number(selected) < number(target)):
+                omitted.append(f"{key} {target}")
+    if reason is not None and not reason.strip():
+        raise ValueError("An explicitly scoped release needs a nonempty reason")
+    return {"components": rows, "omitted": omitted, "scopeReason": reason}
+
+
+def require_release_scope(candidates, *, online, reason):
+    scope = release_scope(candidates, online=online, reason=reason)
+    if scope["omitted"] and reason is None:
+        raise ValueError("Pending updates outside the release: " + ", ".join(scope["omitted"]) +
+                         ". Add them to promote-set or record the user's explicit narrow scope with --scope-reason.")
+    return scope
+
+
+def promote(directory, acceptance, repository, *, execute=False, publish=False, expected_source=None, commit_closeout=False, run_closeout=True, allow_deferred=False, minimal_bridge_assets=False, minimal_tab5_assets=False, scope_reason=None, scope_checked=False):
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("Invalid GitHub repository")
     candidate, data, pending = readiness(directory, acceptance, expected_source=expected_source)
@@ -332,14 +398,26 @@ def promote(directory, acceptance, repository, *, execute=False, publish=False, 
         raise ValueError("Pending or failed acceptance: " + ", ".join(pending))
     if commit_closeout and not publish:
         raise ValueError("Committing closeout requires public publication")
-    report = {"candidateId": candidate["candidateId"], "tag": candidate["tag"], "sourceCommit": candidate["sourceCommit"], "repository": repository, "publish": publish, "execute": execute}
+    report = {"candidateId": candidate["candidateId"], "tag": candidate["tag"], "sourceCommit": candidate["sourceCommit"],
+              "component": candidate["component"], "version": candidate["version"], "desktopPlatform": candidate["desktopPlatform"],
+              "repository": repository, "publish": publish, "execute": execute}
+    if publish and not scope_checked:
+        report["releaseScope"] = require_release_scope([candidate], online=execute, reason=scope_reason)
+    minimal = minimal_bridge_assets or minimal_tab5_assets
+    if minimal:
+        assets = publication_assets(candidate, read(Path(directory) / "BUILD.json"),
+                                    minimal_bridge_assets=minimal_bridge_assets, minimal_tab5_assets=minimal_tab5_assets)
+        report["publicAssets"] = sorted(set(assets) | {"SHA256SUMS.txt"})
     if not execute:
         return report
     if commit_closeout:
         check_closeout_workspace()
     directory = Path(directory)
     payload = directory.parent / ("publication-" + candidate["candidateId"][:16])
-    manifest = stage(directory, acceptance, payload, allow_deferred=allow_deferred)
+    if minimal:
+        payload = payload.with_name(payload.name + "-minimal")
+    manifest = stage(directory, acceptance, payload, allow_deferred=allow_deferred,
+                     minimal_bridge_assets=minimal_bridge_assets, minimal_tab5_assets=minimal_tab5_assets)
     ensure_tag(repository, candidate)
     existing = run_cli(["release", "view", candidate["tag"], "--repo", repository, "--json", "databaseId"], check=False, timeout=90)
     if existing.returncode:
@@ -375,7 +453,7 @@ def promote(directory, acceptance, repository, *, execute=False, publish=False, 
     return report
 
 
-def promote_set(plan, *, execute=False, publish=False, commit_closeout=False, allow_deferred=False):
+def promote_set(plan, *, execute=False, publish=False, commit_closeout=False, allow_deferred=False, scope_reason=None):
     """Preflight every selected component, publish original bytes, close out once."""
     plan = Path(plan).resolve()
     data = read(plan)
@@ -385,13 +463,18 @@ def promote_set(plan, *, execute=False, publish=False, commit_closeout=False, al
     for item in data['candidates']:
         directory = (plan.parent / item['directory']).resolve()
         acceptance = (plan.parent / item['acceptance']).resolve()
-        args = dict(directory=directory, acceptance=acceptance, repository=data['repository'], expected_source=item.get('sourceCommit'), allow_deferred=allow_deferred)
+        args = dict(directory=directory, acceptance=acceptance, repository=data['repository'],
+                    expected_source=item.get('sourceCommit'), allow_deferred=allow_deferred,
+                    minimal_bridge_assets=item.get('minimalBridgeAssets', False),
+                    minimal_tab5_assets=item.get('minimalTab5Assets', False), scope_checked=True)
         preflight.append(promote(**args, publish=publish, commit_closeout=commit_closeout))
         entries.append(args)
     tags = [item['tag'] for item in preflight]
     if len(tags) != len(set(tags)):
         raise ValueError('Release-set contains duplicate tags')
     result = {'execute': execute, 'publish': publish, 'components': preflight}
+    if publish:
+        result['releaseScope'] = require_release_scope(preflight, online=execute, reason=scope_reason)
     if not execute:
         return result
     if commit_closeout:
@@ -494,9 +577,14 @@ def main():
         p.add_argument("directory", type=Path); p.add_argument("acceptance", type=Path); p.add_argument("--expected-source")
         if command == "promote":
             p.add_argument("--repo", required=True); p.add_argument("--execute", action="store_true"); p.add_argument("--publish", action="store_true"); p.add_argument("--commit-closeout", action="store_true"); p.add_argument("--allow-deferred", action="store_true")
+            p.add_argument("--minimal-bridge-assets", action="store_true", help="publish only desktop installers, updater compatibility aliases, and their checksums")
+            p.add_argument("--minimal-tab5-assets", action="store_true", help="publish only TAB5 first-install and upgrade packages, updater compatibility aliases, and their checksums")
+            p.add_argument("--scope-reason", help="record why the user explicitly selected a narrower release")
     p = sub.add_parser("closeout"); p.add_argument("--execute", action="store_true"); p.add_argument("--repo"); p.add_argument("--tag", action="append", default=[]); p.add_argument("--commit", action="store_true")
     p = sub.add_parser("promote-set"); p.add_argument("plan", type=Path)
     p.add_argument("--execute", action="store_true"); p.add_argument("--publish", action="store_true"); p.add_argument("--commit-closeout", action="store_true"); p.add_argument("--allow-deferred", action="store_true")
+    p.add_argument("--scope-reason", help="record why the user explicitly selected a narrower release")
+    p = sub.add_parser("scope"); p.add_argument("--online", action="store_true")
     args = vars(parser.parse_args()); command = args.pop("command")
     if command == "stamp": result = stamp(**args)
     elif command == "assemble": result = assemble(**args)
@@ -508,6 +596,7 @@ def main():
     elif command == "promote":
         args["repository"] = args.pop("repo"); result = promote(**args)
     elif command == "promote-set": result = promote_set(**args)
+    elif command == "scope": result = release_scope(**args)
     else:
         result = closeout(repository=args["repo"], tags=args["tag"], commit=args["commit"]) if args["execute"] else {"wouldRun": ["download_catalog.py refresh", "download_catalog.py sync", "download_catalog.py check"], "builds": False, "commit": args["commit"]}
     print(json.dumps(result, ensure_ascii=False, indent=2))

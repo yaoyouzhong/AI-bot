@@ -159,10 +159,27 @@ class CandidateTests(unittest.TestCase):
     def test_dry_run_does_not_call_git_github_or_builds(self):
         folder, candidate = self.candidate()
         acceptance = self.accepted(folder, candidate)
-        with patch.object(pipeline, "run_cli") as cli, patch.object(pipeline, "ensure_tag") as tag, patch.object(pipeline, "upload") as send, patch.object(pipeline.subprocess, "run") as process:
+        with patch.object(pipeline, "require_release_scope", return_value={}), patch.object(pipeline, "run_cli") as cli, patch.object(pipeline, "ensure_tag") as tag, patch.object(pipeline, "upload") as send, patch.object(pipeline.subprocess, "run") as process:
             report = pipeline.promote(folder, acceptance, "owner/repo", publish=True)
             self.assertFalse(report["execute"])
             for mock in (cli, tag, send, process): mock.assert_not_called()
+
+    def test_minimal_bridge_assets_keep_legacy_update_and_checksum(self):
+        folder, candidate = self.candidate(platform="all")
+        acceptance = self.accepted(folder, candidate)
+        output = self.root / "minimal-publication"
+        windows, legacy = names("windows", candidate["version"])
+        macos = names("macos", candidate["version"])[0]
+        manifest = pipeline.stage(folder, acceptance, output, minimal_bridge_assets=True)
+        self.assertEqual(set(manifest), {windows, legacy, macos, "SHA256SUMS.txt"})
+        self.assertEqual(manifest[windows], manifest[legacy])
+        checksums = {
+            line.split("  ", 1)[1]: line.split("  ", 1)[0]
+            for line in (output / "SHA256SUMS.txt").read_text().splitlines()
+        }
+        self.assertEqual(checksums, {name: manifest[name]["sha256"] for name in (windows, legacy, macos)})
+        report = pipeline.promote(folder, acceptance, "owner/repo", minimal_bridge_assets=True)
+        self.assertEqual(report["publicAssets"], sorted(manifest))
 
     def test_promotion_retries_do_not_rebuild_reupload_or_republish(self):
         folder, candidate = self.candidate()
@@ -182,7 +199,7 @@ class CandidateTests(unittest.TestCase):
             self.assertNotEqual(state.parent, payload)
             calls["upload"] += 1
             release["assets"] = [{"name": n, "size": m["bytes"], "digest": "sha256:"+m["sha256"]} for n,m in manifest.items()]
-        with patch.object(pipeline, "gh_json", fake_json), patch.object(pipeline, "run_cli", fake_cli), patch.object(pipeline, "ensure_tag"), patch.object(pipeline, "upload", fake_upload), patch.object(pipeline, "closeout", return_value={"downloads": "verified"}):
+        with patch.object(pipeline, "require_release_scope", return_value={}), patch.object(pipeline, "gh_json", fake_json), patch.object(pipeline, "run_cli", fake_cli), patch.object(pipeline, "ensure_tag"), patch.object(pipeline, "upload", fake_upload), patch.object(pipeline, "closeout", return_value={"downloads": "verified"}):
             first = pipeline.promote(folder, acceptance, "owner/repo", execute=True, publish=True)
             second = pipeline.promote(folder, acceptance, "owner/repo", execute=True, publish=True)
             self.assertTrue(first["published"] and second["published"])
@@ -282,6 +299,23 @@ class CandidateTests(unittest.TestCase):
                 pipeline.promote_set(plan, execute=True, publish=True)
             tag.assert_not_called(); gh.assert_not_called()
 
+    def test_publication_catches_pending_tab5_even_without_a_sealed_candidate(self):
+        folder, candidate = self.candidate("all")
+        acceptance = self.accepted(folder, candidate)
+        targets = {"bridge": candidate["version"], "esp8266": "0.5.8", "tab5": "0.2.318-ui"}
+        published = {"windows": "0.6.17", "macos": "0.6.17", "esp8266": "0.5.8",
+                     "tab5-first": "0.2.318-ui", "tab5-upgrade": "0.2.318-ui"}
+        catalog = {"downloads": {key: {"version": value} for key, value in published.items()}}
+        pipeline.write(self.root / "artifacts/firmware/tab5/latest/manifest.json", {"version": "0.2.319-ui"})
+        with patch.object(pipeline, "ROOT", self.root), patch.object(pipeline, "versions", side_effect=lambda: targets.copy()), patch.object(pipeline, "desktop_platform", return_value="all"), patch("download_catalog.public_releases", return_value=[]), patch("download_catalog.discover", return_value=catalog), patch.object(pipeline, "ensure_tag") as tag:
+            with self.assertRaisesRegex(ValueError, "tab5-first 0.2.319-ui, tab5-upgrade 0.2.319-ui"):
+                pipeline.promote(folder, acceptance, "owner/repo", execute=True, publish=True)
+            tag.assert_not_called()
+            scope = pipeline.require_release_scope([candidate], online=True, reason="User explicitly requested bridge only")
+            self.assertEqual(len(scope["omitted"]), 2)
+            tab5 = {"component": "tab5", "version": "0.2.319-ui"}
+            self.assertEqual(pipeline.require_release_scope([candidate, tab5], online=True, reason=None)["omitted"], [])
+
     def test_batch_closes_out_only_once_and_saves_partial_progress(self):
         plan = self.root/'plan.json'
         pipeline.write(plan, {'schemaVersion': 1, 'repository': 'owner/repo', 'candidates': [
@@ -289,12 +323,12 @@ class CandidateTests(unittest.TestCase):
             {'directory': 'second', 'acceptance': 'second.json'}]})
         def fake_promote(**args):
             return {'tag': args['directory'].name, 'published': bool(args.get('execute')), 'execute': args.get('execute', False)}
-        with patch.object(pipeline, 'promote', side_effect=fake_promote) as promote, patch.object(pipeline, 'closeout', return_value={'downloads': 'verified'}) as closeout:
+        with patch.object(pipeline, 'require_release_scope', return_value={}), patch.object(pipeline, 'promote', side_effect=fake_promote) as promote, patch.object(pipeline, 'closeout', return_value={'downloads': 'verified'}) as closeout:
             result = pipeline.promote_set(plan, execute=True, publish=True)
             self.assertTrue(result['completed'])
             self.assertEqual(4, promote.call_count)  # Two local preflights, two promotions.
             closeout.assert_called_once_with(repository='owner/repo', tags=['first','second'], commit=False)
-        with patch.object(pipeline, 'promote', side_effect=[{'tag':'first'}, {'tag':'second'}, {'tag':'first','published':True}, ConnectionError()]), patch.object(pipeline, 'closeout') as closeout:
+        with patch.object(pipeline, 'require_release_scope', return_value={}), patch.object(pipeline, 'promote', side_effect=[{'tag':'first'}, {'tag':'second'}, {'tag':'first','published':True}, ConnectionError()]), patch.object(pipeline, 'closeout') as closeout:
             with self.assertRaises(ConnectionError):
                 pipeline.promote_set(plan, execute=True, publish=True)
             state = next(pipeline.read(p) for p in self.root.glob('release-set-*.json') if pipeline.read(p).get('errorClass'))
