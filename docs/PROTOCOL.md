@@ -1247,6 +1247,10 @@ Mac R24补齐已定义的Wi-Fi `tab5_packed` 状态格式：仅在本次GET已�
 
 Mac R24 now uses the already-defined Wi-Fi packed status only after the current GET's device/nonce/HMAC authentication and a valid same-nonce canonical0.2.42-ui-or-later0.2.x-ui firmware proof. Only a smaller complete zlib/base64 envelope replaces raw state, before unchanged AES-GCM wrapping. Missing/old/unknown/non-beneficial cases remain raw; existing32740-byte expansion and exact, non-nested, complete-input receiver checks remain. Windows already supports this Wi-Fi format. Physical~26KB-to~11KB responses restore valid packet growth and the user confirms recovery, without uniquely proving the old receive/decrypt/frame failure stage.
 
+Mac 后续对齐：Wi-Fi 状态 GET 验签后读取最近一次完整发布，不等待状态生成。缓存随原采样的单调时间在 6 秒到期；同一帧保留原序号和采样时间，停用、换配对或恢复监听时不可复用旧帧。尚未生成或过期返回 HTTP 503，后续生成成功即恢复。原有协商、加密、最大长度和设备端 8 秒链路判定不变。资源回执仍需本次请求的证明；语音优先或测速期间返回无资源的同一状态。
+
+The Mac Wi-Fi GET now reads the last complete publication after authentication without waiting for the producer. The publication expires six seconds after its original monotonic sample and retains the original sequence and sample time. Disabling service, changing pairing or restarting the listener invalidates it. Missing or expired publications return HTTP 503 until a new frame is ready. Negotiation, encryption, capacity, and the receiver's eight-second link timeout are unchanged. Resource acknowledgements still require request-bound proof; voice priority and benchmarks use the resource-free status.
+
 ### Mac upgrade command lifetime / Mac 升级命令时限
 
 Mac R25将`otaCommand`和`bootVerifyCommand`的通告截止分别限制在实际承载状态帧epoch后45秒／15秒内，并且不晚于原请求截止。不能满足该窗口的帧不发布命令；不会通过新状态帧延长原请求、放宽接收器检查或自动重发。实际固件字节已经提供或设备已确认开始后，旧开始请求到期不再覆盖下载／等待启动核验状态。观察到目标版本仅表示版本在线，仍需原精确ELF、VALID分区与三个实时UI样本核验；后续版本采样不覆盖已通过的精确核验。设备拒绝原因只映射固定白名单提示，未知原始错误不进入UI。原120秒Wi-Fi提供租约、90秒RPC提供租约、30秒开始请求和10秒启动核验请求保持；无新协议字段。离线实际模型通过，电脑端开始的实机闭环须在下一次确有固件更新时核对，不为该测试重刷同版本。

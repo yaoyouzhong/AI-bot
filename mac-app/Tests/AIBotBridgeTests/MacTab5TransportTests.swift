@@ -28,6 +28,7 @@ final class MacTab5TransportTests: XCTestCase {
         let pair = MacTab5Pairing(deviceId: "001122334455", usbPath: "/dev/cu.usbmodem-fixture", key: Data(0..<32), confirmed: true)
         let service = MacTab5Service(port: 8765, load: { pair }, save: { _ in })
         let server = HTTPStatusServer(port: 8765, token: { token }, tab5: service, snapshot: { Data("{}".utf8) })
+        service.setLANReady(true) // request parser fixture does not start a listener
         func response(_ request: String) -> String {
             String(decoding: server.response(for: Data(request.utf8)), as: UTF8.self)
         }

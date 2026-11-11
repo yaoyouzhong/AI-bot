@@ -4,6 +4,23 @@ import CryptoKit
 final class MacTab5Service {
     typealias DisplayCompletion = (Result<MacTab5DisplaySettings, Error>) -> Void
     private let lock = NSLock()
+    // Status polls never take the service lock, which protects frame building.
+    // Writers acquire the service lock before this one; the Wi-Fi reader never
+    // calls back into service, resource or firmware state while holding it.
+    private let wifiLock = NSLock()
+    private let wifiPublisher = DispatchQueue(label: "AI-bot.tab5-wifi-status", qos: .userInitiated)
+    private let wifiClock: () -> TimeInterval
+    private var wifiPair: MacTab5Pairing?
+    private var wifiBlocked = true, wifiBenchmark = false
+    private var wifiGeneration: UInt64 = 0
+    private struct WiFiFrame {
+        let plain: Data, resource: Data?, sampledAt: TimeInterval, activityAccess: Int
+    }
+    private var wifiFrame: WiFiFrame?
+    private var wifiPendingAssets: String?, wifiPendingFirmware: String?
+    private var wifiPublishing = false, wifiRefreshRequested = false, wifiResourceRequested = false
+    private var wifiSeen: TimeInterval = -.infinity
+    private var snapshotTick: TimeInterval = -.infinity // service lock
     private let localDiagnostics: MacTab5LocalDiagnostics?
     private let loadPairing: () throws -> MacTab5Pairing?
     private let savePairing: (MacTab5Pairing) throws -> Void
@@ -34,7 +51,9 @@ final class MacTab5Service {
     private var benchmarkMode = 0
     private var lastUSB: TimeInterval = -.infinity
     private var usbReportedActive: String?
-    private var lastWiFi: TimeInterval = -.infinity
+    private var lastWiFi: TimeInterval {
+        wifiLock.lock(); defer { wifiLock.unlock() }; return wifiSeen
+    }
     private var lastBLE: TimeInterval = -.infinity
     private var bleNote = "尚未启用"
     private var firmware: String?
@@ -73,8 +92,9 @@ final class MacTab5Service {
          save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }, diagnostics: MacTab5LocalDiagnostics? = nil, claudeWorkspace: MacClaudeWorkspace? = nil,
          hostInput: @escaping () -> (uptime: TimeInterval, idle: TimeInterval) = {
              (ProcessInfo.processInfo.systemUptime, MacIdleTime.seconds())
-         }) {
+         }, wifiClock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.localDiagnostics = diagnostics; self.hostInput = hostInput
+        self.wifiClock = wifiClock
         self.port = port; self.host = host; self.latestMusic = music; self.gallery = gallery; self.computer = computer; self.codex = codex; self.voice = voice; loadPairing = load; savePairing = save
         self.networkDiagnostics = networkDiagnostics; self.unlock = unlock
         self.deviceEnabled = enabled; self.sourceEnabled = sourceEnabled; self.claudeSessions = claudeSessions
@@ -91,7 +111,7 @@ final class MacTab5Service {
         }
         voice.beforeStart = { [weak desktop] task, device in desktop?.prepareVoice(task: task, device: device) }
         computer.unlockConfigured = { [unlock] in unlock.hasCredential }
-        do { pairing = try load(); try pairing?.validate() }
+        do { let record = try load(); try record?.validate(); pairing = record; wifiPair = record }
         catch { pairingReadable = false; usbNote = "无法读取配对记录，请检查钥匙串权限" }
     }
 
@@ -116,7 +136,11 @@ final class MacTab5Service {
     func setMaintenance(_ value: Bool) -> Bool {
         lock.lock()
         if value && (benchmarkMode != 0 || activeOperations > 0 || displayCompletion != nil || firmwareControl.busy) { lock.unlock(); return false }
-        maintenance = value; lock.unlock(); if value { voice.stop(); deviceDiagnostics.cancel(); screenPreview.stop(); unlock.cancel() }; return true
+        if maintenance != value { maintenance = value; resetWiFiLocked() }
+        lock.unlock()
+        if value { voice.stop(); deviceDiagnostics.cancel(); screenPreview.stop(); unlock.cancel() }
+        else { requestWiFiPublication() }
+        return true
     }
     var usbActive: Bool { lock.lock(); defer { lock.unlock() }; return ProcessInfo.processInfo.systemUptime - lastUSB < 8 }
     var usbOwnsActiveState: Bool {
@@ -134,8 +158,13 @@ final class MacTab5Service {
         lock.lock(); defer { lock.unlock() }
         guard !stopped, !maintenance, benchmarkMode == 0, displayCompletion == nil, activeOperations == 0, !firmwareControl.busy, !voice.busy else { throw MacTab5Error.busy }
         benchmarkMode = gallery ? 2:1
+        wifiLock.lock(); wifiBenchmark = true; wifiLock.unlock()
     }
-    func endBenchmark() { lock.lock(); benchmarkMode = 0; lock.unlock() }
+    func endBenchmark() {
+        lock.lock(); benchmarkMode = 0
+        wifiLock.lock(); wifiBenchmark = false; wifiLock.unlock()
+        lock.unlock()
+    }
     private var currentBenchmark: Int { lock.lock(); defer { lock.unlock() }; return benchmarkMode }
     func requestUpgrade() throws {
         lock.lock(); defer { lock.unlock() }
@@ -224,7 +253,13 @@ final class MacTab5Service {
         guard lanReady, !stopped else { return nil }
         return (address, port)
     }
-    func setLANReady(_ ready: Bool) { lock.lock(); lanReady = ready && !stopped; if !lanReady { lastWiFi = -.infinity }; lock.unlock() }
+    func setLANReady(_ ready: Bool) {
+        lock.lock()
+        let available = ready && !stopped
+        if lanReady != available { lanReady = available; resetWiFiLocked() }
+        lock.unlock()
+        if ready { requestWiFiPublication() }
+    }
     func setDiscoveryState(_ note: String) { lock.lock(); discoveryNote = note; lock.unlock() }
     func bleState(_ note: String, confirmed: Bool = false) {
         lock.lock(); bleNote = note; lastBLE = confirmed ? ProcessInfo.processInfo.systemUptime : -.infinity; lock.unlock()
@@ -256,7 +291,11 @@ final class MacTab5Service {
         firmwareControl.observeDeviceOTA(root["otaDiag"])
         if let context = diagnosticContextLocked() { deviceDiagnostics.recordUSB(root,context:context) }
     }
-    func publish(_ value: MacStatusSnapshot) { lock.lock(); snapshot = value; lock.unlock() }
+    func publish(_ value: MacStatusSnapshot) {
+        let tick = wifiClock()
+        lock.lock(); snapshot = value; snapshotTick = tick; lock.unlock()
+        requestWiFiPublication()
+    }
     func usbState(_ note: String, confirmed: Bool = false) {
         lock.lock()
         if confirmed, !lastUSB.isFinite { usbConfirmedSessions += 1 }
@@ -299,7 +338,7 @@ final class MacTab5Service {
         guard deviceEnabled(), !stopped, !maintenance, benchmarkMode == 0 else { throw MacTab5Error.unavailable }
         if !pairingReadable {
             let recovered = try loadPairing(); try recovered?.validate()
-            pairing = recovered; pairingReadable = true
+            pairing = recovered; pairingReadable = true; resetWiFiLocked()
         }
         guard displayCompletion == nil, activeOperations == 0, !firmwareControl.busy else { throw MacTab5Error.busy }
         if let existing = pairing, existing.deviceId != device { throw MacTab5Error.identity }
@@ -309,15 +348,16 @@ final class MacTab5Service {
         }
         let record = MacTab5Pairing(deviceId: device, usbPath: path, key: key, confirmed: false)
         try record.validate(); try savePairing(record)
-        pairing = record; lastUSB = -.infinity; lastWiFi = -.infinity
+        pairing = record; lastUSB = -.infinity; resetWiFiLocked()
         return record
     }
     func confirmPairing(_ record: MacTab5Pairing) throws {
         lock.lock(); defer { lock.unlock() }
         guard pairing == record else { throw MacTab5Error.identity }
         var confirmed = record; confirmed.confirmed = true
-        try savePairing(confirmed); pairing = confirmed
+        try savePairing(confirmed); pairing = confirmed; resetWiFiLocked()
         usbNote = "配对完成，等待状态确认"
+        requestWiFiPublication()
     }
 
     func frame(includeResources: Bool = true) throws -> Data {
@@ -463,25 +503,117 @@ final class MacTab5Service {
         lock.lock()
         let callback = displayCompletion; displayCompletion = nil; display.cancel()
         stopped = true
-        lastUSB = -.infinity; lastWiFi = -.infinity; lastBLE = -.infinity; lanReady = false
+        lastUSB = -.infinity; lastBLE = -.infinity; lanReady = false; resetWiFiLocked()
         lock.unlock(); callback?(.failure(MacTab5Error.unconfirmed)); deviceDiagnostics.cancel(); screenPreview.stop(); uiAutomation.cancel(); codex.stop(); claude.stop(); claudeReplies.invalidate(); voice.stop(); unlock.stop()
     }
 
+    private func resetWiFiLocked() {
+        wifiLock.lock(); defer { wifiLock.unlock() }
+        wifiPair = pairing; wifiBlocked = !lanReady || stopped || maintenance
+        invalidateWiFiPublicationLocked()
+    }
+    private func invalidateWiFiPublicationLocked() {
+        wifiGeneration &+= 1; wifiFrame = nil; wifiSeen = -.infinity
+        wifiPendingAssets = nil; wifiPendingFirmware = nil
+        wifiRefreshRequested = false; wifiResourceRequested = false
+    }
+    private func requestWiFiPublication() {
+        wifiLock.lock(); defer { wifiLock.unlock() }
+        scheduleWiFiPublicationLocked()
+    }
+    private func scheduleWiFiPublicationLocked() {
+        guard !wifiBlocked, wifiPair?.confirmed == true else { return }
+        wifiRefreshRequested = true
+        guard !wifiPublishing else { return }
+        wifiPublishing = true
+        wifiPublisher.async { [weak self] in self?.publishWiFiFrame() }
+    }
+    private func publishWiFiFrame() {
+        lock.lock()
+        wifiLock.lock()
+        let generation = wifiGeneration, requested = wifiRefreshRequested
+        let resource = wifiResourceRequested && !wifiBenchmark
+        let ids = wifiPendingAssets, version = wifiPendingFirmware
+        wifiRefreshRequested = false; wifiResourceRequested = false
+        wifiPendingAssets = nil; wifiPendingFirmware = nil
+        wifiLock.unlock()
+        let sampledAt = snapshotTick
+        let activityAccess = wifiActivityAccess
+        var frame: Data?
+        if requested, deviceEnabled(), !stopped, !maintenance, let pair = pairing, pair.confirmed {
+            if let ids { assets.acknowledge(ids) }
+            if let version { firmware = version; firmwareDevice = pair.deviceId; firmwareControl.observeVersion(version) }
+            if Self.freshWiFiSample(sampledAt, now: wifiClock()) {
+                frame = try? frameLocked(includeResources: resource && voice.wifiAllowsResources)
+            }
+        }
+        lock.unlock()
+
+        // Keep a resource-free variant so recording/benchmark traffic can
+        // preempt a cached chunk without waiting for the publisher.
+        let variants = frame.flatMap { try? Self.wifiVariants($0, sampledAt: sampledAt, activityAccess: activityAccess) }
+        wifiLock.lock(); defer { wifiLock.unlock() }
+        if generation == wifiGeneration, let variants { wifiFrame = variants }
+        wifiPublishing = false
+        if wifiRefreshRequested { scheduleWiFiPublicationLocked() }
+    }
+    private static func freshWiFiSample(_ tick: TimeInterval, now: TimeInterval) -> Bool {
+        let age = now - tick
+        return age >= 0 && age < 6
+    }
+    // Do not return activity or draft data composed before an opt-out.
+    private var wifiActivityAccess: Int {
+        guard sourceEnabled("activity") else { return 0 }
+        return 1 | (codex.isEnabled ? 2 : 0) | (claude.tasks.isEnabled ? 4 : 0) | (claudeReplies.isEnabled ? 8 : 0)
+    }
+    private static func wifiVariants(_ frame: Data, sampledAt: TimeInterval, activityAccess: Int) throws -> WiFiFrame {
+        var root = try MacTab5Protocol.object(frame)
+        guard var data = root["data"] as? [String: Any], data.removeValue(forKey: "resource") != nil else {
+            return WiFiFrame(plain: frame, resource: nil, sampledAt: sampledAt, activityAccess: activityAccess)
+        }
+        root["data"] = data
+        return WiFiFrame(plain: try MacTab5Protocol.json(root), resource: frame, sampledAt: sampledAt, activityAccess: activityAccess)
+    }
     func status(device: String, nonce: String, proof: String, headers: [String: String] = [:]) -> (Int, Data) {
-        lock.lock(); defer { lock.unlock() }
-        guard deviceEnabled(), !stopped, !maintenance else { return (503, Data()) }
-        guard let pair = pairing, pair.confirmed, pair.deviceId == device,
-              MacTab5Protocol.isHex(nonce, count: 32),
+        wifiLock.lock()
+        let pair = wifiPair, generation = wifiGeneration
+        let available = deviceEnabled() && !wifiBlocked
+        if !available && !wifiBlocked { invalidateWiFiPublicationLocked() }
+        wifiLock.unlock()
+        guard available else { return (503, Data()) }
+        guard let pair, pair.confirmed, pair.deviceId == device, MacTab5Protocol.isHex(nonce, count: 32),
               MacTab5Protocol.verify(key: pair.key, message: "GET|\(device)|\(nonce)", proof: proof) else { return (401, Data()) }
+        let ids: String? = headers["x-aibot-assets"].flatMap { ids in
+            MacTab5Assets.validIDs(ids) && headers["x-aibot-assets-proof"].map {
+                MacTab5Protocol.verify(key: pair.key, message: "ASSETS|\(nonce)|\(ids)", proof: $0)
+            } == true ? ids : nil
+        }
+        let version: String? = headers["x-tab5-firmware"].flatMap { version in
+            version.utf8.count <= 40 && headers["x-tab5-firmware-proof"].map {
+                MacTab5Protocol.verify(key: pair.key, message: "FIRMWARE|\(nonce)|\(version)", proof: $0)
+            } == true ? version : nil
+        }
+        let resourcesAllowed = voice.wifiAllowsResources
+        wifiLock.lock()
+        guard generation == wifiGeneration, deviceEnabled() else { wifiLock.unlock(); return (503, Data()) }
+        if let ids { wifiPendingAssets = ids }
+        if let version { wifiPendingFirmware = version }
+        let resources = resourcesAllowed && !wifiBenchmark
+        wifiResourceRequested = wifiResourceRequested || resources
+        let publication = wifiFrame
+        scheduleWiFiPublicationLocked()
+        wifiLock.unlock()
+        guard let publication, publication.activityAccess == wifiActivityAccess,
+              Self.freshWiFiSample(publication.sampledAt, now: wifiClock()) else { return (503, Data()) }
         do {
-            if let ids = headers["x-aibot-assets"], let assetProof = headers["x-aibot-assets-proof"],
-               MacTab5Protocol.verify(key: pair.key, message: "ASSETS|\(nonce)|\(ids)", proof: assetProof) { assets.acknowledge(ids) }
-            if let version = headers["x-tab5-firmware"], version.utf8.count <= 40, let firmwareProof = headers["x-tab5-firmware-proof"],
-               MacTab5Protocol.verify(key: pair.key, message: "FIRMWARE|\(nonce)|\(version)", proof: firmwareProof) { firmware = version; firmwareDevice = pair.deviceId; firmwareControl.observeVersion(version) }
-            let full = try frameLocked()
+            let full = resources ? publication.resource ?? publication.plain : publication.plain
             let wire = try MacTab5WiFiStatus.wire(full,headers:headers,pair:pair,nonce:nonce)
             let packet = try MacTab5Protocol.encrypt(wire, key: pair.key, challenge: nonce)
-            lastWiFi = ProcessInfo.processInfo.systemUptime
+            let access = wifiActivityAccess
+            wifiLock.lock(); defer { wifiLock.unlock() }
+            guard generation == wifiGeneration, deviceEnabled(), publication.activityAccess == access,
+                  Self.freshWiFiSample(publication.sampledAt, now: wifiClock()) else { return (503, Data()) }
+            wifiSeen = ProcessInfo.processInfo.systemUptime
             return (200, packet)
         } catch { return (503, Data()) }
     }

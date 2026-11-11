@@ -64,6 +64,16 @@ final class MacTab5Voice {
     // result. Completion of recognition can precede that final poll.
     var needsTransportPriority: Bool {
         lock.lock(); defer { lock.unlock() }
+        return transportPriorityLocked()
+    }
+    // A busy voice handler must not block a status poll. Send its smaller
+    // resource-free frame until priority can be read again.
+    var wifiAllowsResources: Bool {
+        guard lock.try() else { return false }
+        defer { lock.unlock() }
+        return !transportPriorityLocked()
+    }
+    private func transportPriorityLocked() -> Bool {
         guard enabled() else { return false }
         return ["recording","recognizing"].contains(state) ||
             (!id.isEmpty && !terminalResponseServed && clock() >= seen && clock()-seen < 30)

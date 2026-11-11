@@ -1,8 +1,8 @@
-# Mac TAB5 状态回包对齐交接草稿
+# Mac TAB5 状态回包对齐交接
 
 ## 范围与接续
 
-Windows → macOS。交接分支为 `codex/tab5-status-reliability`，基于 `471249e59ab0f9fc0fc98a4cbd5c9cd75c10d040`。交接源码以包含本文件的提交为准。可先拉取分支审阅，等 Windows 真机剩余两项通过后再开始 Mac 实现。
+Windows → macOS。来源分支为 `codex/tab5-status-reliability`，源码 `d9150b18012bfaf734930c032b680a1c6843eeff`，基于 `471249e59ab0f9fc0fc98a4cbd5c9cd75c10d040`。Mac 按本次开发请求在本地分支 `codex/mac-tab5-status-reliability-20261111` 对齐；Windows 的剩余真机验收没有被本次 Mac 开发结果替代。
 
 ~~~bash
 git fetch origin codex/tab5-status-reliability
@@ -15,10 +15,10 @@ git log -1 FETCH_HEAD
 
 | 项目 | Windows / TAB5 现状 | Mac 对齐位置和验收 |
 | --- | --- | --- |
-| Wi-Fi 状态回包 | **已完成 Windows 实现及并发回归。** `Tab5Service.Respond` 在验签后读取一次发布的完整状态与兼容帧，避开状态发布锁。缓存过期时停止回传旧状态。 | **待验证。** 从 `MacTab5Service.status` 入手。目前它持服务锁调用 `frameLocked` 生成状态，再编码并加密。先用 `HTTPStatusServer` 的回包耗时确认现场基线。若确认阻塞，提前生成状态，缩短读路径的持锁时间。 |
+| Wi-Fi 状态回包 | **已完成 Windows 实现及并发回归。** `Tab5Service.Respond` 在验签后读取一次发布的完整状态与兼容帧，避开状态发布锁。缓存过期时停止回传旧状态。 | **已完成 Mac 实现及本机回环验证。** `MacTab5Service.status` 验签后读取已生成帧，状态生成或资源回执处理不会阻塞 GET。合成夹具从真实 HTTP 监听发起请求，生成被暂停时可解密最近帧，过期得到 503，恢复后收到新序号。 |
 | 总览项目名与断联提示 | **已完成固件实现、离屏预览及 319-R9 启动核验。** 总览项目行去掉分页标记，断联提示按设备最近收到的认证数据判断。总览实屏及 USB 拔线验收待完成。 | **不适用 Mac 源码。** 使用同一 TAB5 固件验证总览与链路，固件改动见 [320-R1 源码补丁](TAB5-320-R1-OVERVIEW-LINK-20261111.patch)。 |
 
-Mac 侧保留设备归属与配对状态检查、请求绑定的加密、固件容量选择、资源回执和传输优先级。缓存需关联配对代次与单调时间，过期、停用或配对变化后应失效。并发回归应覆盖状态生成暂停时已认证请求仍能读取新鲜帧，以及缓存到期后无法再取旧帧。另测错误凭据、设备切换、压缩与兼容帧、资源暂停和恢复。Windows 的并发用例在 `Tab5TelemetrySelfTest.VerifyWifiStatusDuringPublicationAsync`。
+Mac 发布与响应分开，使用单调时间从采样起计算 6 秒有效期。缓存绑定配对及监听代次；维护、停止或重新配对不能复用旧帧，活动功能关闭时拒绝使用含旧活动权限的缓存。重复读取同一帧不会改写序号或时间。已验证错误凭据和其他设备 ID 被拒、重新确认配对后可恢复、旧端原始 JSON 和按证明协商压缩、测速优先无分片、退出测速后恢复传送及签名资源回执。USB／BLE 生成、协议 v1 和 Mac 既有容量上限保持，固件对端继续按原序号与 8 秒判定。没有新的界面布局或文案；320-R1 的总览更改由原固件分支负责。
 
 ## 构建与验收证据
 
@@ -27,12 +27,12 @@ Mac 侧保留设备归属与配对状态检查、请求绑定的加密、固件�
 | Windows 本地桥接 | 实机使用的候选 DLL SHA-256 为 `aadbfc62cb6706b5e7cf4b899436f7be57e77bac140541301f5608c2a022edbd`。Release 构建、`--status-once`、TAB5 遥测与通用自测通过。候选已在 Windows 安装并启动。 |
 | TAB5 319-R9 | BIN SHA-256 为 `edc6b59c9ba78b855eb19b7469833f861c0d6e91c9f332f1af99ccb6ae570e8a`。已走 Wi-Fi OTA，启动核验读回 ELF `88e0c750b404bf402616eefb8c340ac9659451e2bf17ba229ba8a89e6e5b4590`，分区 `ota_0` 为 `VALID`，显示设置升级前后相同。 |
 | TAB5 320-R1 | BIN 为 7,052,768 字节，SHA-256 为 `05ae073e732ea33498a411f549c03154e184ff1afee7c90e59aa39ea25283475`。与 319-R9 对应同一轮功能修复，按 320-R1 重新构建。镜像、内部修订、升级说明和离屏总览通过检查。依用户决定，本轮使用已经刷入的 319-R9 验收。320-R1 的真机启动记录待取得。 |
-| macOS | 原生实现、构建和真机验收均待执行。 |
+| macOS | `swift test --package-path mac-app`：516 项、4 项跳过、0 失败；`swift build -c release --package-path mac-app` 通过。回环测试覆盖阻塞、过期与恢复；未连接 TAB5 串口，未作真机部署或刷机。保留已安装的公开桥接 0.6.19。 |
 
 旧桥接现场出现过 TCP 连接成功、HTTP 响应头未返回，Wi-Fi 有效数据年龄约 25.6 秒。新桥接安装后，USB 接着时采样 46 次，跨度 2 分 18 秒，Wi-Fi 数据年龄最高约 4.3 秒。这段采样覆盖 Wi-Fi 状态回包，USB 仍是设备优先通道。草稿保留未单独实测。
 
 ## 剩余步骤
 
 1. 在 Windows 配对的 319-R9 上，实屏确认总览项目行去掉 `1/2`。保证 TAB5 供电后拔掉电脑 USB 约 45 秒，从诊断确认实际使用 Wi-Fi，观察总览持续更新及断联提示，再恢复 USB。
-2. Windows 两项通过后，在 Mac 复现状态生成阻塞的情形并按结果对齐。原生运行 `cd mac-app && swift test && swift build -c release`。用 Mac 配对的 TAB5 验证 Wi-Fi 回包、拔掉 USB 后的更新、短暂断网与恢复，并复查资源传输和认证。
-3. 按 [统一开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md) 回填实际 Mac 源码提交、候选摘要与实机结果。发布候选继续按各自镜像指纹登记验收。
+2. 在 Mac 配对的 TAB5 验证 Wi-Fi 回包、拔掉 USB 后的更新、短暂断网与恢复，并复查资源传输和认证。回环测试不代表真机或射频链路通过。
+3. 对齐源码以包含本记录的 Mac 提交为准。后续按 [统一开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md) 补记实际候选摘要与真机结果；本轮没有冻结候选、变更桥接版本或执行发布。

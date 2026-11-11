@@ -180,15 +180,142 @@ final class MacTab5Tests: XCTestCase {
 
     func testStatusRequiresDeviceSpecificProofAndIncrementsSequence() throws {
         let service = self.service(), nonce = MacTab5Protocol.identifier()
+        service.setLANReady(true)
         XCTAssertEqual(service.status(device: device, nonce: nonce, proof: "token").0, 401)
         let proof = MacTab5Protocol.proof(key: key, message: "GET|\(device)|\(nonce)")
         XCTAssertEqual(service.status(device: "ffffffffffff", nonce: nonce, proof: proof).0, 401)
-        let first = service.status(device: device, nonce: nonce, proof: proof)
-        let second = service.status(device: device, nonce: nonce, proof: proof)
-        XCTAssertEqual(first.0, 200)
-        let a = try MacTab5Protocol.object(MacTab5Protocol.decrypt(first.1, key: key, challenge: nonce))
-        let b = try MacTab5Protocol.object(MacTab5Protocol.decrypt(second.1, key: key, challenge: nonce))
-        XCTAssertGreaterThan(b["sequence"] as! Int, a["sequence"] as! Int)
+        func waitForFrame(after prior: Int64) throws -> Int64? {
+            let deadline = ProcessInfo.processInfo.systemUptime + 2
+            while ProcessInfo.processInfo.systemUptime < deadline {
+                let (http, bytes) = service.status(device: device, nonce: nonce, proof: proof)
+                if http == 200 {
+                    let frame = try MacTab5Protocol.object(MacTab5Protocol.decrypt(bytes, key: key, challenge: nonce))
+                    if let sequence = MacTab5Protocol.integer(frame["sequence"]), sequence > prior { return sequence }
+                }
+                Thread.sleep(forTimeInterval: 0.01)
+            }
+            return nil
+        }
+        let first = try XCTUnwrap(waitForFrame(after: 0))
+        XCTAssertNotNil(try waitForFrame(after: first))
+        let pairing = try service.preparePairing(device: device, path: "/dev/cu.usbmodem-fixture")
+        XCTAssertEqual(service.status(device: device, nonce: nonce, proof: proof).0, 401)
+        try service.confirmPairing(pairing)
+        XCTAssertNotNil(try waitForFrame(after: first))
+    }
+
+    func testWiFiHTTPReturnsFreshPublicationWhileBuilderIsBlocked() async throws {
+        final class Clock: @unchecked Sendable {
+            private let lock = NSLock()
+            private var tick: TimeInterval = 100
+            func read() -> TimeInterval { lock.lock(); defer { lock.unlock() }; return tick }
+            func set(_ value: TimeInterval) { lock.lock(); tick = value; lock.unlock() }
+        }
+        let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+        let clock = Clock()
+        let pair = MacTab5Pairing(deviceId: device, usbPath: "/dev/cu.fixture", key: key, confirmed: true)
+        let bridge = MacTab5Service(port: 0, sourceEnabled: { _ in false }, load: { pair }, save: { _ in },
+            hostInput: {
+                if clock.read() == 101 {
+                    entered.signal()
+                    _ = release.wait(timeout: .now() + 5)
+                }
+                return (clock.read(), 100)
+            }, wifiClock: { clock.read() })
+        let http = HTTPStatusServer(port: 0, token: { nil }, tab5: bridge, loopbackOnly: true, snapshot: { Data() })
+        try http.start()
+        defer { clock.set(107); release.signal(); http.stop() }
+        bridge.publish(snapshot())
+        for _ in 0..<100 where http.boundPort == nil { try await Task.sleep(nanoseconds: 10_000_000) }
+        let port = try XCTUnwrap(http.boundPort)
+        let client = URLSession(configuration: .ephemeral)
+        defer { client.invalidateAndCancel() }
+        func poll(_ valid: Bool = true, packed: Bool = false) async throws -> (Int, [String: Any]?) {
+            let n = MacTab5Protocol.identifier()
+            var req = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/tab5/v1/status")!, timeoutInterval: 1)
+            req.setValue(device, forHTTPHeaderField: "X-AIBot-Device")
+            req.setValue(n, forHTTPHeaderField: "X-AIBot-Nonce")
+            req.setValue(valid ? MacTab5Protocol.proof(key: key, message: "GET|\(device)|\(n)") : "invalid", forHTTPHeaderField: "X-AIBot-Proof")
+            if packed {
+                let version = "0.2.319-ui"
+                req.setValue(version, forHTTPHeaderField: "X-Tab5-Firmware")
+                req.setValue(MacTab5Protocol.proof(key: key, message: "FIRMWARE|\(n)|\(version)"), forHTTPHeaderField: "X-Tab5-Firmware-Proof")
+            }
+            let (bytes, response) = try await client.data(for: req)
+            let code = try XCTUnwrap(response as? HTTPURLResponse).statusCode
+            return (code, code == 200 ? try MacTab5Protocol.object(MacTab5Protocol.decrypt(bytes, key: key, challenge: n)) : nil)
+        }
+        var first: [String: Any]?
+        for _ in 0..<100 {
+            first = try await poll().1
+            if first != nil { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        let sequence = try XCTUnwrap(first.flatMap { MacTab5Protocol.integer($0["sequence"]) })
+        clock.set(101)
+        _ = try await poll() // request the next publication without taking its lock
+        XCTAssertEqual(entered.wait(timeout: .now() + 2), .success)
+        let cached = try await poll()
+        XCTAssertEqual(cached.0, 200)
+        let cachedSequence = try XCTUnwrap(cached.1.flatMap { MacTab5Protocol.integer($0["sequence"]) })
+        XCTAssertGreaterThanOrEqual(cachedSequence, sequence)
+        let repeated = try await poll()
+        XCTAssertEqual(repeated.1.flatMap { MacTab5Protocol.integer($0["sequence"]) }, cachedSequence,
+                       "Do not make an old sample look like a new device frame.")
+        let rejected = try await poll(false)
+        XCTAssertEqual(rejected.0, 401)
+        let negotiated = try await poll(packed: true)
+        XCTAssertEqual(negotiated.0, 200)
+        XCTAssertEqual(negotiated.1?["type"] as? String, "tab5_packed")
+        clock.set(107)
+        let expired = try await poll()
+        XCTAssertEqual(expired.0, 503)
+        release.signal()
+        bridge.publish(snapshot())
+        var recovered: Int64?
+        for _ in 0..<100 {
+            recovered = try await poll().1.flatMap { MacTab5Protocol.integer($0["sequence"]) }
+            if let recovered, recovered > cachedSequence { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertGreaterThan(recovered ?? 0, cachedSequence)
+    }
+
+    func testWiFiStatusSuppressesCachedResourcesDuringBenchmarkAndHonorsSignedAck() throws {
+        let pair = MacTab5Pairing(deviceId: device, usbPath: "/dev/cu.fixture", key: key, confirmed: true)
+        let bridge = MacTab5Service(port: 0, sourceEnabled: { _ in false }, load: { pair }, save: { _ in })
+        bridge.assets.update(pets: [], cover: nil)
+        bridge.publish(snapshot())
+        bridge.setLANReady(true)
+        defer { bridge.stop() }
+        func poll(ack: String? = nil, verified: Bool = true) throws -> [String: Any]? {
+            let n = MacTab5Protocol.identifier()
+            var headers: [String: String] = [:]
+            if let ack {
+                headers["x-aibot-assets"] = ack
+                headers["x-aibot-assets-proof"] = verified ? MacTab5Protocol.proof(key: key, message: "ASSETS|\(n)|\(ack)") : "invalid"
+            }
+            let proof = MacTab5Protocol.proof(key: key, message: "GET|\(device)|\(n)")
+            let (code, packet) = bridge.status(device: device, nonce: n, proof: proof, headers: headers)
+            guard code == 200 else { return nil }
+            return try MacTab5Protocol.object(MacTab5Protocol.decrypt(packet, key: key, challenge: n))["data"] as? [String: Any]
+        }
+        func waitForResource(_ present: Bool, ack: String? = nil, verified: Bool = true) throws -> [String: Any]? {
+            let deadline = ProcessInfo.processInfo.systemUptime + 2
+            while ProcessInfo.processInfo.systemUptime < deadline {
+                if let data = try poll(ack: ack, verified: verified), (data["resource"] != nil) == present { return data }
+                Thread.sleep(forTimeInterval: 0.01)
+            }
+            return nil
+        }
+        let active = try XCTUnwrap(waitForResource(true))
+        let ids = try XCTUnwrap(active["assetIds"] as? [Any]).map { ($0 as? String) ?? "-" }.joined(separator: ",")
+        try bridge.beginBenchmark(gallery: true)
+        XCTAssertNil(try XCTUnwrap(poll())["resource"])
+        bridge.endBenchmark()
+        XCTAssertNotNil(try waitForResource(true, ack: ids, verified: false))
+        XCTAssertNotNil(try waitForResource(false, ack: ids))
+        XCTAssertNil(try XCTUnwrap(poll())["resource"])
     }
 
     func testReadThenSaveRequiresMatchingReceiptAndFreshRevision() throws {
