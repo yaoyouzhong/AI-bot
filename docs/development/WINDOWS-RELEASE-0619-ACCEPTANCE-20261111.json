@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "candidateId": "c60a79ce821ae01679a5b3ef6c4c673a4837a85cfacbfdcae6465e39477d0668",
+  "sourceCommit": "89f113897ef21d6b1ee3b45c2d321ea2dec5f5b3",
+  "checks": {
+    "release-review": {
+      "result": "passed",
+      "evidence": "Bridge-only v0.6.19 for Windows x64 and macOS arm64; successful native builds and seal in Actions 42984952727. Bilingual release notes, scoped update behavior, asset digests, LICENSE and THIRD_PARTY_NOTICES verified. Public ESP8266 compact ZIP selection and checksum passed in the Windows upstream handoff and local macOS source smoke test without writing hardware. Existing images and video remain accurate; reuse. Actual installation/startup checks remain separate and pending. See docs/development/WINDOWS-RELEASE-0619-HANDOFF-20261111.md.",
+      "baselineSource": null,
+      "reason": null
+    }
+  }
+}

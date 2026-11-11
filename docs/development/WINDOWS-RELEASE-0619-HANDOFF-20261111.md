@@ -19,8 +19,21 @@ Mac 原生：`swift test --package-path mac-app` 514 项，4 跳过、0 失败�
 
 ## Windows 发布接手
 
+Actions 批次 **42984952727** 的 Windows、Mac 与冻结作业全部通过。候选 ID：`c60a79ce821ae01679a5b3ef6c4c673a4837a85cfacbfdcae6465e39477d0668`。已下载 [冻结原包](https://github.com/yaoyouzhong/AI-bot/actions/runs/42984952727/artifacts/13838949568)，逐一核对冻结清单、许可、第三方声明、双语说明及 SHA-256。
+
+| 文件 | 字节数 | SHA-256 |
+| --- | ---: | --- |
+| `AI-bot-bridge-v0.6.19-windows-x64-setup.exe` | 32,031,255 | `1378d04a5bab59891ee0f9e5e37421ce48ed0e15ef42e69247c6321f43eb0bc7` |
+| `AI-bot-bridge-v0.6.19-macos-arm64.zip` | 19,881,856 | `5318e75f25710a853f8e2926965e2d8b10de17ccf1b995a926a038d63e6e7754` |
+| `AI-bot-bridge-v0.6.19-windows-x64.zip` | 33,620,962 | `b1f8eb75c037e9e0a85d00f18a82e3cd7711ba344ad9a2ba2b65cfda685f57dc` |
+| `AI-bot-bridge-v0.6.19-source.zip` | 161,411,549 | `8e224bce0e89f77450f3d89809da580d5def89629153d8af1a2e5dec0d447600` |
+
+- **Windows**：原生 Release 构建和源码与解压便携包的独立桌面自测通过，111 个归档文件逐一校验；最终安装器未签名。最终源码归档 3,045 个文件（含清单），未纳入独立 TAB5 源码。实际安装器覆盖安装、启动及资料保留待验证。
+- **macOS**：Actions 中 514 项 Swift 测试，5 跳过、0 失败；Apple Silicon ZIP 已在本机隔离解压，逐文件校验通过，App 读回 0.6.19 和共同源码 SHA；严格签名验证通过，临时签名、未公证，与 0.6.18 公共包的签名类型相同。从同一原包执行 `--self-test-flash-tool`、`--self-test-tab5-ui`，离屏窗口版本读回正确。常规覆盖安装、启动与权限／资料保留待验证。
+- [验收记录](WINDOWS-RELEASE-0619-ACCEPTANCE-20261111.json)已绑定该候选并登记 `release-review`。两端的 `*-install-startup` 尚未通过，工具会阻止晋级；本交接未创建标签或 Release。
+
 1. 拉取交接分支并保留候选源码提交的祖先关系。取回同一 Actions 批次的 `release-candidate-bridge`，核对 `CANDIDATE.json`；从原包验收，文档后续提交无需重建。Windows 补实际安装器安装、启动及资料保留，确认本次更新路径；Mac 的常规覆盖升级、权限和实际资料读回以实际候选验收结果为准。
-2. 按[统一开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md)记录 `release-review`、`windows-install-startup`、`macos-install-startup`。关键项或任何失败项不得沿用为通过。通过后由 Windows 负责人晋级同一冻结原包及对应源码标签，详见[发布自动化](../RELEASE-AUTOMATION.md)。
+2. 按[统一开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md)补记 `windows-install-startup` 和 `macos-install-startup`。关键项或任何失败项不得沿用为通过。通过后由 Windows 负责人晋级同一冻结原包及对应源码标签，详见[发布自动化](../RELEASE-AUTOMATION.md)。
 3. 双语说明已在 [中文 CHANGELOG](../../CHANGELOG.zh.md#0619---2026-11-11)、[English changelog](../../CHANGELOG.md#0619---2026-11-11) 和 [0.6.19 发布说明](../RELEASE-0.6.19.md)；[更新指南](../UPDATES.md)与[安装指南](../INSTALL.zh.md)已补新版操作说明。正式附件上线后，按[收尾清单](../RELEASE-CHECKLIST.md)刷新 README 和下载中心的生成块，更新两份 README 的顶部说明与链接，以及 `docs/INSTALL.zh.md` 和 `docs/FIRST-INSTALL.zh.md` 的当前版本、安装器及校验入口。发布前保留现有公开链接。
 4. 主页更新用语：**Windows／Mac 桥接 0.6.19 会优先下载经过校验的 ESP8266 精简刷机包。设备固件无需随桥接更新。** / **Windows and Mac bridge 0.6.19 prefers the compact ESP8266 flash package and verifies it before handoff. Device firmware does not need to be updated with the bridge.** 既有主页截图、宣传片、封面和工程仍准确，复用原素材及既有播放证据；只变后台下载包选择。0.6.18 对话与 TAB5 .318 的历史发布说明保留。
 
@@ -33,6 +46,9 @@ $candidateDir = 'artifacts/release-0619/bridge'
 $acceptanceRecord = 'artifacts/release-0619/bridge-acceptance.json'
 gh run download 42984952727 --repo yaoyouzhong/AI-bot --name release-candidate-bridge --dir $candidateDir
 Get-Content "$candidateDir/CANDIDATE.json"
+if (!(Test-Path -LiteralPath $acceptanceRecord)) {
+    Copy-Item docs/development/WINDOWS-RELEASE-0619-ACCEPTANCE-20261111.json $acceptanceRecord
+}
 # 在共同源码上补 Windows 原生检查；包验收使用已冻结的安装器。
 dotnet run -c Release --project windows-app/AIBotBridge/AIBotBridge.csproj -- --status-once
 dotnet run --no-build -c Release --project windows-app/AIBotBridge/AIBotBridge.csproj -- --self-test-unified-updates
