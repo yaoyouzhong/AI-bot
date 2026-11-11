@@ -44,3 +44,9 @@ Windows 0.6.8 retains interrupted/cancelled installer and firmware downloads acr
 Mac 可用功能默认开启并保留明确关闭的选择。正常退出旧桥接后，将已校验的 App 放到“应用程序”；备份使用 ZIP 或外部目录。跟随原生引导允许当前应用；旧辅助功能条目已勾选仍失效时，移除并重新添加 `/Applications/AIBotBridge.app`。统一钥匙串资料一次读取后复用，旧资料首迁仍可能逐项询问。Windows 保留 0.6.14，设备固件按实际版本单独判断，无需因 Mac 更新重新刷机。[安装步骤](INSTALL.zh.md#mac) · [本轮说明](RELEASE-0.6.15.md)
 
 Quit before replacing the Mac app in Applications; keep backups as ZIPs or outside Applications. Follow the app-owned guide and re-add an ineffective old Accessibility entry. Consolidated credential reads are reused, while legacy-first migration may require per-item approval. Windows retains 0.6.14 and firmware updates independently.
+
+## 0.6.19：ESP8266 精简包 / Compact ESP8266 package
+
+从 Windows 和 Mac 桥接 0.6.19 起，在「软件固件」检查更新并选择 ESP8266 时，桥接会优先使用最新正式固件发布里的精简刷机 ZIP；同一发布需要提供对应的 SHA-256 校验文件。缺少可用精简包时，仍支持同版本的完整固件材料包。下载成功后按现有流程打开刷机工具，只有明确确认才会写入设备。若只更新电脑桥接，无需重刷设备。
+
+Starting with Windows and Mac bridge 0.6.19, Software and Firmware Updates prefers the compact ESP8266 flash ZIP from the latest stable firmware release when it has a matching SHA-256 file. The full materials package for the same version remains supported if the compact package is unavailable. The existing flash tool still requires confirmation before writing. A bridge-only update does not require reflashing.

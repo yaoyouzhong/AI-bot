@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.19 - 2026-11-11
+
+### Windows and Mac
+
+- Software and Firmware Updates now prefers the smaller ESP8266 flash ZIP when the latest stable firmware release has a matching checksum file. If that ZIP or its checksum file is missing from the release, the bridge can still use the full firmware materials package for the same version. The bridge checks the downloaded file before you open the existing flash tool.
+- This update is for Windows x64 and Apple Silicon Mac. ESP8266 remains at 0.5.8 and TAB5 remains at 0.2.318-ui. Updating the bridge does not require reflashing either device.
+
 ## 0.6.18 - 2026-11-10
 
 Compared with 0.6.17, this release lets TAB5 continue supported Claude Code conversations already open on your computer and improves project browsing, unread sync, and updates.

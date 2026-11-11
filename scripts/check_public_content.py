@@ -238,7 +238,27 @@ REVIEWED_TAB5_SOURCE_ASSETS = frozenset({
 
 
 def reviewed_tab5_source_asset(path, data):
-    return path in REVIEWED_TAB5_SOURCE_ASSETS and hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get(path)
+    if path in REVIEWED_TAB5_SOURCE_ASSETS:
+        return hashlib.sha256(data).hexdigest() == DOC_ASSET_HASHES.get(path)
+    expected = PUBLISHED_TAB5_FILES.get(path)
+    return expected is not None and hashlib.sha256(data).hexdigest() == expected
+
+
+def published_tab5_files():
+    # Exact inventory from the published AI-bot-tab5-0.2.318-ui-source.zip.
+    # Desktop source archives omit this independently distributed snapshot.
+    prefix = "tab5/0.2.318-ui/"
+    inventory = ROOT / prefix / "FILES.sha256"
+    if not inventory.is_file():
+        return {}
+    data = inventory.read_bytes().replace(b"\r\n", b"\n")
+    if hashlib.sha256(data).hexdigest() != "8da43bb548fa76bf7e0a9ec20da4ffa1ade1f53d2ec72ec5fd6d6a9a16859e1b":
+        return {}
+    return {prefix + name: digest for digest, name in
+            (line.split("  ", 1) for line in data.decode("utf-8").splitlines())}
+
+
+PUBLISHED_TAB5_FILES = published_tab5_files()
 
 
 REVIEWED_SOURCE_ARCHIVE = "docs/development/TAB5-0.2.89-ui-source.zip"
@@ -324,6 +344,11 @@ def main():
         for name in REVIEWED_TAB5_SOURCE_ASSETS:
             assert not list(findings(name, (ROOT / name).read_bytes()))
             assert list(findings(name, b"changed archived input"))
+        published = "tab5/0.2.318-ui/source/firmware/assets/brands/codex.png"
+        if (ROOT / "tab5/0.2.318-ui").exists():
+            assert not list(findings(published, (ROOT / published).read_bytes()))
+        assert list(findings(published, b"changed archived input"))
+        assert list(findings("tab5/0.2.318-ui/source/unknown.png", b"image"))
         assert list(findings("docs/development/unknown.zip", b"archive"))
         for source_archive in REVIEWED_SOURCE_ARCHIVES:
             assert list(findings(source_archive, b"changed source archive"))

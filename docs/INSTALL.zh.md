@@ -207,8 +207,14 @@ Mac 0.6.15 enables available features by default while preserving explicit opt-o
 
 ## 0.6.18 安装更新提示 / Update notes
 
-Windows 与 Apple Silicon Mac 桥接均为 **0.6.18**；TAB5 固件为 **0.2.318-ui**，ESP8266 保持 **0.5.8**。从[完整下载中心](../DOWNLOADS.md)取得对应附件。要使用本次完整的对话改进，建议先更新电脑桥接，再升级 TAB5；已经安装同一份固件的设备无需重刷。
+Windows 与 Apple Silicon Mac 桥接均为 **0.6.18**；TAB5 固件为 **0.2.318-ui**，ESP8266 保持 **0.5.8**。从[完整下载中心](../DOWNLOADS.md)取得对应附件。要使用 0.6.18 的完整对话改进，建议先更新电脑桥接，再升级 TAB5；已经安装同一份固件的设备无需重刷。
 
-Windows 升级前正常退出托盘；Mac 正常退出后替换应用，保留设置、配对及草稿。本次 Mac 原包使用既有本地开发签名、未经公证，系统权限仍按 macOS 要求处理。TAB5 底部选择 **对话 → Codex／Claude → 项目／会话**，总览可直接进入当前会话；受支持的 Claude Code 会话在桥接确认目标及权限后可操作；其他外部会话仍只读。需要批准的工具请求在电脑上确认。屏保在 **设置 → 屏幕声音**选择“Codex萌宠”或“Claude萌宠”。Windows 系统语音识别依赖已安装的微软识别器，识别文字应检查后再发送。
+Windows 升级前正常退出托盘；Mac 正常退出后替换应用，保留设置、配对及草稿。公开的 Mac ZIP 使用临时签名（ad hoc）、未经公证，系统权限仍按 macOS 要求处理。TAB5 底部选择 **对话 → Codex／Claude → 项目／会话**，总览可直接进入当前会话；受支持的 Claude Code 会话在桥接确认目标及权限后可操作；其他外部会话仍只读。需要批准的工具请求在电脑上确认。屏保在 **设置 → 屏幕声音**选择“Codex萌宠”或“Claude萌宠”。Windows 系统语音识别依赖已安装的微软识别器，识别文字应检查后再发送。
 
-Desktop **0.6.18** is available for Windows x64 and Apple Silicon Mac, paired with independent TAB5 **0.2.318-ui**; ESP8266 remains **0.5.8**. For all the Dialogue improvements in this release, update the desktop bridge first, then TAB5. Quit before replacing the app and preserve settings, pairing and drafts; an identical firmware image needs no repeat flash. The Mac package retains its existing local development signing identity and is not notarized. Select Dialogue, client, project and conversation on TAB5; supported Claude Code sessions can be controlled once the bridge verifies the target and permissions. Other external sessions remain read-only. Approve tool requests on the computer when prompted. Companion savers are selected under Settings → Screen/Sound. Review recognized text before sending.
+Desktop **0.6.18** is available for Windows x64 and Apple Silicon Mac, paired with independent TAB5 **0.2.318-ui**; ESP8266 remains **0.5.8**. For all the Dialogue improvements in 0.6.18, update the desktop bridge first, then TAB5. Quit before replacing the app and preserve settings, pairing and drafts; an identical firmware image needs no repeat flash. The public Mac ZIP uses an ad-hoc signature and is not notarized. Select Dialogue, client, project and conversation on TAB5; supported Claude Code sessions can be controlled once the bridge verifies the target and permissions. Other external sessions remain read-only. Approve tool requests on the computer when prompted. Companion savers are selected under Settings → Screen/Sound. Review recognized text before sending.
+
+## 0.6.19：软件固件 / Software and Firmware Updates
+
+从 0.6.19 起，Windows 和 Mac 的「软件固件」优先下载带对应校验文件的 ESP8266 精简刷机包，仍兼容原有完整材料包。只更新桥接时无需重刷设备。下载、校验与手动安装步骤见[软件与固件更新](UPDATES.md)。
+
+Starting with 0.6.19, Software and Firmware Updates on Windows and Mac prefers the compact ESP8266 flash ZIP when its matching checksum file is available. The full materials package remains supported. A bridge-only update does not require reflashing. See [Software and firmware updates](UPDATES.md) for download, verification, and installation.

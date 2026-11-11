@@ -24,8 +24,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Packaging boundary tests failed' }
     $files = git -c "safe.directory=$($repoPath.Replace('\','/'))" ls-files --cached --others --exclude-standard
     if ($LASTEXITCODE -ne 0) { throw 'Source inventory failed' }
-    # Gallery support is shared by all builds. Optional collection data is packaged separately.
+    # Optional gallery data and the standalone TAB5 source are packaged separately.
     $files = @($files | Where-Object {
+        $_ -notlike 'tab5/*' -and
         $_ -notlike 'windows-app/AIBotBridge/Assets/DailyArt/*' -and
         $_ -notlike 'docs/art-guides/*' -and
         $_ -notmatch '^docs/development/(?:CALLIGRAPHY-ORIGINALS|ART-LOOKING-AUDIT|TAB5-CALLIGRAPHY-ORIGINALS)' -and

@@ -13,7 +13,7 @@ from component_versions import versions
 
 ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED = re.compile(
-    r"^(?:windows-app/AIBotBridge/Assets/DailyArt/|docs/art-guides/|"
+    r"^(?:tab5/|windows-app/AIBotBridge/Assets/DailyArt/|docs/art-guides/|"
     r"docs/development/(?:CALLIGRAPHY-ORIGINALS|ART-LOOKING-AUDIT|TAB5-CALLIGRAPHY-ORIGINALS)|"
     r"docs/TAB5-(?:CALLIGRAPHY|PAINTING|CHINESE-ART)-|"
     r"scripts/(?:prepare_daily_art|verify_daily_art_year)\.py$)"
