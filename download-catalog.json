@@ -23,18 +23,18 @@
       "sha256": "135727db235e2ef88fc852357598539f236811564da353c86046bd4f759eca06"
     },
     "tab5-first": {
-      "version": "0.2.318-ui",
-      "tag": "tab5-v0.2.318-ui",
-      "file": "AI-bot-tab5-0.2.318-ui-first-install.zip",
-      "size": 5353095,
-      "sha256": "8a0fa333a16f2013efa5fecff93d5347fd844d236615b6702d9ce58b72fe4449"
+      "version": "0.2.319-ui",
+      "tag": "tab5-v0.2.319-ui",
+      "file": "AI-bot-tab5-0.2.319-ui-first-install.zip",
+      "size": 5352066,
+      "sha256": "a271aabb9d5dfaf225c5f47b0569442244fa05b628cd7aa6db36cc99597031a5"
     },
     "tab5-upgrade": {
-      "version": "0.2.318-ui",
-      "tag": "tab5-v0.2.318-ui",
-      "file": "AI-bot-tab5-0.2.318-ui-upgrade.zip",
-      "size": 5324442,
-      "sha256": "e596e71ec6e2a4c116b472a85fac9dc6bc1d556aafe1a31d139ec0bfc65d3b7d"
+      "version": "0.2.319-ui",
+      "tag": "tab5-v0.2.319-ui",
+      "file": "AI-bot-tab5-0.2.319-ui-upgrade.zip",
+      "size": 5326660,
+      "sha256": "976cb81023d642bbf523e02e5d372c8a1f1f4ac6799f64baa25334f513b2e311"
     },
     "calligraphy": {
       "version": "2026.10.15.1",

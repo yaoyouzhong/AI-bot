@@ -8,7 +8,9 @@
 
 **源码：** [Windows 桥接](windows-app/) · [Mac 桥接](mac-app/) · [TAB5 大屏固件](tab5/) · [ESP8266 小屏固件](esp8266/)
 
-**本次更新：** Windows／Mac 桥接 **0.6.19** 会优先下载经过校验的 ESP8266 精简刷机包。更新桥接无需重刷设备。[更新说明](docs/RELEASE-0.6.19.md) · [安装指南](docs/INSTALL.zh.md)
+**本次更新：** Windows／Mac 桥接 **0.6.19** 会优先下载经过校验的 ESP8266 精简刷机包。更新桥接无需重刷设备。[桥接更新](docs/RELEASE-0.6.19.md) · [安装指南](docs/INSTALL.zh.md)
+
+**TAB5 0.2.319-ui** 改善最近会话定位、总览显示和日历配色，并为工作中的 Claude 加入耳机动画。[固件更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.319-ui)
 
 <p><img src="docs/assets/screens/tab5-companion-savers-headphones-preview.png" width="880" alt="Codex 和戴耳机的 Claude 萌宠屏保预览"></p>
 <sub>两种屏保分别渲染，时钟为演示数据。右侧为 TAB5 0.2.319-ui 候选版中 Claude 工作时的戴耳机形象。<a href="licenses/companion-art/NOTICE.md#native-preview-media">图片来源</a></sub>
@@ -140,8 +142,8 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 | Windows 桥接 · Windows 10/11 x64 | 0.6.19 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/AI-bot-bridge-v0.6.19-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/SHA256SUMS.txt) |
 | Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.19 | [下载 · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/AI-bot-bridge-v0.6.19-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/SHA256SUMS.txt) |
 | ESP8266 小屏 · 首刷／升级通用 | 0.5.8 | [下载 · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
-| TAB5 · 出厂系统首次安装 | 0.2.318-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
-| TAB5 · 已有 AI-bot 升级 | 0.2.318-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
+| TAB5 · 出厂系统首次安装 | 0.2.319-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/AI-bot-tab5-0.2.319-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/SHA256SUMS.txt) |
+| TAB5 · 已有 AI-bot 升级 | 0.2.319-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/AI-bot-tab5-0.2.319-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/SHA256SUMS.txt) |
 
 [首次安装图文指南](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/FIRST-INSTALL.zh.md) · [升级与排错](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md)
 <!-- downloads:end -->

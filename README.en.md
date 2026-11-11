@@ -8,7 +8,9 @@ Beyond work, AI-bot serves as a desk clock and information display for weather, 
 
 **Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
-**This update:** Windows and Mac bridge **0.6.19** prefers the compact ESP8266 flash package and verifies it before handoff. A bridge update does not require reflashing either device. [Release notes](docs/RELEASE-0.6.19.md) · [Installation guide](docs/INSTALL.zh.md)
+**This update:** Windows and Mac bridge **0.6.19** prefers the compact ESP8266 flash package and verifies it before handoff. A bridge update does not require reflashing either device. [Bridge release notes](docs/RELEASE-0.6.19.md) · [Installation guide](docs/INSTALL.zh.md)
+
+**TAB5 0.2.319-ui** improves recent conversation navigation, Overview rendering and calendar colors, and adds the Claude working animation with headphones. [Firmware release](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.319-ui)
 
 <p><img src="docs/assets/screens/tab5-companion-savers-headphones-preview.png" width="880" alt="Codex and the headphone-wearing Claude screensavers"></p>
 <sub>The screensavers were rendered separately with a demonstration clock. On the right, Claude wears headphones while working in the TAB5 0.2.319-ui candidate. <a href="licenses/companion-art/NOTICE.md#native-preview-media">Image sources</a></sub>
@@ -140,8 +142,8 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 | Windows bridge · Windows 10/11 x64 | 0.6.19 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/AI-bot-bridge-v0.6.19-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/SHA256SUMS.txt) |
 | Mac bridge · macOS 13+ / Apple Silicon | 0.6.19 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/AI-bot-bridge-v0.6.19-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.8 | [Download · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
-| TAB5 · first install from factory system | 0.2.318-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
-| TAB5 · upgrade existing AI-bot | 0.2.318-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/AI-bot-tab5-0.2.318-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.318-ui/SHA256SUMS.txt) |
+| TAB5 · first install from factory system | 0.2.319-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/AI-bot-tab5-0.2.319-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/SHA256SUMS.txt) |
+| TAB5 · upgrade existing AI-bot | 0.2.319-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/AI-bot-tab5-0.2.319-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/SHA256SUMS.txt) |
 
 [Illustrated first install](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/FIRST-INSTALL.zh.md) · [English quick start](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md#english-quick-start)
 <!-- downloads:end -->
