@@ -4,22 +4,26 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 ## 0.2.318-ui - 2026-11-10
 
-### Dialogue
-- Use provider icons for Codex and Claude; center larger icons for one to three entries and allow horizontal scrolling when more entries are available.
-- Keep compact unread badges with 14 px numbers. Retain provider entries and the current session through brief missing catalogs, updating after a sustained empty result.
-- Combine verifiably related session pages into one project entry and scroll through more conversations. Keep distinct projects separate; older bridge transport limits still apply.
-- Show unread conversations first within the current project. Bring new unread replies into view once the list is idle, without changing the selected conversation.
-- When reopening dialogue, bring the default selected recent conversation into the visible list.
-- Retain the original Codex completion prompt and match its voice in the new Claude completion prompt.
-### Dialogue and touch controls
-- Close project menus immediately when leaving dialogue, keep them closed on return, and reserve arrow space for long project names.
-- Align 72px camera/microphone circles with the send button height; use matching solid fills, fine borders, press feedback and capsule send/append/cancel buttons. Preserve the accepted right-hand reach and source, attachment and guidance areas.
-- Fix the microphone's lingering pressed state and idle color mismatch after recording, and stale text pixels reappearing after long-press clear.
-- Include .314 cancellation recovery for text/photos and protection for later drafts.
+Compared with the previous public release, 0.2.313-ui, this update makes it easier to find conversations, read replies, and use Dialogue on TAB5.
 
-### Display and firmware updates
-- Reduce peak overview display-cache copy load and correct Codex and Claude icon edge differences while swiping.
-- Show the specific firmware preparation state and continue after background reads complete, while protecting unconfirmed messages and drafts.
+### Find projects and read replies
+
+- **Switch between Codex and Claude using their icons.** Unread counts are easier to see. Claude conversations also show a source when it can be identified, such as VS Code, a native terminal, or a background session.
+- **Scroll through a project's conversations in one list.** There is no need to look through multiple pages with the same project name. Distinct projects stay separate. The 0.6.18 bridge can show more Codex conversations under the same project.
+- **See unread replies first.** Unread conversations appear at the top of the current project. A new reply comes into view after you finish scrolling, without switching the open conversation. When you reopen Dialogue, the automatically selected recent conversation is brought into view as well.
+- “View reply” on Overview opens the matching unread reply even if the next turn has already started. Claude gets its own spoken completion alert; Codex keeps its existing one.
+
+### Touch controls, drafts, and the screensaver
+
+- Larger camera and microphone buttons are easier to reach with your right hand. The project menu closes when you leave Dialogue. Reading replies in the background no longer holds up switching between Codex and Claude.
+- Fix the empty input box after cancelling a queued follow-up. The original text and photos return if you have not started a new draft.
+- The Claude companion gently bobs while idle in the screensaver. With the Mac 0.6.18 bridge, the keyboard or trackpad can also dismiss the manual preview.
+- The Codex companion is slightly smaller on Overview. Overview refreshes are less prone to flicker.
+
+### Firmware updates
+
+- If an update is waiting for a background read or a draft save, TAB5 tells you what it is waiting for. It continues when ready, and you can cancel preparation. If a recording, send, or unconfirmed delivery is in progress, installation waits and shows why.
+- Use the upgrade package for a TAB5 already running AI-bot and the first-install package for a TAB5 on factory firmware. For the updated Dialogue and conversation list, update the [Windows or Mac bridge](../../CHANGELOG.md#0618---2026-11-10) first, then update TAB5.
 
 ## 0.2.314-ui - 2026-11-05
 

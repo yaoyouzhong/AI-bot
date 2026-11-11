@@ -4,26 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.18 - 2026-11-10
 
-### Codex and Claude conversations
-- Keep the last usable provider catalog through brief interruptions and refresh it once the host responds. Sending still verifies the live target and permissions.
-- Group the main checkout and verified worktrees of the same Git repository into one Codex project. Keep separate projects with the same name distinct.
-- Clear an observed Codex unread reply on the next valid sync after the desktop marker clears. Other accounts, conversations and newer replies keep their own unread state.
-- Preserve and restore device-bound drafts when a conversation leaves the recent list. Reject an empty draft that would erase an unresolved delivery; sending still requires the live conversation.
+Compared with 0.6.17, this release lets TAB5 continue supported Claude Code conversations already open on your computer and improves project browsing, unread sync, and updates.
 
-### Native Claude Code terminals
-- Discover Windows and Mac native terminals by process and session identity without a fixed Claude Code version list. Check the target, permissions and composer before sending.
-- Support text, images, follow-ups and interruption for eligible already-open Mac Terminal sessions. Preserve existing drafts, keep delivery tied to the original conversation, and do not retry uncertain submissions.
-- Improve terminal readiness recovery and reply refresh. Keep the last confirmed Mac readiness during brief Automation permission refreshes.
+### Windows and Mac: new
 
-### Voice and Windows upgrades
-- Reuse Doubao automatic detection when its resolved input already matches the selected DJI microphone. Continue to verify the endpoint, restore temporary selections and respect manual changes.
-- On Windows, continue the same TAB5 recording after microphone approval and restore focus to the verified editor. Voice guidance wraps to fit the window.
-- Windows bridge upgrades use one administrator approval and can carry forward applicable LAN firewall permissions. The resident bridge can serve TAB5 upgrades without a separate SettingsProbe process.
-- Keep the device's upgrade refusal reason visible through repeated version updates, including same-version reinstalls.
-- After a completed USB transfer, use a bound authenticated reboot observation to start exact-image verification without waiting for the full transfer lease.
+- **Continue an existing Claude Code conversation.** Open Dialogue → Claude on TAB5 and select a supported conversation to read replies in the original session. When input is available, use the on-screen buttons to send text or images, follow up, or stop the current reply. Actions that require computer approval still need your confirmation there.
 
-### Scope
-- Desktop bridge for Windows x64 and Apple Silicon Mac. TAB5 and ESP8266 firmware have independent release versions.
+### Windows and Mac: improvements
+
+- **Find Codex conversations more easily.** The main checkout and worktrees of the same Git repository appear under one project. Separate repositories with the same name stay separate. After you read a Codex reply on the computer, the matching unread badge clears on TAB5 at the next sync.
+- **Keep the last visible conversations during brief loading failures.** TAB5 can still save a draft after its conversation leaves the recent list. Sending pauses if there is already a draft on the computer. If delivery cannot be confirmed, the draft is kept for you to check.
+- **Avoid an extra microphone switch when using Doubao with DJI.** If Doubao's auto-detect is already using the DJI microphone you selected in the bridge, the recording uses it directly.
+- **Get clearer TAB5 update results.** The bridge keeps the device's reason for refusing an update, including a reinstall of the same version. After a USB transfer, the bridge can start checking that the device booted the installed firmware as soon as it confirms a reboot.
+
+### Windows: Claude Code, recording, and installation
+
+- Supported Claude Code conversations include some already open in VS Code or a native terminal.
+- If Windows first asks for microphone permission when you start recording on TAB5, granting it continues the same recording and puts recognized text back in the original input box. Guidance in the voice window wraps when space is tight.
+- Updating the bridge with the installer requires one administrator confirmation and can retain eligible LAN firewall permissions. The running bridge can provide update firmware to TAB5 directly.
+
+### Mac: Terminal, quota history, and the screensaver
+
+- Control supported Claude Code conversations already open in Apple Terminal. In the bridge settings, choose “Set up session permissions…” and follow the macOS prompts. Your Mac must be unlocked to send; the bridge switches to the matching Terminal tab.
+- The quota history chart labels each day's recorded usage as a percentage of the weekly allowance and keeps the figures readable as you narrow the window.
+- Use the Mac keyboard or trackpad to exit the TAB5 companion screensaver preview. This also requires the TAB5 firmware update.
+
+### Downloads and compatibility
+
+- Available for Windows 10/11 x64 and Apple Silicon Mac (macOS 13 or later). TAB5 has its own [0.2.318-ui firmware update](docs/development/TAB5-CHANGELOG.md#02318-ui---2026-11-10). ESP8266 and optional gallery packs have no version update in this release.
 
 ## 0.6.17 - 2026-11-04
 
