@@ -12,3 +12,7 @@ Artwork, character designs and product marks remain their respective owners' pro
 ## Native preview media
 
 `docs/assets/screens/tab5-companion-savers-0312-preview.png` is a composite of two separately rendered production LVGL savers. The 2026-11-11 composite preserves every pixel of the original 1280 × 720 `companion-saver-working.ppm` and `claude-saver-working.ppm` renders from 0.2.312-ui. The clock is synthetic demonstration data; the image is not hardware photography and does not show both mascots simultaneously on a device. The user separately accepted the actual TAB5 placement, backgrounds and time typography. Its SHA-256 is registered in `licenses/materials.json`.
+
+`docs/assets/screens/tab5-companion-savers-headphones-preview.png` keeps the Codex panel above and uses the native `headphones-saver-02.ppm` render from the TAB5 0.2.319-ui R2 candidate for Claude's working state. It shows one frame of the same headphone animation used in the project video. The panels are combined at native resolution with synthetic clock data. The new image's SHA-256 is registered in `licenses/materials.json`.
+
+On 2026-11-11 the project owner authorized publication of this still on the Chinese and English repository homepages. The headphone sprite comes from `firmware/include/img/claude_sprite.h` in `yaoyouzhong/esp8266-ai` commit `5f52a39bd5c4245aff24bfa3a23cde2d62d57e3c`. The artwork remains outside the project's MIT grant.

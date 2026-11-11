@@ -10,8 +10,8 @@ Beyond work, AI-bot serves as a desk clock and information display for weather, 
 
 **This update:** Windows/Mac bridge **0.6.18** and TAB5 **0.2.318-ui** improve native Claude Code session discovery, dialogue, unread replies and recovery after voice authorization. TAB5 adds conversation scrolling and unread-first visibility, plus overview and firmware-update refinements. ESP8266 remains **0.5.8**. [Release notes](docs/RELEASE-0.6.18.md) · [Installation guide](docs/INSTALL.zh.md)
 
-<p><img src="docs/assets/screens/tab5-companion-savers-0312-preview.png" width="880" alt="Native renders of the separate Codex and Clawd companion screensavers"></p>
-<sub>Two independent native screensaver renders with a demonstration clock; the device shows only the selected mascot. <a href="docs/RELEASE-0.6.18.md">Provenance and acceptance limits</a></sub>
+<p><img src="docs/assets/screens/tab5-companion-savers-headphones-preview.png" width="880" alt="Codex and the headphone-wearing Claude screensavers"></p>
+<sub>The screensavers were rendered separately with a demonstration clock. On the right, Claude wears headphones while working in the TAB5 0.2.319-ui candidate. <a href="licenses/companion-art/NOTICE.md#native-preview-media">Image sources</a></sub>
 
 ## Choose your desktop display
 

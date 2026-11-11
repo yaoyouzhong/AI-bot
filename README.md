@@ -10,8 +10,8 @@
 
 **本次更新：** Windows／Mac 桥接 **0.6.18** 和 TAB5 **0.2.318-ui** 改善 Claude Code 原生会话识别、对话和未读回复体验，并优化语音授权后的恢复。TAB5 增加会话滚动和未读优先显示，改进总览显示与固件升级提示。ESP8266 保持 **0.5.8**。[更新说明](docs/RELEASE-0.6.18.md) · [安装指南](docs/INSTALL.zh.md)
 
-<p><img src="docs/assets/screens/tab5-companion-savers-0312-preview.png" width="880" alt="Codex 与 Clawd 两种独立萌宠屏保的原生渲染预览"></p>
-<sub>两个独立屏保的原生渲染，时间为演示数据；设备每次只显示所选的一只萌宠。<a href="docs/RELEASE-0.6.18.md">来源与验收边界</a></sub>
+<p><img src="docs/assets/screens/tab5-companion-savers-headphones-preview.png" width="880" alt="Codex 和戴耳机的 Claude 萌宠屏保预览"></p>
+<sub>两种屏保分别渲染，时钟为演示数据。右侧为 TAB5 0.2.319-ui 候选版中 Claude 工作时的戴耳机形象。<a href="licenses/companion-art/NOTICE.md#native-preview-media">图片来源</a></sub>
 
 ## 选择适合你的桌面屏幕
 
