@@ -152,9 +152,12 @@ class CandidateTests(unittest.TestCase):
             self.assertIn("CANDIDATE.json", first)
             key = "windows" if component == "bridge" else "tab5-upgrade"
             canonical, alias = names(key, candidate["version"])[:2]
-            self.assertEqual((output / canonical).read_bytes(), (output / alias).read_bytes())
+            self.assertEqual((output / canonical).read_bytes(), (folder / canonical).read_bytes())
             if component == "tab5":
+                self.assertEqual((output / canonical).read_bytes(), (output / alias).read_bytes())
                 self.assertIn(names("tab5-source", candidate["version"])[0], first)
+            else:
+                self.assertNotIn(alias, first)
 
     def test_dry_run_does_not_call_git_github_or_builds(self):
         folder, candidate = self.candidate()
@@ -164,20 +167,19 @@ class CandidateTests(unittest.TestCase):
             self.assertFalse(report["execute"])
             for mock in (cli, tag, send, process): mock.assert_not_called()
 
-    def test_minimal_bridge_assets_keep_legacy_update_and_checksum(self):
+    def test_minimal_bridge_assets_publish_one_package_per_platform_and_checksums(self):
         folder, candidate = self.candidate(platform="all")
         acceptance = self.accepted(folder, candidate)
         output = self.root / "minimal-publication"
-        windows, legacy = names("windows", candidate["version"])
+        windows = names("windows", candidate["version"])[0]
         macos = names("macos", candidate["version"])[0]
         manifest = pipeline.stage(folder, acceptance, output, minimal_bridge_assets=True)
-        self.assertEqual(set(manifest), {windows, legacy, macos, "SHA256SUMS.txt"})
-        self.assertEqual(manifest[windows], manifest[legacy])
+        self.assertEqual(set(manifest), {windows, macos, "SHA256SUMS.txt"})
         checksums = {
             line.split("  ", 1)[1]: line.split("  ", 1)[0]
             for line in (output / "SHA256SUMS.txt").read_text().splitlines()
         }
-        self.assertEqual(checksums, {name: manifest[name]["sha256"] for name in (windows, legacy, macos)})
+        self.assertEqual(checksums, {name: manifest[name]["sha256"] for name in (windows, macos)})
         report = pipeline.promote(folder, acceptance, "owner/repo", minimal_bridge_assets=True)
         self.assertEqual(report["publicAssets"], sorted(manifest))
 

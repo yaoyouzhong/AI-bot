@@ -577,7 +577,7 @@ def main():
         p.add_argument("directory", type=Path); p.add_argument("acceptance", type=Path); p.add_argument("--expected-source")
         if command == "promote":
             p.add_argument("--repo", required=True); p.add_argument("--execute", action="store_true"); p.add_argument("--publish", action="store_true"); p.add_argument("--commit-closeout", action="store_true"); p.add_argument("--allow-deferred", action="store_true")
-            p.add_argument("--minimal-bridge-assets", action="store_true", help="publish only desktop installers, updater compatibility aliases, and their checksums")
+            p.add_argument("--minimal-bridge-assets", action="store_true", help="publish only desktop installers and their checksums")
             p.add_argument("--minimal-tab5-assets", action="store_true", help="publish only TAB5 first-install and upgrade packages, updater compatibility aliases, and their checksums")
             p.add_argument("--scope-reason", help="record why the user explicitly selected a narrower release")
     p = sub.add_parser("closeout"); p.add_argument("--execute", action="store_true"); p.add_argument("--repo"); p.add_argument("--tag", action="append", default=[]); p.add_argument("--commit", action="store_true")

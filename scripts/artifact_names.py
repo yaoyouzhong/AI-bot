@@ -19,8 +19,8 @@ TEMPLATES = {
 }
 COMPONENT_KEYS = {"bridge": ("windows", "windows-zip", "macos", "bridge-source"),
                   "esp8266": ("esp8266",), "tab5": ("tab5-first", "tab5-upgrade")}
-# These aliases keep existing installed bridges able to discover the next update.
-UPDATE_ALIASES = {"windows", "esp8266", "tab5-upgrade"}
+# Publish firmware aliases for older bridges. Windows publishes only the canonical installer.
+UPDATE_ALIASES = {"esp8266", "tab5-upgrade"}
 
 
 def names(key, version):

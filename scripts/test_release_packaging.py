@@ -160,8 +160,10 @@ class PackagingTests(unittest.TestCase):
                     self.assertEqual(json.loads((directory / "BUILD.json").read_text())["macOS"], "not included")
                     public = Path(temp) / "public"
                     user_payload(directory, public, "bridge")
-                    self.assertTrue((public / "AIBotBridge-0.1.0-setup-win-x64.exe").exists())
-                    self.assertFalse(any("macos" in path.name for path in public.iterdir()))
+                    installer = "AI-bot-bridge-v0.1.0-windows-x64-setup.exe"
+                    self.assertEqual({path.name for path in public.iterdir()}, {installer, "SHA256SUMS.txt"})
+                    self.assertEqual((public / installer).read_bytes(),
+                                     (directory / "AIBotBridge-0.1.0-setup-win-x64.exe").read_bytes())
                 else:
                     with self.assertRaises(ValueError):
                         prepare(directory, "0.1.0", "a" * 40, component="bridge", desktop_platform="windows")

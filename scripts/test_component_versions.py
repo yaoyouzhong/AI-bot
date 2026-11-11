@@ -71,7 +71,7 @@ class ComponentPayloadTests(unittest.TestCase):
             (directory / (name+".sha256")).write_text(f"{hashlib.sha256(data).hexdigest()}  {name}\n")
 
     def test_bridge_only_and_esp_only_need_no_other_component_packages(self):
-        for component, names, count in (("bridge", self.bridge_names, 4), ("esp8266", self.esp_names, 3)):
+        for component, names, count in (("bridge", self.bridge_names, 3), ("esp8266", self.esp_names, 3)):
             with self.subTest(component=component), tempfile.TemporaryDirectory() as temp:
                 directory = Path(temp) / "audit"
                 directory.mkdir()
@@ -85,7 +85,7 @@ class ComponentPayloadTests(unittest.TestCase):
                     expected, filename = line.split("  ", 1)
                     self.assertEqual(expected, hashlib.sha256((output / filename).read_bytes()).hexdigest())
 
-    def test_canonical_packages_preserve_old_client_update_aliases(self):
+    def test_canonical_packages_keep_only_firmware_update_alias(self):
         from artifact_names import COMPONENT_KEYS, name, names
         for component in ("bridge", "esp8266"):
             with self.subTest(component=component), tempfile.TemporaryDirectory() as temp:
@@ -98,7 +98,11 @@ class ComponentPayloadTests(unittest.TestCase):
                 user_payload(directory, output, component)
                 key = "windows" if component == "bridge" else "esp8266"
                 canonical, legacy = names(key, version)[:2]
-                self.assertEqual((output / canonical).read_bytes(), (output / legacy).read_bytes())
+                self.assertEqual((output / canonical).read_bytes(), (directory / canonical).read_bytes())
+                if component == "esp8266":
+                    self.assertEqual((output / canonical).read_bytes(), (output / legacy).read_bytes())
+                else:
+                    self.assertFalse((output / legacy).exists())
                 self.assertFalse(any("local-candidate" in path.name for path in output.iterdir()))
 
     def test_legacy_bundle_uses_independent_firmware_name(self):

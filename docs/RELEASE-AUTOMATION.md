@@ -76,6 +76,12 @@ python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json 
 
 也可显式调度 `promote.yml`，提供成功的 `candidate.yml` 批次 ID、组件、`record` 生成的完整验收 JSON 和 `publish`。它取回该批次的原候选并核对 SHA，不调用构建；默认 `publish=false`。输入只通过环境变量交给 JSON 解析器，不拼接进 shell。多组件发布在本地用 `promote-set` 可统一收尾；独立组件适合 Actions 晋级入口。TAB5 用本地晋级入口，不伪造原生 Actions 批次。
 
+每轮指定一个面向用户的 Release 入口。含桥接更新时使用本轮 `vX.Y.Z` 发布页，只有一个固件更新时使用该固件发布页。多个固件一起更新时，在发布计划中指定其中一个作为入口。入口的中英文说明列齐本轮组件、版本和更新，Assets 提供本轮各组件实际交付的安装包或固件。Windows 和 Mac 各一份安装包，TAB5 提供首刷和升级 ZIP，ESP8266 提供精简刷机 ZIP 及其 `.sha256`。从对应组件已验收的原包加入附件，将入口中的文件一起登记到 `SHA256SUMS.txt`，核对哈希一致后再完成发布收尾。`promote-set` 负责晋级组件原包，发布负责人同时核对入口的合并说明和附件。
+
+桥接更新器读取 GitHub 的正式发布列表，按平台、组件、标签及文件名选择包。Windows 和 Mac 安装包继续使用对应的 `vX.Y.Z` 标签和平台文件名。固件独立标签继续提供原包及校验文件，特别是 ESP8266 精简包的更新器要求同版本的 `esp8266-vX.Y.Z` 标签和配套校验文件。发布入口可以汇集同一份固件的字节。核验时分别检查入口 Assets、下载中心，以及已发布桥接对各平台安装包和固件升级包的选择与校验。
+
+Use one user-facing Release per delivery. Use the bridge release when the batch includes a bridge update, or the affected firmware release for a firmware-only delivery. For a batch with both firmware components, name the entry release in the plan. Include all delivered component versions, bilingual notes, and installable assets. Reuse the accepted package bytes and verify their checksums. Keep the platform packages on their bridge version tag and the firmware packages on their component tags. Installed bridges query the stable release list and select by platform and component. The ESP8266 compact update requires its matching ESP8266 tag and checksum sidecar. Check the public entry, download center, and installed update lookup separately.
+
 ## 4. 自动收尾，集中复核
 
 公开后自动刷新并验证 `download-catalog.json`、中英文下载中心及 README 下载块。Release 链接到统一下载中心，并保留对应版本的更新说明和附件。自动核验实际公开下载大小、摘要及所需抽查，不重复下载完整大包。公开的 `CANDIDATE.json`、`ACCEPTANCE.json`、许可证、第三方声明与 `SHA256SUMS.txt` 留存原包身份；便携包和完整桥接源码继续保留在候选归档。
@@ -88,16 +94,16 @@ python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json 
 
 ## 下个版本起的 Assets 整理约定
 
-用户于 2026-11-11 确认从下个版本开始整理。此约定适用于新发布，现有已发布附件和下载链接继续可用。
+以下约定适用于新发布。Windows 安装器从 v0.6.19 起只提供统一命名的一份。
 
 - Assets 保留可直接安装或刷写的产物：Windows 安装程序、Mac 应用 ZIP、TAB5 首刷与升级 ZIP、ESP8266 精简刷机 ZIP，以及更新器需要的 `SHA256SUMS.txt` 和精简 ZIP 的 `.sha256`。
 - `LICENSE`、`THIRD_PARTY_NOTICES.md` 保留在包内；确认包内齐全后，后续版本不再重复上传独立声明附件。
 - `CANDIDATE.json`、验收记录、额外源码包与构建依赖、宣传视频移至对应构建归档、开发资源或演示页面，保留来源、校验与引用关系，不作为普通用户安装附件。
 - 兼容文件名别名只有在确认已有桥接客户端具备升级路径后才退役。GitHub 自动生成的 Source code ZIP/tar.gz 入口保留。
-- 桥接独立发布在确认安装包内已包含许可声明后，使用 `promote --minimal-bridge-assets`。它保留 Windows 安装器、Mac 应用 ZIP、兼容的 Windows 安装器别名与对应校验清单。冻结清单、验收记录、便携包和额外源码包仍在构建归档。
+- 桥接独立发布在确认安装包内已包含许可声明后，使用 `promote --minimal-bridge-assets`。每个平台发布一份安装包，并提供对应校验清单。Windows 0.6.8 起识别统一命名的安装器。更早的 Windows 桥接可先升级到 0.6.18，再升级到当前版本。冻结清单、验收记录、便携包和额外源码包仍在构建归档。
 - TAB5 使用 `promote --minimal-tab5-assets`，发布首刷 ZIP、升级 ZIP、兼容升级别名和校验清单。完整源码随候选封存，在发布页链接到对应的 Git 源码路径。
 
-Starting with the next release, Assets will contain installable/flashable packages and updater-required checksums. Keep licenses and third-party notices inside packages. Archive candidate/acceptance metadata, extra source/build resources and media at their appropriate linked locations. For a bridge-only release, use `promote --minimal-bridge-assets` after checking the bundled notices. It keeps both platform installers, the Windows compatibility alias and the checksums. Retire aliases after verifying an upgrade path for existing clients. Existing published assets, URLs and GitHub-generated source archives remain available.
+Release Assets contain installable or flashable packages and updater checksums. Keep licenses and third-party notices inside packages. Archive candidate and acceptance records, extra source and build resources, and media at their linked locations. For a bridge-only release, use `promote --minimal-bridge-assets` after checking the bundled notices. Publish one installer per platform with checksums. Starting with v0.6.19, publish only the canonical Windows installer name. Windows bridge 0.6.8 and later recognize it. Earlier Windows clients can upgrade to 0.6.18 first, then upgrade to the current release. Retire firmware aliases after verifying an upgrade path for existing clients. GitHub continues to provide its source archives.
 
 ## 重试与边界
 
