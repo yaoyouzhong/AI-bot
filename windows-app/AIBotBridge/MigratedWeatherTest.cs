@@ -2,6 +2,26 @@ namespace AIBotBridge;
 
 internal static class MigratedWeatherTest
 {
+    internal static void DiagnosePosition(string output)
+    {
+        using var form=new Form {Text="AI-bot · 定位诊断",ClientSize=new System.Drawing.Size(440,100),StartPosition=FormStartPosition.CenterScreen};
+        form.Controls.Add(new Label {Text="正在核对 Windows 定位，请留意位置授权提示。",Dock=DockStyle.Fill,TextAlign=System.Drawing.ContentAlignment.MiddleCenter});
+        form.Shown+=async(_,_)=>{
+            object report;
+            try {
+                var p=await MigratedWeather.WindowsLocation.Locate();
+                report=new{status="ok",accuracyMeters=Math.Round(p.AccuracyMeters),source=p.Source,
+                    ageSeconds=Math.Round((DateTimeOffset.UtcNow-p.Timestamp).TotalSeconds),
+                    distanceFromSavedMeters=Math.Round(MigratedWeather.WeatherMonitor.DistanceMeters(
+                        MigratedWeather.WeatherMonitor.Latitude,MigratedWeather.WeatherMonitor.Longitude,p.Latitude,p.Longitude))};
+            }catch(Exception ex){report=new{status="failed",error=ex.GetType().Name,hresult=ex.HResult};}
+            // Local quality metadata only. No coordinates or weather-provider request.
+            using(var stream=new FileStream(output,FileMode.CreateNew,FileAccess.Write))
+                await System.Text.Json.JsonSerializer.SerializeAsync(stream,report);
+            form.Close();
+        };
+        Application.Run(form);
+    }
     internal static async Task FreeAsync()
     {
         AppPaths.BeginPublicSelfTest();

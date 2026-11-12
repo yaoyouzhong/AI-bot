@@ -24,6 +24,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private DateTimeOffset _nextUpdateCheck=DateTimeOffset.UtcNow.AddSeconds(30),_nextUpdateNotice;
     private bool _checkingUpdates,_updateBalloon;
     private bool _healthBalloon;
+    private bool _weatherBalloon,_weatherLocationNoticeShown;
     private string _healthSession="";
     private long _healthSequence;
     private readonly BridgeNotifications _notifications=new();
@@ -114,7 +115,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var esp=_devices.Snapshot.Devices.SingleOrDefault(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled);
             if(esp is null)ShowDevices();else if(_mirror?.Visible==true)_mirror.Hide();else HandleDeviceAction(esp.Id,"mirror");
         };
-        _icon.BalloonTipClicked+=(_,_)=>{if(_healthBalloon){_healthBalloon=false;HandleMenuAction("runtime-health");}else if(_updateBalloon){_updateBalloon=false;ShowUpdates();}};
+        _icon.BalloonTipClicked+=(_,_)=>{if(_weatherBalloon){_weatherBalloon=false;ShowWeatherSettings();}else if(_healthBalloon){_healthBalloon=false;HandleMenuAction("runtime-health");}else if(_updateBalloon){_updateBalloon=false;ShowUpdates();}};
         _icon.BalloonTipShown+=(_,_)=>_notifications.BalloonShown();
 
         _timer = new System.Windows.Forms.Timer { Interval = 2000 };
@@ -127,6 +128,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _healthGuard?.Pulse(_runtime.Health.Snapshot,_runtime.MonitorExpected,_runtime.Health.Options.Enabled,_runtime.FaultedCollectors+_services.FaultedServices,_services.FaultSources|(_runtime.FaultedCollectors>0?RuntimeFaultSource.Collectors:0));
             timing.Step("health");
             var status = _runtime.Capture();
+            if(_runtime.Weather.LocationNeedsPermission&&!_weatherLocationNoticeShown) {
+                _weatherLocationNoticeShown=true;
+                Notify("attention","weather-location","天气位置未更新","定位授权不可用，正在使用上次位置。点击重新授权定位。",ToolTipIcon.Warning);
+            }
             timing.Step("capture");
             if(status.RuntimeHealth is {} health&&(health.Session!=_healthSession||health.Sequence>_healthSequence)) {
                 _healthSession=health.Session;_healthSequence=health.Sequence;
@@ -386,7 +391,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void Notify(string kind,string key,string title,string message,ToolTipIcon icon) {
         var decision=_notifications.Evaluate(kind,key,title,DateTimeOffset.Now,completionOnDevice:kind=="completion"&&_tab5?.CompletionNoticeAvailable==true);
-        if(decision.Show){_updateBalloon=false;_healthBalloon=kind=="health";_icon.ShowBalloonTip(10000,title,message,icon);}
+        if(decision.Show){_updateBalloon=false;_weatherBalloon=kind=="attention"&&key=="weather-location";_healthBalloon=kind=="health";_icon.ShowBalloonTip(10000,title,message,icon);}
         if(decision.Sound)_=Task.Run(kind=="health"?CompletionChime.PlayHealth:CompletionChime.Play);
     }
     private bool SelectDisplayMode(string mode)
@@ -525,7 +530,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var devices=UpdateDevices();var keys=UpdateReminder.Pending(devices,_updates.Available,preference);if(keys.Length==0)return;
             UpdateReminder.Remember(preference,keys);
             string names=string.Join("、",devices.Where(d=>keys.Contains(d.Id+":"+(_updates.Available.GetValueOrDefault(d.Component)?.Version??""))).Select(d=>d.Name));
-            _notifications.IgnoreUntrackedBalloon();_healthBalloon=false;_updateBalloon=true;_icon.ShowBalloonTip(10000,"AI-bot 有可用更新",names+" · 点击查看更新说明并下载。",ToolTipIcon.Info);
+            _notifications.IgnoreUntrackedBalloon();_weatherBalloon=false;_healthBalloon=false;_updateBalloon=true;_icon.ShowBalloonTip(10000,"AI-bot 有可用更新",names+" · 点击查看更新说明并下载。",ToolTipIcon.Info);
         }catch(Exception ex) when(ex is HttpRequestException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or OperationCanceledException or KeyNotFoundException){
             // Query errors remain visible in the update center; retry in one hour.
         }finally{_checkingUpdates=false;}

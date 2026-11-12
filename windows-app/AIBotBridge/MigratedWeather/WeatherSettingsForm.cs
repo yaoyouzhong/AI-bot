@@ -6,6 +6,7 @@ namespace AIBotBridge.MigratedWeather;
 sealed class WeatherSettingsForm : Form
 {
     readonly WeatherMonitor _weather;
+    readonly Func<Task<WindowsLocation.Result>> _locatePosition;
     readonly TextBox _host = new() { Name="weather-host", Dock = DockStyle.Fill, PlaceholderText="abc.qweatherapi.com" };
     readonly TextBox _city = new() { Name="weather-city", Dock = DockStyle.Fill, PlaceholderText="例如：南京市雨花台区" };
     readonly TextBox _apiKey = new() { Name="weather-api-key", Dock = DockStyle.Fill, UseSystemPasswordChar = true };
@@ -24,10 +25,12 @@ sealed class WeatherSettingsForm : Form
     double _latitude;
     double _longitude;
     bool _busy;
+    DateTimeOffset _positionVerifiedAt;
 
-    public WeatherSettingsForm(WeatherMonitor weather)
+    public WeatherSettingsForm(WeatherMonitor weather,Func<Task<WindowsLocation.Result>> locatePosition=null)
     {
         _weather = weather;
+        _locatePosition=locatePosition??WindowsLocation.Locate;
         SuspendLayout();
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -129,7 +132,7 @@ sealed class WeatherSettingsForm : Form
         _qweather.CheckedChanged+=(_,_)=>{UpdateSourceState();_status.Visible=false;};
         _locate.Click+=async(_,_)=>await Locate();
         _test.Click+=async(_,_)=>await TestConnection();
-        _save.Click+=(_,_)=>SaveSettings();
+        _save.Click+=async(_,_)=>await SaveSettings();
         AcceptButton=_save; CancelButton=cancel;
         cancel.CausesValidation=false;
         cancel.Click+=(_,_)=>Close();
@@ -148,18 +151,21 @@ sealed class WeatherSettingsForm : Form
         _locationRow.Visible=_autoLocation.Checked;
         _locate.Enabled=!_busy&&_autoLocation.Checked;
         _locate.Visible=_autoLocation.Checked;
-        _location.Text=_latitude!=0||_longitude!=0 ? _weather.LocationStatus.Contains("不可用")?"定位不可用，暂用上次位置。可重新获取。":"已有定位，随电脑移动更新。"
+        _locate.Text=_weather.LocationNeedsPermission&&_positionVerifiedAt==default?"重新授权定位":"获取当前位置";
+        _location.Text=_positionVerifiedAt!=default?"已取得当前位置，保存后立即刷新天气。"
+            : _latitude!=0||_longitude!=0 ? _weather.LocationNeedsPermission?"位置授权已失效，当前天气沿用上次位置。":_weather.LocationStatus.Contains("不可用")?"定位不可用，暂用上次位置。可重新获取。":"已有定位，保存时将核对当前位置。"
             : "未定位，请获取位置并允许 Windows 定位。";
     }
 
-    async Task Locate()
+    internal async Task Locate()
     {
         if(_busy)return;
         SetBusy(true,"正在获取 Windows 位置，请留意系统授权提示…");
         try {
-            var result=await WindowsLocation.Locate();
+            var result=await _locatePosition();
             if(IsDisposed)return;
             _latitude=result.Latitude; _longitude=result.Longitude;
+            _positionVerifiedAt=DateTimeOffset.UtcNow;
             UpdateLocationState();
             _status.Text="定位成功。点击“测试连接”核对区县，再保存。";
         }
@@ -179,17 +185,27 @@ sealed class WeatherSettingsForm : Form
         finally { if(!IsDisposed)SetBusy(false); }
     }
 
-    void SaveSettings()
+    internal async Task SaveSettings()
     {
         if(_busy)return;
         _status.Visible=true;
         if(!_autoLocation.Checked&&string.IsNullOrWhiteSpace(_city.Text)) {_status.Text="请输入地区。";return;}
-        if(_autoLocation.Checked&&_latitude==0&&_longitude==0) {_status.Text="请先获取当前位置。";return;}
+        bool automatic=_autoLocation.Checked;
+        SetBusy(true,automatic?"正在核对当前位置，请留意 Windows 定位授权…":"正在保存天气设置…");
         try {
+            // Persisted coordinates are not proof that this executable is authorized.
+            // Request access on the foreground UI thread before accepting auto mode.
+            if(automatic&&DateTimeOffset.UtcNow-_positionVerifiedAt>TimeSpan.FromMinutes(1)) {
+                var position=await _locatePosition();
+                if(IsDisposed)return;
+                _latitude=position.Latitude;_longitude=position.Longitude;
+                _positionVerifiedAt=DateTimeOffset.UtcNow;
+            }
             _weather.ApplySettings(_host.Text,_city.Text,_autoLocation.Checked,_latitude,_longitude,_apiKey.Text,SelectedProvider);
             DialogResult=DialogResult.OK; Close();
         }
-        catch(Exception ex) {_status.Text=ex.Message.Trim();}
+        catch(Exception ex) {if(!IsDisposed){_positionVerifiedAt=default;_status.Text="尚未保存。"+ex.Message.Trim();}}
+        finally {if(!IsDisposed)SetBusy(false);}
     }
 
     void SetBusy(bool busy,string message=null)

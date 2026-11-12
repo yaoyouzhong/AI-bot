@@ -250,6 +250,7 @@ internal static class Program
         if(args.Length==3&&args[0]=="--runtime-health-watch"){RuntimeHealthSelfTest.WatchAsync(Path.GetFullPath(args[1]),Math.Clamp(int.Parse(args[2]),10,300)).GetAwaiter().GetResult();return;}
         if(args.Length==3&&args[0]=="--self-test-runtime-health-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();RuntimeHealthSelfTest.PreviewForm(Path.GetFullPath(args[1]),Path.GetFullPath(args[2]));return;}
         if(args.Length==1&&args[0]=="--self-test-weather-forecast"){AppPaths.BeginPublicSelfTest();WeatherForecastSelfTest.Run();return;}
+        if(args.Length==1&&args[0]=="--self-test-weather-location"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();WeatherLocationSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-codex-read-sync"){AppPaths.BeginPublicSelfTest();Tab5CodexReadStateSelfTest.Run();return;}
         if(args.Length==1&&args[0]=="--self-test-codex-tasks"){AppPaths.BeginPublicSelfTest();Tab5CodexSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-claude-history"){AppPaths.BeginPublicSelfTest();ClaudeHistorySelfTest.Run();return;}
@@ -614,6 +615,9 @@ internal static class Program
         }
         if(args.Length==2&&args[0]=="--diagnose-weather-location") {
             MigratedWeatherTest.LocateAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();return;
+        }
+        if(args.Length==2&&args[0]=="--diagnose-weather-position") {
+            ApplicationConfiguration.Initialize();MigratedWeatherTest.DiagnosePosition(Path.GetFullPath(args[1]));return;
         }
         if (args.Contains("--test-migrated-weather"))
         {
