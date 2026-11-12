@@ -1,0 +1,23 @@
+name: Verify gallery imports on macOS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    runs-on: macos-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        category: [painting, calligraphy]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download and verify actual gallery packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CATEGORY: ${{ matrix.category }}
+        run: bash scripts/verify_gallery_import_macos.sh
