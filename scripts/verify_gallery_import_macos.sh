@@ -1,6 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 : "${CATEGORY:?}" "${GH_TOKEN:?}"
+for candidate in /Applications/Xcode_26.3.app /Applications/Xcode_26.2.app /Applications/Xcode_26.1.1.app /Applications/Xcode_26.0.1.app; do
+  if [ -d "$candidate/Contents/Developer" ]; then
+    export DEVELOPER_DIR="$candidate/Contents/Developer"
+    break
+  fi
+done
+swift --version
 case "$CATEGORY" in
   painting) full_sha=63cd2f20c0322db36615110e329e0f36cd8dc785d590420a6d4e2359aa266045 ;;
   calligraphy) full_sha=f1ff5f59f54dce19341d8a3dcfe560771036979013b0836217a2c639828b608b ;;
