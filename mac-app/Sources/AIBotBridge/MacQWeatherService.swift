@@ -96,17 +96,26 @@ actor MacQWeatherService {
     }
     struct City {
         let latitude: Double, longitude: Double
-        let name: String, id: String?, mainland: Bool
+        let name: String, parentCity: String?, id: String?, mainland: Bool
+
+        var automaticLabel: String {
+            MacWeatherLocation.placeLabel(city: parentCity, district: name, region: nil) ?? "当前位置"
+        }
     }
 
     func resolveCity(_ city: String, host: String, key: String) async throws -> City {
         guard !city.isEmpty else { throw Failure.configuration }
         let data = try await get(host: host, key: key, path: "/geo/v2/city/lookup", location: city)
+        return try Self.parseCity(data)
+    }
+
+    nonisolated static func parseCity(_ data: Data) throws -> City {
         let root = try MacWeatherForecast.qRoot(data)
         guard let rows = root["location"] as? [[String: Any]], let row = rows.first,
               let lat = MacWeatherForecast.number(row["lat"], range: -90...90),
               let lon = MacWeatherForecast.number(row["lon"], range: -180...180) else { throw Failure.response }
-        return City(latitude: lat, longitude: lon, name: String((row["name"] as? String ?? "当前位置").prefix(80)),
+        return City(latitude: lat, longitude: lon, name: String((row["name"] as? String ?? "").prefix(80)),
+                    parentCity: row["adm2"] as? String,
                     id: (row["id"] as? String).flatMap { $0.isEmpty ? nil : $0 },
                     mainland: Self.isMainland(country: row["country"] as? String, region: row["adm1"] as? String))
     }
@@ -154,7 +163,7 @@ actor MacQWeatherService {
         }
         // Forecast by district ID avoids rounding back across a district edge.
         // The separate AQI endpoint takes latitude/longitude to two decimals.
-        return try await fetch(host: host, key: key, latitude: lat, longitude: lon, label: city.name, locationID: city.id)
+        return try await fetch(host: host, key: key, latitude: lat, longitude: lon, label: city.automaticLabel, locationID: city.id)
     }
 
     func fetch(host: String, key: String, latitude: Double, longitude: Double, label: String, locationID: String? = nil) async throws -> WeatherSnapshot {

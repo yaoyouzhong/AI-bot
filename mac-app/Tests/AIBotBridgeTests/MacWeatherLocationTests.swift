@@ -3,21 +3,21 @@ import XCTest
 
 final class MacWeatherLocationTests: XCTestCase {
     func testPlaceLabelsUseOnlyAvailableAdministrativeNames() {
-        XCTAssertEqual(MacWeatherLocation.placeLabel(city: "合成市", district: "测试区", region: "示例省"), "合成市 · 测试区")
+        XCTAssertEqual(MacWeatherLocation.placeLabel(city: "合成市", district: "测试区", region: "示例省"), "合成市 测试区")
         XCTAssertEqual(MacWeatherLocation.placeLabel(city: "合成市", district: "合成市", region: nil), "合成市")
         XCTAssertEqual(MacWeatherLocation.placeLabel(city: "合成市", district: "合成市测试区", region: nil), "合成市测试区")
         XCTAssertEqual(MacWeatherLocation.placeLabel(city: nil, district: nil, region: "示例省"), "示例省")
         XCTAssertEqual(MacWeatherLocation.placeLabel(city: nil, district: "测试区", region: nil), "测试区")
-        XCTAssertEqual(MacWeatherLocation.placeLabel(city: "  Sample\nCity ", district: " District ", region: nil), "Sample City · District")
+        XCTAssertEqual(MacWeatherLocation.placeLabel(city: "  Sample\nCity ", district: " District ", region: nil), "Sample City District")
         XCTAssertNil(MacWeatherLocation.placeLabel(city: "\0", district: " ", region: String(repeating: "x", count: 161)))
     }
     @MainActor
     func testNameCacheRetainsSuccessOnlyForTheSameGridAfterLookupFailure() async {
         var calls = 0
-        let location = MacWeatherLocation(reverseLookup: { _, _ in calls += 1; return calls == 1 ? "合成市 · 测试区" : nil })
+        let location = MacWeatherLocation(reverseLookup: { _, _ in calls += 1; return calls == 1 ? "合成市 测试区" : nil })
         let start = Date(timeIntervalSince1970: 1000)
         let first = await location.placeName(latitude: 12.35, longitude: -65.43, now: start)
-        XCTAssertEqual(first, "合成市 · 测试区"); XCTAssertEqual(calls, 1)
+        XCTAssertEqual(first, "合成市 测试区"); XCTAssertEqual(calls, 1)
         let cached = await location.placeName(latitude: 12.35, longitude: -65.43, now: start.addingTimeInterval(900))
         XCTAssertEqual(cached, first); XCTAssertEqual(calls, 1)
         let failed = await location.placeName(latitude: 12.35, longitude: -65.43, now: start.addingTimeInterval(21_601))
@@ -39,6 +39,20 @@ final class MacWeatherLocationTests: XCTestCase {
         let air = try MacQWeatherService.airRequest(host: "fixture.qweatherapi.com", key: "fixture",
                                                    latitude: corrected.0, longitude: corrected.1)
         XCTAssertEqual(air.url?.path, "/airquality/v1/current/39.91/116.40")
+    }
+
+    func testQWeatherAutomaticLabelKeepsCityAndDistrictWithoutRenamingManualResult() throws {
+        func city(_ name: String, parent: String) throws -> MacQWeatherService.City {
+            let row = ["name": name, "adm2": parent, "id": "fixture-id", "lat": "31.0", "lon": "120.0",
+                       "country": "中国", "adm1": "示例省"]
+            return try MacQWeatherService.parseCity(JSONSerialization.data(withJSONObject: ["code":"200", "location":[row]]))
+        }
+        let district = try city("示例区", parent:"合成市")
+        XCTAssertEqual(district.automaticLabel, "合成市 示例区")
+        XCTAssertEqual(district.name, "示例区")
+        XCTAssertEqual(district.id, "fixture-id")
+        XCTAssertEqual(try city("合成市", parent:"合成市").automaticLabel, "合成市")
+        XCTAssertEqual(try city("示例区", parent:" ").automaticLabel, "示例区")
     }
 
     func testWeatherCadenceUsesLastSuccessfulQueryAndRetriesAfterLocationRecovery() {

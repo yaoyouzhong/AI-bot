@@ -64,7 +64,7 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
         guard let district, district != city else { return city }
         if district.hasPrefix(city) { return district }
         if city.hasSuffix(district) { return city }
-        return city + " · " + district
+        return city + " " + district
     }
     func requireAuthorization() throws {
         switch manager.authorizationStatus {

@@ -448,7 +448,7 @@ actor MacDataService {
             }
             let city = try await qweather.resolveCity(preferences.city, host: host, key: key)
             return try await qweather.fetch(host: host, key: key, latitude: city.latitude, longitude: city.longitude,
-                                           label: city.name, locationID: city.id)
+                                           label: city.name.isEmpty ? "当前位置" : city.name, locationID: city.id)
         }
         let location: (latitude: Double, longitude: Double, label: String)
         if let (latitude, longitude) = point {
