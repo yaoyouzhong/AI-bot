@@ -201,3 +201,103 @@ index 6205814..a34d5ff 100644
  if source != original:
      driver.write_text(source, encoding='utf-8')
  
+diff --git a/tests/ui-preview/CMakeLists.txt b/tests/ui-preview/CMakeLists.txt
+index 12b888e..0f3056f 100644
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -393,7 +393,7 @@ target_compile_options(ota-performance-trace-test PRIVATE /UNDEBUG)
+ set(OTA_USB_SOURCE "${ROOT}/firmware/main/usb_link.c")
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${OTA_USB_SOURCE}")
+ file(READ "${OTA_USB_SOURCE}" OTA_USB_TEXT)
+-string(FIND "${OTA_USB_TEXT}" "static size_t append_ota_performance(" OTA_APPEND_START)
++string(FIND "${OTA_USB_TEXT}" "static size_t append_display_diagnostic_suffix(" OTA_APPEND_START)
+ string(FIND "${OTA_USB_TEXT}" "static void write_reply(" OTA_APPEND_END)
+ if(OTA_APPEND_START LESS 0 OR OTA_APPEND_END LESS OTA_APPEND_START)
+  message(FATAL_ERROR "OTA USB performance appendix test markers missing")
+diff --git a/tests/ui-preview/ota_usb_diagnostic_test.c b/tests/ui-preview/ota_usb_diagnostic_test.c
+index 080f161..30a62ab 100644
+--- a/tests/ui-preview/ota_usb_diagnostic_test.c
++++ b/tests/ui-preview/ota_usb_diagnostic_test.c
+@@ -22,7 +22,7 @@ static int append_cli(const char *suffix) {
+         return 2;
+     }
+     frame[used]=0;
+-    size_t result=append_ota_performance(frame,sizeof(frame),used,suffix);
++    size_t result=append_display_diagnostic_suffix(frame,sizeof(frame),used,suffix);
+     if(fwrite(frame,1,result,stdout)!=result||fflush(stdout)==EOF)return 2;
+     return 0;
+ }
+@@ -35,7 +35,7 @@ int main(int argc,char **argv) {
+     char frame[4096],before[4096];size_t used=strlen(base),extra=strlen(suffix);
+     for(size_t spare=0;spare<extra+2;spare++) {
+         memset(frame,0x5a,sizeof(frame));memcpy(frame,base,used+1);
+-        size_t capacity=used+spare;size_t result=append_ota_performance(frame,capacity,used,suffix);
++        size_t capacity=used+spare;size_t result=append_display_diagnostic_suffix(frame,capacity,used,suffix);
+         if(spare<=extra){assert(result==used&&!strcmp(frame,base));}
+         else {
+             assert(result==used+extra&&frame[result]==0);
+@@ -51,19 +51,19 @@ int main(int argc,char **argv) {
+         strcpy(frame,"@AIBOT {\"displayDiag\":\"");size_t prefix=strlen(frame);
+         memset(frame+prefix,'1',chars);strcpy(frame+prefix+chars,"\",\"otaDiag\":\"1,2,3,0\",\"hostNonce\":\"nonce\"}\n");
+         used=strlen(frame);strcpy(before,frame);
+-        size_t result=append_ota_performance(frame,sizeof(frame),used,suffix);
++        size_t result=append_display_diagnostic_suffix(frame,sizeof(frame),used,suffix);
+         if(chars+extra==1024)assert(result==used+extra&&strstr(frame,suffix));
+         else assert(result==used&&!strcmp(frame,before));
+     }
+     strcpy(frame,base);used=strlen(frame);
+-    assert(append_ota_performance(frame,sizeof(frame),used,"")==used&&!strcmp(frame,base));
+-    assert(append_ota_performance(frame,sizeof(frame),used,NULL)==used&&!strcmp(frame,base));
++    assert(append_display_diagnostic_suffix(frame,sizeof(frame),used,"")==used&&!strcmp(frame,base));
++    assert(append_display_diagnostic_suffix(frame,sizeof(frame),used,NULL)==used&&!strcmp(frame,base));
+     strcpy(frame,"@AIBOT {\"otaDiag\":\"1,2,3,0\"}\n");used=strlen(frame);strcpy(before,frame);
+-    assert(append_ota_performance(frame,sizeof(frame),used,suffix)==used&&!strcmp(frame,before));
++    assert(append_display_diagnostic_suffix(frame,sizeof(frame),used,suffix)==used&&!strcmp(frame,before));
+     // A full legal packet cannot lose its binding or become truncated JSON.
+     strcpy(frame,base);memset(frame+strlen(base)-2,' ',4095-(strlen(base)-2));frame[4095]=0;
+     strcpy(before,frame);
+-    assert(append_ota_performance(frame,sizeof(frame),4095,suffix)==4095&&!strcmp(frame,before));
++    assert(append_display_diagnostic_suffix(frame,sizeof(frame),4095,suffix)==4095&&!strcmp(frame,before));
+     puts("OTA_USB_DIAGNOSTIC_OK actual appendix; Stop fields unchanged; nonce retained; exact frame and diagnostic boundaries; optional omission");
+     return 0;
+ }
+diff --git a/tests/ui-preview/runtime_diagnostics_test.c b/tests/ui-preview/runtime_diagnostics_test.c
+index c22d40e..aff094a 100644
+--- a/tests/ui-preview/runtime_diagnostics_test.c
++++ b/tests/ui-preview/runtime_diagnostics_test.c
+@@ -8,6 +8,7 @@
+ #include <stdatomic.h>
+ #include "cJSON.h"
+ #include "../../firmware/main/link_state.h"
++#include "../../firmware/main/display_diagnostics.h"
+ #define TRUSTED_HOST_NAME 64
+ #define TAB5_LOCAL_ART 1
+ #define MALLOC_CAP_INTERNAL 1
+@@ -44,7 +45,13 @@ volatile int tab5_ui_data_age_ms,tab5_ui_task_selected,tab5_ui_session_ready,tab
+ volatile int tab5_voice_http_stage,tab5_voice_http_status,tab5_voice_request_ms,tab5_voice_last_seq;
+ unsigned tab5_ui_age_ms(void){return 9;}
+ #define formatter(name) static void name(char *s,unsigned n){snprintf(s,n,"1,2,3");}
+-formatter(camera_preview_diagnostics) formatter(display_diagnostics_format) formatter(photo_diagnostics)
++formatter(camera_preview_diagnostics) formatter(photo_diagnostics)
++static unsigned copy_window_fixture;
++void display_diagnostics_format(char *s,unsigned n,char *window,unsigned window_size){
++    if(copy_window_fixture==2){memset(s,'1',n-1);s[n-1]=0;}
++    else snprintf(s,n,"1,2,3");
++    snprintf(window,window_size,"%s",copy_window_fixture?";copywindow,1,1,4,3,0,0,2":"");
++}
+ formatter(codex_remote_upload_diagnostics) formatter(camera_preview_driver_error_hex) formatter(ota_update_diagnostics)
+ formatter(art_orientation_diagnostics) formatter(rpc_failure_diagnostics) formatter(tab5_wifi_numeric_diagnostics)
+ formatter(tab5_wifi_recovery_diagnostics) formatter(tab5_wifi_http_diagnostics) formatter(tab5_wifi_path_diagnostics)
+@@ -77,7 +84,12 @@ int main(void){
+     // preserves the helper's unknown value without substituting total free bytes.
+     for(unsigned i=0;i<3;i++) {
+         diagnostic_largest_value=i==1?0:300;unsigned before=diagnostic_largest_calls;
++        copy_window_fixture=i;
+         cJSON *s=runtime_diagnostics_snapshot();assert(s);
++        const char *display=cJSON_GetStringValue(item(s,"displayDiag"));assert(display);
++        if(i==2)assert(strlen(display)==1023&&!strchr(display,';'));
++        else assert(!strcmp(display,i?"1,2,3;copywindow,1,1,4,3,0,0,2":"1,2,3"));
++        copy_window_fixture=0;
+         assert(item(s,"internalLargest")->valuedouble==diagnostic_largest_value);
+         assert(item(s,"internalFree")->valuedouble==3000);
+         assert(diagnostic_largest_calls==before+1);cJSON_Delete(s);
