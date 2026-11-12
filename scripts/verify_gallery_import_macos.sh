@@ -29,10 +29,13 @@ export GALLERY_TEST_PACKAGE="$temp/$standard" GALLERY_TEST_KIND=standard
 (cd mac-app && swift test --filter GalleryDeliveryImportTests/testPublishedPackageImport)
 rm "$temp/$standard" "$temp/$standard.sha256"
 name="AI-bot-gallery-$CATEGORY-hd-2026.11.12.1.zip"
+gh release download gallery-2026.11.12.1 --repo "$repo" --pattern 'AI-bot-HD-Gallery-Downloader-2026.2.zip' --dir "$temp"
+unzip -q "$temp/AI-bot-HD-Gallery-Downloader-2026.2.zip" -d "$temp"
 for suffix in 101 102; do
   gh release download gallery-2026.11.12.1 --repo "$repo" --pattern "$name.part$suffix" --dir "$temp"
 done
-cat "$temp/$name.part101" "$temp/$name.part102" > "$temp/$name"
+if [ "$CATEGORY" = painting ]; then choice=1; else choice=2; fi
+(cd "$temp" && printf '%s\n' "$choice" | bash ./Download-HD-Gallery.command)
 echo "$full_sha  $temp/$name" | shasum -a 256 -c -
 rm "$temp/$name.part101" "$temp/$name.part102"
 export GALLERY_TEST_PACKAGE="$temp/$name" GALLERY_TEST_KIND=hd
