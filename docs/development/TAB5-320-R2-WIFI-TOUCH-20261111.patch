@@ -1,0 +1,331 @@
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R1";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R2";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/firmware/main/device.c
++++ b/firmware/main/device.c
+@@ -1,9 +1,11 @@
+ #include "device.h"
+ #include "assets.h"
+ #include "wifi_profiles.h"
++#include "wifi_test_lease.h"
+ #include <string.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <stdatomic.h>
+ #include "nvs.h"
+ #include "esp_mac.h"
+ #include "esp_random.h"
+@@ -21,6 +23,8 @@
+ cJSON *device_metrics[3];
+ uint64_t device_metrics_sequence[3];
+ static device_config config;
++static atomic_bool wifi_test_active;
++static tab5_wifi_test_lease wifi_test;
+ static device_sound sound={35,false};
+ static wifi_profile_store networks={.version=WIFI_PROFILE_VERSION};
+ static nvs_handle_t settings;
+@@ -95,11 +99,12 @@
+
+ device_config device_get_config(void) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);device_config copy=config;
++    copy.mode=device_links.mode;
+     copy.paired=trusted_hosts_readable&&trusted_hosts.count>0;
+     if(copy.paired){trusted_host *h=&trusted_hosts.entries[trusted_hosts.selected];memcpy(copy.key,h->key,32);strcpy(copy.host,h->address);copy.port=h->port;}
+     xSemaphoreGive(device_mutex);return copy;
+ }
+-int device_link_mode(void) {xSemaphoreTake(device_mutex,portMAX_DELAY);int mode=config.mode;xSemaphoreGive(device_mutex);return mode;}
++int device_link_mode(void) {xSemaphoreTake(device_mutex,portMAX_DELAY);int mode=device_links.mode;xSemaphoreGive(device_mutex);return mode;}
+ device_sound device_get_sound(void) {xSemaphoreTake(device_mutex,portMAX_DELAY);device_sound copy=sound;xSemaphoreGive(device_mutex);return copy;}
+ int device_sound_volume(void) {device_sound s=device_get_sound();return s.muted?0:s.volume;}
+ bool device_set_sound(int volume,bool muted) {
+@@ -161,7 +166,42 @@
+     }
+     xSemaphoreGive(device_mutex);return list;
+ }
+-void device_set_mode(int mode) {if(mode<-1||mode>2)return;xSemaphoreTake(device_mutex,portMAX_DELAY);config.mode=mode;device_links.mode=mode;save();xSemaphoreGive(device_mutex);}
++static void wifi_test_clear_locked(void) {
++    wifi_test=(tab5_wifi_test_lease){0};
++    device_links.mode=config.mode;
++    atomic_store(&wifi_test_active,false);
++}
++bool device_wifi_test_active(void) {return atomic_load(&wifi_test_active);}
++bool device_wifi_test_begin(unsigned host,int64_t now) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    bool ready=!device_host_changing()&&host==device_host_epoch()&&wifi_test_can_start(&device_links,&wifi_test,now);
++    if(ready){
++        wifi_test=(tab5_wifi_test_lease){.until=now+120000,.owner=host};
++        device_links.mode=LINK_WIFI;
++        atomic_store(&wifi_test_active,true);
++    }
++    xSemaphoreGive(device_mutex);return ready;
++}
++bool device_wifi_test_restore(unsigned host) {
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    bool owned=device_wifi_test_active()&&host==wifi_test.owner&&host==device_host_epoch();
++    if(owned)wifi_test_clear_locked();
++    xSemaphoreGive(device_mutex);return owned;
++}
++void device_wifi_test_tick(int64_t now) {
++    if(!device_wifi_test_active()||!xSemaphoreTake(device_mutex,0))return;
++    if(wifi_test_should_restore(&device_links,&wifi_test,device_host_epoch(),device_host_changing(),now))
++        wifi_test_clear_locked();
++    xSemaphoreGive(device_mutex);
++}
++void device_set_mode(int mode) {
++    if(mode<-1||mode>2)return;
++    xSemaphoreTake(device_mutex,portMAX_DELAY);
++    config.mode=mode;
++    wifi_test_clear_locked();
++    save();
++    xSemaphoreGive(device_mutex);
++}
+ bool device_save_brightness(int value) {if(value<10||value>100)return false;xSemaphoreTake(device_mutex,portMAX_DELAY);int before=config.brightness;config.brightness=value;bool ok=save();if(!ok)config.brightness=before;xSemaphoreGive(device_mutex);return ok;}
+ void device_set_brightness(int value) {(void)device_save_brightness(value);}
+ char *device_unpack_json(cJSON *root,unsigned maximum) {
+--- a/firmware/main/device.h
++++ b/firmware/main/device.h
+@@ -42,6 +42,10 @@
+ cJSON *device_wifi_public_list(void);
+ bool tab5_ui_wifi_forget(const char *ssid);
+ void device_set_mode(int mode);
++bool device_wifi_test_begin(unsigned host,int64_t now);
++bool device_wifi_test_restore(unsigned host);
++bool device_wifi_test_active(void);
++void device_wifi_test_tick(int64_t now);
+ void device_set_brightness(int brightness);
+ bool device_save_brightness(int brightness);
+ typedef struct { int volume; bool muted; } device_sound;
+--- a/firmware/main/ui_automation.inc
++++ b/firmware/main/ui_automation.inc
+@@ -15,6 +15,20 @@
+ static uint32_t automation_start,automation_ttl,automation_duration;
+ static int automation_width,automation_height,automation_rotation,automation_x,automation_y,automation_tx,automation_ty;
+ static unsigned automation_host;
++static link_kind automation_link=LINK_NONE;
++static bool automation_wifi_test;
++static link_kind automation_active_link(link_kind fallback,int64_t now) {
++#ifndef TAB5_UI_PREVIEW
++    if(xSemaphoreTake(device_mutex,0)){
++        link_kind active=link_state_active(&device_links,now);
++        xSemaphoreGive(device_mutex);
++        return active;
++    }
++#else
++    (void)now;
++#endif
++    return fallback;
++}
+ void tab5_ui_automation_status(char *out,unsigned size){
+     AUTOMATION_LOCK();snprintf(out,size,"%s",automation_report);AUTOMATION_UNLOCK();
+ }
+@@ -38,7 +52,10 @@
+ }
+ static void automation_read(lv_indev_t *input,lv_indev_data_t *data){
+     uint32_t elapsed=lv_tick_elaps(automation_start);
+-    bool invalid=automation_host!=device_host_epoch()||elapsed>automation_ttl||ota_update_busy()||photo_flow||automation_physical_touch()||
++    bool invalid=automation_host!=device_host_epoch()||elapsed>automation_ttl||
++        automation_link!=automation_active_link(automation_link,esp_timer_get_time()/1000)||
++        (automation_link==LINK_WIFI&&(!wifi_connected||saver||(automation_wifi_test&&!device_wifi_test_active())))||
++        ota_update_busy()||photo_flow||automation_physical_touch()||
+         automation_width!=lv_display_get_horizontal_resolution(NULL)||automation_height!=lv_display_get_vertical_resolution(NULL)||automation_rotation!=(int)lv_display_get_rotation(NULL);
+     if(automation_pressed&&invalid){
+         automation_pressed=false;lv_indev_reset(input,NULL);lv_indev_wait_release(input);automation_result(4);
+@@ -56,21 +73,31 @@
+     *out=v->valueint;return true;
+ }
+ static void ui_automation_tick(cJSON *frame,link_kind link,int64_t now,int64_t received){
++    device_wifi_test_tick(now);
+     cJSON *command=item(item(frame,"connectionHealth"),"uiAutomationCommand");
+     const char *id=text(command,"requestId"),*session=text(item(frame,"pcInput"),"session");
+     cJSON *clock=item(frame,"epochMilliseconds"),*expires=item(command,"expiresAt");int version;
+-    if(link!=LINK_USB||strcmp(text(command,"transport"),"USB")||!automation_hex(id)||!automation_hex(session)||
++    if((link!=LINK_USB&&link!=LINK_WIFI)||strcmp(text(command,"transport"),link_name(link))||
++       (link==LINK_WIFI&&!wifi_connected)||!automation_hex(id)||!automation_hex(session)||
+        !automation_integer(command,"version",1,1,&version)||now<received||now-received>=5000||
+        !cJSON_IsNumber(clock)||!isfinite(clock->valuedouble)||clock->valuedouble<=0||
+        !cJSON_IsNumber(expires)||!isfinite(expires->valuedouble)||expires->valuedouble>9007199254740991.0||
+        expires->valuedouble<clock->valuedouble+now-received||expires->valuedouble>clock->valuedouble+5000)return;
++    if(automation_active_link(link,now)!=link||device_host_changing())return;
+     for(unsigned i=0;i<64;i++)if(!strcmp(id,automation_recent[i]))return;
+     if(automation_pressed)return;
+     snprintf(automation_id,sizeof(automation_id),"%s",id);
+     snprintf(automation_recent[automation_recent_next++%64],33,"%s",id);
+-    if(!strcmp(text(command,"op"),"probe")){automation_result(2);return;}
++    const char *op=text(command,"op");
++    if(!strcmp(op,"probe")){automation_result(2);return;}
++    if(!strcmp(op,"wifi-test")||!strcmp(op,"restore")){
++        bool restored=link==LINK_WIFI&&!strcmp(op,"restore")&&device_wifi_test_restore(device_host_epoch());
++        bool started=link==LINK_USB&&!strcmp(op,"wifi-test")&&!ota_update_busy()&&!photo_flow&&
++            !automation_physical_touch()&&device_wifi_test_begin(device_host_epoch(),now);
++        automation_result(started||restored?2:3);return;
++    }
+     int w,h,r,x,y,tx,ty,duration;bool swipe=!strcmp(text(command,"op"),"swipe");
+-    if((!swipe&&strcmp(text(command,"op"),"tap"))||ota_update_busy()||photo_flow||automation_physical_touch()||
++    if((!swipe&&strcmp(op,"tap"))||(link==LINK_WIFI&&saver)||ota_update_busy()||photo_flow||automation_physical_touch()||
+        !automation_integer(command,"width",1,1280,&w)||!automation_integer(command,"height",1,1280,&h)||
+        !automation_integer(command,"rotation",0,3,&r)||w!=lv_display_get_horizontal_resolution(NULL)||h!=lv_display_get_vertical_resolution(NULL)||r!=(int)lv_display_get_rotation(NULL)||
+        !automation_integer(command,"x",0,w-1,&x)||!automation_integer(command,"y",0,h-1,&y)||
+@@ -84,5 +111,7 @@
+     }
+     automation_width=w;automation_height=h;automation_rotation=r;automation_x=x;automation_y=y;automation_tx=tx;automation_ty=ty;
+     automation_duration=(uint32_t)duration;automation_ttl=(uint32_t)(expires->valuedouble-clock->valuedouble-(now-received));
+-    automation_host=device_host_epoch();automation_start=lv_tick_get();automation_pressed=true;automation_result(1);
++    automation_host=device_host_epoch();automation_link=link;
++    automation_wifi_test=link==LINK_WIFI&&device_wifi_test_active();
++    automation_start=lv_tick_get();automation_pressed=true;automation_result(1);
+ }
+--- a/firmware/main/wifi_link.c
++++ b/firmware/main/wifi_link.c
+@@ -8,6 +8,7 @@
+ #include "wifi_status.h"
+ #include "wifi_performance.h"
+ #include "wifi_probe.h"
++#include "ui_automation.h"
+ #include "esp_app_desc.h"
+ #include <stdatomic.h>
+ #include "lwip/sockets.h"
+@@ -136,6 +137,14 @@
+     snprintf(message,sizeof(message),"FIRMWARE|%s|%s",nonce,firmware);device_proof(message,firmware_proof);
+     esp_http_client_set_header(client,"X-Tab5-Firmware",firmware);
+     esp_http_client_set_header(client,"X-Tab5-Firmware-Proof",firmware_proof);
++    char automation[96],automation_message[160],automation_proof[65];
++    tab5_ui_automation_status(automation,sizeof(automation));
++    size_t automation_length=strlen(automation);
++    snprintf(automation+automation_length,sizeof(automation)-automation_length,",%d",device_wifi_test_active()?1:0);
++    snprintf(automation_message,sizeof(automation_message),"UI-AUTOMATION|%s|%s",nonce,automation);
++    device_proof(automation_message,automation_proof);
++    esp_http_client_set_header(client,"X-Tab5-UI-Automation",automation);
++    esp_http_client_set_header(client,"X-Tab5-UI-Automation-Proof",automation_proof);
+     // Paired status polling remains available when the USB serial port disappears.
+     // Export only numeric diagnostics; never include audio, text, or credentials.
+     int64_t now_ms=esp_timer_get_time()/1000;
+@@ -200,6 +209,7 @@
+         // blocking. Always let the idle task and pending display work run;
+         // taskYIELD alone would only schedule equal-priority ready tasks.
+         vTaskDelay(1);
++        device_wifi_test_tick(esp_timer_get_time()/1000);
+         device_config cfg=device_get_config();
+         bool probe_reconnect=false;
+         if(wifi_probe_service((cfg.mode==LINK_BLE||(cfg.mode==-1&&wifi_probe_allows_auto()&&ble_connected&&ble_host_authorized()&&!device_host_changing()))&&(!wifi_probe_requires_usb()||tab5_usb_connected()),&probe_reconnect)) {
+--- /dev/null
++++ b/firmware/main/wifi_test_lease.h
+@@ -0,0 +1,16 @@
++#pragma once
++#include "link_state.h"
++
++typedef struct {int64_t until;unsigned owner;} tab5_wifi_test_lease;
++
++static inline bool wifi_test_link_fresh(const link_state *links,int64_t now) {
++    int64_t received=links->received_ms[LINK_WIFI];
++    return received>=0&&now>=received&&now-received<8000;
++}
++static inline bool wifi_test_can_start(const link_state *links,const tab5_wifi_test_lease *lease,int64_t now) {
++    return !lease->until&&link_state_active(links,now)==LINK_USB&&wifi_test_link_fresh(links,now);
++}
++static inline bool wifi_test_should_restore(const link_state *links,const tab5_wifi_test_lease *lease,
++    unsigned owner,bool changing,int64_t now) {
++    return lease->until&&(now>=lease->until||lease->owner!=owner||changing||!wifi_test_link_fresh(links,now));
++}
+--- a/tests/ui-preview/claude_companion_ui_test.h
++++ b/tests/ui-preview/claude_companion_ui_test.h
+@@ -46,6 +46,63 @@
+         char name[64];snprintf(name,sizeof(name),"headphones-%s-%02u",surface,i);
+         capture(name);
+     }
++}
++#include "wifi_test_lease.h"
++static void automation_test_wifi(void){
++    link_state links;link_state_init(&links);
++    tab5_wifi_test_lease lease={0};
++    assert(!wifi_test_can_start(&links,&lease,1000));
++    links.received_ms[LINK_USB]=1000;links.received_ms[LINK_WIFI]=1000;
++    assert(wifi_test_can_start(&links,&lease,1000));
++    lease=(tab5_wifi_test_lease){.until=121000,.owner=12};
++    links.mode=LINK_WIFI;
++    assert(link_state_active(&links,1000)==LINK_WIFI);
++    assert(!wifi_test_can_start(&links,&lease,1000));
++    assert(!wifi_test_should_restore(&links,&lease,12,false,8999));
++    assert(wifi_test_should_restore(&links,&lease,12,false,9000));
++    links.received_ms[LINK_WIFI]=120900;
++    assert(wifi_test_should_restore(&links,&lease,12,false,121000));
++    assert(wifi_test_should_restore(&links,&lease,13,false,120950));
++    assert(wifi_test_should_restore(&links,&lease,12,true,120950));
++
++    wifi_connected=true;
++    unsigned clicks=automation_clicks;
++    lv_obj_t *target=lv_button_create(lv_layer_top());lv_obj_set_pos(target,100,100);lv_obj_set_size(target,200,100);
++    lv_obj_add_event_cb(target,automation_test_click,LV_EVENT_CLICKED,NULL);lv_obj_update_layout(lv_layer_top());
++    cJSON *f=automation_test_frame(400,"tap"),*c=item(item(f,"connectionHealth"),"uiAutomationCommand");
++    assert(cJSON_ReplaceItemInObject(c,"transport",cJSON_CreateString("Wi-Fi")));
++    ui_automation_tick(f,LINK_USB,100,100);assert(!automation_pressed);
++    ui_automation_tick(f,LINK_WIFI,100,100);assert(automation_pressed);
++    lv_indev_read(automation_input);lv_tick_inc(96);lv_indev_read(automation_input);
++    assert(automation_clicks==clicks+1&&!automation_pressed);
++    ui_automation_tick(f,LINK_WIFI,200,100);assert(!automation_pressed);
++    cJSON_Delete(f);
++
++    f=automation_test_frame(401,"tap");c=item(item(f,"connectionHealth"),"uiAutomationCommand");
++    assert(cJSON_ReplaceItemInObject(c,"transport",cJSON_CreateString("Wi-Fi")));
++    ui_automation_tick(f,LINK_WIFI,100,100);lv_indev_read(automation_input);
++    wifi_connected=false;lv_tick_inc(96);lv_indev_read(automation_input);
++    assert(!automation_pressed&&automation_clicks==clicks+1&&strstr(automation_report,",4,"));
++    wifi_connected=true;cJSON_Delete(f);lv_obj_delete(target);
++
++    lv_obj_t *scroll=lv_obj_create(lv_layer_top());lv_obj_set_pos(scroll,50,70);lv_obj_set_size(scroll,500,450);
++    lv_obj_set_scroll_dir(scroll,LV_DIR_VER);
++    lv_obj_set_size(lv_obj_create(scroll),420,1400);lv_obj_update_layout(lv_layer_top());
++    f=automation_test_frame(402,"swipe");c=item(item(f,"connectionHealth"),"uiAutomationCommand");
++    assert(cJSON_ReplaceItemInObject(c,"transport",cJSON_CreateString("Wi-Fi")));
++    cJSON_SetNumberValue(item(c,"y"),380);cJSON_SetNumberValue(item(c,"toY"),150);cJSON_SetNumberValue(item(c,"durationMs"),320);
++    ui_automation_tick(f,LINK_WIFI,100,100);lv_indev_read(automation_input);
++    for(int i=0;i<24;i++){lv_tick_inc(16);lv_indev_read(automation_input);}
++    assert(!automation_pressed&&lv_obj_get_scroll_y(scroll)>80);cJSON_Delete(f);lv_obj_delete(scroll);
++
++    f=automation_test_frame(403,"wifi-test");
++    ui_automation_tick(f,LINK_USB,100,100);assert(device_wifi_test_active()&&strstr(automation_report,",2,"));
++    cJSON_Delete(f);
++    f=automation_test_frame(404,"restore");c=item(item(f,"connectionHealth"),"uiAutomationCommand");
++    assert(cJSON_ReplaceItemInObject(c,"transport",cJSON_CreateString("Wi-Fi")));
++    ui_automation_tick(f,LINK_WIFI,100,100);assert(!device_wifi_test_active()&&strstr(automation_report,",2,"));
++    cJSON_Delete(f);
++    puts("TAB5_WIFI_TOUCH_LVGL_OK tap, swipe, replay, disconnect release, temporary mode and both watchdog bounds");
+ }
+ // Use the actual widgets. Only input telemetry and time are fixtures.
+ static void check_claude_companion_ui(void) {
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2380,6 +2380,7 @@
+     }
+     const char *annual_readers=getenv("TAB5_GALLERY_LONG_READERS");if(annual_readers){check_annual_long_reader_ui(annual_readers);return 0;}
+ #endif
++    if(getenv("TAB5_WIFI_TOUCH_ONLY")) {automation_test_wifi();return 0;}
+     if(getenv("TAB5_OVERVIEW_PROJECT_ONLY")) {
+         cJSON_Delete(shown);
+         shown=cJSON_Parse("{\"codexTasks\":{\"overviewTask\":{\"id\":\"00000000-0000-0000-0000-000000000001\","
+--- a/tests/ui-preview/ui_preview_stubs.h
++++ b/tests/ui-preview/ui_preview_stubs.h
+@@ -37,6 +37,7 @@
+ static link_state device_links;
+ static unsigned preview_computer_host_epoch=1;
+ static unsigned device_host_epoch(void){return preview_computer_host_epoch;}
++static bool device_host_changing(void){return false;}
+ static cJSON *device_snapshots[3];
+ static cJSON *device_metrics[3];
+ static uint64_t device_metrics_sequence[3];
+@@ -46,6 +47,11 @@
+ static device_config preview_config={.id="preview",.paired=true,.host="127.0.0.1",.ssid="家庭网络",.port=18765,.mode=-1,.brightness=80};
+ static device_config device_get_config(void) { return preview_config; }
+ static void device_set_mode(int mode) { (void)mode; }
++static bool preview_wifi_test_active;
++static bool device_wifi_test_begin(unsigned host,int64_t now){(void)host;(void)now;return !preview_wifi_test_active&&(preview_wifi_test_active=true);}
++static bool device_wifi_test_restore(unsigned host){(void)host;bool active=preview_wifi_test_active;preview_wifi_test_active=false;return active;}
++static bool device_wifi_test_active(void){return preview_wifi_test_active;}
++static void device_wifi_test_tick(int64_t now){(void)now;}
+ static void device_set_brightness(int n) { if(n>=10&&n<=100)preview_config.brightness=n; }
+ static bool device_save_brightness(int n){preview_config.brightness=n;return true;}
+ static bool display_settings_report(cJSON *report,link_kind link){(void)link;cJSON_Delete(report);return true;}

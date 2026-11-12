@@ -31,33 +31,46 @@ internal sealed partial class Tab5Service
             return p.Completion.TrySetResult(root.Clone())?(200,new{accepted=true}):(409,new{error="boot_probe_consumed"});
         }
     }
-    internal static long ValidateWirelessBootReport(JsonElement root,Tab5OtaPackage image,string deviceId,long previous) {
+    internal static long ValidateWirelessBootReport(JsonElement root,Tab5OtaPackage image,string deviceId,long previous,long maximumUptime=long.MaxValue) {
         long uptime=Tab5InstallBootCheck.Hello(root.GetProperty("hello"),deviceId,image.Version,previous);
+        if(uptime>=maximumUptime)throw new AwaitingOtaBootException();
         VerifyUpgradeDiagnostic(root.GetProperty("diagnostic"),image);
         return uptime;
     }
-    private async Task VerifyWirelessBootAsync(Tab5OtaPackage image,string deviceId,CancellationToken token) {
+    private async Task VerifyWirelessBootAsync(Tab5OtaPackage image,string deviceId,CancellationToken token,OtaDelivery? automatic=null) {
         string transport=WirelessBootTransport;
         if(!SupportsWirelessBoot(DeviceView.Firmware))throw new IOException("当前固件不支持无线启动核验，请升级至 0.2.226-ui 或连接 USB。");
         if(transport.Length==0)throw new IOException("没有可用的已配对无线连接。");
-        lock(_lifecycle){if(_stopping||Busy)throw new InvalidOperationException("设备仍在处理操作，请稍后核验。");_voiceRequests++;}
+        OtaDelivery? completedDelivery;
+        var pair=_store.Current;
+        lock(_lifecycle) {
+            if(_stopping||!ReferenceEquals(_ota,image)||pair?.DeviceId!=deviceId||_store.Current!=pair||
+               (automatic is null?Busy:!AutoBootCurrent(automatic)||BusyExceptOtaLease))
+                throw new InvalidOperationException("设备仍在处理操作或升级目标已变化，请稍后核验。");
+            completedDelivery=_otaDelivery is {FinalReleased:true} delivery?delivery:null;
+            _voiceRequests++;
+        }
         _verifiedBoot=null;_upgradeDiagnostic="正在通过 "+transport+" 核验";
         try {
             long previous=-1;JsonElement last=default;
             for(int i=0;i<3;i++) {
                 token.ThrowIfCancellationRequested();
+                long requestAt=Environment.TickCount64;
                 var probe=new BootProbe(deviceId,image,Guid.NewGuid().ToString("N"),transport,DateTimeOffset.UtcNow.AddSeconds(10).ToUnixTimeMilliseconds(),new(TaskCreationOptions.RunContinuationsAsynchronously));
                 lock(_bootVerifyLock)_bootProbe=probe;
                 Republish();
                 try{last=await probe.Completion.Task.WaitAsync(TimeSpan.FromSeconds(10),token);}
                 finally{lock(_bootVerifyLock){if(ReferenceEquals(_bootProbe,probe))_bootProbe=null;}}
                 if(PairedId!=deviceId||!ReferenceEquals(Volatile.Read(ref _ota),image))throw new IOException("设备或所选固件已变化，请重新核验。");
-                previous=ValidateWirelessBootReport(last,image,deviceId,previous);
+                previous=ValidateWirelessBootReport(last,image,deviceId,previous,
+                    completedDelivery is null?long.MaxValue:requestAt-completedDelivery.FinalAt);
                 if(i<2)await Task.Delay(1200,token);
             }
             token.ThrowIfCancellationRequested();
-            if(PairedId!=deviceId||!ReferenceEquals(Volatile.Read(ref _ota),image))throw new IOException("设备或所选固件已变化，请重新核验。");
-            RecordVerifiedBoot(last.GetProperty("diagnostic"),image,deviceId);
+            lock(_lifecycle) {
+                if(_store.Current!=pair||!ReferenceEquals(_ota,image))throw new IOException("设备或所选固件已变化，请重新核验。");
+                RecordVerifiedBoot(last.GetProperty("diagnostic"),image,deviceId);
+            }
             _upgradeDiagnostic=$"verified; transport={transport}; firmware={image.Version}; elfSha256={image.ElfSha256}; partition={last.GetProperty("diagnostic").GetProperty("partition").GetString()}; state=VALID; liveSamples=3; timing=unavailable";
         }catch(TimeoutException){_upgradeDiagnostic="failed; wireless_timeout";throw new IOException("无线启动核验超时，未确认成功；请检查设备连接后重试。");}
         catch(Exception ex){_upgradeDiagnostic="failed; "+ex.GetType().Name;throw;}

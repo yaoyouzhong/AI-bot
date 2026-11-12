@@ -58,6 +58,10 @@ internal static class Tab5UIAutomationSelfTest
         try{
             var settings=new Tab5DisplaySettings("1234abcd",80,50,false,-1,false,15,5,true,[1,1,1,1,1,1,1,1],[0,1,2,3,4,5,6,7]);
             await SettingsReadAsync(settings);
+            WifiProof(directory);
+            using(var radio=JsonDocument.Parse("""{"wifiConnected":true,"wifiHttpDiag":"1,1,0,0,200,1,0,18765,3232300627"}"""))
+                if(Tab5Service.WifiPeerFromUsbReport(radio.RootElement)!="192.168.254.83")
+                    throw new Exception("Wi-Fi subnet hint did not decode the device address");
             long now=200,actual=100;int wakes=0;
             var activity=new Tab5AutomationRunner.InputActivity(()=>actual,()=>now);
             if(activity.Read()!=100)throw new Exception("Diagnostic input changed before wake");
@@ -81,8 +85,64 @@ internal static class Tab5UIAutomationSelfTest
             var changed=backend with{Settings=_=>Task.FromResult(++reads==1?settings:settings with{Brightness=80})};
             bool detected=false;try{await Tab5AutomationRunner.CommandsAsync(new StringReader("{\"op\":\"stop\"}\n"),new StringWriter(),directory,changed,default);}catch(IOException){detected=true;}
             if(!detected)throw new Exception("Changed settings reported preserved");
+            await WifiRunnerAsync(directory,backend);
             Console.WriteLine("WINDOWS_TAB5_AUTOMATION_JSONL_OK viewport, bounded gestures, capture traversal/overwrite rejection and settings verification; synthetic transport");
         }finally{Directory.Delete(directory,true);}
+    }
+    private static void WifiProof(string directory)
+    {
+        var store=new Tab5PairingStore(Path.Combine(directory,"wifi-pairing.dat"));
+        var pair=store.Pair("001122334455",@"USB\VID_303A&PID_4001122334455");
+        using var service=new Tab5Service(store);
+        var key=Convert.FromBase64String(pair.Key);
+        string owner=Tab5HostBinding.Id(pair);
+        void Poll(string report,bool valid){
+            string nonce=Guid.NewGuid().ToString("N");
+            service.Respond(pair.DeviceId,nonce,Tab5Protocol.Proof(key,$"GET|{pair.DeviceId}|{nonce}"),
+                uiAutomation:report,uiAutomationProof:valid?Tab5Protocol.Proof(key,$"UI-AUTOMATION|{nonce}|{report}"):new string('0',64));
+        }
+        Poll("1,,0,0,0,0,0",false);
+        if(service.WifiUiAutomationAvailable)throw new Exception("Unsigned Wi-Fi capability accepted");
+        Poll("1,,0,0,0,0,0",true);
+        if(!service.WifiUiAutomationAvailable)throw new Exception("Signed Wi-Fi capability missing");
+
+        var action=JsonSerializer.SerializeToElement(new{op="probe"});
+        var id=service.UIAutomation.Begin(action,transport:"Wi-Fi",owner:owner);
+        long now=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if(service.UIAutomation.CommandForFrame(now,owner:"other") is not null||
+            service.UIAutomation.CommandForFrame(now,owner:owner) is null)throw new Exception("Command owner not enforced");
+        service.UIAutomation.Observe(JsonSerializer.SerializeToElement(new{uiAutomation=$"1,{id},2,1280,720,0"}),owner);
+        service.UIAutomation.ObserveWifi("other",$"1,{id},2,1280,720,0,1");
+        Poll($"1,{id},2,1280,720,0,1",false);
+        if(service.UIAutomation.Snapshot() is not null)throw new Exception("Wrong route, owner or proof acknowledged Wi-Fi command");
+        Poll($"1,{id},2,1280,720,0,1",true);
+        if(service.UIAutomation.Snapshot() is not {Status:2,WifiTestActive:true}||service.UIAutomation.Pending)
+            throw new Exception("Signed Wi-Fi acknowledgement did not complete request");
+    }
+    private static async Task WifiRunnerAsync(string directory,Tab5AutomationRunner.Backend backend)
+    {
+        var operations=new List<string>();
+        var wifiBackend=backend with {
+            Action=(command,_)=>{
+                string op=command.GetProperty("op").GetString()!,transport=command.GetProperty("transport").GetString()!;
+                operations.Add($"{transport}:{op}");
+                // Lost network/ACK during restore must still confirm USB on return.
+                if(op=="restore")throw new IOException("Wireless response lost");
+                return Task.FromResult(new Tab5UIAutomation.Result("fixture",2,1280,720,0,transport=="Wi-Fi"));
+            }
+        };
+        var input=new StringReader("""
+            {"op":"wifi-test"}
+            {"op":"tap","x":100,"y":200}
+            {"op":"swipe","x":100,"y":200,"toX":100,"toY":450,"durationMs":240}
+
+            """);
+        var output=new StringWriter();
+        await Tab5AutomationRunner.CommandsAsync(input,output,directory,wifiBackend,default);
+        if(!operations.SequenceEqual(["USB:probe","USB:wifi-test","Wi-Fi:probe","Wi-Fi:tap","Wi-Fi:swipe","Wi-Fi:restore","USB:probe"])||
+            !output.ToString().Contains("\"modeRestored\":true",StringComparison.Ordinal))
+            throw new Exception("Wi-Fi command routing or EOF restoration failed");
+        Console.WriteLine("TAB5_WIFI_AUTOMATION_OK signed route-bound acknowledgement, Wi-Fi tap and swipe, EOF restoration after lost reply");
     }
     private static async Task SettingsReadAsync(Tab5DisplaySettings settings){
         int checks=0,reads=0;

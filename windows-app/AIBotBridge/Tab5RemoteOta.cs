@@ -24,7 +24,7 @@ internal sealed partial class Tab5Service
     internal static bool SupportsReinstall(string value)=>value.EndsWith("-ui",StringComparison.Ordinal)&&
         Version.TryParse(value[..^3],out var version)&&version.Major==0&&version.Minor==2&&version.Build>=286&&version.Revision<0;
     internal bool SameOtaVersion=>HasOta&&_firmware.LastVersion(_store.Current?.DeviceId)==Volatile.Read(ref _ota)?.Version;
-    internal bool CanStartOta=>!_usbAuthenticationRejected&&HasOta&&!Busy&&!RemoteOtaPending&&DeviceView.Online&&
+    internal bool CanStartOta=>!_usbAuthenticationRejected&&HasOta&&!Busy&&!AutoBootPending&&!RemoteOtaPending&&DeviceView.Online&&
         SupportsRemoteOta(_firmware.LastVersion(_store.Current?.DeviceId));
     internal string RemoteOtaStatus=>_remoteOtaStatus;
     internal string OtaStartHint=>_usbAuthenticationRejected?"USB 已连接，但当前电脑未通过设备配对认证；请先验证配对，固件尚未传输。":HasOta&&!SupportsRemoteOta(_firmware.LastVersion(_store.Current?.DeviceId))?

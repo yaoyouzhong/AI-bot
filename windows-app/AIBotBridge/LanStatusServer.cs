@@ -84,7 +84,8 @@ internal sealed class LanStatusServer
             if (requestLine == "GET /tab5/v1/status HTTP/1.1")
             {
                 string Header(string name) => lines.FirstOrDefault(l => l.StartsWith(name+":",StringComparison.OrdinalIgnoreCase))?.Split(':',2)[1].Trim()??"";
-                var packet = tab5?.Respond(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),Header("X-AIBot-Assets"),Header("X-AIBot-Assets-Proof"),Header("X-Tab5-Firmware"),Header("X-Tab5-Firmware-Proof"));
+                var packet = tab5?.Respond(Header("X-AIBot-Device"),Header("X-AIBot-Nonce"),Header("X-AIBot-Proof"),Header("X-AIBot-Assets"),Header("X-AIBot-Assets-Proof"),Header("X-Tab5-Firmware"),Header("X-Tab5-Firmware-Proof"),
+                    Header("X-Tab5-UI-Automation"),Header("X-Tab5-UI-Automation-Proof"));
                 var diag=Header("X-Tab5-Diag");
                 if(packet is not null&&diag.Length is >0 and <160&&diag.All(c=>char.IsAsciiDigit(c)||c is ',' or '-'))
                 {

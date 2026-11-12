@@ -10,6 +10,16 @@ internal sealed partial class Tab5Service
     private RuntimeProbe? _runtimeProbe;
     private RuntimeSample? _runtimeSample;
     private Task? _runtimeRefresh;
+    private volatile string? _usbWifiPeer;
+    internal string? UsbWifiPeer=>Environment.TickCount64-Interlocked.Read(ref _usbAckAt) is >=0 and <8000?_usbWifiPeer:null;
+    internal static string? WifiPeerFromUsbReport(JsonElement root)
+    {
+        if(!root.TryGetProperty("wifiConnected",out var connected)||connected.ValueKind!=JsonValueKind.True||
+            !root.TryGetProperty("wifiHttpDiag",out var report)||report.ValueKind!=JsonValueKind.String)return null;
+        string[] fields=(report.GetString()??"").Split(',');
+        if(fields.Length!=9||fields[0]!="1"||!uint.TryParse(fields[8],out uint address)||address==0)return null;
+        return new System.Net.IPAddress(new byte[]{(byte)(address>>24),(byte)(address>>16),(byte)(address>>8),(byte)address}).ToString();
+    }
     private volatile string _runtimeDiagnosticResult="";
     internal static bool SupportsRuntimeDiagnostics(string firmware)=>firmware.EndsWith("-ui",StringComparison.Ordinal)&&
         Version.TryParse(firmware[..^3],out var version)&&version>=new Version(0,2,250);
@@ -111,6 +121,7 @@ internal sealed partial class Tab5Service
         return true;
     }
     private void RecordRuntimeHealth(JsonElement root,string transport,int? frameBytes=null,bool? hasResource=null) {
+        if(transport=="USB")_usbWifiPeer=WifiPeerFromUsbReport(root);
         string Number(string field) => root.TryGetProperty(field,out var value)&&value.ValueKind==JsonValueKind.Number&&value.TryGetInt64(out var n)?n.ToString():"--";
         string ages=root.TryGetProperty("ageMs",out var age)&&age.ValueKind==JsonValueKind.Array
             ?string.Join(",",age.EnumerateArray().Take(3).Select(v=>v.ValueKind==JsonValueKind.Number&&v.TryGetInt64(out var n)?n.ToString():"--")):"--";

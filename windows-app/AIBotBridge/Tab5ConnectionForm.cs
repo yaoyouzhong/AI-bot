@@ -98,11 +98,12 @@ internal sealed class Tab5ConnectionForm : Form
         verifyOta.Click+=async(_,_)=>{verifying=true;otaFailed=false;verifyOta.Enabled=false;bootState.Text="正在核验启动…";try{await service.VerifyUpgradeAsync(_stop.Token);if(!IsDisposed){result.Text="";otaResult=false;}}catch(OperationCanceledException){}catch(Exception ex){if(!IsDisposed){result.Text=ex.Message;otaResult=otaFailed=true;}}finally{verifying=false;if(!IsDisposed)UpdateOffer();}};
         void UpdateOffer() {
             var presentation=service.UpgradeStatusText;otaStatus.SetStatus(presentation);
-            if(otaResult&&!otaFailed&&presentation.State is "设备已运行" or "已核验" or "正在停止" or "已停止"){result.Text="";otaResult=false;}
+            if(otaResult&&!otaFailed&&presentation.State is "设备已运行" or "已核验" or "等待校验" or "等待核验" or "正在核验" or "核验未通过" or "正在停止" or "已停止"){result.Text="";otaResult=false;}
+            bool autoBootPending=service.AutoBootPending;
             startOta.Enabled=service.CanStartOta;offerOta.Enabled=service.CanSelectOta;
             startOta.Text=service.SameOtaVersion?"重新安装":"开始升级";
             if(!verifying)bootState.Text=service.UpgradeBootSummary;
-            verifyOta.Enabled=!verifying&&service.CanVerifyUpgrade;
+            verifyOta.Enabled=!autoBootPending&&!verifying&&service.CanVerifyUpgrade;
             bootRow.Visible=service.HasOta;
             releaseNotes.Visible=service.HasOta;
             cancelOta.Text=presentation.State=="正在停止"?"正在停止…":service.OtaStarted?"停止升级":"取消选择";

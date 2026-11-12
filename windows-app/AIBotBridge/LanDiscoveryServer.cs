@@ -49,8 +49,14 @@ internal sealed class LanDiscoveryServer
             if (packet.Buffer.Length > 160 || packet.RemoteEndPoint.Address.AddressFamily != AddressFamily.InterNetwork)
                 continue;
             if (Tab5Response?.Invoke(packet.Buffer, packet.RemoteEndPoint.Address) is { } tab5Reply) {
+                string peer=packet.RemoteEndPoint.Address.ToString();
+                var expectedAddress=_findAddress(peer);
+                if(expectedAddress is null)continue;
+                _deviceHost=peer;
                 var bound=Binding;
-                if(bound is not null) {
+                // The response names the current listener. Let the binding
+                // worker move to the device subnet before answering.
+                if(bound is not null&&bound.Address.Equals(expectedAddress)) {
                     using var tab5Sender=new UdpClient(new IPEndPoint(bound.Address,0));
                     await tab5Sender.SendAsync(tab5Reply,packet.RemoteEndPoint,cancellationToken);
                 }

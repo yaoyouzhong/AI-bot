@@ -319,7 +319,7 @@ internal static class Program
         if(args.Length==2&&args[0]=="--self-test-tab5-integrated-transfer"){AppPaths.BeginPublicSelfTest();Tab5IntegratedTransferSelfTest.Run(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-remote-ota"){Tab5RemoteOtaSelfTest.RunAsync().GetAwaiter().GetResult();return;}
         if(args.Length==1&&args[0]=="--self-test-tab5-display-settings"){Tab5DisplaySettingsSelfTest.RunAsync().GetAwaiter().GetResult();return;}
-        if(args.Length==1&&args[0]=="--self-test-upgrade"){UpgradeSelfTest.Run();return;}
+        if(args.Length is 1 or 2&&args[0]=="--self-test-upgrade"){UpgradeSelfTest.Run(args.Length==2?Path.GetFullPath(args[1]):null);return;}
         if(args.Length==2&&args[0]=="--self-test-development-ui"){ApplicationConfiguration.Initialize();DevelopmentUiSelfTest.Run(args[1]);return;}
         if(args.Length==1&&args[0]=="--self-test-display-settings"){ApplicationConfiguration.Initialize();DisplaySettingsSelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--test-esp-display"){ApplicationConfiguration.Initialize();DisplaySettingsSelfTest.RunHardware(int.Parse(args[1]));return;}

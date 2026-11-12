@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace AIBotBridge;
 internal static class UpgradeSelfTest
 {
-    internal static void Run() {
+    internal static void Run(string? previewDirectory=null) {
         if(!AppPaths.IsPublicSelfTest)AppPaths.BeginPublicSelfTest();
         string path=Path.Combine(Path.GetTempPath(),"aibot-image-"+Guid.NewGuid().ToString("N")+".bin");
         try {
@@ -31,6 +31,7 @@ internal static class UpgradeSelfTest
             if(manualText.Hint.Contains("未确认")||manualText.State!="正在传输")throw new Exception("Active manual transfer retained a stale remote request failure");
             var interruptedText=Tab5UpgradeStatusText.Create("0.2.198-ui",true,false,false,false,"","","","传输中断；耗时毫秒：1000");
             if(interruptedText.State!="传输中断"||!interruptedText.Hint.Contains("重新开始"))throw new Exception("Transfer interruption recovery guidance lost");
+            if(previewDirectory is not null)Preview(previewDirectory,verifiedText);
             string pairPath=Path.Combine(Path.GetTempPath(),"aibot-boot-"+Guid.NewGuid().ToString("N"));
             try {
                 var pairStore=new Tab5PairingStore(pairPath);
@@ -80,5 +81,18 @@ internal static class UpgradeSelfTest
             try{Tab5OtaPackage.Load(path);throw new Exception("Corrupt image accepted");}catch(IOException){}
             Console.WriteLine("UPGRADE_OK chip identity, image checksum, both OTA slots, hash mismatch, pending boot rejection; numeric flash result and bounded diagnostic framing");
         }finally{File.Delete(path);if(File.Exists(path+".notes.json"))File.Delete(path+".notes.json");}
+    }
+
+    private static void Preview(string directory,Tab5UpgradeStatusText success) {
+        ApplicationConfiguration.Initialize();Directory.CreateDirectory(directory);
+        foreach(var (name,status) in new[]{
+            ("waiting",success with {State="等待核验",Hint="设备重连后自动核验，请保持供电。"}),
+            ("checking",success with {State="正在核验",Hint="正在读取设备运行镜像和启动状态。"}),
+            ("verified",success),("failed",success with {State="核验未通过",Hint="未在等待时间内确认设备重新启动。"})}) {
+            using var view=new Tab5UpgradeStatusView{Width=420,BackColor=Color.White};
+            view.SetStatus(status);view.CreateControl();view.PerformLayout();
+            using var image=new Bitmap(view.Width,view.Height);view.DrawToBitmap(image,new Rectangle(Point.Empty,view.Size));
+            image.Save(Path.Combine(directory,$"automatic-boot-{name}.png"));
+        }
     }
 }
