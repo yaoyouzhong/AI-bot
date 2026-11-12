@@ -16,6 +16,12 @@ final class GalleryDeliveryImportTests: XCTestCase {
         XCTAssertEqual(installed.works, 366)
         XCTAssertEqual(try gallery.installed(category).works, 366)
         if kind == "hd" {
+            let work = try XCTUnwrap(gallery.browserWorks(category).first)
+            let preview = try gallery.browserPage(work, frame: 0).0
+            let root = gallery.directory.appendingPathComponent(category).appendingPathComponent("desktop")
+            let bytes = try Data(contentsOf: root.appendingPathComponent("desktop-index.relative.json"))
+            let index = try JSONDecoder().decode(MacGalleryDesktopIndex.self, from: bytes)
+            XCTAssertNotNil(try index.image(root: root, work: work, frame: 0, preview: preview))
             XCTAssertNotNil(gallery.hdEdition(category))
         }
     }
