@@ -1536,13 +1536,13 @@ The paired TAB5 v1 status frame may include `data.claudeSession.lastActivity` (U
 
 An explicit local diagnostic session can issue bounded USB probe/tap/swipe commands through the existing authenticated status channel. Viewport and orientation must match; leases expire within five seconds. Exact request acknowledgements distinguish running, ended, rejected and cancelled gestures. There is no automatic touch retry or new device setting, and normal bridges publish no command. Actual screenshot evidence is required in addition to gesture acknowledgement; physical touch-panel feel remains outside automated coverage.
 
-## TAB5 AI dialogue workspace (local .313 candidate)
-
-Windows 的 Wi-Fi 扩展沿用可选 v1 命令，手势使用 `transport=Wi-Fi`，只有设备当前使用该通道时才执行。设备在现有已配对状态轮询中返回 `X-Tab5-UI-Automation`，值为 USB 回执六字段追加 `wifiTestActive`（0/1）。空闲能力报告是 `1,,0,0,0,0,0`。`X-Tab5-UI-Automation-Proof` 是 `UI-AUTOMATION|nonce|report` 的 HMAC。桥接核对原 GET、证明、配对归属、请求 ID 和通道，再接收对应结果。迟到或重复结果不会重新下发手势。Wi-Fi 失联、屏保或手势所有权变化时取消无线按压。
+Windows 与 macOS 的 Wi-Fi 诊断沿用可选 v1 命令，手势使用 `transport=Wi-Fi`，只有设备当前使用该通道时才执行。设备在现有已配对状态轮询中返回 `X-Tab5-UI-Automation`，值为 USB 回执六字段追加 `wifiTestActive`（0/1）。空闲能力报告是 `1,,0,0,0,0,0`。`X-Tab5-UI-Automation-Proof` 是 `UI-AUTOMATION|nonce|report` 的 HMAC。桥接核对原 GET、证明、配对归属、请求 ID 和通道，再接收对应结果。迟到或重复结果不会重新下发手势。Wi-Fi 失联、屏保或手势所有权变化时取消无线按压。
 
 `wifi-test` 通过当前活跃的认证 USB 发起，要求已有新鲜 Wi-Fi 状态。设备只在内存中临时固定 Wi-Fi，保留原模式和所有已保存设置。`restore` 通过当前 Wi-Fi 结束测试。设备在收到结束指令、连续 8 秒没有新鲜 Wi-Fi 状态、绑定变更或单调时间达到 120 秒上限时恢复保存的连接模式。超时测试可凭重新收到的认证 USB 探测确认恢复。旧端继续支持原 USB 诊断。
 
-Windows Wi-Fi automation uses the same optional v1 commands with `transport=Wi-Fi` and the device's active Wi-Fi route. The paired status GET reports the six legacy result fields followed by `wifiTestActive` and signs them using `UI-AUTOMATION|nonce|report`. The bridge checks the existing GET authentication, report proof, pairing, request and transport. The `wifi-test` command starts from authenticated active USB with fresh Wi-Fi status. The device selects Wi-Fi in RAM and restores its saved mode on `restore`, eight seconds without a fresh Wi-Fi status, a host binding change or a 120-second monotonic deadline. USB diagnostics remain compatible.
+Windows and macOS Wi-Fi automation use the same optional v1 commands with `transport=Wi-Fi` and the device's active Wi-Fi route. The paired status GET reports the six legacy result fields followed by `wifiTestActive` and signs them using `UI-AUTOMATION|nonce|report`. The bridge checks the existing GET authentication, report proof, pairing, request and transport. The `wifi-test` command starts from authenticated active USB with fresh Wi-Fi status. The device selects Wi-Fi in RAM and restores its saved mode on `restore`, eight seconds without a fresh Wi-Fi status, a host binding change or a 120-second monotonic deadline. USB diagnostics remain compatible.
+
+## TAB5 AI dialogue workspace (local .313 candidate)
 
 ### Optional session source / 可选会话来源
 

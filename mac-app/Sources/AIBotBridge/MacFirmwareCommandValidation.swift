@@ -79,7 +79,7 @@ enum MacFirmwareCommandValidation {
             ["type":"tab5_hello","version":1,"deviceId":device,"firmware":image.version,"uptimeMs":uptime,"uiAgeMs":10,"flushCount":3,"flushErrors":0]
         }
         let diagnostic:[String:Any] = ["type":"tab5_ota_diagnostic","firmware":image.version,"elfSha256":image.elfSHA256,"stateError":0,"state":2,"partition":"ota_0","address":0x20000]
-        try value.completeUSBCheck(hellos:hellos,diagnostic:diagnostic,device:device)
+        try value.completeUSBCheck(hellos:hellos,diagnostic:diagnostic,device:device,sampledAt:[tick,tick,tick])
         let verified = value.summary;value.observeVersion(image.version)
         try check("later version sample preserves exact boot result",verified.contains("核验通过") && value.summary == verified)
         value = try model();try value.start(device:device,reinstall:true)
@@ -127,7 +127,7 @@ enum MacFirmwareCommandValidation {
         invalid = ack; invalid["otaDiag"] = "1,1,0,1"; observe(invalid)
         invalid = ack; invalid["otaDiag"] = "bad,1,0,0"; observe(invalid)
         observe(ack,start:sentAt); observe(ack,finished:started-1); observe(ack,operations:1)
-        try check("untrusted stale busy or in-flight ACK keeps lease", value.busy && !value.summary.contains("重新启动"))
+        try check("untrusted stale busy or in-flight ACK keeps lease", value.busy && !value.summary.contains("设备已重新启动"))
         tick = started+0.1; now += 10100; observe(ack)
         try check("bound fresh reboot releases lease without claiming success", !value.busy && value.summary.contains("等待精确") && !value.summary.contains("通过"))
         try check("exact boot verification starts after reboot proof", value.beginAutomaticBootCheck(device:device,transport:"USB"))
@@ -139,8 +139,9 @@ enum MacFirmwareCommandValidation {
             let selected = value.selected!
             let range: [String: Any] = ["kind":"ota", "offerId":selected.offerID,"sha256":image.sha256,"offset":0,"count":image.bytes.count]
             try check("entire image served for automatic check", value.handle(range,device:device,transport:transport,binary:true,bulk:true).status == 200)
-            tick += 39; now += 39000
-            try check("healthy startup wait does not report success", !value.beginAutomaticBootCheck(device:device,transport:transport) && !value.summary.contains("通过"))
+            let wait = transport == "USB" ? 39.0 : 1.0
+            tick += wait; now += Int64(wait*1000)
+            try check("initial startup wait does not report success", !value.beginAutomaticBootCheck(device:device,transport:transport) && !value.summary.contains("通过"))
             tick += 1; now += 1000
             try check("automatic check uses available transport", value.beginAutomaticBootCheck(device:device,transport:transport))
             try check("in-flight check is not duplicated", !value.beginAutomaticBootCheck(device:device,transport:transport))
@@ -148,7 +149,7 @@ enum MacFirmwareCommandValidation {
             catch MacTab5Error.busy { count += 1 }
             var old = hellos[0]; old["uptimeMs"] = 999999999
             if transport == "USB" {
-                do { try value.completeUSBCheck(hellos:[old,old,old],diagnostic:diagnostic,device:device); throw MacTab5LocalError.invalid("Old boot passed") }
+                do { try value.completeUSBCheck(hellos:[old,old,old],diagnostic:diagnostic,device:device,sampledAt:[tick,tick,tick]); throw MacTab5LocalError.invalid("Old boot passed") }
                 catch MacTab5Error.unconfirmed { count += 1 }
             } else {
                 var reply = command(value,"bootVerifyCommand")!;reply["kind"]="boot-verify";reply["hello"]=old;reply["diagnostic"]=diagnostic
@@ -156,7 +157,7 @@ enum MacFirmwareCommandValidation {
             }
             tick += 15; now += 15000
             try check("read-only boot retry after failed sample", value.beginAutomaticBootCheck(device:device,transport:transport))
-            if transport == "USB" { try value.completeUSBCheck(hellos:hellos,diagnostic:diagnostic,device:device) }
+            if transport == "USB" { try value.completeUSBCheck(hellos:hellos,diagnostic:diagnostic,device:device,sampledAt:[tick,tick,tick]) }
             else {
                 for (index,hello) in hellos.enumerated() {
                     var reply = command(value,"bootVerifyCommand")!;reply["kind"]="boot-verify";reply["hello"]=hello;reply["diagnostic"]=diagnostic
@@ -170,12 +171,40 @@ enum MacFirmwareCommandValidation {
         value = try model();try value.start(device:device,reinstall:true)
         let pendingImage = value.selected!
         _ = value.handle(["kind":"ota","offerId":pendingImage.offerID,"sha256":image.sha256,"offset":0,"count":image.bytes.count],device:device,transport:"Wi-Fi",binary:true,bulk:true)
-        tick += 40;now += 40000
-        for _ in 0..<6 {
-            try check("bounded automatic boot attempt",value.beginAutomaticBootCheck(device:device,transport:"Wi-Fi"))
-            tick += 15;now += 15000
+        tick += 2; now += 2000
+        let rangeAgain: [String: Any] = ["kind":"ota","offerId":pendingImage.offerID,"sha256":image.sha256,"offset":0,"count":image.bytes.count]
+        _ = value.handle(rangeAgain,device:device,transport:"Wi-Fi",binary:true,bulk:true)
+        try check("duplicate last range does not restart delay", value.beginAutomaticBootCheck(device:device,transport:"Wi-Fi"))
+        func wifiReport(_ hello: [String: Any], _ diag: [String: Any]) -> Int {
+            guard var reply = command(value,"bootVerifyCommand") else { return 0 }
+            reply["kind"]="boot-verify"; reply["hello"]=hello; reply["diagnostic"]=diag
+            return value.handle(reply,device:device,transport:"Wi-Fi",binary:false,bulk:false).status
         }
-        try check("unreachable device never claims success or retries upgrade",!value.beginAutomaticBootCheck(device:device,transport:"Wi-Fi") && value.summary.contains("未完成") && command(value)==nil)
+        var healthCheck = diagnostic; healthCheck["state"] = 1
+        for _ in 0..<8 {
+            try check("matching PENDING_VERIFY waits without declaring success",wifiReport(hellos[0],healthCheck) == 400 &&
+                      value.summary.contains("健康启动") && !value.summary.contains("核验通过"))
+            tick += 4; now += 4000
+            try check("pending self-check does not exhaust attempts",value.beginAutomaticBootCheck(device:device,transport:"Wi-Fi"))
+        }
+        for hello in hellos { try check("same image becomes accepted only when VALID", wifiReport(hello,diagnostic) == 200) }
+        try check("automatic proof completes",value.summary.contains("核验通过"))
+
+        for mismatch in [false, true] {
+            value = try model(); try value.start(device:device,reinstall:true)
+            var range = rangeAgain; range["offerId"] = value.selected!.offerID
+            _ = value.handle(range,device:device,transport:"Wi-Fi",binary:true,bulk:true)
+            tick += 2; now += 2000
+            try check("verification starts after transfer",value.beginAutomaticBootCheck(device:device,transport:"Wi-Fi"))
+            if mismatch {
+                var wrong = healthCheck; wrong["elfSha256"] = String(repeating:image.elfSHA256.first == "f" ? "0" : "f",count:64)
+                try check("wrong fingerprint during self-check is terminal",wifiReport(hellos[0],wrong) == 400 && value.summary.contains("镜像或分区不符"))
+            } else {
+                tick += 148; now += 148000
+                try check("disconnected device times out without claiming success",!value.beginAutomaticBootCheck(device:device,transport:nil) && value.summary.contains("未完成"))
+            }
+            try check("automatic polling stops without retrying upgrade",!value.beginAutomaticBootCheck(device:device,transport:"Wi-Fi") && command(value)==nil)
+        }
         for error in ["device_busy","draft_pending","draft_save_failed","no_link","offer_changed","unknown-private-content"] {
             let rejected = try model();try rejected.start(device:device)
             var root = command(rejected)!;root["kind"] = "ota-control";root["stage"] = "rejected";root["error"] = error

@@ -333,10 +333,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tab5?.assets.updatePets([MacPetCache.shared.selection("claude"), MacPetCache.shared.selection("codex")])
         let deviceSnapshot = reader.capture(extras: dataStore.deviceSnapshot())
         tab5?.publish(devices.filter(deviceSnapshot, kind: "tab5"))
-        if let tab5, let pair = tab5.currentPairing,
-           let transport = tab5.usbActive ? "USB" : tab5.bootTransport,
-           tab5.firmwareControl.beginAutomaticBootCheck(device: pair.deviceId, transport: transport), transport == "USB" {
-            tab5USB?.verifyBoot(prepared: true) { _ in }
+        if let tab5, let pair = tab5.currentPairing {
+            let transport = tab5.usbOwnsActiveState ? "USB" : tab5.bootTransport ?? (tab5.usbActive ? "USB" : nil)
+            if tab5.firmwareControl.beginAutomaticBootCheck(device: pair.deviceId, transport: transport), transport == "USB" {
+                tab5USB?.verifyBoot(prepared: true) { _ in }
+            }
         }
         let recent = recentActivity.capture()
         statusItem.button?.toolTip = "AI-bot Bridge\nCodex：\(MacRecentActivity.label(state: snapshot.codex.state, observation: recent.codex))\nClaude：\(MacRecentActivity.label(state: snapshot.claude.state, observation: recent.claude))"
@@ -758,6 +759,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard editor.form.run(validating: {
             do {
                 let value = try editor.preferences()
+                if value.automaticLocation {
+                    try MainActor.assumeIsolated { try MacWeatherLocation.shared.requireAuthorization() }
+                }
                 if value.weatherProvider == "qweather" {
                     if !editor.weatherKey.stringValue.isEmpty { try MacWeatherCredentialStore.shared.save(editor.weatherKey.stringValue,host:value.qweatherHost) }
                     _ = try MacWeatherCredentialStore.shared.read(host:value.qweatherHost)

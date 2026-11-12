@@ -230,12 +230,17 @@ final class MacTab5Tests: XCTestCase {
         let port = try XCTUnwrap(http.boundPort)
         let client = URLSession(configuration: .ephemeral)
         defer { client.invalidateAndCancel() }
-        func poll(_ valid: Bool = true, packed: Bool = false) async throws -> (Int, [String: Any]?) {
+        func poll(_ valid: Bool = true, packed: Bool = false, report: String? = nil, signed: Bool = true) async throws -> (Int, [String: Any]?) {
             let n = MacTab5Protocol.identifier()
             var req = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/tab5/v1/status")!, timeoutInterval: 1)
             req.setValue(device, forHTTPHeaderField: "X-AIBot-Device")
             req.setValue(n, forHTTPHeaderField: "X-AIBot-Nonce")
             req.setValue(valid ? MacTab5Protocol.proof(key: key, message: "GET|\(device)|\(n)") : "invalid", forHTTPHeaderField: "X-AIBot-Proof")
+            if let report {
+                req.setValue(report, forHTTPHeaderField: "X-Tab5-UI-Automation")
+                req.setValue(signed ? MacTab5Protocol.proof(key: key, message: "UI-AUTOMATION|\(n)|\(report)") : "invalid",
+                             forHTTPHeaderField: "X-Tab5-UI-Automation-Proof")
+            }
             if packed {
                 let version = "0.2.319-ui"
                 req.setValue(version, forHTTPHeaderField: "X-Tab5-Firmware")
@@ -264,6 +269,27 @@ final class MacTab5Tests: XCTestCase {
                        "Do not make an old sample look like a new device frame.")
         let rejected = try await poll(false)
         XCTAssertEqual(rejected.0, 401)
+        let capability = "1,,0,0,0,0,0"
+        XCTAssertFalse(bridge.uiAutomation.wifiAvailable(for: pair), "Legacy polls must not advertise automation")
+        _ = try await poll(false, report: capability)
+        _ = try await poll(report: capability, signed: false)
+        XCTAssertFalse(bridge.uiAutomation.wifiAvailable(for: pair), "Both proofs are required")
+        _ = try await poll(report: capability)
+        XCTAssertTrue(bridge.uiAutomation.wifiAvailable(for: pair), "Signed reports do not wait for the status builder")
+        let request = try bridge.uiAutomation.begin(["op":"probe"], transport:"Wi-Fi", owner:pair)
+        let receipt = "1,\(request),2,1280,720,1"
+        bridge.uiAutomation.observe(receipt, owner:pair)
+        XCTAssertNil(bridge.uiAutomation.snapshot(), "A USB report cannot finish a Wi-Fi gesture")
+        _ = try await poll(report: receipt + ",1", signed: false)
+        XCTAssertNil(bridge.uiAutomation.snapshot())
+        _ = try await poll(report: receipt + ",1")
+        XCTAssertEqual(bridge.uiAutomation.snapshot()?.request, request)
+        XCTAssertTrue(bridge.uiAutomation.snapshot()?.wifiTestActive == true)
+        let next = try bridge.uiAutomation.begin(["op":"probe"], transport:"Wi-Fi", owner:pair)
+        _ = try await poll(report: receipt + ",1")
+        XCTAssertNil(bridge.uiAutomation.snapshot(), "Repeating the old receipt cannot finish the next gesture")
+        XCTAssertNotEqual(next, request)
+        bridge.uiAutomation.cancel()
         let negotiated = try await poll(packed: true)
         XCTAssertEqual(negotiated.0, 200)
         XCTAssertEqual(negotiated.1?["type"] as? String, "tab5_packed")
@@ -402,6 +428,10 @@ final class MacTab5Tests: XCTestCase {
         XCTAssertNil(service.discovery(request, address: "192.168.1.20"))
         service.setLANReady(true)
         XCTAssertEqual(service.discovery(request, address: "192.168.1.20"), Data((f["discoveryReply"] as! String).utf8))
+        let route = MacTab5Discovery.route(request, peer:"192.168.1.42", local:"10.0.0.8", esp:nil,
+                                          tab5:service.discovery, matchingAddress:{ $0 == "192.168.1.42" ? "192.168.1.20" : nil })
+        XCTAssertEqual(route?.sourceAddress, "192.168.1.20")
+        XCTAssertEqual(route?.bytes, Data((f["discoveryReply"] as! String).utf8))
         var bad = request; bad[bad.count - 1] ^= 1
         XCTAssertNil(service.discovery(bad, address: "192.168.1.20")); XCTAssertNil(service.discovery(request, address: "8.8.8.8"))
     }

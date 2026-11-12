@@ -43,20 +43,37 @@ final class MacTab5UIAutomationTests: XCTestCase {
         XCTAssertEqual(command["expiresAt"] as? Int64,now+3000)
         XCTAssertEqual(command["toX"] as? Int64,100)
         XCTAssertThrowsError(try control.begin(["op":"probe"],now:now))
-        control.observe("1,\(String(repeating:"0",count:32)),2,1280,720,1")
+        control.observe("1,\(String(repeating:"0",count:32)),2,1280,720,1", now: now)
         XCTAssertNil(control.snapshot())
-        control.observe("1,\(id),1,1280,720,1")
+        control.observe("1,\(id),1,1280,720,1", now: now)
         XCTAssertEqual(control.snapshot()?.status,1)
-        control.observe("1,\(id),2,1280,720,1")
+        control.observe("1,\(id),2,1280,720,1", now: now)
         XCTAssertEqual(control.snapshot()?.status,2)
         XCTAssertNil(control.command(frameEpoch:now,now:now))
         let next = try control.begin(["op":"probe"],now:now)
-        control.observe("1,\(id),2,1280,720,1")
+        control.observe("1,\(id),2,1280,720,1", now: now)
         XCTAssertNil(control.snapshot())
         XCTAssertNotEqual(id,next)
         XCTAssertNil(control.command(frameEpoch:now,now:now+5000))
         control.cancel()
     }
+    func testWirelessCommandBindsPairingAndRejectsLateResults() throws {
+        let control = MacTab5UIAutomation(), now: Int64 = 100_000
+        let pair = MacTab5Pairing(deviceId:"001122334455",usbPath:"/dev/cu.fixture",key:Data(repeating:1,count:32),confirmed:true)
+        let replaced = MacTab5Pairing(deviceId:pair.deviceId,usbPath:pair.usbPath,key:Data(repeating:2,count:32),confirmed:true)
+        control.observeWiFi("1,,0,0,0,0,0",owner:pair,tick:50,now:now)
+        XCTAssertTrue(control.wifiAvailable(for:pair,now:57.9))
+        XCTAssertFalse(control.wifiAvailable(for:pair,now:58))
+        XCTAssertFalse(control.wifiAvailable(for:replaced,now:51))
+        let id = try control.begin(["op":"probe"],transport:"Wi-Fi",owner:pair,now:now)
+        XCTAssertNil(control.command(frameEpoch:now,owner:replaced,now:now))
+        let report = "1,\(id),2,1280,720,1,1"
+        control.observeWiFi(report,owner:replaced,tick:51,now:now)
+        XCTAssertNil(control.snapshot())
+        control.observeWiFi(report,owner:pair,tick:55,now:now+5000)
+        XCTAssertNil(control.snapshot())
+    }
+
     func testInvalidCoordinatesAndDurationsNeverCreateCommands() throws {
         let control = MacTab5UIAutomation()
         for action: [String:Any] in [

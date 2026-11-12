@@ -86,7 +86,13 @@ final class MacTab5Firmware {
     private var matchedVersion = false
     private var reinstalling = false
     private var startRejected = false
-    private var automaticBoot: (device: String, started: TimeInterval, ready: TimeInterval, attempts: Int)?
+    private struct AutomaticBoot {
+        let device: String
+        var finalAt: TimeInterval?
+        var ready: TimeInterval = .infinity
+    }
+    private enum BootFailure: Error { case waitingForRestart, pendingConfirmation, mismatch }
+    private var automaticBoot: AutomaticBoot?
     private var automaticProbe = false
     private var httpTransfer:UUID?, deviceWasBusy = false
     private var finalUSB: (device: String, at: TimeInterval)?
@@ -97,10 +103,13 @@ final class MacTab5Firmware {
     }
     var summary: String { lock.lock(); defer { lock.unlock() }; return message }
     var selected: MacTab5FirmwareImage? { lock.lock(); defer { lock.unlock() }; return image }
+    var automaticVerificationPending: Bool {
+        lock.lock(); defer { lock.unlock() }; return automaticBoot?.finalAt != nil
+    }
     var busy: Bool { lock.lock(); defer { lock.unlock() }; return tick() < leaseUntil || remote != nil && (remote?.expires ?? 0) > epoch() || probe != nil && (probe?.expires ?? 0) > epoch() }
     func select(_ value: MacTab5FirmwareImage?) throws {
         lock.lock(); defer { lock.unlock() }
-        guard tick() >= leaseUntil, remote == nil || (remote?.expires ?? 0) < epoch(),
+        guard automaticBoot?.finalAt == nil, tick() >= leaseUntil, remote == nil || (remote?.expires ?? 0) < epoch(),
               probe == nil || (probe?.expires ?? 0) < epoch() else { throw MacTab5Error.busy }
         image = value; remote = nil; probe = nil; matchedVersion = false; reinstalling = false; startRejected = false; httpTransfer = nil; deviceWasBusy = false
         automaticBoot = nil; automaticProbe = false; finalUSB = nil
@@ -108,28 +117,33 @@ final class MacTab5Firmware {
     }
     func start(device: String, reinstall: Bool = false) throws {
         lock.lock(); defer { lock.unlock() }
-        guard image != nil, MacTab5Protocol.isHex(device, count: 12), tick() >= leaseUntil,
+        guard image != nil, automaticBoot?.finalAt == nil, MacTab5Protocol.isHex(device, count: 12), tick() >= leaseUntil,
               remote == nil || (remote?.expires ?? 0) < epoch(),
               probe == nil || (probe?.expires ?? 0) < epoch() else { throw MacTab5Error.busy }
         image?.offerID = MacTab5Protocol.identifier()
         remote = (MacTab5Protocol.identifier(), device, epoch() + 30000, false)
         reinstalling = reinstall; deviceWasBusy = false; startRejected = false
         matchedVersion = false
-        automaticBoot = (device, tick(), .infinity, 0)
+        automaticBoot = AutomaticBoot(device: device)
         probe = nil; automaticProbe = false; httpTransfer = nil; finalUSB = nil
         message = "正在请求 TAB5 保存草稿并开始升级；尚未确认。"
     }
     func beginBootCheck(device: String, transport: String) throws {
         lock.lock(); defer { lock.unlock() }
-        guard image != nil, ["USB", "Wi-Fi", "BLE"].contains(transport), tick() >= leaseUntil else { throw MacTab5Error.busy }
+        guard image != nil, ["USB", "Wi-Fi", "BLE"].contains(transport), tick() >= leaseUntil,
+              automaticBoot?.finalAt == nil else { throw MacTab5Error.busy }
         probe = (MacTab5Protocol.identifier(), device, transport, epoch() + 10000, -1, 0)
         automaticProbe = false
         message = "正在核验精确固件、运行分区及三个实时界面样本。"
     }
     // A completed send only schedules a check. It never means installation succeeded.
-    private func receivedLastRange() {
-        guard var pending = automaticBoot else { return }
-        pending.ready = tick() + 40; automaticBoot = pending
+    private func receivedLastRange(transport: String) {
+        guard var pending = automaticBoot, pending.finalAt == nil else { return }
+        let now = tick()
+        pending.finalAt = now
+        pending.ready = now + (transport == "USB" ? 40 : 2)
+        automaticBoot = pending
+        message = "固件已提供，等待设备写入并重新启动。连接恢复后将自动核验。"
     }
     // The serial queue has finished the last USB RPC before it can receive a
     // later status ACK. A rebooted, idle, authenticated peer can release the
@@ -151,26 +165,46 @@ final class MacTab5Firmware {
         pending.ready = min(pending.ready, tick()); automaticBoot = pending
         message = "设备已重新启动，等待精确镜像和分区核验。"
     }
-    func beginAutomaticBootCheck(device: String, transport: String) -> Bool {
+    func beginAutomaticBootCheck(device: String, transport: String?) -> Bool {
         lock.lock(); defer { lock.unlock() }
-        guard var pending = automaticBoot, pending.device == device,
-              ["USB", "Wi-Fi", "BLE"].contains(transport), image != nil,
-              tick() >= pending.ready, probe == nil || (probe?.expires ?? 0) < epoch() else { return false }
-        guard pending.attempts < 6 else {
-            automaticBoot = nil; probe = nil
+        guard var pending = automaticBoot, pending.device == device, let finalAt = pending.finalAt,
+              image != nil else { return false }
+        guard tick() - finalAt < 150 else {
+            automaticBoot = nil; probe = nil; automaticProbe = false
             message = "自动启动核验未完成，尚未确认升级成功；可在设备连接恢复后重新核验。"
             return false
         }
-        pending.attempts += 1; pending.ready = tick() + 15; automaticBoot = pending
+        guard let transport, ["USB", "Wi-Fi", "BLE"].contains(transport),
+              tick() >= pending.ready, probe == nil || (probe?.expires ?? 0) < epoch() else { return false }
+        pending.ready = tick() + 2; automaticBoot = pending
         probe = (MacTab5Protocol.identifier(), device, transport, epoch() + 10000, -1, 0)
         automaticProbe = true
         message = "正在通过 \(transport) 自动核验固件、运行分区和实时界面。"
         return true
     }
-    private func validateAutomaticRestart(_ hello: [String: Any]) throws {
+    private func validateAutomaticRestart(_ hello: [String: Any], sampledAt: TimeInterval) throws {
         guard automaticProbe else { return }
-        guard let pending = automaticBoot, let uptime = MacTab5Protocol.integer(hello["uptimeMs"]),
-              uptime >= 0, Double(uptime) < (tick() - pending.started) * 1000 else { throw MacTab5Error.unconfirmed }
+        guard let finalAt = automaticBoot?.finalAt, let uptime = MacTab5Protocol.integer(hello["uptimeMs"]),
+              uptime >= 0, Double(uptime) < (sampledAt - finalAt) * 1000 else { throw BootFailure.waitingForRestart }
+    }
+    private func bootFailed(_ error: Error) {
+        probe = nil
+        if automaticProbe, var pending = automaticBoot {
+            switch error {
+            case BootFailure.pendingConfirmation:
+                pending.ready = tick() + 4; automaticBoot = pending
+                message = "等待设备完成健康启动，将自动再次核验。"
+            case BootFailure.mismatch:
+                automaticBoot = nil; automaticProbe = false
+                leaseUntil = 0; remote = nil; httpTransfer = nil; matchedVersion = true
+                message = "自动启动核验未完成：运行镜像或分区不符，未确认升级成功。"
+            default:
+                pending.ready = tick() + 2; automaticBoot = pending
+                message = "等待设备重新连接，将自动再次核验。"
+            }
+        } else {
+            message = "启动核验失败，未确认成功。"
+        }
     }
     func observeVersion(_ version: String) {
         lock.lock(); defer { lock.unlock() }
@@ -182,12 +216,18 @@ final class MacTab5Firmware {
             if pending { message = "设备已运行 \(version)，等待启动核验。" }
         }
     }
-    func completeUSBCheck(hellos: [[String: Any]], diagnostic: [String: Any], device: String) throws {
+    func completeUSBCheck(hellos: [[String: Any]], diagnostic: [String: Any], device: String,
+                          sampledAt: [TimeInterval]) throws {
         lock.lock(); defer { lock.unlock() }
-        guard let image, hellos.count == 3, probe?.device == device, probe?.transport == "USB" else { throw MacTab5Error.unconfirmed }
+        guard let image, hellos.count == 3, sampledAt.count == hellos.count, probe?.device == device,
+              probe?.transport == "USB", (probe?.expires ?? 0) >= epoch() else { throw MacTab5Error.unconfirmed }
         var previous: Int64 = -1
-        do { for hello in hellos { try validateAutomaticRestart(hello); previous = try Self.validateBoot(hello: hello, diagnostic: diagnostic, image: image, device: device, previous: previous) } }
-        catch { probe = nil; message = automaticProbe ? "等待设备完成健康启动，将自动再次核验。" : "USB 启动核验失败，未确认成功。"; throw error }
+        do {
+            for (hello, sample) in zip(hellos, sampledAt) {
+                try validateAutomaticRestart(hello, sampledAt: sample)
+                previous = try Self.validateBoot(hello: hello, diagnostic: diagnostic, image: image, device: device, previous: previous)
+            }
+        } catch { bootFailed(error); throw MacTab5Error.unconfirmed }
         probe = nil; leaseUntil = 0; remote = nil; matchedVersion = true; reinstalling = false; message = "USB 启动核验通过：精确 ELF、VALID 分区和三个实时界面样本一致。"
         automaticBoot = nil; automaticProbe = false; httpTransfer = nil
     }
@@ -229,11 +269,16 @@ final class MacTab5Firmware {
             if root["kind"] as? String != "ota_probe" {
                 if var r = remote { r.started = true;remote = r }
                 startRejected = false
-                leaseUntil = tick()+90;message = "已向设备提供 \(offset + count)/\(image.bytes.count) 字节，等待设备写入、校验和启动确认。"
+                leaseUntil = tick()+90
+                if automaticBoot?.finalAt == nil {
+                    message = "已向设备提供 \(offset + count)/\(image.bytes.count) 字节，等待设备写入、校验和启动确认。"
+                }
                 if transport != "USB" { finalUSB = nil }
                 if offset + count == image.bytes.count {
-                    receivedLastRange()
-                    if transport == "USB", automaticBoot?.device == device { finalUSB = (device, tick()) }
+                    if automaticBoot?.device == device {
+                        receivedLastRange(transport: transport)
+                        if transport == "USB", let finalAt = automaticBoot?.finalAt { finalUSB = (device, finalAt) }
+                    }
                 }
             }
             return MacTab5OTAEncoding.range(Data(image.bytes[Int(offset)..<Int(offset + count)]),offset:Int(offset),enabled:binary && bulk && root["acceptEncoding"] as? String == "zlib")
@@ -259,8 +304,10 @@ final class MacTab5Firmware {
         case "boot-verify":
             guard var p = probe, p.device == device, p.transport == transport, p.expires >= epoch(),
                   root["requestId"] as? String == p.id, let hello = root["hello"] as? [String: Any], let diagnostic = root["diagnostic"] as? [String: Any] else { return .error(409, "boot_probe_expired") }
-            do { try validateAutomaticRestart(hello); p.previous = try Self.validateBoot(hello: hello, diagnostic: diagnostic, image: image, device: device, previous: p.previous) }
-            catch { probe = nil; message = automaticProbe ? "等待设备完成健康启动，将自动再次核验。" : "启动核验失败，设备身份、运行镜像或界面状态不符。"; return .error(400, "boot_verification_failed") }
+            do {
+                try validateAutomaticRestart(hello, sampledAt: tick())
+                p.previous = try Self.validateBoot(hello: hello, diagnostic: diagnostic, image: image, device: device, previous: p.previous)
+            } catch { bootFailed(error); return .error(400, "boot_verification_failed") }
             p.count += 1
             if p.count == 3 { probe = nil; remote = nil; leaseUntil = 0; matchedVersion = true; reinstalling = false; automaticBoot = nil; automaticProbe = false; httpTransfer = nil; message = "\(transport) 启动核验通过：\(image.version)，精确 ELF、VALID 分区、三个实时样本一致。" }
             else { p.id = MacTab5Protocol.identifier(); p.expires = epoch() + 10000; probe = p; message = "启动核验：\(p.count)/3 个实时样本通过。" }
@@ -287,7 +334,10 @@ final class MacTab5Firmware {
     func httpProgress(_ transfer:UUID, bytes:Int, total:Int, elapsed:TimeInterval, error:Int32? = nil) {
         lock.lock(); defer { lock.unlock() }
         guard httpTransfer == transfer else { return }
-        if error == nil, bytes == total, total > 0 { receivedLastRange() }
+        if error == nil, bytes == total, total > 0, automaticBoot != nil {
+            receivedLastRange(transport: "Wi-Fi")
+            return
+        }
         let rate = elapsed > 0 ? Double(bytes)/elapsed/1024:0
         message = error != nil ? "固件传输中断，尚未确认升级成功；请检查设备提示。" :
             String(format:"Mac 已提交 %d / %d KB · %.1f KB/s · %.1f 秒\n等待设备接收、写入及启动核验。",(bytes+1023)/1024,(total+1023)/1024,rate,elapsed)
@@ -308,10 +358,14 @@ final class MacTab5Firmware {
               hello["deviceId"] as? String == device, hello["firmware"] as? String == image.version,
               let uptime = MacTab5Protocol.integer(hello["uptimeMs"]), uptime > previous,
               let age = MacTab5Protocol.integer(hello["uiAgeMs"]), (0...2000).contains(age),
-              MacTab5Protocol.integer(hello["flushErrors"]) == 0, (MacTab5Protocol.integer(hello["flushCount"]) ?? 0) > 0,
-              diagnostic["type"] as? String == "tab5_ota_diagnostic", diagnostic["firmware"] as? String == image.version,
-              diagnostic["elfSha256"] as? String == image.elfSHA256, MacTab5Protocol.integer(diagnostic["stateError"]) == 0, MacTab5Protocol.integer(diagnostic["state"]) == 2,
-              (diagnostic["partition"] as? String == "ota_0" && MacTab5Protocol.integer(diagnostic["address"]) == 0x20000 || diagnostic["partition"] as? String == "ota_1" && MacTab5Protocol.integer(diagnostic["address"]) == 0x700000) else { throw MacTab5Error.unconfirmed }
+              MacTab5Protocol.integer(hello["flushErrors"]) == 0, (MacTab5Protocol.integer(hello["flushCount"]) ?? 0) > 0
+        else { throw MacTab5Error.unconfirmed }
+        guard diagnostic["type"] as? String == "tab5_ota_diagnostic", diagnostic["firmware"] as? String == image.version,
+              diagnostic["elfSha256"] as? String == image.elfSHA256, MacTab5Protocol.integer(diagnostic["stateError"]) == 0,
+              (diagnostic["partition"] as? String == "ota_0" && MacTab5Protocol.integer(diagnostic["address"]) == 0x20000 || diagnostic["partition"] as? String == "ota_1" && MacTab5Protocol.integer(diagnostic["address"]) == 0x700000) else { throw BootFailure.mismatch }
+        let state = MacTab5Protocol.integer(diagnostic["state"])
+        if state == 1 { throw BootFailure.pendingConfirmation }
+        guard state == 2 else { throw BootFailure.mismatch }
         return uptime
     }
 }

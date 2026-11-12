@@ -83,11 +83,19 @@ enum MacTab5AutomationRunner {
         // TAB5 routes retain the production pairing authentication. LAN is
         // bound only for an explicitly supplied isolated acceptance fixture.
         let server = HTTPStatusServer(port:port,token:{nil},claudeEvent:{identity.record($0)},tab5:acceptance == nil ? nil:service,espEnabled:{false},loopbackOnly:acceptance == nil,snapshot:{Data()})
+        let wifiTestServer = HTTPStatusServer(port:port,token:{nil},tab5:service,espEnabled:{false},snapshot:{Data()})
+        let wifiTestDiscovery = MacTab5Discovery(service: service)
+        var wifiTestPending = false, temporaryWiFi = false
+        var wifiTestListener = false
+        func stopTestLAN() {
+            guard wifiTestListener else { return }
+            wifiTestListener = false; wifiTestDiscovery.stop(); wifiTestServer.stop()
+        }
         try server.start(); usb.start()
         if acceptance == nil { service.codex.start() }
         service.claude.start()
         if acceptance != nil { service.voice.beforeStart = nil }
-        defer { service.uiAutomation.cancel(); service.screenPreview.stop(); usb.stopAndWait(); bluetooth.stopAndWait(); server.stop(); service.stop() }
+        defer { service.uiAutomation.cancel(); service.screenPreview.stop(); usb.stopAndWait(); bluetooth.stopAndWait(); wifiTestDiscovery.stop(); wifiTestServer.stop(); server.stop(); service.stop() }
         defer {
             if let data = try? JSONSerialization.data(withJSONObject:diagnostic(),options:[.sortedKeys]) {
                 try? data.write(to:directory.appendingPathComponent("transport.json"))
@@ -100,8 +108,13 @@ enum MacTab5AutomationRunner {
             if now-lastPublish >= 0.4 { service.publish(registry.filter(acceptance?.snapshot() ?? reader.capture(),kind:"tab5")); lastPublish = now }
             RunLoop.current.run(until:Date(timeIntervalSinceNow:0.05))
         }
-        func action(_ value:[String:Any]) throws -> MacTab5UIAutomation.Result {
-            let request = try service.uiAutomation.begin(value)
+        func action(_ value:[String:Any], transport: String = "USB") throws -> MacTab5UIAutomation.Result {
+            guard let pair = service.currentPairing, pair.confirmed else { throw MacTab5Error.pairingRequired }
+            if transport == "USB", !service.usbActive { throw MacTab5Error.unavailable }
+            if transport == "Wi-Fi" || value["op"] as? String == "wifi-test" {
+                guard service.uiAutomation.wifiAvailable(for: pair) else { throw MacTab5Error.unavailable }
+            }
+            let request = try service.uiAutomation.begin(value, transport: transport, owner: pair)
             defer { service.uiAutomation.cancel() }
             let deadline = ProcessInfo.processInfo.systemUptime+8
             while ProcessInfo.processInfo.systemUptime < deadline {
@@ -133,19 +146,61 @@ enum MacTab5AutomationRunner {
         let before = try settings()
         phase = "ui-probe"
         var viewport = try action(["op":"probe"])
+        func restoreWiFiTest() throws {
+            guard wifiTestPending else { return }
+            _ = try? action(["op":"restore"], transport:"Wi-Fi")
+            // Cutting our LAN listener also lets firmware's eight-second
+            // fallback work if the restore command or acknowledgement was lost.
+            stopTestLAN()
+            let deadline = ProcessInfo.processInfo.systemUptime + 18
+            repeat {
+                pump()
+                if let restored = try? action(["op":"probe"]) {
+                    viewport = restored
+                    temporaryWiFi = false; wifiTestPending = false
+                    try server.start()
+                    return
+                }
+            } while ProcessInfo.processInfo.systemUptime < deadline
+            throw MacTab5Error.unconfirmed
+        }
         phase = "ready"
         try emit(["status":"ready","width":viewport.width,"height":viewport.height,"rotation":viewport.rotation])
         let input = Input(), until = ProcessInfo.processInfo.systemUptime+1800
+        defer { if wifiTestPending { try? restoreWiFiTest() } }
         while ProcessInfo.processInfo.systemUptime < until {
             pump(); let next = input.pop()
             guard let line = next.0 else { if next.1 { break }; continue }
             do {
                 guard line.utf8.count <= 4096, let value = try JSONSerialization.jsonObject(with:Data(line.utf8)) as? [String:Any],
                       let op = value["op"] as? String else { throw MacTab5Error.invalidPacket }
-                if op == "stop" {
-                    let preserved = try settings() == before
-                    try emit(["status":"stopped","settingsPreserved":preserved])
-                    guard preserved else { throw MacTab5Error.unconfirmed }; return
+                if op == "stop" { break }
+                if op == "wifi-test" {
+                    guard !wifiTestPending, route.requestedRadio == "USB", let pair = service.currentPairing else {
+                        throw MacTab5Error.busy
+                    }
+                    server.stop(); wifiTestListener = true
+                    do {
+                        try wifiTestServer.start(); try wifiTestDiscovery.start()
+                        let deadline = ProcessInfo.processInfo.systemUptime + 15
+                        while !service.uiAutomation.wifiAvailable(for: pair), ProcessInfo.processInfo.systemUptime < deadline { pump() }
+                        guard service.uiAutomation.wifiAvailable(for: pair) else { throw MacTab5Error.unavailable }
+                        wifiTestPending = true
+                        _ = try action(["op":"wifi-test"])
+                        viewport = try action(["op":"probe"], transport:"Wi-Fi")
+                        guard viewport.wifiTestActive else { throw MacTab5Error.unconfirmed }
+                        temporaryWiFi = true
+                    } catch {
+                        if wifiTestPending { try? restoreWiFiTest() }
+                        else { stopTestLAN(); try? server.start() }
+                        throw error
+                    }
+                    try emit(["status":"done","op":op,"transport":"Wi-Fi","wifiTestActive":true]); continue
+                }
+                if op == "restore" {
+                    guard wifiTestPending else { throw MacTab5Error.unavailable }
+                    try restoreWiFiTest()
+                    try emit(["status":"done","op":op,"transport":"USB","wifiTestActive":false]); continue
                 }
                 if op == "diagnostic" { try emit(diagnostic()); continue }
                 if op == "fixture-terminal-locate-failure", acceptance != nil {
@@ -158,7 +213,7 @@ enum MacTab5AutomationRunner {
                     while ProcessInfo.processInfo.systemUptime < until { pump() }
                     try emit(["status":op == "wake" ? "wake-requested" : "fixture-wake-requested"]); continue
                 }
-                if op == "fixture-rpc-route", acceptance != nil, let selected = value["transport"] as? String,
+                if op == "fixture-rpc-route", !wifiTestPending, acceptance != nil, let selected = value["transport"] as? String,
                    ["USB","Wi-Fi","BLE"].contains(selected) {
                     if let isolated = value["isolate"], !MacTab5Protocol.isBoolean(isolated) { throw MacTab5Error.invalidPacket }
                     let next = try MacTab5AutomationRoute(selected, isolated: value["isolate"] as? Bool == true)
@@ -186,13 +241,20 @@ enum MacTab5AutomationRunner {
                     try acceptance.stageTerminalDraft(text,photo:value["photo"] as? Bool == true,device:device)
                     try emit(["status":"fixture-terminal-draft-saved"]); continue
                 }
+                guard !wifiTestPending || temporaryWiFi else { throw MacTab5Error.unconfirmed }
+                let gestureTransport = temporaryWiFi ? "Wi-Fi" : "USB"
                 if op == "capture" {
+                    if temporaryWiFi {
+                        viewport = try action(["op":"probe"], transport:gestureTransport)
+                        guard viewport.wifiTestActive else { throw MacTab5Error.unconfirmed }
+                    }
                     guard let file = value["file"] as? String, file.hasSuffix(".png"), file.utf8.count <= 80,
                           file.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) || "-_.".unicodeScalars.contains($0) }),
                           !file.hasPrefix(".") else { throw MacTab5Error.invalidPacket }
                     func previewContext() -> MacTab5ScreenPreview.Context? {
                         var context = service.screenPreviewContext
-                        if route.captureTransport != "USB" { context?.transports = [route.captureTransport] }
+                        let capture = temporaryWiFi ? "Wi-Fi" : route.captureTransport
+                        if capture != "USB" { context?.transports = [capture] }
                         return context
                     }
                     let token = service.screenPreview.start(previewContext())
@@ -213,13 +275,17 @@ enum MacTab5AutomationRunner {
                     if command["width"] == nil { command["width"] = viewport.width }
                     if command["height"] == nil { command["height"] = viewport.height }
                     if command["rotation"] == nil { command["rotation"] = viewport.rotation }
-                    viewport = try action(command)
+                    viewport = try action(command, transport: gestureTransport)
+                    if temporaryWiFi, !viewport.wifiTestActive { throw MacTab5Error.unconfirmed }
                     let settle = ProcessInfo.processInfo.systemUptime+0.4
                     while ProcessInfo.processInfo.systemUptime < settle { pump() }
                     try emit(["status":"done","op":op,"width":viewport.width,"height":viewport.height,"rotation":viewport.rotation])
                 }
             } catch { try emit(["status":"error","reason":"action_unconfirmed"]) }
         }
-        try emit(["status":"stopped","settingsPreserved":try settings() == before])
+        try restoreWiFiTest()
+        let preserved = try settings() == before
+        try emit(["status":"stopped","settingsPreserved":preserved,"modeRestored":true])
+        guard preserved else { throw MacTab5Error.unconfirmed }
     }
 }

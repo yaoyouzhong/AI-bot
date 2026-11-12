@@ -13,13 +13,16 @@ final class MacTab5Discovery {
 
     convenience init(service: MacTab5Service, esp: MacESPDiscovery? = nil) {
         self.init(respond:{ packet,peer,local in
-            Self.route(packet,peer:peer,local:local,esp:esp,tab5:service.discovery)
+            Self.route(packet,peer:peer,local:local,esp:esp,tab5:service.discovery, matchingAddress: {
+                LocalNetworkIdentity.select(LocalNetworkIdentity.addresses(), matching:$0)
+            })
         },note:service.setDiscoveryState)
     }
-    static func route(_ packet: Data, peer: String, local: String?, esp: MacESPDiscovery?, tab5: (Data,String) -> Data?) -> MacDiscoveryResponse? {
+    static func route(_ packet: Data, peer: String, local: String?, esp: MacESPDiscovery?, tab5: (Data,String) -> Data?,
+                      matchingAddress: (String) -> String? = { _ in nil }) -> MacDiscoveryResponse? {
         if packet.starts(with:Data("AIBOT_DISCOVER_V1|".utf8)) { return esp?.response(packet,peer:peer) }
-        guard let local, let bytes = tab5(packet,local) else { return nil }
-        return .init(bytes:bytes,sourceAddress:nil)
+        guard let address = matchingAddress(peer) ?? local, let bytes = tab5(packet,address) else { return nil }
+        return .init(bytes:bytes,sourceAddress:address == local ? nil : address)
     }
     init(port: UInt16 = 18766, loopbackOnly: Bool = false, respond: @escaping Respond, note: @escaping (String) -> Void = { _ in }) {
         self.port = port == 0 ? .any : NWEndpoint.Port(rawValue:port)!

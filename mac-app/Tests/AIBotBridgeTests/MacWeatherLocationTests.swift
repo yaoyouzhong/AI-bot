@@ -25,4 +25,40 @@ final class MacWeatherLocationTests: XCTestCase {
         let moved = await location.placeName(latitude: 13.35, longitude: -65.43, now: start.addingTimeInterval(21_602))
         XCTAssertEqual(moved, "当前位置"); XCTAssertEqual(calls, 3)
     }
+
+    func testDistrictCoordinatesShiftOnlyForMainlandProviderLookups() throws {
+        let corrected = MacQWeatherService.mainlandCoordinate(39.908722, 116.397389)
+        XCTAssertEqual(corrected.0, 39.91012548, accuracy: 0.0000001)
+        XCTAssertEqual(corrected.1, 116.40363255, accuracy: 0.0000001)
+        XCTAssertTrue(MacQWeatherService.isMainland(country: "中国", region: "江苏省"))
+        for region in ["香港特别行政区", "澳门特别行政区", "台湾省", "Hong Kong", "Macau", "Taiwan"] {
+            XCTAssertFalse(MacQWeatherService.isMainland(country: "中国", region: region))
+        }
+        XCTAssertFalse(MacQWeatherService.isMainland(country: "France", region: "Paris"))
+        XCTAssertFalse(MacQWeatherService.isMainland(country: "中国", region: nil))
+        let air = try MacQWeatherService.airRequest(host: "fixture.qweatherapi.com", key: "fixture",
+                                                   latitude: corrected.0, longitude: corrected.1)
+        XCTAssertEqual(air.url?.path, "/airquality/v1/current/39.91/116.40")
+    }
+
+    func testWeatherCadenceUsesLastSuccessfulQueryAndRetriesAfterLocationRecovery() {
+        let settings = MacDataPreferences(city:"Fixture",latitude:nil,longitude:nil,symbols:[],automaticLocation:true)
+        let first = MacWeatherRefreshSchedule.Query(settings, (32.001,119.001))
+        var schedule = MacWeatherRefreshSchedule()
+        XCTAssertTrue(schedule.shouldFetch(first, now:0, force:false))
+        schedule.succeeded(first, now:100)
+        XCTAssertFalse(schedule.shouldFetch(first, now:999, force:false))
+        XCTAssertTrue(schedule.shouldFetch(first, now:1000, force:false))
+        XCTAssertTrue(schedule.shouldFetch(first, now:101, force:true))
+        let moved = MacWeatherRefreshSchedule.Query(settings, (32.002,119.001))
+        XCTAssertTrue(schedule.shouldFetch(moved, now:101, force:false))
+        var changed = settings
+        changed.weatherProvider = "qweather"
+        changed.qweatherHost = "fixture.qweatherapi.com"
+        XCTAssertTrue(schedule.shouldFetch(.init(changed, (32.001,119.001)), now:101, force:false))
+        schedule.failed()
+        XCTAssertTrue(schedule.shouldFetch(first, now:102, force:false), "Recover at the same point without waiting 15 minutes")
+        schedule.succeeded(first, now:102)
+        XCTAssertFalse(schedule.shouldFetch(first, now:103, force:false))
+    }
 }

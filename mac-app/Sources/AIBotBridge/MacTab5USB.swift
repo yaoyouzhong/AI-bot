@@ -246,15 +246,16 @@ final class MacTab5USB {
             do {
                 guard let pair = self.service.currentPairing, pair.confirmed, let wire = self.wire else { throw MacTab5Error.unavailable }
                 if !prepared { try self.service.firmwareControl.beginBootCheck(device: pair.deviceId, transport: "USB") }
-                var hellos: [[String: Any]] = []
+                var hellos: [[String: Any]] = [], sampledAt: [TimeInterval] = []
                 for index in 0..<3 {
+                    sampledAt.append(ProcessInfo.processInfo.systemUptime)
                     try wire.send(["version": 1, "type": "tab5_ping"])
                     hellos.append(try wire.reply("tab5_hello"))
                     if index < 2 { Thread.sleep(forTimeInterval: 1.2) }
                 }
                 try wire.send(["version": 1, "type": "tab5_ota_status"])
                 let diagnostic = try wire.reply("tab5_ota_diagnostic")
-                try self.service.firmwareControl.completeUSBCheck(hellos: hellos, diagnostic: diagnostic, device: pair.deviceId)
+                try self.service.firmwareControl.completeUSBCheck(hellos: hellos, diagnostic: diagnostic, device: pair.deviceId, sampledAt: sampledAt)
                 completion(.success(Void()))
             } catch { completion(.failure(error)) }
         }

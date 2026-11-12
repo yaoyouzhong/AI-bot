@@ -15,7 +15,9 @@ enum MacTab5UIValidation {
         let codex = MacTab5Codex(store: .init(root: root, key: { Data(repeating: 1, count: 32) }), enabled: { false }, call: { _, _ in [:] })
         let computer = MacTab5Computer(defaults: defaults, backend: .init(read: { [:] }, perform: { _, _, _ in false }))
         let voice = MacTab5Voice(enabled: { true }, backend: .init(start: { _, _ in }, feed: { _ in }, finish: {}, cancel: {}))
-        let service = MacTab5Service(port: 8765, host: { "192.168.1.10" }, gallery: .init(directory: root), computer: computer, codex: codex, voice: voice, birthdays: MacBirthdays(directory: root), agenda: MacAgenda(directory: root), load: { nil }, save: { _ in })
+        var firmwareTick: TimeInterval = 100
+        let firmware = MacTab5Firmware(tick: { firmwareTick })
+        let service = MacTab5Service(port: 8765, host: { "192.168.1.10" }, gallery: .init(directory: root), computer: computer, codex: codex, voice: voice, birthdays: MacBirthdays(directory: root), agenda: MacAgenda(directory: root), load: { nil }, save: { _ in }, firmwareControl: firmware)
         let usb = MacTab5USB(service: service)
         service.usbState("USB 未确认，等待重连（设备发现：串口不可用）")
         let registry = MacDeviceRegistry(directory:root); try registry.add("tab5"); try registry.add("esp8266")
@@ -106,6 +108,46 @@ enum MacTab5UIValidation {
             }
             window.close()
         }
+        let weatherEditor = MacDataSettingsForm(.init(city:"示例城市",latitude:nil,longitude:nil,symbols:[],automaticLocation:true),standalone:true)
+        let weatherWindow = weatherEditor.form.window!, weatherContent = weatherWindow.contentView!
+        weatherEditor.form.prepare(validating: { MacWeatherLocation.Failure.needsAuthorization.errorDescription })
+        descendants(weatherContent).compactMap { $0 as? NSButton }.first { $0.title == "保存并刷新" }?.performClick(nil)
+        guard weatherEditor.form.status.stringValue == MacWeatherLocation.Failure.needsAuthorization.errorDescription else {
+            throw MacTab5Error.unconfirmed
+        }
+        weatherWindow.appearance = NSAppearance(named:.aqua); weatherWindow.displayIfNeeded(); weatherContent.layoutSubtreeIfNeeded()
+        try render(weatherContent,to:output.appendingPathComponent("weather-location-consent.png"))
+        weatherWindow.close()
+
+        let image = try MacTab5FirmwareImage(bytes:imageBytes), device = "001122334455"
+        try firmware.select(image); try firmware.start(device:device,reinstall:true)
+        let range: [String:Any] = ["kind":"ota","offerId":firmware.selected!.offerID,"sha256":image.sha256,"offset":0,"count":image.bytes.count]
+        guard firmware.handle(range,device:device,transport:"Wi-Fi",binary:true,bulk:true).status == 200 else { throw MacTab5Error.unconfirmed }
+        let upgrade = MacTab5ToolsWindow(service:service,usb:usb)
+        let upgradeWindow = upgrade.window!, upgradeContent = upgradeWindow.contentView!
+        upgradeWindow.appearance = NSAppearance(named:.aqua)
+        func renderUpgrade(_ name: String, manualEnabled: Bool) throws {
+            upgrade.selectPage(.firmware); upgradeWindow.displayIfNeeded(); upgradeContent.layoutSubtreeIfNeeded()
+            guard let manual = descendants(upgradeContent).compactMap({ $0 as? NSButton }).first(where: { $0.title == "核验启动" }),
+                  manual.isEnabled == manualEnabled else { throw MacTab5Error.unconfirmed }
+            try render(upgradeContent,to:output.appendingPathComponent(name+".png"))
+        }
+        try renderUpgrade("upgrade-waiting-restart",manualEnabled:false)
+        firmwareTick += 3
+        guard firmware.beginAutomaticBootCheck(device:device,transport:"Wi-Fi"),
+              var report = firmware.projection().health["bootVerifyCommand"] as? [String:Any] else { throw MacTab5Error.unconfirmed }
+        report["kind"] = "boot-verify"
+        report["hello"] = ["type":"tab5_hello","version":1,"deviceId":device,"firmware":image.version,
+                           "uptimeMs":100,"uiAgeMs":10,"flushErrors":0,"flushCount":3]
+        report["diagnostic"] = ["type":"tab5_ota_diagnostic","firmware":image.version,"elfSha256":image.elfSHA256,
+                                "stateError":0,"state":1,"partition":"ota_0","address":0x20000]
+        guard firmware.handle(report,device:device,transport:"Wi-Fi",binary:false,bulk:false).status == 400,
+              firmware.summary.contains("健康启动") else { throw MacTab5Error.unconfirmed }
+        try renderUpgrade("upgrade-waiting-self-check",manualEnabled:false)
+        firmwareTick += 150
+        _ = firmware.beginAutomaticBootCheck(device:device,transport:nil)
+        try renderUpgrade("upgrade-verification-timeout",manualEnabled:true)
+        upgradeWindow.close()
         withExtendedLifetime(dataControls) {}
         let approval = MacClaudeApprovalAlert.make(tool:"Read",input:["file_path":"/synthetic/project/README.md"])
         approval.layout()

@@ -50,7 +50,8 @@ final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
     }
     required init?(coder:NSCoder) { fatalError() }
     deinit { timer?.invalidate(); benchmarkTask?.cancel() }
-    func open(page:Page? = nil) { if let page { tabs.select(page.rawValue) }; refresh(); MacSettingsControls.open(self); if service.usbActive, !busy { refreshNetworks() } }
+    func selectPage(_ page: Page) { tabs.select(page.rawValue); refresh() }
+    func open(page:Page? = nil) { if let page { selectPage(page) } else { refresh() }; MacSettingsControls.open(self); if service.usbActive, !busy { refreshNetworks() } }
     func windowShouldClose(_ sender:NSWindow) -> Bool { if busy || service.firmwareControl.busy { result.stringValue = "请先完成升级或停止测速，再关闭窗口。"; return false }; return true }
     private func button(_ title:String,_ action:Selector) -> NSButton { let b = NSButton(title:title,target:self,action:action); actions.append(b); return b }
     private func row(_ items:[(String,Selector)]) -> NSView { MacBridgeSettingsStyle.row(items.map { button($0.0,$0.1) }) }
@@ -59,6 +60,10 @@ final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
         connection.stringValue = "\(value.device) · 固件 \(value.firmware)\nUSB：\(value.usb) · Wi-Fi：\(value.wifi) · 蓝牙：\(value.bluetooth)"
         connection.toolTip = service.connectionSummary; status.stringValue = service.firmwareControl.summary
         actions.first { $0.action == #selector(startUpgrade) }?.title = service.firmwareControl.selected?.version == value.firmware ? "重新安装":"开始升级"
+        let canChangeFirmware = !busy && !service.firmwareControl.automaticVerificationPending
+        for action in [#selector(startUpgrade), #selector(selectFirmware), #selector(clearFirmware), #selector(verifyBoot)] {
+            actions.first { $0.action == action }?.isEnabled = canChangeFirmware
+        }
         if let image = service.firmwareControl.selected { notes.stringValue = "版本：\(image.version) · \(image.bytes.count) 字节\nSHA-256：\(image.sha256)\n\n\(image.notes)" } else { notes.stringValue = "选择固件后显示版本、校验和与更新说明。" }
         window?.contentView?.layoutSubtreeIfNeeded(); pages.forEach { $0.fitDocument() }
     }

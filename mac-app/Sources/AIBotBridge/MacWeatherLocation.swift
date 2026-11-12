@@ -6,17 +6,18 @@ import Foundation
 final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
     static let shared = MacWeatherLocation()
     private let manager = CLLocationManager()
-    private var pending: CheckedContinuation<(Double, Double), Error>?
+    private var pending: [CheckedContinuation<(Double, Double), Error>] = []
+    private var canPrompt = false
     private var timeout: Task<Void, Never>?
     private let reverseLookup: (Double, Double) async -> String?
     private var place: (latitude: Double, longitude: Double, name: String, updatedAt: Date)?
     enum Failure: LocalizedError {
-        case denied, unavailable, busy
+        case denied, needsAuthorization, unavailable
         var errorDescription: String? {
             switch self {
-            case .denied: return "定位权限未允许，请在系统设置的定位服务中允许 AI-bot Bridge。"
+            case .denied: return "定位未授权。请在系统设置允许 AI-bot Bridge 后重试。"
+            case .needsAuthorization: return "请先点击「获取当前位置」授权定位。"
             case .unavailable: return "暂时无法定位，已保留上次天气；请检查系统定位服务。"
-            case .busy: return "正在获取位置，请稍后重试。"
             }
         }
     }
@@ -24,11 +25,12 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
         self.reverseLookup = reverseLookup ?? Self.reverseGeocode
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyKilometer
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
     }
     func namedLocation() async throws -> (Double, Double, String) {
-        let grid = try await locate()
-        return (grid.0, grid.1, await placeName(latitude: grid.0, longitude: grid.1))
+        let point = try await locate()
+        let grid = Self.weatherGrid(latitude: point.0, longitude: point.1)
+        return (grid.0, grid.1, await placeName(latitude: point.0, longitude: point.1))
     }
     func placeName(latitude: Double, longitude: Double, now: Date = Date()) async -> String {
         let sameGrid = place?.latitude == latitude && place?.longitude == longitude
@@ -64,10 +66,20 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
         if city.hasSuffix(district) { return city }
         return city + " · " + district
     }
-    func locate() async throws -> (Double, Double) {
-        guard pending == nil else { throw Failure.busy }
+    func requireAuthorization() throws {
+        switch manager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse: return
+        case .notDetermined: throw Failure.needsAuthorization
+        case .denied, .restricted: throw Failure.denied
+        @unknown default: throw Failure.unavailable
+        }
+    }
+    func locate(prompt: Bool = true) async throws -> (Double, Double) {
+        if !prompt { try requireAuthorization() }
         return try await withCheckedThrowingContinuation { continuation in
-            pending = continuation
+            pending.append(continuation)
+            guard pending.count == 1 else { return }
+            canPrompt = prompt
             timeout = Task { [weak self] in
                 do { try await Task.sleep(nanoseconds: 30_000_000_000) }
                 catch { return }
@@ -77,9 +89,11 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
         }
     }
     private func authorizeAndStart() {
-        guard pending != nil else { return }
+        guard !pending.isEmpty else { return }
         switch manager.authorizationStatus {
-        case .notDetermined: manager.requestWhenInUseAuthorization()
+        case .notDetermined:
+            if canPrompt { manager.requestWhenInUseAuthorization() }
+            else { finish(.failure(Failure.needsAuthorization)) }
         case .authorizedAlways, .authorizedWhenInUse: manager.startUpdatingLocation()
         case .denied, .restricted: finish(.failure(Failure.denied))
         @unknown default: finish(.failure(Failure.unavailable))
@@ -92,8 +106,10 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
         guard let location = locations.last, location.horizontalAccuracy >= 0,
               abs(location.timestamp.timeIntervalSinceNow) < 120,
               CLLocationCoordinate2DIsValid(location.coordinate) else { return }
-        // Weather needs an approximate grid cell; never persist precise coordinates.
-        let grid = Self.weatherGrid(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+        // Use an approximate 100 m grid in memory for district lookup. The
+        // editor displays and saves only its existing coarser grid.
+        let grid = ((location.coordinate.latitude * 1000).rounded() / 1000,
+                    (location.coordinate.longitude * 1000).rounded() / 1000)
         Task { @MainActor in self.finish(.success(grid)) }
     }
     nonisolated static func weatherGrid(latitude: Double, longitude: Double) -> (Double, Double) {
@@ -105,9 +121,10 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
         Task { @MainActor in self.finish(.failure(failure)) }
     }
     private func finish(_ result: Result<(Double, Double), Error>) {
-        guard let pending else { return }
-        self.pending = nil; timeout?.cancel(); timeout = nil
+        let requests = pending
+        guard !requests.isEmpty else { return }
+        pending.removeAll(); canPrompt = false; timeout?.cancel(); timeout = nil
         manager.stopUpdatingLocation()
-        pending.resume(with: result)
+        requests.forEach { $0.resume(with: result) }
     }
 }

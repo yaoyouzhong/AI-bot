@@ -332,10 +332,41 @@ final class MacDataStore {
     }
 }
 
+struct MacWeatherRefreshSchedule {
+    struct Query: Equatable {
+        let settings: MacDataPreferences
+        let latitude: Double?
+        let longitude: Double?
+
+        init(_ preferences: MacDataPreferences, _ point: (Double, Double)?) {
+            settings = .init(city: preferences.city, latitude: preferences.latitude, longitude: preferences.longitude,
+                             symbols: [], automaticLocation: preferences.automaticLocation,
+                             weatherProvider: preferences.weatherProvider, qweatherHost: preferences.qweatherHost)
+            latitude = point?.0
+            longitude = point?.1
+        }
+    }
+
+    private var lastSuccess: (query: Query, tick: TimeInterval)?
+    private var locationLost = false
+
+    mutating func failed() { locationLost = true }
+    func shouldFetch(_ query: Query, now: TimeInterval, force: Bool) -> Bool {
+        guard let lastSuccess, !force, !locationLost else { return true }
+        return query != lastSuccess.query || now - lastSuccess.tick >= 900
+    }
+    mutating func succeeded(_ query: Query, now: TimeInterval) {
+        lastSuccess = (query, now)
+        locationLost = false
+    }
+}
+
 actor MacDataService {
     private let store: MacDataStore
     private let session: URLSession
-    private var lastWeatherAttempt = Date.distantPast
+    private var lastWeatherAttempt: TimeInterval = -.infinity
+    private var lastWeatherSettings: MacWeatherRefreshSchedule.Query?
+    private var weatherSchedule = MacWeatherRefreshSchedule()
     private var lastStockAttempt = Date.distantPast
     private var refreshingWeather = false
     private let qweather = MacQWeatherService()
@@ -351,73 +382,96 @@ actor MacDataService {
     }
 
     func refreshDue(force: Bool = false) async {
+        if demanded("weather") { await refreshWeather(force: force) }
         let now = Date()
-        if demanded("weather") && (force || now.timeIntervalSince(lastWeatherAttempt) >= 900) {
-            lastWeatherAttempt = now
-            await refreshWeather()
-        }
         if demanded("stocks") && (force || now.timeIntervalSince(lastStockAttempt) >= 5) {
             lastStockAttempt = now
             await refreshStocks()
         }
     }
 
-    private func refreshWeather() async {
+    private func refreshWeather(force: Bool) async {
         guard !refreshingWeather else { return }
-        refreshingWeather = true
         let preferences = MacDataPreferences.load()
+        let settings = MacWeatherRefreshSchedule.Query(preferences, nil)
+        let now = ProcessInfo.processInfo.systemUptime
+        guard force || settings != lastWeatherSettings || now - lastWeatherAttempt >= 60 else { return }
+        lastWeatherSettings = settings
+        lastWeatherAttempt = now
+        refreshingWeather = true
+        func settingsChanged() -> Bool {
+            MacWeatherRefreshSchedule.Query(MacDataPreferences.load(), nil) != settings
+        }
         defer {
             refreshingWeather = false
-            if MacDataPreferences.load() != preferences { Task { await self.refreshDue(force: true) } }
+            if settingsChanged() { Task { await self.refreshWeather(force: true) } }
         }
         do {
-            store.weatherDiagnostic(preferences.automaticLocation ? "天气：正在获取大致位置…" : "天气：正在查询…")
-            let value = try await previewWeather(preferences)
-            guard MacDataPreferences.load() == preferences else { return }
+            let point = preferences.automaticLocation ? try await MacWeatherLocation.shared.locate(prompt: false) : nil
+            guard !settingsChanged() else { return }
+            let query = MacWeatherRefreshSchedule.Query(preferences, point)
+            guard weatherSchedule.shouldFetch(query, now: now, force: force) else { return }
+            store.weatherDiagnostic("天气：正在查询…")
+            let value = try await fetchWeather(preferences, point: point)
+            guard !settingsChanged() else { return }
             store.update(weather: value)
+            weatherSchedule.succeeded(query, now: ProcessInfo.processInfo.systemUptime)
             store.weatherDiagnostic(Self.forecastNote(store.snapshot().weather!))
         } catch {
-            guard MacDataPreferences.load() == preferences else { return }
+            guard !settingsChanged() else { return }
+            weatherSchedule.failed()
             store.markWeatherStale()
-            store.weatherDiagnostic((error as? MacWeatherLocation.Failure)?.errorDescription ??
-                                    (error as? MacQWeatherService.Failure)?.errorDescription ??
-                                    "天气：查询失败，已保留上次成功数据。")
+            let note = (error as? MacWeatherLocation.Failure)?.errorDescription ??
+                (error as? MacQWeatherService.Failure)?.errorDescription ??
+                "天气：查询失败，已保留上次成功数据。"
+            store.weatherDiagnostic(note)
         }
     }
 
     /// Tests the editor draft without changing preferences, credentials or cached weather.
-    func previewWeather(_ preferences:MacDataPreferences, draftKey:String? = nil) async throws -> WeatherSnapshot {
-            if preferences.weatherProvider == "qweather" {
-                let key = try draftKey ?? MacWeatherCredentialStore.shared.read(host: preferences.qweatherHost)
-                let location: (Double, Double, String)
-                if preferences.automaticLocation {
-                    location = try await MacWeatherLocation.shared.namedLocation()
-                } else if let lat = preferences.latitude, let lon = preferences.longitude {
-                    location = (lat, lon, preferences.city.isEmpty ? "当前位置" : preferences.city)
-                } else {
-                    location = try await qweather.resolveCity(preferences.city, host: preferences.qweatherHost, key: key)
-                }
-                let value = try await qweather.fetch(host: preferences.qweatherHost, key: key,
-                    latitude: location.0, longitude: location.1, label: location.2)
-                return value
+    func previewWeather(_ preferences: MacDataPreferences, draftKey: String? = nil) async throws -> WeatherSnapshot {
+        let point = preferences.automaticLocation ? try await MacWeatherLocation.shared.locate() : nil
+        return try await fetchWeather(preferences, point: point, draftKey: draftKey)
+    }
+
+    private func fetchWeather(_ preferences: MacDataPreferences, point: (Double, Double)?,
+                              draftKey: String? = nil) async throws -> WeatherSnapshot {
+        if preferences.weatherProvider == "qweather" {
+            let host = preferences.qweatherHost
+            let key = try draftKey ?? MacWeatherCredentialStore.shared.read(host: host)
+            if let (latitude, longitude) = point {
+                return try await qweather.fetchAutomatic(host: host, key: key, latitude: latitude, longitude: longitude)
             }
-            guard let location = try await resolveLocation(preferences) else {
-                throw MacTab5LocalError.invalid("请选择自动定位或填写城市。")
+            if let latitude = preferences.latitude, let longitude = preferences.longitude {
+                return try await qweather.fetch(host: host, key: key, latitude: latitude, longitude: longitude,
+                                               label: preferences.city.isEmpty ? "当前位置" : preferences.city)
             }
-            let coordinate = String(format: "latitude=%.6f&longitude=%.6f", locale: Locale(identifier: "en_US_POSIX"),
-                                    location.latitude, location.longitude)
-            let forecast = URL(string: "https://api.open-meteo.com/v1/forecast?\(coordinate)&current=temperature_2m,relative_humidity_2m,weather_code,pressure_msl&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,daylight_duration&forecast_days=7&timezone=auto")!
-            let air = URL(string: "https://air-quality-api.open-meteo.com/v1/air-quality?\(coordinate)&current=us_aqi,pm2_5")!
-            let (forecastData, forecastResponse) = try await session.data(from: forecast)
-            guard (forecastResponse as? HTTPURLResponse)?.statusCode == 200 else {
-                throw DataError.invalidResponse
-            }
-            var airData: Data?
-            if let (data, response) = try? await session.data(from: air),
-               (response as? HTTPURLResponse)?.statusCode == 200 {
-                airData = data
-            }
-            return try Self.parseWeather(forecast: forecastData, air: airData, city: location.label)
+            let city = try await qweather.resolveCity(preferences.city, host: host, key: key)
+            return try await qweather.fetch(host: host, key: key, latitude: city.latitude, longitude: city.longitude,
+                                           label: city.name, locationID: city.id)
+        }
+        let location: (latitude: Double, longitude: Double, label: String)
+        if let (latitude, longitude) = point {
+            location = (latitude, longitude, await MacWeatherLocation.shared.placeName(latitude: latitude, longitude: longitude))
+        } else if let resolved = try await resolveLocation(preferences) {
+            location = resolved
+        } else {
+            throw MacTab5LocalError.invalid("请选择自动定位或填写城市。")
+        }
+        let coordinate = String(format: "latitude=%.6f&longitude=%.6f", locale: Locale(identifier: "en_US_POSIX"),
+                                location.latitude, location.longitude)
+        let forecast = URL(string: "https://api.open-meteo.com/v1/forecast?\(coordinate)&current=temperature_2m,relative_humidity_2m,weather_code,pressure_msl&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,daylight_duration&forecast_days=7&timezone=auto")!
+        let air = URL(string: "https://air-quality-api.open-meteo.com/v1/air-quality?\(coordinate)&current=us_aqi,pm2_5")!
+        let (forecastData, forecastResponse) = try await session.data(from: forecast)
+        guard (forecastResponse as? HTTPURLResponse)?.statusCode == 200 else {
+            throw DataError.invalidResponse
+        }
+        var airData: Data?
+        if let (data, response) = try? await session.data(from: air),
+           (response as? HTTPURLResponse)?.statusCode == 200 {
+            airData = data
+        }
+        return try Self.parseWeather(forecast: forecastData, air: airData, city: location.label)
     }
 
     private static func forecastNote(_ value: WeatherSnapshot) -> String {
@@ -448,9 +502,6 @@ actor MacDataService {
 
     private func resolveLocation(_ preferences: MacDataPreferences) async throws
         -> (latitude: Double, longitude: Double, label: String)? {
-        if preferences.automaticLocation {
-            return try await MacWeatherLocation.shared.namedLocation()
-        }
         if let latitude = preferences.latitude, let longitude = preferences.longitude,
            (-90...90).contains(latitude), (-180...180).contains(longitude) {
             return (latitude, longitude, preferences.city.isEmpty ? "当前位置" : preferences.city)

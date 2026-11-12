@@ -78,7 +78,7 @@ final class MacTab5Service {
     let deviceDiagnostics = MacTab5RuntimeDiagnostics()
     let screenPreview = MacTab5ScreenPreview()
     let uiAutomation = MacTab5UIAutomation()
-    let firmwareControl = MacTab5Firmware()
+    let firmwareControl: MacTab5Firmware
     private let runtimeHealth = MacRuntimeHealth()
     private let networkDiagnostics: () -> MacNetworkDiagnosticSample?
     private var activeOperations = 0
@@ -92,9 +92,10 @@ final class MacTab5Service {
          save: @escaping (MacTab5Pairing) throws -> Void = { try MacTab5PairingStore().save($0) }, diagnostics: MacTab5LocalDiagnostics? = nil, claudeWorkspace: MacClaudeWorkspace? = nil,
          hostInput: @escaping () -> (uptime: TimeInterval, idle: TimeInterval) = {
              (ProcessInfo.processInfo.systemUptime, MacIdleTime.seconds())
-         }, wifiClock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+         }, wifiClock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+         firmwareControl: MacTab5Firmware = MacTab5Firmware()) {
         self.localDiagnostics = diagnostics; self.hostInput = hostInput
-        self.wifiClock = wifiClock
+        self.wifiClock = wifiClock; self.firmwareControl = firmwareControl
         self.port = port; self.host = host; self.latestMusic = music; self.gallery = gallery; self.computer = computer; self.codex = codex; self.voice = voice; loadPairing = load; savePairing = save
         self.networkDiagnostics = networkDiagnostics; self.unlock = unlock
         self.deviceEnabled = enabled; self.sourceEnabled = sourceEnabled; self.claudeSessions = claudeSessions
@@ -280,7 +281,7 @@ final class MacTab5Service {
         lock.lock(); defer { lock.unlock() }
         guard root["deviceId"] as? String == pairing?.deviceId else { return }
         localDiagnostics?.device(root)
-        uiAutomation.observe(root["uiAutomation"])
+        uiAutomation.observe(root["uiAutomation"], owner: pairing)
         usbReportedActive = (root["active"] as? String).flatMap { ["USB", "Wi-Fi", "BLE", "Offline"].contains($0) ? $0 : nil }
         if let ids = root["assetIds"] as? String { assets.acknowledge(ids) }
         if let version = root["firmware"] as? String, version.utf8.count <= 40 { firmware = version; firmwareDevice = pairing?.deviceId; firmwareControl.observeVersion(version) }
@@ -420,7 +421,7 @@ final class MacTab5Service {
         if unlock.configured(pair,transport:"USB") { health["hostUnlockVersion"] = 1 }
         health["voiceEnabled"] = voice.isEnabled
         health["runtimeDiagnosticCommand"] = deviceDiagnostics.command
-        health["uiAutomationCommand"] = uiAutomation.command(frameEpoch:Int64(snapshot.capturedAt.timeIntervalSince1970*1000))
+        health["uiAutomationCommand"] = uiAutomation.command(frameEpoch:Int64(snapshot.capturedAt.timeIntervalSince1970*1000), owner: pair)
         health["screenPreviewCommand"] = screenPreview.command(frameEpochMilliseconds:Int64(snapshot.capturedAt.timeIntervalSince1970*1000))
         additions["connectionHealth"] = health
         additions["codexTasks"] = sourceEnabled("activity") ? codex.snapshot() : nil
@@ -514,7 +515,7 @@ final class MacTab5Service {
     }
     private func invalidateWiFiPublicationLocked() {
         wifiGeneration &+= 1; wifiFrame = nil; wifiSeen = -.infinity
-        wifiPendingAssets = nil; wifiPendingFirmware = nil
+        wifiPendingAssets = nil; wifiPendingFirmware = nil; uiAutomation.resetWiFi()
         wifiRefreshRequested = false; wifiResourceRequested = false
     }
     private func requestWiFiPublication() {
@@ -593,6 +594,12 @@ final class MacTab5Service {
                 MacTab5Protocol.verify(key: pair.key, message: "FIRMWARE|\(nonce)|\(version)", proof: $0)
             } == true ? version : nil
         }
+        let automation = headers["x-tab5-ui-automation"].flatMap { report -> String? in
+            guard report.utf8.count <= 96, let signature = headers["x-tab5-ui-automation-proof"],
+                  MacTab5Protocol.verify(key: pair.key, message: "UI-AUTOMATION|\(nonce)|\(report)", proof: signature)
+            else { return nil }
+            return report
+        }
         let resourcesAllowed = voice.wifiAllowsResources
         wifiLock.lock()
         guard generation == wifiGeneration, deviceEnabled() else { wifiLock.unlock(); return (503, Data()) }
@@ -614,6 +621,7 @@ final class MacTab5Service {
             guard generation == wifiGeneration, deviceEnabled(), publication.activityAccess == access,
                   Self.freshWiFiSample(publication.sampledAt, now: wifiClock()) else { return (503, Data()) }
             wifiSeen = ProcessInfo.processInfo.systemUptime
+            if let automation { uiAutomation.observeWiFi(automation, owner: pair, tick: wifiSeen) }
             return (200, packet)
         } catch { return (503, Data()) }
     }

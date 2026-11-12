@@ -66,6 +66,7 @@ actor MacQWeatherService {
               !key.isEmpty, key.utf8.allSatisfy({ (33...126).contains($0) }) else { throw Failure.configuration }
         var c = URLComponents(); c.scheme = "https"; c.host = host; c.path = path
         c.queryItems = [URLQueryItem(name: "location", value: location), URLQueryItem(name: "lang", value: "zh")]
+        if path == "/geo/v2/city/lookup" { c.queryItems?.append(URLQueryItem(name: "number", value: "1")) }
         var request = URLRequest(url: c.url!)
         request.setValue(key, forHTTPHeaderField: "X-QW-Api-Key")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -93,20 +94,74 @@ actor MacQWeatherService {
         guard data.count <= 2_000_000 else { throw Failure.response }
         return data
     }
-    func resolveCity(_ city: String, host: String, key: String) async throws -> (Double, Double, String) {
+    struct City {
+        let latitude: Double, longitude: Double
+        let name: String, id: String?, mainland: Bool
+    }
+
+    func resolveCity(_ city: String, host: String, key: String) async throws -> City {
         guard !city.isEmpty else { throw Failure.configuration }
         let data = try await get(host: host, key: key, path: "/geo/v2/city/lookup", location: city)
         let root = try MacWeatherForecast.qRoot(data)
         guard let rows = root["location"] as? [[String: Any]], let row = rows.first,
               let lat = MacWeatherForecast.number(row["lat"], range: -90...90),
               let lon = MacWeatherForecast.number(row["lon"], range: -180...180) else { throw Failure.response }
-        return (lat, lon, String((row["name"] as? String ?? city).prefix(80)))
+        return City(latitude: lat, longitude: lon, name: String((row["name"] as? String ?? "当前位置").prefix(80)),
+                    id: (row["id"] as? String).flatMap { $0.isEmpty ? nil : $0 },
+                    mainland: Self.isMainland(country: row["country"] as? String, region: row["adm1"] as? String))
     }
-    func fetch(host: String, key: String, latitude: Double, longitude: Double, label: String) async throws -> WeatherSnapshot {
+
+    nonisolated static func isMainland(country: String?, region: String?) -> Bool {
+        guard country == "中国" || country == "China", let region, !region.isEmpty else { return false }
+        return !["香港", "澳门", "台湾", "Hong Kong", "Macao", "Macau", "Taiwan"].contains {
+            region.lowercased().hasPrefix($0.lowercased())
+        }
+    }
+
+    // Provider boundary only: callers and Open-Meteo retain WGS-84.
+    // Same transform and regional guard as the Windows implementation.
+    nonisolated static func mainlandCoordinate(_ latitude: Double, _ longitude: Double) -> (Double, Double) {
+        guard (0.8293...55.8271).contains(latitude), (72.004...137.8347).contains(longitude) else {
+            return (latitude, longitude)
+        }
+        let x = longitude - 105, y = latitude - 35
+        func wave(_ angle: Double) -> Double { sin(angle * .pi) }
+        let shared = (20 * wave(6*x) + 20 * wave(2*x)) * 2/3
+        let northBase = -100 + 2*x + 3*y + 0.2*y*y + 0.1*x*y + 0.2*sqrt(abs(x))
+        let eastBase = 300 + x + 2*y + 0.1*x*x + 0.1*x*y + 0.1*sqrt(abs(x))
+        let north = northBase + shared + (20*wave(y) + 40*wave(y/3))*2/3 + (160*wave(y/12) + 320*wave(y/30))*2/3
+        let east = eastBase + shared + (20*wave(x) + 40*wave(x/3))*2/3 + (150*wave(x/12) + 300*wave(x/30))*2/3
+        let axis = 6378245.0, eccentricity = 0.006693421622965943
+        let radians = latitude * .pi / 180
+        let scale = 1 - eccentricity * pow(sin(radians), 2), root = sqrt(scale)
+        return (latitude + north*180/(axis*(1-eccentricity)/(scale*root) * .pi),
+                longitude + east*180/(axis/root*cos(radians) * .pi))
+    }
+
+    func fetchAutomatic(host: String, key: String, latitude: Double, longitude: Double) async throws -> WeatherSnapshot {
+        func lookup(_ lat: Double, _ lon: Double) async throws -> City {
+            try await resolveCity(String(format: "%.4f,%.4f", locale: Locale(identifier: "en_US_POSIX"), lon, lat),
+                                  host: host, key: key)
+        }
+        var city = try await lookup(latitude, longitude)
+        var lat = latitude, lon = longitude
+        if city.mainland {
+            let (shiftedLat, shiftedLon) = Self.mainlandCoordinate(latitude, longitude)
+            if shiftedLat != latitude || shiftedLon != longitude {
+                let shiftedCity = try await lookup(shiftedLat, shiftedLon)
+                if shiftedCity.mainland { city = shiftedCity; lat = shiftedLat; lon = shiftedLon }
+            }
+        }
+        // Forecast by district ID avoids rounding back across a district edge.
+        // The separate AQI endpoint takes latitude/longitude to two decimals.
+        return try await fetch(host: host, key: key, latitude: lat, longitude: lon, label: city.name, locationID: city.id)
+    }
+
+    func fetch(host: String, key: String, latitude: Double, longitude: Double, label: String, locationID: String? = nil) async throws -> WeatherSnapshot {
         guard latitude.isFinite, longitude.isFinite, (-90...90).contains(latitude), (-180...180).contains(longitude) else {
             throw Failure.configuration
         }
-        let location = String(format: "%.2f,%.2f", locale: Locale(identifier: "en_US_POSIX"), longitude, latitude)
+        let location = locationID ?? String(format: "%.2f,%.2f", locale: Locale(identifier: "en_US_POSIX"), longitude, latitude)
         async let current = get(host: host, key: key, path: "/v7/weather/now", location: location)
         async let daily = get(host: host, key: key, path: "/v7/weather/7d", location: location)
         async let hourly = try? get(host: host, key: key, path: "/v7/weather/24h", location: location)
