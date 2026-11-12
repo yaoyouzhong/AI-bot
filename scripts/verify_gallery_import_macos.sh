@@ -15,7 +15,9 @@ export GALLERY_TEST_CATEGORY="$CATEGORY"
 standard="AI-bot-gallery-$CATEGORY-standard-2026.11.12.1.zip"
 gh release download v0.6.20 --repo "$repo" --pattern "$standard" --dir "$temp"
 gh release download v0.6.20 --repo "$repo" --pattern "$standard.sha256" --dir "$temp"
-(cd "$temp" && shasum -a 256 -c "$standard.sha256")
+expected_standard=$(tr -d '\r' < "$temp/$standard.sha256" | cut -c 1-64)
+actual_standard=$(shasum -a 256 "$temp/$standard" | cut -d ' ' -f 1)
+[ "$actual_standard" = "$expected_standard" ]
 export GALLERY_TEST_PACKAGE="$temp/$standard" GALLERY_TEST_KIND=standard
 (cd mac-app && swift test --filter GalleryDeliveryImportTests/testPublishedPackageImport)
 rm "$temp/$standard" "$temp/$standard.sha256"
