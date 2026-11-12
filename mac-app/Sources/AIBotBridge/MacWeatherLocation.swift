@@ -11,12 +11,14 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
     private var timeout: Task<Void, Never>?
     private let reverseLookup: (Double, Double) async -> String?
     private var place: (latitude: Double, longitude: Double, name: String, updatedAt: Date)?
+    var authorizationChanged: (() -> Void)?
+    var authorizationStatus: CLAuthorizationStatus { manager.authorizationStatus }
     enum Failure: LocalizedError {
         case denied, needsAuthorization, unavailable
         var errorDescription: String? {
             switch self {
             case .denied: return "定位未授权。请在系统设置允许 AI-bot Bridge 后重试。"
-            case .needsAuthorization: return "请先点击「获取当前位置」授权定位。"
+            case .needsAuthorization: return "请先在「系统授权」允许定位，或点击「获取当前位置」。"
             case .unavailable: return "暂时无法定位，已保留上次天气；请检查系统定位服务。"
             }
         }
@@ -74,6 +76,10 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
         @unknown default: throw Failure.unavailable
         }
     }
+    func requestAuthorization() {
+        guard manager.authorizationStatus == .notDetermined else { return }
+        manager.requestWhenInUseAuthorization()
+    }
     func locate(prompt: Bool = true) async throws -> (Double, Double) {
         if !prompt { try requireAuthorization() }
         return try await withCheckedThrowingContinuation { continuation in
@@ -92,7 +98,7 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
         guard !pending.isEmpty else { return }
         switch manager.authorizationStatus {
         case .notDetermined:
-            if canPrompt { manager.requestWhenInUseAuthorization() }
+            if canPrompt { requestAuthorization() }
             else { finish(.failure(Failure.needsAuthorization)) }
         case .authorizedAlways, .authorizedWhenInUse: manager.startUpdatingLocation()
         case .denied, .restricted: finish(.failure(Failure.denied))
@@ -100,7 +106,10 @@ final class MacWeatherLocation: NSObject, CLLocationManagerDelegate {
         }
     }
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        Task { @MainActor in self.authorizeAndStart() }
+        Task { @MainActor in
+            self.authorizeAndStart()
+            self.authorizationChanged?()
+        }
     }
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last, location.horizontalAccuracy >= 0,

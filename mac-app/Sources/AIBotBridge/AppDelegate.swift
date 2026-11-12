@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var appearanceWindow: NSWindowController?
     private var espDisplayWindow: MacESPDisplayWindow?
     private var bridgeStatusWindow: MacBridgeStatusWindow?
+    private var permissionSetupWindow: MacPermissionSetupWindow?
     private let dataStore = MacDataStore(quotaHistory: MacQuotaHistory())
     private lazy var dataService = MacDataService(store: dataStore, demanded: { MacDeviceRegistry.shared.demanded($0) })
     private lazy var quotaService = MacQuotaService(store: dataStore)
@@ -176,6 +177,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Task { await self.domesticQuotaService.refresh() }
             Task { await self.quotaService.refresh() }
         }
+        prepareSystemPermissions()
+    }
+
+    @MainActor private func weatherPermission() -> MacPermissionSetup.State {
+        MacPermissionSetup.location(enabled: MacDataPreferences.load().automaticLocation,
+                                    status: MacWeatherLocation.shared.authorizationStatus)
+    }
+
+    private func desktopPermission() -> MacPermissionSetup.State {
+        let defaults = UserDefaults.standard
+        let direct = defaults.bool(forKey: MacTab5Codex.enabledKey) && defaults.bool(forKey: MacTab5Desktop.enabledKey)
+        return MacPermissionSetup.accessibility(enabled: direct || defaults.bool(forKey: MacTab5Computer.enabledKey),
+                                                trusted: AXIsProcessTrusted())
+    }
+
+    @MainActor private func prepareSystemPermissions() {
+        var wasAllowed = weatherPermission() == .allowed
+        MacWeatherLocation.shared.authorizationChanged = { [weak self] in
+            guard let self else { return }
+            let allowed = self.weatherPermission() == .allowed
+            let newlyAllowed = allowed && !wasAllowed
+            wasAllowed = allowed
+            self.permissionSetupWindow?.refresh()
+            if newlyAllowed { Task { await self.dataService.weatherAuthorizationGranted() } }
+        }
+        guard MacPermissionSetup.shouldOffer([weatherPermission(), desktopPermission()]) else { return }
+        UserDefaults.standard.set(true, forKey: MacPermissionSetup.shownKey)
+        openPermissionSetup()
+    }
+
+    @MainActor @objc private func openPermissionSetup() {
+        if permissionSetupWindow == nil {
+            permissionSetupWindow = MacPermissionSetupWindow(
+                location: { [weak self] in self?.weatherPermission() ?? .unused },
+                accessibility: { [weak self] in self?.desktopPermission() ?? .unused },
+                requestLocation: { state in
+                    if state == .request { MacWeatherLocation.shared.requestAuthorization() }
+                    else { MacPermissionSetup.openLocationSettings() }
+                },
+                requestAccessibility: MacPermissionSetup.requestAccessibility
+            )
+        }
+        permissionSetupWindow?.open()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -230,6 +274,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         windowMenu.delegate = self
         windowMenu.addItem(NSMenuItem(title: "关闭窗口", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
         windowMenu.addItem(item("设备中心…", #selector(openTab5)))
+        windowMenu.addItem(item("系统授权…", #selector(openPermissionSetup)))
         windowItem.submenu = windowMenu
         menu.addItem(windowItem)
         NSApp.mainMenu = menu
@@ -293,7 +338,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func buildMenu() -> NSMenu {
-        MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
+        let menu = MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
             guard let self, let current = self.devices.device(device.kind), current.id == device.id, current.enabled else { return }
             if action == "mirror" {
                 if device.kind == "esp8266" { self.openMirror() }
@@ -314,6 +359,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if action == "devices" { self?.openTab5() }
             else if action == "exit" { self?.quit() }
         })
+        menu.insertItem(item("系统授权…", #selector(openPermissionSetup)), at: menu.items.count - 1)
+        return menu
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {

@@ -52,6 +52,7 @@ enum MacTab5UIValidation {
         }
         accountPreview.stop(); accountPreview.window?.close()
         let data = MacDataSettingsForm(.init(city: "示例城市", latitude: nil, longitude: nil, symbols: ["sh000001", "usAAPL"]))
+        try validatePermissionSetup(defaults: defaults, output: output)
         let deviceForm = MacBridgeSettingsForm("数据设置",subtitle:"隔离测试设备")
         deviceForm.window?.contentMinSize.height = 520
         let dataControls = MacDeviceDataControls(page:deviceForm.page,device:.init(kind:"tab5",name:"测试设备"))
@@ -370,6 +371,37 @@ enum MacTab5UIValidation {
     }
 
     private static func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+
+    private static func validatePermissionSetup(defaults: UserDefaults, output: URL) throws {
+        var location = MacPermissionSetup.location(enabled: true, status: .notDetermined)
+        var accessibility = MacPermissionSetup.accessibility(enabled: true, trusted: false)
+        guard MacPermissionSetup.shouldOffer([location, accessibility], defaults: defaults),
+              !MacPermissionSetup.shouldOffer([.allowed, .unused], defaults: defaults),
+              MacPermissionSetup.location(enabled: false, status: .notDetermined) == .unused else { throw MacTab5Error.unconfirmed }
+        defaults.set(true, forKey: MacPermissionSetup.shownKey)
+        guard !MacPermissionSetup.shouldOffer([location, accessibility], defaults: defaults) else { throw MacTab5Error.unconfirmed }
+        var locationRequests: [MacPermissionSetup.State] = [], accessibilityRequests = 0
+        let setup = MacPermissionSetupWindow(location: { location }, accessibility: { accessibility },
+            requestLocation: { locationRequests.append($0) }, requestAccessibility: { accessibilityRequests += 1 })
+        guard let window = setup.window, let content = window.contentView else { throw MacTab5Error.unavailable }
+        let buttons = descendants(content).compactMap { $0 as? NSButton }
+        guard let weather = buttons.first(where: { $0.title == "允许天气定位…" }),
+              let direct = buttons.first(where: { $0.title == "打开辅助功能设置…" }),
+              let done = buttons.first(where: { $0.title == "稍后完成" }) else { throw MacTab5Error.unconfirmed }
+        try validateSettings(window, name: "system-permissions", output: output)
+        weather.performClick(nil); direct.performClick(nil)
+        location = MacPermissionSetup.location(enabled: true, status: .denied); setup.refresh()
+        guard weather.title == "打开定位服务设置…" else { throw MacTab5Error.unconfirmed }
+        weather.performClick(nil)
+        location = MacPermissionSetup.location(enabled: true, status: .authorizedAlways)
+        accessibility = MacPermissionSetup.accessibility(enabled: true, trusted: true)
+        setup.refresh()
+        guard locationRequests == [.request, .settings], accessibilityRequests == 1,
+              !weather.isEnabled, weather.isHidden, !direct.isEnabled, direct.isHidden,
+              done.title == "完成" else { throw MacTab5Error.unconfirmed }
+        try validateSettings(window, name: "system-permissions-granted", output: output)
+        window.close()
+    }
 
     private static func validateSettings(_ window: NSWindow, name: String, output: URL) throws {
         guard let content = window.contentView,

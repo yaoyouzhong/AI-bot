@@ -390,6 +390,11 @@ actor MacDataService {
         }
     }
 
+    func weatherAuthorizationGranted() async {
+        guard demanded("weather"), MacDataPreferences.load().automaticLocation else { return }
+        await refreshWeather(force: true)
+    }
+
     private func refreshWeather(force: Bool) async {
         guard !refreshingWeather else { return }
         let preferences = MacDataPreferences.load()
