@@ -22,7 +22,7 @@ sealed class WeatherMonitor
     const string LatitudeKey = "weather_latitude";
     const string LongitudeKey = "weather_longitude";
     const string ProviderKey = "weather_provider";
-    const double LocationUpdateThresholdMeters = 1000;
+    const double LocationUpdateThresholdMeters = 100;
     const string CredentialTarget = "AI-bot/QWeatherApiKey";
     static readonly HttpClient Http = new(new HttpClientHandler
     {
@@ -72,7 +72,9 @@ sealed class WeatherMonitor
     int _textRev;
     string _lastText = "";
     System.Threading.Timer _timer;
-    DateTimeOffset _nextWeatherRefresh;
+    readonly WeatherRefreshSchedule _refreshSchedule = new();
+    bool _locationAvailable;
+    public bool LocationNeedsPermission { get; private set; }
     public string LocationStatus { get; private set; } = "";
 
     public static string City { get => Settings.Get(CityKey); set => Settings.Set(CityKey, value.Trim()); }
@@ -130,8 +132,7 @@ sealed class WeatherMonitor
         AutoLocation = autoLocation;
         if (autoLocation && latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180)
         {
-            Settings.Set(LatitudeKey, latitude.ToString("F6", CultureInfo.InvariantCulture));
-            Settings.Set(LongitudeKey, longitude.ToString("F6", CultureInfo.InvariantCulture));
+            SaveCoordinates(latitude, longitude);
         }
         Settings.Set(ProviderKey,provider);
         _ = Refresh();
@@ -173,24 +174,24 @@ sealed class WeatherMonitor
     {
         var city = City;
         var autoLocation = AutoLocation;
-        if(!autoLocation)LocationStatus="手动地区";
+        if(!autoLocation){LocationStatus="手动地区";LocationNeedsPermission=false;_locationAvailable=false;}
         if (city.Length == 0 && !autoLocation) return;
         try
         {
             var latitude = Latitude;
             var longitude = Longitude;
-            var savedLatitude=latitude;var savedLongitude=longitude;
             if (autoLocation)
                 (latitude, longitude) = await RefreshAutomaticLocation(latitude, longitude);
-            bool moved=latitude!=savedLatitude || longitude!=savedLongitude;
-            if(!force&&!moved&&DateTimeOffset.UtcNow<_nextWeatherRefresh)return;
+            var host = QWeatherApiHost;
+            var provider = Provider;
+            var query = new WeatherRefreshSchedule.Query(autoLocation,city,provider,host,latitude,longitude);
+            if(!_refreshSchedule.ShouldFetch(query,_locationAvailable,force,DateTimeOffset.UtcNow))return;
             if (autoLocation && latitude == 0 && longitude == 0)
                 throw new InvalidOperationException("尚未取得 Windows 定位坐标。 ");
 
             Snapshot snapshot = null;
-            var host = QWeatherApiHost;
             var apiKey = CredentialStore.Read(CredentialTarget);
-            if (Provider=="qweather" && host.Length > 0 && apiKey.Length > 0)
+            if (provider=="qweather" && host.Length > 0 && apiKey.Length > 0)
             {
                 try { snapshot = await FetchQWeather(host, apiKey, city, autoLocation, latitude, longitude); }
                 catch { /* provider fallback below */ }
@@ -198,11 +199,11 @@ sealed class WeatherMonitor
             snapshot ??= await FetchOpenMeteo(city, autoLocation, latitude, longitude);
             SetSnapshot(snapshot);
             SaveCache(snapshot);
-            _nextWeatherRefresh=DateTimeOffset.UtcNow.AddMinutes(15);
+            _refreshSchedule.Succeeded(query,_locationAvailable,DateTimeOffset.UtcNow);
         }
         catch
         {
-            _nextWeatherRefresh=DateTimeOffset.MinValue;
+            _refreshSchedule.Failed();
             lock (_lock) if (_snapshot.UpdatedUtc > 0) _snapshot.Stale = true;
         }
     }
@@ -213,23 +214,29 @@ sealed class WeatherMonitor
         try
         {
             var current = await WindowsLocation.LocateSilently();
-            LocationStatus="Windows 自动定位";
+            bool recovered = !_locationAvailable;
+            _locationAvailable=true;
+            LocationNeedsPermission=false;
+            LocationStatus=current.AccuracyMeters>1000
+                ? $"Windows 定位精度约 {current.AccuracyMeters/1000:F1} 公里，区县可能有偏差"
+                : "Windows 自动定位";
             if (savedLatitude != 0 || savedLongitude != 0)
             {
                 var distance = DistanceMeters(savedLatitude, savedLongitude,
                     current.Latitude, current.Longitude);
-                if (distance < LocationUpdateThresholdMeters)
+                if (!recovered && distance < LocationUpdateThresholdMeters)
                     return (savedLatitude, savedLongitude);
             }
 
-            Settings.Set(LatitudeKey, current.Latitude.ToString("F6", CultureInfo.InvariantCulture));
-            Settings.Set(LongitudeKey, current.Longitude.ToString("F6", CultureInfo.InvariantCulture));
+            SaveCoordinates(current.Latitude,current.Longitude);
             return (current.Latitude, current.Longitude);
         }
         catch(Exception ex)
         {
-            LocationStatus=ex is UnauthorizedAccessException
-                ? "定位权限不可用，使用上次位置；请在天气设置中获取当前位置"
+            _locationAvailable=false;
+            LocationNeedsPermission=ex is UnauthorizedAccessException;
+            LocationStatus=LocationNeedsPermission
+                ? "定位未授权，暂用上次位置；请在天气设置中重新授权定位"
                 : "定位暂不可用，使用上次位置";
             // Location services may be temporarily unavailable. Weather still
             // refreshes from the last known coordinates instead of going blank.
@@ -237,7 +244,13 @@ sealed class WeatherMonitor
         }
     }
 
-    static double DistanceMeters(double latitude1, double longitude1,
+    static void SaveCoordinates(double latitude,double longitude) => Settings.SetMany(new()
+    {
+        [LatitudeKey]=latitude.ToString("F6",CultureInfo.InvariantCulture),
+        [LongitudeKey]=longitude.ToString("F6",CultureInfo.InvariantCulture)
+    });
+
+    internal static double DistanceMeters(double latitude1, double longitude1,
                                  double latitude2, double longitude2)
     {
         const double earthRadiusMeters = 6371000;
@@ -298,7 +311,17 @@ sealed class WeatherMonitor
         if (!geo.RootElement.TryGetProperty("code", out var geoCode) || geoCode.GetString() != "200"
             || !geo.RootElement.TryGetProperty("location", out var locations) || locations.GetArrayLength() == 0)
             throw new InvalidOperationException("和风天气没有找到该地区。 ");
-        var location = locations[0];
+        var location = locations[0].Clone();
+        if(autoLocation&&QWeatherCoordinates.IsMainland(location)) {
+            var corrected=QWeatherCoordinates.FromWgs84(latitude,longitude);
+            using var correctedGeo=await QWeatherJson(host,apiKey,
+                "/geo/v2/city/lookup?number=1&lang=zh&location="+Uri.EscapeDataString(
+                    FormattableString.Invariant($"{corrected.Longitude:F4},{corrected.Latitude:F4}")));
+            RequireCode(correctedGeo.RootElement,"定位地区");
+            if(!correctedGeo.RootElement.TryGetProperty("location",out var correctedLocations)||correctedLocations.GetArrayLength()==0)
+                throw new InvalidOperationException("和风天气没有找到当前位置。");
+            location=correctedLocations[0].Clone();
+        }
         var id = location.GetProperty("id").GetString() ?? throw new InvalidOperationException("地区缺少 LocationID。 ");
         var resolvedLat = ParseDouble(location.GetProperty("lat").GetString());
         var resolvedLon = ParseDouble(location.GetProperty("lon").GetString());

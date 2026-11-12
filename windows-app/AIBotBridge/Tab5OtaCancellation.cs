@@ -14,6 +14,8 @@ internal sealed partial class Tab5Service
         internal bool Started,Committed,DataStarted,FinalReleased,StopRequested,Signalled,Confirmed;
         internal string Device="",Host="",OriginalVersion="";
         internal string StartFailure="";
+        internal string VerificationFailure="";
+        internal bool Verifying,VerificationFinished,BootConfirmationPending;
         internal long StopAt,CommitUntil,ConfirmAfter,FinalAt;
     }
     private sealed record OtaStopProbe(OtaDelivery Delivery,string Challenge,long Started,long? UsbSequence=null);
@@ -27,6 +29,7 @@ internal sealed partial class Tab5Service
         "传输已停止，尚未收到设备确认；请保持供电并重新连接。":"正在停止升级，等待设备确认；请保持供电和连接。":"";}}
     private void BeginOtaDelivery(OtaDelivery delivery)
     {
+        if(!delivery.Started)_verifiedBoot=null;
         delivery.Started=true;
         if(delivery.Device.Length>0)return;
         var pair=_store.Current;
@@ -120,8 +123,16 @@ internal sealed partial class Tab5Service
             delivery.Stop.Token.ThrowIfCancellationRequested();
             if(!ReferenceEquals(_otaDelivery,delivery)||!ReferenceEquals(_ota,delivery.Image))throw new OperationCanceledException();
             Interlocked.Exchange(ref _rpcOtaUntil,Environment.TickCount64+90000);
-            if(end==length&&!delivery.FinalReleased){delivery.FinalReleased=true;delivery.FinalAt=Environment.TickCount64;}
+            if(end==length)ReleaseOtaFinal(delivery,Environment.TickCount64);
         }
+    }
+
+    // Both streamed and range-based delivery hold _lifecycle here.
+    private void ReleaseOtaFinal(OtaDelivery delivery,long now) {
+        if(delivery.FinalReleased)return;
+        delivery.FinalReleased=true;delivery.FinalAt=now;_verifiedBoot=null;
+        _upgradeDiagnostic="等待本次升级后重启";
+        _=Task.Run(()=>AutoVerifyUpgradeAsync(delivery,_lifetime.Token));
     }
 
     // A same-version reinstall cannot be recognized by version alone. Release

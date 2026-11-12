@@ -1,5 +1,7 @@
 # Mac TAB5 状态回包对齐交接
 
+本页保留首次交接基线。后续补测结果与 Mac 接续清单见 [Wi-Fi 触控与升级核验交接](MAC-TAB5-WIFI-TOUCH-HANDOFF-20261111.md)。
+
 ## 范围与接续
 
 Windows → macOS。来源分支为 `codex/tab5-status-reliability`，源码 `d9150b18012bfaf734930c032b680a1c6843eeff`，基于 `471249e59ab0f9fc0fc98a4cbd5c9cd75c10d040`。Mac 按本次开发请求在本地分支 `codex/mac-tab5-status-reliability-20261111` 对齐；Windows 的剩余真机验收没有被本次 Mac 开发结果替代。

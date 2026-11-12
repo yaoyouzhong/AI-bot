@@ -46,7 +46,8 @@ internal sealed partial class Tab5Service
         if(Volatile.Read(ref _ota)?.Version==version&&
             !(_otaDelivery is {Started:true} delivery&&delivery.OriginalVersion==delivery.Image.Version)) {
             Interlocked.Exchange(ref _rpcOtaUntil,0);
-            lock(_remoteOtaLock){_remoteOta?.Completion.TrySetResult(true);if(_remoteOtaStatus.Length>0)_remoteOtaStatus="设备已回报新版本，请核验启动。";}
+            lock(_remoteOtaLock){_remoteOta?.Completion.TrySetResult(true);if(_remoteOtaStatus.Length>0)_remoteOtaStatus=
+                _otaDelivery is {FinalReleased:true}?"设备已回报新版本，正在等待自动核验。":"设备已回报新版本。";}
         }
     }
     private sealed class Tab5RpcImage(string device,string task,string id,int size,string sha,string client)
@@ -180,7 +181,7 @@ internal sealed partial class Tab5Service
         if(!probe) {
             if(_otaDelivery is not {} delivery||delivery.StopRequested||!ReferenceEquals(offer,delivery.Image))return(404,new{error="offer_changed"});
             BeginOtaDelivery(delivery);delivery.Committed=delivery.DataStarted=true;
-            if(offset+count==offer.Image.Length&&!delivery.FinalReleased){delivery.FinalReleased=true;delivery.FinalAt=now;}
+            if(offset+count==offer.Image.Length)ReleaseOtaFinal(delivery,now);
             if(now>=Interlocked.Read(ref _rpcOtaUntil)){
                 Interlocked.Exchange(ref _usbRpcGateWaitMs,0);Interlocked.Exchange(ref _usbRpcGateWaitPeakMs,0);
             }

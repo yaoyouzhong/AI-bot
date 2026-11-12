@@ -52,8 +52,47 @@ internal sealed partial class Tab5Service
                 using var stop=new CancellationTokenSource();var pending=service.VerifyWirelessBootAsync(image,pair.DeviceId,stop.Token);stop.Cancel();
                 try{await pending;throw new Exception("Cancellation ignored");}catch(OperationCanceledException){}
                 Check(service._verifiedBoot is null&&!service.Busy&&service._bootProbe is null,"Cancellation clears verification, gate and request");
+
+                service.RecordVerifiedBoot(Report("",100,image.ElfSha256).GetProperty("diagnostic"),image,pair.DeviceId);
+                var range=JsonSerializer.SerializeToElement(new{kind="ota",sha256=image.Sha256,offerId=image.OfferId,offset=image.Image.Length-1,count=1});
+                Check(service.RpcOta(range,transport,false,false).Status==200,"Final range was refused");
+                Check(service.AutoBootPending&&service.UpgradeStatusText.State=="等待核验"&&!service.CanStartOta&&
+                    service._verifiedBoot is null,"Final delivery must clear old proof and arm automatic verification");
+                var delivery=service._otaDelivery!;
+                long finalAt=delivery.FinalAt;
+                Check(service.RpcOta(range,transport,false,false).Status==200&&delivery.FinalAt==finalAt,"Repeated final range restarted verification");
+                using var automaticStop=new CancellationTokenSource(TimeSpan.FromSeconds(40));
+                async Task<BootProbe> NextAutomaticProbe(string previous) {
+                    BootProbe? probe;
+                    while((probe=service._bootProbe) is null||probe.Id==previous)await Task.Delay(10,automaticStop.Token);
+                    return probe;
+                }
+                var oldBoot=await NextAutomaticProbe("");
+                Check(service.UpgradeStatusText.State=="正在核验"&&Environment.TickCount64<service._rpcOtaUntil,
+                    "Wireless verification did not start during the post-transfer lease");
+                Check((await Rpc(Report(oldBoot.Id,3_600_000,image.ElfSha256))).Status==200,"Pre-reboot report did not reach verification");
+                string lastId=oldBoot.Id;
+                for(int i=0;i<4;i++) {
+                    var probe=await NextAutomaticProbe(lastId);lastId=probe.Id;
+                    if(transport=="Wi-Fi")service._wifiRequestAt=Environment.TickCount64;else service._bleAckAt=Environment.TickCount64;
+                    Check((await Rpc(Report(probe.Id,100,image.ElfSha256,state:1))).Status==200,"Pending confirmation did not reach verification");
+                    Check(service.AutoBootPending&&service._verifiedBoot is null,"Pending firmware was treated as success or exhausted retries");
+                }
+                for(int i=0;i<3;i++) {
+                    var probe=await NextAutomaticProbe(lastId);lastId=probe.Id;
+                    Check(service._verifiedBoot is null,"Pre-transfer boot was accepted automatically");
+                    if(transport=="Wi-Fi")service._wifiRequestAt=Environment.TickCount64;else service._bleAckAt=Environment.TickCount64;
+                    Check((await Rpc(Report(probe.Id,100+i*1200,image.ElfSha256))).Status==200,"Post-reboot report rejected");
+                }
+                while(!delivery.VerificationFinished||service.Busy)await Task.Delay(10,automaticStop.Token);
+                Check(service.UpgradeBootSummary=="启动核验通过"&&service.UpgradeStatusText.State=="已核验"&&service._bootProbe is null,
+                    "Transfer did not automatically produce an exact boot result");
+                using var retryStop=new CancellationTokenSource();
+                var retry=service.VerifyUpgradeAsync(retryStop.Token);retryStop.Cancel();
+                try{await retry;throw new Exception("Manual retry ignored cancellation");}catch(OperationCanceledException){}
+                Check(!service.AutoBootPending,"A manual retry reopened completed automatic verification");
             }
-            Console.WriteLine($"WIRELESS_BOOT_OK checks={checks}; authenticated Wi-Fi/BLE 3-sample lifecycle, identity/transport/challenge/auth/replay rejection, hash/state/uptime checks and cancellation");
+            Console.WriteLine($"WIRELESS_BOOT_OK checks={checks}; authenticated Wi-Fi/BLE 3-sample lifecycle, identity/transport/challenge/auth/replay rejection, hash/state/uptime checks, cancellation and automatic post-transfer verification");
         }finally{Directory.Delete(folder,true);}
     }
 }

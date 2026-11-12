@@ -50,7 +50,7 @@ internal sealed partial class Tab5Service
     private byte[]? SelectTelemetryFrame(byte[]? full,int channel,bool supported,bool compressionSafe,bool preferMetrics,bool deltaSupported,int maximum)
     {
         if(full is null||!supported)return full;
-        bool settingsPending=DisplayCommand is not null||RemoteOtaPending;
+        bool settingsPending=DisplayCommand is not null||RemoteOtaPending||UIAutomation.Pending;
         lock(_telemetryLock) {
             // Give reply RPCs priority briefly, but keep full state moving:
             // metrics do not renew the device's task/session freshness.

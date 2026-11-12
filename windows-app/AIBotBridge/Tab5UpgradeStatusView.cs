@@ -50,6 +50,13 @@ internal sealed partial class Tab5Service
             if(_otaDelivery is {Started:true,FinalReleased:true}&&(reinstalling||view.Firmware!=image?.Version))
                 value=value with {State="等待校验",Hint="固件已传完，正在等待设备校验和重启，不能停止；请保持供电。"};
             else if(CanStopOta)value=value with {State=RemoteOtaPending?"准备升级":"正在传输",Hint="可点“停止升级”取消本次传输。"};
+            if(_otaDelivery is {} delivery&&AutoBootCurrent(delivery)&&_otaTransfers==0&&!BootMatches(delivery.Image,delivery.Device)) {
+                if(delivery.Verifying)value=value with {State="正在核验",Hint="正在读取设备运行镜像和启动状态。"};
+                else if(delivery.VerificationFailure.Length>0)value=value with {State="核验未通过",Hint=delivery.VerificationFailure};
+                else if(delivery.BootConfirmationPending)value=value with {State="等待核验",Hint="设备正在完成启动自检，请保持供电。"};
+                else if(!delivery.VerificationFinished)value=value with {State=view.Firmware==delivery.Image.Version?"等待核验":"等待校验",
+                    Hint="设备重连后自动核验，请保持供电。"};
+            }
             return value;
             }
         }

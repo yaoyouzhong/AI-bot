@@ -1,0 +1,140 @@
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R2";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R3";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1817,6 +1817,10 @@
+     value(w, "airQualityIndex", aq, sizeof(aq), "");
+     ui_text(home_temperature,t);
+     ui_text_fmt(home_weather,"%s · %s",text(w,"city"),text(w,"condition"));
++    cJSON *humidity=item(w,"humidity");
++    bool humidity_available=cJSON_IsNumber(humidity)&&humidity->valuedouble>=0&&humidity->valuedouble<=100;
++    if(humidity_available)ui_text_fmt(home_humidity,"湿度 %.0f%%",humidity->valuedouble);
++    visible(home_humidity,humidity_available);
+     render_quota();
+     overview_domestic();
+     if(current_page==12)calendar_render();
+--- a/firmware/main/ui_dashboard.h
++++ b/firmware/main/ui_dashboard.h
+@@ -70,7 +70,7 @@
+ static bool home_task_unread;
+ static char home_task_turn[64];
+ static char home_task_id[37],home_task_project[17];
+-static lv_obj_t *home_calendar_action,*home_weather_action;
++static lv_obj_t *home_calendar_action,*home_weather_action,*home_humidity;
+ static lv_obj_t *overview_hit(lv_obj_t *parent,int x,int y,int width,int height,int target) {
+     lv_obj_t *hit=lv_obj_create(parent);lv_obj_remove_style_all(hit);lv_obj_set_pos(hit,x,y);lv_obj_set_size(hit,width,height);
+     lv_obj_remove_flag(hit,LV_OBJ_FLAG_SCROLLABLE);lv_obj_add_flag(hit,LV_OBJ_FLAG_CLICKABLE);
+@@ -99,19 +99,27 @@
+     lv_obj_set_height(go,62);ui_bg_color(go,lv_color_hex(BLUE),0);
+     ui_text_color(go,lv_color_hex(0x173642),0);lv_obj_center(lv_obj_get_child(go,0));
+     lv_obj_t *date=card(p,784,0,436,512);
+-    home_date=muted(date,"等待日期",6,12,388);
+-    home_day=label(date,"--:--",3,63,396,true);
++    home_date=muted(date,"等待日期",6,4,254);
++    home_weekday=label(date,"",274,4,120,false);
++    lv_obj_set_style_text_align(home_weekday,LV_TEXT_ALIGN_RIGHT,0);
++    home_day=label(date,"--:--",3,67,396,true);
+     ui_text_font(home_day,&tab5_digits_96,0);
+-    home_weekday=label(date,"",6,187,388,false);
+-    home_lunar=muted(date,"",6,235,388);
+-    home_term=muted(date,"",224,235,170);tint(home_term,BLUE);visible(home_term,false);
+-    home_holiday=muted(date,"",6,283,388);
+-    shape(date,6,340,388,1,TRACK,0);
+-    home_temperature=label(date,"--",6,361,280,true);
+-    home_weather_icon=weather_icon_create_set(date,294,349,112);
+-    home_weather=muted(date,"等待天气",6,431,388);
++    home_lunar=muted(date,"",6,198,388);
++    home_term=muted(date,"",222,198,172);
++    lv_obj_set_style_text_align(home_term,LV_TEXT_ALIGN_RIGHT,0);
++    tint(home_term,BLUE);visible(home_term,false);
++    home_holiday=muted(date,"",6,259,388);
++    shape(date,6,334,388,1,TRACK,0);
++    const int weather_top=369;
++    home_temperature=label(date,"--",6,weather_top,160,true);
++    lv_label_set_long_mode(home_temperature,LV_LABEL_LONG_DOT);
++    lv_obj_set_height(home_temperature,lv_font_montserrat_40.line_height);
++    home_humidity=muted(date,"",178,weather_top+11,122);
++    visible(home_humidity,false);
++    home_weather_icon=weather_icon_create_set(date,314,weather_top+16,96);
++    home_weather=muted(date,"等待天气",6,weather_top+57,294);
+     lv_obj_t *single[]={home_date,home_weekday,home_lunar,home_term,home_holiday,home_weather};
+-    for(int i=0;i<5;i++){lv_obj_set_height(single[i],32);lv_label_set_long_mode(single[i],LV_LABEL_LONG_DOT);}
++    for(size_t i=0;i<sizeof(single)/sizeof(single[0]);i++){lv_obj_set_height(single[i],32);lv_label_set_long_mode(single[i],LV_LABEL_LONG_DOT);}
+     home_calendar_action=overview_hit(date,0,0,400,330,12);
+     home_weather_action=overview_hit(date,0,344,400,132,2);
+     for(int i=0;i<3;i++) {
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2468,6 +2468,53 @@
+     cJSON_AddItemToObject(shown,"pcInput",cJSON_Parse("{\"session\":\"preview-session\",\"sequence\":1}"));
+     cJSON_AddItemToObject(shown,"codexTasks",cJSON_Parse("{\"projects\":[{\"id\":\"aaaaaaaaaaaaaaaa\",\"name\":\"M5Stack TAB5\"},{\"id\":\"bbbbbbbbbbbbbbbb\",\"name\":\"biaoshu\"}],\"tasks\":[{\"id\":\"01a0cc69-2782-7650-9903-303578a0296e\",\"title\":\"检查 TAB5 设备连接\",\"folder\":\"M5Stack TAB5\",\"projectId\":\"aaaaaaaaaaaaaaaa\"},{\"id\":\"01a0cc69-2782-7650-9903-303578a0296f\",\"title\":\"修复标书资料导入\",\"folder\":\"biaoshu\",\"projectId\":\"bbbbbbbbbbbbbbbb\"}],\"receipts\":{}}"));
+     render(); clock_music(10000,true); images_tick(150);
++    if(getenv("TAB5_OVERVIEW_WEATHER_ONLY")) {
++        cJSON *weather=item(shown,"weather");
++        assert(cJSON_IsObject(weather));
++        page(0);
++        cJSON_ReplaceItemInObject(weather,"humidity",cJSON_CreateNumber(58));
++        render();
++        assert(!strcmp(lv_label_get_text(home_humidity),"湿度 58%"));
++        assert(!lv_obj_has_flag(home_humidity,LV_OBJ_FLAG_HIDDEN));
++        capture("overview-weather-humidity");
++        cJSON_ReplaceItemInObject(weather,"humidity",cJSON_CreateNumber(100));
++        render();lv_obj_update_layout(lv_screen_active());
++        lv_point_t humidity_text;
++        const lv_font_t *humidity_font=lv_obj_get_style_text_font(home_humidity,0);
++        lv_text_get_size(&humidity_text,lv_label_get_text(home_humidity),humidity_font,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
++        assert(humidity_text.x<=lv_obj_get_width(home_humidity));
++        capture("overview-weather-humidity-100");
++        cJSON_ReplaceItemInObject(weather,"temperature",cJSON_CreateNumber(-40.5));
++        render();lv_obj_update_layout(lv_screen_active());
++        lv_area_t temperature_box,humidity_box,city_box,weather_icon_box;
++        lv_obj_get_coords(home_temperature,&temperature_box);
++        lv_obj_get_coords(home_humidity,&humidity_box);
++        lv_obj_get_coords(home_weather,&city_box);
++        lv_obj_get_coords(home_weather_icon,&weather_icon_box);
++        lv_point_t temperature_text;
++        const lv_font_t *temperature_font=lv_obj_get_style_text_font(home_temperature,0);
++        lv_text_get_size(&temperature_text,lv_label_get_text(home_temperature),temperature_font,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
++        assert(temperature_text.x<=lv_obj_get_width(home_temperature));
++        assert(temperature_box.x2<humidity_box.x1&&humidity_box.y1<temperature_box.y2);
++        assert(humidity_box.y2<city_box.y1&&city_box.x1==temperature_box.x1);
++        assert(humidity_box.x2<weather_icon_box.x1&&city_box.x2<weather_icon_box.x1);
++        capture("overview-weather-humidity-cold");
++        cJSON_ReplaceItemInObject(weather,"temperature",cJSON_CreateNumber(26.5));
++        cJSON_ReplaceItemInObject(weather,"humidity",cJSON_CreateNumber(0));
++        render();
++        assert(!strcmp(lv_label_get_text(home_humidity),"湿度 0%"));
++        cJSON_ReplaceItemInObject(weather,"humidity",cJSON_CreateNumber(101));
++        render();
++        assert(lv_obj_has_flag(home_humidity,LV_OBJ_FLAG_HIDDEN));
++        cJSON_DeleteItemFromObject(weather,"humidity");
++        render();
++        assert(lv_obj_has_flag(home_humidity,LV_OBJ_FLAG_HIDDEN));
++        lv_obj_update_layout(lv_screen_active());
++        assert(lv_obj_get_width(home_weather)==294);
++        capture("overview-weather-no-humidity");
++        puts("OVERVIEW_WEATHER_HUMIDITY_OK");
++        return 0;
++    }
+     if(getenv("TAB5_OVERVIEW_CALENDAR_COLOR_ONLY")) {
+         const struct {
+             const char *name,*date,*holiday,*term;
+@@ -2497,6 +2544,12 @@
+             cJSON_ReplaceItemInObject(calendar,"holidayLabel",cJSON_CreateString(cases[i].holiday));
+             cJSON_ReplaceItemInObject(calendar,"solarTermLabel",cJSON_CreateString(""));
+             last_received=12000+i*1000;clock_music(last_received,true);
++            lv_obj_update_layout(lv_screen_active());
++            lv_area_t date_box,weekday_box,lunar_box,term_box;
++            lv_obj_get_coords(home_date,&date_box);lv_obj_get_coords(home_weekday,&weekday_box);
++            lv_obj_get_coords(home_lunar,&lunar_box);lv_obj_get_coords(home_term,&term_box);
++            assert(date_box.y1==weekday_box.y1&&date_box.x2<weekday_box.x1);
++            assert(!cases[i].term[0]||(lunar_box.y1==term_box.y1&&lunar_box.x2<term_box.x1));
+             assert(lv_color_eq(lv_obj_get_style_text_color(home_weekday,0),lv_color_hex(cases[i].day_color)));
+             assert(lv_color_eq(lv_obj_get_style_text_color(home_holiday,0),lv_color_hex(cases[i].holiday_color)));
+             assert(!strcmp(lv_label_get_text(home_term),cases[i].term));

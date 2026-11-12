@@ -209,7 +209,8 @@ internal sealed partial class Tab5Service : IDisposable
     private volatile string _usbDataActive="";
     internal long LastCommunicationAt=>Math.Max(Interlocked.Read(ref _wifiRequestAt),Math.Max(Interlocked.Read(ref _usbAckAt),Interlocked.Read(ref _bleAckAt)));
     private int _installBusy;
-    internal bool Busy=>Volatile.Read(ref _benchmarkRunning)>0||Volatile.Read(ref _rpcRequests)>0||Environment.TickCount64<Interlocked.Read(ref _rpcOtaUntil)||Volatile.Read(ref _voiceRequests)>0||Volatile.Read(ref _otaTransfers)>0||Volatile.Read(ref _installBusy)>0||(_voice as Tab5VoiceHost)?.Busy==true;
+    private bool BusyExceptOtaLease=>Volatile.Read(ref _benchmarkRunning)>0||Volatile.Read(ref _rpcRequests)>0||Volatile.Read(ref _voiceRequests)>0||Volatile.Read(ref _otaTransfers)>0||Volatile.Read(ref _installBusy)>0||(_voice as Tab5VoiceHost)?.Busy==true;
+    internal bool Busy=>BusyExceptOtaLease||Environment.TickCount64<Interlocked.Read(ref _rpcOtaUntil);
     internal string? PairedId=>_store.Current?.DeviceId;
     internal DeviceView DeviceView { get {long now=Environment.TickCount64;bool Recent(long at)=>at>0&&now-at<15000;bool usb=Recent(Interlocked.Read(ref _usbAckAt)),wifi=WifiBridgeReady(now,Interlocked.Read(ref _wifiRequestAt)),ble=Recent(Interlocked.Read(ref _bleAckAt));string wifiStatus=WifiConnectionStatus;return new(usb||wifi||ble,Busy?"正在处理":usb||wifi||ble?"在线":"离线",$"USB：{(usb?"已连接":"未连接")}  Wi-Fi：{wifiStatus}  蓝牙：{(ble?"已连接":"未连接")}\n当前通道：{(usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无")}",_firmware.LastVersion(PairedId),usb?"已连接":"未连接",wifiStatus,ble?"已连接":"未连接",usb?"USB":wifi?"Wi-Fi":ble?"蓝牙":"无");}}
     private volatile bool _wifiReportedConnected;
@@ -270,7 +271,7 @@ internal sealed partial class Tab5Service : IDisposable
         _gallery=gallery??new();
         if(_store.Current is { } pair) _reservedPort=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)?.Port;
     }
-    private object ConnectionHealthFor(StatusSnapshot snapshot,Tab5OtaPackage? image) => new { uiAutomationCommand=UIAutomation.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), screenPreviewCommand=ScreenPreview.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), hostBindingVersion=1,hostId=_store.Current is {} hostPair?Tab5HostBinding.Id(hostPair):"",hostName=Tab5HostBinding.Name(Environment.MachineName),voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),image),bootVerifyCommand=BootVerifyCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()),runtimeDiagnosticCommand=RuntimeDiagnosticCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,unlockCredentialVersion=2,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
+    private object ConnectionHealthFor(StatusSnapshot snapshot,Tab5OtaPackage? image) => new { uiAutomationCommand=UIAutomation.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),owner:UiAutomationOwner), screenPreviewCommand=ScreenPreview.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), hostBindingVersion=1,hostId=_store.Current is {} hostPair?Tab5HostBinding.Id(hostPair):"",hostName=Tab5HostBinding.Name(Environment.MachineName),voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),image),bootVerifyCommand=BootVerifyCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()),runtimeDiagnosticCommand=RuntimeDiagnosticCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,unlockCredentialVersion=2,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
         bleStandby=Tab5BleClient.ReportStandby(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),Interlocked.Read(ref _bleAckAt),_usbDataActive,_bleStatus) };
     private long _musicPublishedAt;
     internal void Publish(StatusSnapshot snapshot) => Publish(snapshot,false);
@@ -363,12 +364,19 @@ internal sealed partial class Tab5Service : IDisposable
         return Tab5DiscoveryProtocol.Respond(packet,pair.DeviceId,Convert.FromBase64String(pair.Key),host,port);
     }
     internal void SetBinding(LanPairing? binding) { _host=binding?.Address.ToString(); _port=binding?.Port??0; }
-    internal byte[]? Respond(string id,string nonce,string proof,string? assets=null,string? assetsProof=null,string? firmware=null,string? firmwareProof=null)
+    internal string? UiAutomationOwner=>_store.Current is {} pair?Tab5HostBinding.Id(pair):null;
+    internal bool WifiUiAutomationAvailable=>UiAutomationOwner is {} owner&&UIAutomation.WifiAvailable(owner);
+    internal bool UsbUiAutomationActive=>_usbDataActive=="USB";
+    internal byte[]? Respond(string id,string nonce,string proof,string? assets=null,string? assetsProof=null,string? firmware=null,string? firmwareProof=null,
+        string? uiAutomation=null,string? uiAutomationProof=null)
     {
         var pairing=_store.Current;
         if(pairing is null || pairing.DeviceId!=id || !Tab5Protocol.ValidNonce(nonce)) return null;
         var key=Convert.FromBase64String(pairing.Key);
         if(!Tab5Protocol.Verify(key,"GET|"+id+"|"+nonce,proof)) return null;
+        if(uiAutomation is {Length:>0 and <96}&&
+            Tab5Protocol.Verify(key,"UI-AUTOMATION|"+nonce+"|"+uiAutomation,uiAutomationProof))
+            UIAutomation.ObserveWifi(Tab5HostBinding.Id(pairing),uiAutomation);
         int maximum=Tab5Protocol.MaximumFrame;
         bool verifiedFirmware=firmware is not null&&firmware.Length<=31&&Tab5Protocol.Verify(key,"FIRMWARE|"+nonce+"|"+firmware,firmwareProof);
         if(verifiedFirmware) {
@@ -742,7 +750,7 @@ internal sealed partial class Tab5Service : IDisposable
                             bool hasResource=sent.RootElement.GetProperty("data").GetProperty("resource").ValueKind==JsonValueKind.Object;
                             _wifiReportedConnected=ack.RootElement.TryGetProperty("wifiConnected",out var wifiValue)&&wifiValue.ValueKind==JsonValueKind.True;
                             Interlocked.Exchange(ref _wifiReportAt,Environment.TickCount64);
-                            UIAutomation.Observe(ack.RootElement);
+                            UIAutomation.Observe(ack.RootElement,Tab5HostBinding.Id(pairing));
                             RecordRuntimeHealth(ack.RootElement,"USB",frame.Length,hasResource);
                             ObserveOtaStopped(ack.RootElement,stopProbe,usb:true);
                             if(ack.RootElement.TryGetProperty("wifiIsolation",out _))_wifiIsolationDiagnostic=NumericProbeDiagnostic(ack.RootElement,"wifiIsolation",7);

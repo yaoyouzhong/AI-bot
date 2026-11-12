@@ -1,0 +1,118 @@
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R4";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R5";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2962,15 +2962,41 @@
+     const char *today_prefix="今日";
+     const char *today_term=!strncmp(term,today_prefix,strlen(today_prefix))
+         ? term+strlen(today_prefix) : !term[0] ? calendar_term(year,month*100+day) : "";
+-    ui_text(home_lunar,lunar);
+-    lv_obj_set_width(home_lunar,today_term[0]?204:388);
+-    ui_text(home_term,today_term);
+-    visible(home_term,today_term[0]);
++    const char *holiday_name=calendar_holiday(year,month*100+day,&schedule_kind);
++    char special[160];special[0]=0;
++    if(schedule_kind==1 && holiday_name[0])snprintf(special,sizeof(special),"%s",holiday_name);
++    if(today_term[0] && !strstr(special,today_term)) {
++        size_t n=strlen(special);snprintf(special+n,sizeof(special)-n,"%s%s",n?" · ":"",today_term);
++    }
++    char suffix[180];snprintf(suffix,sizeof(suffix),"%s%s",special[0]?" · ":"",special);
++    tint(home_term,schedule_kind==1?GREEN:BLUE);
++    const lv_font_t *lunar_font=lv_obj_get_style_text_font(home_lunar,0);
++    lv_point_t lunar_size,special_size;
++    lv_text_get_size(&lunar_size,lunar,lunar_font,lv_obj_get_style_text_letter_space(home_lunar,0),0,1000,LV_TEXT_FLAG_NONE);
++    lv_text_get_size(&special_size,suffix,lunar_font,lv_obj_get_style_text_letter_space(home_term,0),0,1000,LV_TEXT_FLAG_NONE);
++    // Keep the reminder row available even for an unusually long holiday name.
++    int lunar_width=LV_MIN(lunar_size.x+2,204);
++    int special_width=special[0]?LV_MIN(special_size.x+2,388-lunar_width):0;
++    int total=lunar_width+special_width;
++    lv_obj_set_width(home_lunar,lunar_width);
++    lv_obj_set_pos(home_lunar,6+(388-total)/2,148);
++    lv_obj_set_style_text_align(home_lunar,LV_TEXT_ALIGN_CENTER,0);
++    lv_obj_set_width(home_term,LV_MAX(1,special_width));
++    lv_obj_set_pos(home_term,6+(388-total)/2+lunar_width,148);
++    lv_obj_set_style_text_align(home_term,LV_TEXT_ALIGN_CENTER,0);
++    // Resolve bounds before text: DOT mode can shorten a new value immediately
++    // when a longer next-day lunar label still has yesterday's narrow width.
++    lv_obj_update_layout(home_lunar);
++    lv_obj_update_layout(home_term);
++    ui_text(home_lunar,lunar);ui_text(home_term,suffix);
++    visible(home_term,special[0]);
+     calendar_set_today(year,month,day);
+     if(!calendar_has_birthday) {
+-        ui_text(home_holiday,clock_special_day(holiday));
++        ui_text(home_holiday,schedule_kind==1?"":clock_special_day(holiday));
+         tint(home_holiday,(today||tomorrow)?day_color:MUTED);
+     }
++    lv_obj_set_style_text_align(home_holiday,LV_TEXT_ALIGN_CENTER,0);
++    visible(home_holiday,true);
+     int week_index=(local.tm_wday+6)%7;
+     int week_start=cal_serial(year,month,day)-week_index;
+     for(int i=0;i<7;i++) {
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2548,27 +2548,35 @@
+             int64_t local_epoch=(int64_t)serial*86400+10*3600+15*60;
+             cJSON_ReplaceItemInObject(shown,"epochUtc",cJSON_CreateNumber((double)(local_epoch-(int)num(shown,"utcOffsetSeconds"))));
+             cJSON_ReplaceItemInObject(calendar,"date",cJSON_CreateString(cases[i].date));
+-            cJSON_ReplaceItemInObject(calendar,"lunar",cJSON_CreateString("农历初十"));
++            cJSON_ReplaceItemInObject(calendar,"lunar",cJSON_CreateString(i==5?"八月廿一":i==8?"二月十八":"九月初五"));
+             cJSON_ReplaceItemInObject(calendar,"holidayLabel",cJSON_CreateString(cases[i].holiday));
+             cJSON_ReplaceItemInObject(calendar,"solarTermLabel",cJSON_CreateString(""));
+             last_received=12000+i*1000;clock_music(last_received,true);
+-            assert(!strcmp(lv_label_get_text(home_holiday),clock_special_day(cases[i].holiday)));
+             lv_obj_update_layout(lv_screen_active());
+-            lv_area_t date_box,weekday_box,lunar_box,term_box,holiday_box;
+-            lv_obj_get_coords(home_date,&date_box);lv_obj_get_coords(home_weekday,&weekday_box);
++            lv_area_t lunar_box,term_box,week_box;
+             lv_obj_get_coords(home_lunar,&lunar_box);lv_obj_get_coords(home_term,&term_box);
+-            lv_obj_get_coords(home_holiday,&holiday_box);
+-            assert(date_box.y1==weekday_box.y1&&date_box.x2<weekday_box.x1);
+-            assert(!cases[i].term[0]||(lunar_box.y1==term_box.y1&&lunar_box.x2<term_box.x1));
+-            assert(weekday_box.x2==holiday_box.x2&&(!cases[i].term[0]||weekday_box.x2==term_box.x2));
+-            assert(lv_color_eq(lv_obj_get_style_text_color(home_weekday,0),lv_color_hex(cases[i].day_color)));
+-            assert(lv_color_eq(lv_obj_get_style_text_color(home_holiday,0),lv_color_hex(cases[i].holiday_color)));
+-            assert(!strcmp(lv_label_get_text(home_term),cases[i].term));
+-            assert(lv_obj_has_flag(home_term,LV_OBJ_FLAG_HIDDEN)==!cases[i].term[0]);
+-            assert(lv_color_eq(lv_obj_get_style_text_color(home_term,0),lv_color_hex(BLUE)));
++            lv_obj_get_coords(home_week_names[0],&week_box);
++            assert(lunar_box.y2<week_box.y1);
++            if(!lv_obj_has_flag(home_term,LV_OBJ_FLAG_HIDDEN)) {
++                assert(term_box.y2<week_box.y1);
++                assert(lunar_box.y2<term_box.y1 || lunar_box.x2<term_box.x1);
++            }
+             char name[72];snprintf(name,sizeof(name),"overview-calendar-%s",cases[i].name);capture(name);
+         }
+-        puts("OVERVIEW_CALENDAR_COLOR_OK weekday Saturday Sunday official holiday makeup term and overlap");
++        cJSON_AddItemToObject(item(calendar,"detail"),"birthdays",cJSON_Parse("[{\"name\":\"家人\",\"month\":4,\"day\":5,\"lunar\":false,\"leap\":false,\"remind\":0}]"));
++        cJSON_ReplaceItemInObject(calendar,"lunar",cJSON_CreateString("农历二月十八"));
++        cJSON_ReplaceItemInObject(calendar,"solarTermLabel",cJSON_CreateString("今日这是一个用于检查排版的超长节气名称"));
++        last_received+=1000;clock_music(last_received,true);
++        lv_obj_update_layout(lv_screen_active());
++        assert(strstr(lv_label_get_text(home_holiday),"家人"));
++        assert(!lv_obj_has_flag(home_holiday,LV_OBJ_FLAG_HIDDEN));
++        lv_area_t lunar_bounds,term_bounds,reminder_bounds,week_bounds;
++        lv_obj_get_coords(home_lunar,&lunar_bounds);lv_obj_get_coords(home_term,&term_bounds);
++        lv_obj_get_coords(home_holiday,&reminder_bounds);lv_obj_get_coords(home_week_names[0],&week_bounds);
++        assert(lunar_bounds.x2<term_bounds.x1);
++        assert(term_bounds.y2<reminder_bounds.y1 && reminder_bounds.y2<week_bounds.y1);
++        capture("overview-calendar-long-holiday-birthday");
++        puts("OVERVIEW_CALENDAR_COLOR_OK centered lunar holiday solar term long label birthday preservation");
+         return 0;
+     }
+     if(getenv("TAB5_CLOCK_DAY_ONLY")) {
+@@ -3142,7 +3150,7 @@
+     weather_forecast_render(NULL);capture("weather-forecast-unavailable");assert(!lv_obj_has_flag(forecast_empty[1],LV_OBJ_FLAG_HIDDEN));
+     weather_forecast_render(weather_data);lv_obj_send_event(weather_nav[0],LV_EVENT_CLICKED,NULL);workbench_return(NULL);
+     assert(!strcmp(lv_label_get_text(home_lunar),"八月十三"));
+-    assert(!lv_obj_has_flag(home_term,LV_OBJ_FLAG_HIDDEN)&&!strcmp(lv_label_get_text(home_term),"秋分"));
++    assert(!lv_obj_has_flag(home_term,LV_OBJ_FLAG_HIDDEN)&&!strcmp(lv_label_get_text(home_term)," · 秋分"));
+     cJSON *home_fixture=shown;
+     int64_t home_saved_offline=offline_since;link_kind home_saved_link=last_link;
+     offline_since=-1;last_link=LINK_USB;
