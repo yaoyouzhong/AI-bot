@@ -189,16 +189,16 @@ class DownloadCatalogTests(unittest.TestCase):
     def test_readmes_and_centers_match_index(self):
         catalog.sync(self.data, check=True)
 
-    def test_public_downloads_only_list_apps_and_firmware(self):
+    def test_public_downloads_include_apps_firmware_and_artwork(self):
         entries = self.data["downloads"]
         for lang in ("zh", "en"):
             public = catalog.block(self.data, lang)
             for key in ("windows", "macos", "esp8266", "tab5-first", "tab5-upgrade"):
                 self.assertIn(catalog.asset_url(entries[key]), public)
-            self.assertEqual(public.count("[SHA-256]"), 5)
+            self.assertEqual(public.count("[SHA-256]"), 9)
             for key in ("calligraphy", "painting"):
-                self.assertNotIn(catalog.asset_url(entries[key]), public)
-            self.assertNotIn(catalog.HD_GUIDE, public)
+                self.assertIn(catalog.asset_url(entries[key]), public)
+            self.assertIn(catalog.HD_GUIDE, public)
         releases = self.releases() + [{
             "tag_name": "esp8266-v99.0.0", "published_at": "2026-11-10",
             "assets": [{"name": "AI-bot-esp8266-99.0.0-firmware.zip", "size": 100, "digest": "sha256:" + "a" * 64},

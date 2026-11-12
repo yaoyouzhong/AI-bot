@@ -139,6 +139,8 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 ## 下载与搭配
 
 <!-- downloads:start -->
+### 程序与固件
+
 | 用途 | 版本 | 下载 | SHA-256 |
 | --- | --- | --- | --- |
 | Windows 桥接 · Windows 10/11 x64 | 0.6.20 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-bridge-v0.6.20-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt) |
@@ -147,13 +149,22 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 | TAB5 · 出厂系统首次安装 | 0.2.320-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/AI-bot-tab5-0.2.320-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/SHA256SUMS.txt) |
 | TAB5 · 已有 AI-bot 升级 | 0.2.320-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/AI-bot-tab5-0.2.320-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/SHA256SUMS.txt) |
 
+### 名画与书法
+
+| 用途 | 版本 | 下载 | SHA-256 |
+| --- | --- | --- | --- |
+| 每日书法 · 标准版 | 2026.2（包 2026.11.12.1） | [下载 · 869 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-gallery-calligraphy-standard-2026.11.12.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt) |
+| 每日书法 · 高清完整版 | 2026.2（包 2026.11.12.1） | [下载 · 2.89 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#calligraphy) |
+| 每日名画 · 标准版 | 2026.2（包 2026.11.12.1） | [下载 · 191 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-gallery-painting-standard-2026.11.12.1.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt) |
+| 每日名画 · 高清完整版 | 2026.2（包 2026.11.12.1） | [下载 · 2.93 GiB](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#download) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-HD.md#painting) |
+
 [首次安装图文指南](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/FIRST-INSTALL.zh.md) · [升级与排错](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md) · [书画精选图库](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-PACKS.md)
 <!-- downloads:end -->
 
 [图库下载与导入](docs/GALLERY-PACKS.md)
 
 - **图库**：Windows「软件与固件更新 → 屏保图库」直接导入 ZIP，无需解压；升级电脑软件会保留图库。图库要求 Windows 桥接 0.6.0+、TAB5 0.2.145-ui+。
-- **图库版本选择**：同一类别选择标准版或高清完整版即可。高清版含对应标准图和导读，无需重复安装；电脑桥接 0.6.7+ 可浏览高清原作，TAB5 使用适配展示图。点击上表高清版的大小链接，按说明下载、合并后导入；标准名画沿用原包。
+- **图库版本选择**：同一类别选择标准版或高清完整版即可。高清版含对应标准图和导读，无需重复安装；电脑桥接 0.6.7+ 可浏览高清原作，TAB5 使用适配展示图。点击上表高清版的大小链接，按说明下载、合并后导入；普通版与高清版均可从上表选择。
 
 ## 安装与后续更新
 

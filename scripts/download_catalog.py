@@ -247,7 +247,11 @@ def guidance(language):
 
 
 def block(data, language):
-    return f"{START}\n{table(data, language, install_only=True)}\n\n{guidance(language)}\n{END}"
+    rows = table(data, language).splitlines()
+    app_title, gallery_title = ("程序与固件", "名画与书法") if language == "zh" else ("Apps and firmware", "Painting and calligraphy")
+    apps = "\n".join(rows[:7])
+    gallery = "\n".join(rows[:2] + rows[7:])
+    return f"{START}\n### {app_title}\n\n{apps}\n\n### {gallery_title}\n\n{gallery}\n\n{guidance(language)}\n{END}"
 
 
 def sync(data, check=False):

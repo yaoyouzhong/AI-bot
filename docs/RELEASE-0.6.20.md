@@ -4,6 +4,10 @@
 
 从[正式发布附件](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.20)或[下载中心](../DOWNLOADS.md)获取 Windows x64 安装器、Mac Apple Silicon ZIP、TAB5 首刷或升级包，以及名画和书法精选图库。
 
+## 图库下载
+
+普通版可直接下载 ZIP。Windows 高清版下载并解压[高清图库下载工具](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-HD-Gallery-Downloader.zip)，运行其中的 Download-HD-Gallery.cmd，选择名画或书法即可自动下载和合并。详细步骤见[高清图库指南](GALLERY-HD.md)。
+
 ## 桌面桥接 0.6.20
 
 - 改善 TAB5 的 Wi-Fi 发现、状态同步、触控核验和固件更新后的自动启动核验。Mac 串口重连后会恢复设备识别。

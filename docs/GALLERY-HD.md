@@ -9,10 +9,7 @@
 从[图库下载表](GALLERY-PACKS.md)选择同类的标准版或高清完整版即可；高清名画 **2.93 GiB／24 段**，高清书法 **2.89 GiB／24 段**。以下下载工具同时支持两套，按提示选择一套。
 
 1. 安装 [AI-bot 桥接 0.6.20](../DOWNLOADS.md)。
-2. 将以下三个文件下载到**同一个空文件夹**：
-   - [Download-HD-Gallery.cmd](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/Download-HD-Gallery.cmd)
-   - [Merge-HD-Gallery.ps1](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/Merge-HD-Gallery.ps1)
-   - [HD-Gallery-parts.json](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/HD-Gallery-parts.json)
+2. 下载[高清图库下载工具 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-HD-Gallery-Downloader.zip)，解压到空文件夹。
 3. 双击 **Download-HD-Gallery.cmd**，输入 **1（名画）**或 **2（书法）**。工具逐段下载并检查 SHA-256，再合并、核验完整 ZIP。中断后再次运行即可续传；已完成段不重复下载，未完成段用 HTTP Range 接着下载（服务端不支持 Range 时只重下该段）。不改变系统执行策略。
 4. 合并时预留至少 **6 GiB**，导入还需额外安装空间。原分段保留，不覆盖不同的已有 ZIP。
 5. 打开 **设备中心 → 屏保图库 → 安装图库包…**，选择合并后的完整 ZIP，无需手动解压，不能直接选 `.partNNN`。
@@ -99,6 +96,6 @@
 
 ## English
 
-Both complete HD editions contain 366 works, desktop originals, matching TAB5 previews, guides and source/license records. Standard installation is unnecessary. Install bridge 0.6.20, download the three helpers linked above to one empty folder, run Download-HD-Gallery.cmd and choose 1 (painting) or 2 (calligraphy). It downloads 128 MiB parts, resumes interrupted HTTP transfers, verifies each part and the final archive, and retains all parts. Run again after interruption. Reserve at least 6 GiB for download plus merging, with additional import space. Import the complete ZIP through Device Center → Artwork Collections → Install Gallery Package; never import an individual part.
+Both complete HD editions contain 366 works, desktop originals, matching TAB5 previews, guides and source/license records. Standard installation is unnecessary. Install bridge 0.6.20, download and extract the HD downloader ZIP linked above to an empty folder, run Download-HD-Gallery.cmd and choose 1 (painting) or 2 (calligraphy). It downloads 128 MiB parts, resumes interrupted HTTP transfers, verifies each part and the final archive, and retains all parts. Run again after interruption. Reserve at least 6 GiB for download plus merging, with additional import space. Import the complete ZIP through Device Center → Artwork Collections → Install Gallery Package; never import an individual part.
 
 Manual parts and an offline merge CMD are also linked above. Completed upload/download parts are reused; GitHub upload recovery occurs at part boundaries because its release API does not resume inside one asset. Edition 2026.2 is available as standard and complete HD (package version 2026.11.12.1). Use the corresponding standard package for device previews and the complete HD package for desktop detail. Bounded image decoding, distribution derivatives and individual licenses retain their stated limits.
