@@ -40,17 +40,21 @@ class DownloadCatalogTests(unittest.TestCase):
 
     def test_gallery_content_editions_preserve_package_identity(self):
         before = copy.deepcopy(self.data)
+        hd = catalog.load_hd()
         for language in ("zh", "en"):
             rows = catalog.table(self.data, language).splitlines()
             for key in ("painting", "calligraphy"):
                 item = self.data["downloads"][key]
                 index = next(i for i, row in enumerate(rows) if catalog.asset_url(item) in row)
-                self.assertIn("2026.1", rows[index])
+                self.assertIn(catalog.gallery_display_version(key, item["version"], language), rows[index])
                 self.assertIn(item["version"], rows[index])
-                self.assertIn("2026.1", rows[index + 1])
-                self.assertIn("2026.10.16", rows[index + 1])
+                self.assertIn(catalog.gallery_display_version(key, hd["version"], language), rows[index + 1])
+                self.assertIn(hd["version"], rows[index + 1])
                 self.assertIn(item["file"], rows[index])
         self.assertEqual(before, self.data)
+        for key in ("painting", "calligraphy"):
+            self.assertEqual(catalog.gallery_edition(key, "2026.10.16"), "2026.1")
+            self.assertEqual(catalog.gallery_edition(key, "2026.11.12.1"), "2026.2")
         self.assertEqual(catalog.gallery_edition("painting", "2026.10.18"), "2026.10.18")
         self.assertEqual(catalog.gallery_edition("windows", "0.6.8"), "0.6.8")
 
@@ -75,26 +79,22 @@ class DownloadCatalogTests(unittest.TestCase):
             self.assertEqual(rendered.count("本次发布" if language == "zh" else "this release"), 1)
 
     def test_gallery_table_exposes_exact_installed_package_versions(self):
+        versions = {self.data["downloads"][key]["version"] for key in ("painting", "calligraphy")}
+        versions.add(catalog.load_hd()["version"])
         for language, label in (("zh", "包"), ("en", "package")):
             table = catalog.table(self.data, language)
-            for version in ("2026.10.14.1", "2026.10.15.1", "2026.10.16"):
+            for version in versions:
                 self.assertIn(f"{label} {version}", table)
             self.assertEqual(catalog.gallery_display_version("painting", "2099.01.01", language), "2099.01.01")
 
     def test_desktop_draft_links_only_the_selected_platform(self):
-        version = catalog.versions(catalog.ROOT)["bridge"]
-        # The checked-in catalog may already contain this version after release.
-        # Build a genuine pre-publication fixture without changing the real index.
-        draft_data = copy.deepcopy(self.data)
-        for key in ("windows", "macos"):
-            if draft_data["downloads"][key]["tag"] == "v" + version:
-                draft_data["downloads"][key].update(
-                    tag="v0.0.1", version="0.0.1",
-                    file=catalog.SPECS[key][1].format(version="0.0.1"))
+        version = "99.0.0"
         for platform, retained in (("windows", "macos"), ("macos", "windows")):
-            with self.subTest(platform=platform), patch.object(catalog, "desktop_platform", return_value=platform):
-                rendered = catalog.table(draft_data, tag="v" + version)
-                self.assertIn(catalog.asset_url(draft_data["downloads"][retained]), rendered)
+            with (self.subTest(platform=platform),
+                  patch.object(catalog, "desktop_platform", return_value=platform),
+                  patch.object(catalog, "versions", return_value={"bridge": version})):
+                rendered = catalog.table(self.data, tag="v" + version)
+                self.assertIn(catalog.asset_url(self.data["downloads"][retained]), rendered)
                 self.assertIn(catalog.SPECS[platform][1].format(version=version), rendered)
                 self.assertEqual(rendered.count("本次发布"), 1)
 

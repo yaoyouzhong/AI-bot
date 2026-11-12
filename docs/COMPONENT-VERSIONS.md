@@ -4,20 +4,20 @@ Windows / Mac 协作、候选构建物与发布职责见[统一开发发布流�
 
 桥接、ESP8266 和 TAB5 分别更新，不要求三个版本号相同。只修改一个组件时，不重编号、重发或要求用户重刷另外两个组件。历史 `v0.5.0` 标签与已发布文件保持不变。
 
-2026-11-03 当前发布：Windows／Mac **0.6.16**、ESP8266 **0.5.8**、TAB5 **0.2.303-ui**；图库沿用原正式版本。四个交付项按三个组件 Release 登记，见[本轮说明及验收范围](RELEASE-0.6.16.md)。
+2026-11-12 发布 Windows／Mac **0.6.20**、TAB5 **0.2.320-ui** 和精选图库 **2026.2**。Windows 和 Mac 使用同一份候选源码提交。ESP8266 当前正式版本为 **0.5.8**。[统一下载](../DOWNLOADS.md) · [发布说明](RELEASE-0.6.20.md)
 
-本次 `desktopPlatform=all`，Windows 与 Mac 使用同一候选源码提交及共同桥接版本。Both desktop platforms use 0.6.16 from the same source candidate; ESP8266 0.5.8 and TAB5 0.2.303-ui remain independently versioned.
+Both desktop platforms ship 0.6.20 from the same source commit. TAB5 0.2.320-ui retains its own release and source archive. The optional artwork collections are edition 2026.2.
 
 ## 版本来源
 
 | 组件 | 当前版本 | 版本文件 | 正式组件标签 |
 | --- | --- | --- | --- |
-| Windows 桥接 | 0.6.16 | 根目录 `VERSION` | `v0.6.16` |
-| Mac 桥接 | 0.6.16 | 根目录 `VERSION` | `v0.6.16` |
+| Windows 桥接 | 0.6.20 | 根目录 `VERSION` | `v0.6.20` |
+| Mac 桥接 | 0.6.20 | 根目录 `VERSION` | `v0.6.20` |
 | ESP8266 固件 | 0.5.8 | `esp8266/VERSION` | `esp8266-v0.5.8` |
-| TAB5 固件 | 0.2.303-ui | `versions/TAB5` | `tab5-v0.2.303-ui` |
+| TAB5 固件 | 0.2.320-ui | `versions/TAB5` | `tab5-v0.2.320-ui` |
 
-表中登记各平台实际已发布版本；后续版本仍分别编号。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接源码元数据共用版本线，正式下载按平台实际存在的附件分别取版本；本轮 Windows 与 Mac 同时交付 0.6.16。
+表中登记各平台实际已发布版本；后续版本仍分别编号。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接源码元数据共用版本线，正式下载按平台实际存在的附件分别取版本；本轮 Windows 与 Mac 同时交付 0.6.20。
 
 电脑端每次发布占用共用序列中的下一个版本号。例如 Mac 单独发布 0.6.15 时 Windows 仍为 0.6.14；下一次仅 Windows 补丁使用 0.6.16，Mac 仍为 0.6.15；若两端一起交付，则同时使用该次版本。Windows 项目及 Mac plist 的源码版本声明随根目录 `VERSION` 对齐，不表示未交付的平台已有新安装包。Each desktop release advances the shared sequence, but only shipped platforms adopt that release version. A Mac-only 0.6.15 can coexist with Windows 0.6.14; a later Windows-only patch would be 0.6.16 while Mac retains 0.6.15. Shared source metadata is not a claim that an unbuilt platform was released.
 
@@ -27,7 +27,7 @@ Windows / Mac 协作、候选构建物与发布职责见[统一开发发布流�
 
 `versions/TAB5` 登记待发布镜像版本，不替代独立 TAB5 工程的镜像内版本；发布前核对其应用、sidecar、首刷包与公开源码身份。TAB5 本地候选仍由[固定固件工作流](TAB5-FIRMWARE-WORKFLOW.md)管理。
 
-此前桥接 `0.6.6` 与 TAB5 `0.2.194-ui` 的实际交付保留在[历史说明](RELEASE-0.6.6.md)。本轮范围及验收见 [0.6.16 说明](RELEASE-0.6.16.md)，此前结果见 [Mac 0.6.15](RELEASE-0.6.15.md) 与 [0.6.14 双平台桥接说明](RELEASE-0.6.14.md)，上轮见 [0.6.11／281 说明](RELEASE-0.6.11.md)，此前结果保留在 [0.6.7／205 历史说明](RELEASE-0.6.7.md)。字库随 TAB5 固件安装，年度精选名画与书法各 366 件以独立图文包提供，旧图库保持兼容。The three independently versioned components and optional collections retain separate verification and acceptance records.
+此前桥接 `0.6.6` 与 TAB5 `0.2.194-ui` 的实际交付保留在[历史说明](RELEASE-0.6.6.md)。历史验收见 [0.6.16 说明](RELEASE-0.6.16.md)、[Mac 0.6.15](RELEASE-0.6.15.md) 与 [0.6.14 双平台桥接说明](RELEASE-0.6.14.md)，上轮见 [0.6.11／281 说明](RELEASE-0.6.11.md)，此前结果保留在 [0.6.7／205 历史说明](RELEASE-0.6.7.md)。字库随 TAB5 固件安装，年度精选名画与书法各 366 件以独立图文包提供，旧图库保持兼容。The three independently versioned components and optional collections retain separate verification and acceptance records.
 
 桥接与历史组合版的发布展示标题统一使用 `AI-bot v版本号`，例如 `AI-bot v0.6.7`；功能说明放在正文。ESP8266 和 TAB5 保留各自命名方式，固件版本值和新包名不加 `v`。电脑端 Git 发布标签统一为 `vX.Y.Z`；固件保留组件前缀。后续构建物和旧客户端兼容规则见[命名规范](NAMING-CONVENTIONS.md)。
 

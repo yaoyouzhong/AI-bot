@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
-  "version": "2026.10.16",
-  "tag": "tab5-v0.2.205-ui",
+  "version": "2026.11.12.1",
+  "tag": "v0.6.20",
   "collections": {
     "painting": {
-      "file": "AI-bot-Gallery-HD-Painting-2026.10.16.zip",
-      "size": 1992399321,
-      "parts": 15,
-      "sha256": "ad436d154821abbd9b3203e6ad73f0c25cb2463a50bc9d039f6a7c8e28698749"
+      "file": "AI-bot-gallery-painting-hd-2026.11.12.1.zip",
+      "size": 3141300917,
+      "parts": 24,
+      "sha256": "63cd2f20c0322db36615110e329e0f36cd8dc785d590420a6d4e2359aa266045"
     },
     "calligraphy": {
-      "file": "AI-bot-Gallery-HD-Calligraphy-2026.10.16.zip",
-      "size": 3102016661,
+      "file": "AI-bot-gallery-calligraphy-hd-2026.11.12.1.zip",
+      "size": 3104757745,
       "parts": 24,
-      "sha256": "02efde0d682aa56495707697d5c0bc53e79a2655dfdd47cc9520f6a058f88064"
+      "sha256": "f1ff5f59f54dce19341d8a3dcfe560771036979013b0836217a2c639828b608b"
     }
   }
 }

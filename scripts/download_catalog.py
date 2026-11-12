@@ -36,8 +36,8 @@ START, END = "<!-- downloads:start -->", "<!-- downloads:end -->"
 # editions include the matching standard previews and guides. Unknown revisions
 # retain their package version until their content edition is reviewed.
 GALLERY_EDITIONS = {
-    "painting": {"2026.10.14.1": "2026.1", "2026.10.16": "2026.1"},
-    "calligraphy": {"2026.10.15.1": "2026.1", "2026.10.16": "2026.1"},
+    "painting": {"2026.10.14.1": "2026.1", "2026.10.16": "2026.1", "2026.11.12.1": "2026.2"},
+    "calligraphy": {"2026.10.15.1": "2026.1", "2026.10.16": "2026.1", "2026.11.12.1": "2026.2"},
 }
 
 
@@ -240,9 +240,10 @@ def table(data, language="zh", tag=None, *, install_only=False):
 
 
 def guidance(language):
+    gallery = REPO + "/blob/main/docs/GALLERY-PACKS.md"
     if language == "zh":
-        return f"[首次安装图文指南]({FIRST_INSTALL_GUIDE}) · [升级与排错]({REPO}/blob/main/docs/INSTALL.zh.md)"
-    return f"[Illustrated first install]({FIRST_INSTALL_GUIDE}) · [English quick start]({REPO}/blob/main/docs/INSTALL.zh.md#english-quick-start)"
+        return f"[首次安装图文指南]({FIRST_INSTALL_GUIDE}) · [升级与排错]({REPO}/blob/main/docs/INSTALL.zh.md) · [书画精选图库]({gallery})"
+    return f"[Illustrated first install]({FIRST_INSTALL_GUIDE}) · [English quick start]({REPO}/blob/main/docs/INSTALL.zh.md#english-quick-start) · [Artwork collections]({gallery})"
 
 
 def block(data, language):

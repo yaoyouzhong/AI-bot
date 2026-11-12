@@ -1,13 +1,13 @@
 # 图库包 / Gallery packs
 
-当前名画与书法公开内容版次为 **2026.1**；标准和高清按实际内容对应共用版次。包内日期编号、文件名及下载链接保留，见[版次说明](GALLERY-VERSIONS.md)。Public content edition: **2026.1**; internal package identities remain unchanged.
+名画与书法各 366 件独立作品。两类的标准版和高清版均为 **2026.2** 内容版，内部包版本为 **2026.11.12.1**。本版更新逐件导览、赏析、可核实的书法正文或参考，以及对应来源。
 
-当前 Windows **0.6.8**、Mac **0.6.7**、TAB5 **0.2.210-ui**。书法与名画均提供 **2026.1 内容版**的标准及高清完整包。两类各 366 件独立作品，分页和方向不重复计数。[标准包下载](../DOWNLOADS.md) · [高清包分段续传、合并与安装](GALLERY-HD.md)
+| 作品 / Collection | 普通版 / Standard | 高清版 / HD |
+| --- | --- | --- |
+| 名画 / Painting | [下载 / Download](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-gallery-painting-standard-2026.11.12.1.zip) | [2.93 GiB · 24 段 / parts](GALLERY-HD.md#painting) |
+| 书法 / Calligraphy | [下载 / Download](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-gallery-calligraphy-standard-2026.11.12.1.zip) | [2.89 GiB · 24 段 / parts](GALLERY-HD.md#calligraphy) |
 
-| 类别 | 标准版图片 | 完整包 | 用途 |
-| --- | ---: | --- | --- |
-| 每日名画 | 826（413 页，横竖各一张） | 2026.1；标准／高清任选 | TAB5 使用适配展示图，电脑可选高清 |
-| 每日书法 | 3,802（1,901 页，横竖各一张） | 2026.1；标准／高清任选 | 本版修正全部横屏标题、作者及年代，补齐 32 件年代，竖屏字节保留 |
+[高清下载与合并 / HD download and merge](GALLERY-HD.md#download) · [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt) · [版次说明 / Edition history](GALLERY-VERSIONS.md)
 
 ## 下载、浏览与导入
 
@@ -26,10 +26,10 @@
 
 完成作品直接读卡，退出桥接或重启后可离线欣赏；未完成内容仍需同步。无卡、卡满、只读或介质异常时保留已有数据并回退，不格式化卡或删除其他文件。目录为 `/sdcard/aibot/gallery/`，见[目录约定](TF-STORAGE.md)。
 
-本次完整高清包均用发布的 Windows 程序隔离导入，各 366 件，所有标准分页读取解码、高清浏览、全屏、缩放和阅读检查通过。新截图为实际安装内容的原生捕获；不能由此推定 205 已刷入实机。201／204 的既有硬件结果及满额腾位、BLE 整包 OTA、长期运行边界见[本版发布记录](RELEASE-0.6.7.md)。
+2026.1 版完整高清包均用发布的 Windows 程序隔离导入，各 366 件，所有标准分页读取解码、高清浏览、全屏、缩放和阅读检查通过。新截图为实际安装内容的原生捕获；不能由此推定 205 已刷入实机。201／204 的既有硬件结果及满额腾位、BLE 整包 OTA、长期运行边界见[本版发布记录](RELEASE-0.6.7.md)。
 
 ## English
 
-The current bridge is 0.6.7 and TAB5 is 0.2.205-ui. Standard painting remains 2026.10.14.1; standard calligraphy is 2026.10.15.1 with 3,802 orientation images. Each category contains 366 independent works. Optional complete HD editions 2026.10.16 include desktop originals, matching device previews, guides and attribution; no separate standard import is needed. Follow the [resumable download/merge guide](GALLERY-HD.md), then import the complete ZIP through Device Center → Artwork Collections. App upgrades preserve installed collections; failed or cancelled imports preserve existing data.
+Edition 2026.2 contains 366 independent paintings and 366 calligraphy works, available in standard and complete HD packages (2026.11.12.1). Both editions include device previews, updated guides and source attribution. The HD edition adds desktop originals. Follow the [resumable download and merge guide](GALLERY-HD.md), then import the complete ZIP through Device Center → Artwork Collections. App upgrades preserve installed collections, and failed or cancelled imports preserve existing data.
 
-Desktop browsing supports title/artist/date/pinyin search, wrapped page navigation, independent reading, fullscreen, wheel zoom and pan. HD decoding is bounded and desktop-only; TAB5 receives standard previews. Explicit opt-in TF storage copies complete installed previews/guides over USB/Wi-Fi, resumes verified progress and reuses unchanged JPEGs. Device cache remains the default; no unrelated files are removed. Actual complete imports and full page reads passed in isolation. Native captures are separate from physical firmware acceptance; see the release record for retained evidence and open boundaries.
+Desktop browsing supports title/artist/date/pinyin search, wrapped page navigation, independent reading, fullscreen, wheel zoom and pan. HD decoding is bounded and desktop-only; TAB5 receives standard previews. Explicit opt-in TF storage copies complete installed previews/guides over USB/Wi-Fi, resumes verified progress and reuses unchanged JPEGs. Device cache remains the default; no unrelated files are removed. Complete imports and full page reads were verified in isolation for edition 2026.1. Native captures are separate from physical firmware acceptance; see the release record for retained evidence and open boundaries.

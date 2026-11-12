@@ -4,16 +4,18 @@
 
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
-[下载与搭配](#下载与搭配) · [宣传视频](#宣传视频) · [完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](docs/RELEASE-0.6.19.md) · [English](README.en.md)
+[下载与搭配](#下载与搭配) · [宣传视频](#宣传视频) · [完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](docs/RELEASE-0.6.20.md) · [English](README.en.md)
 
 **源码：** [Windows 桥接](windows-app/) · [Mac 桥接](mac-app/) · [TAB5 大屏固件](tab5/) · [ESP8266 小屏固件](esp8266/)
 
-**本次更新：** Windows／Mac 桥接 **0.6.19** 会优先下载经过校验的 ESP8266 精简刷机包。更新桥接无需重刷设备。[桥接更新](docs/RELEASE-0.6.19.md) · [安装指南](docs/INSTALL.zh.md)
+**本次更新**　Windows／Mac 桥接 **0.6.20** 改善 TAB5 发现、固件更新后核验和天气定位。Mac 新增系统授权窗口。[桥接更新](docs/RELEASE-0.6.20.md) · [安装指南](docs/INSTALL.zh.md)
 
-**TAB5 0.2.319-ui** 改善最近会话定位、总览显示和日历配色，并为工作中的 Claude 加入耳机动画。[固件更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.319-ui)
+**TAB5 0.2.320-ui** 改善总览、日历和天气。[固件更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.320-ui)
+
+**精选图库 2026.2** 更新名画和书法各 366 件的导览、赏析和出处，提供标准版与高清版。[图库下载](docs/GALLERY-PACKS.md)
 
 <p><img src="docs/assets/screens/tab5-companion-savers-headphones-preview.png" width="880" alt="Codex 和戴耳机的 Claude 萌宠屏保预览"></p>
-<sub>两种屏保分别渲染，时钟为演示数据。右侧为 TAB5 0.2.319-ui 候选版中 Claude 工作时的戴耳机形象。<a href="licenses/companion-art/NOTICE.md#native-preview-media">图片来源</a></sub>
+<sub>两种屏保分别渲染，时钟为演示数据。右侧展示 Claude 工作时的戴耳机形象。<a href="licenses/companion-art/NOTICE.md#native-preview-media">图片来源</a></sub>
 
 ## 选择适合你的桌面屏幕
 
@@ -139,13 +141,13 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 <!-- downloads:start -->
 | 用途 | 版本 | 下载 | SHA-256 |
 | --- | --- | --- | --- |
-| Windows 桥接 · Windows 10/11 x64 | 0.6.19 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/AI-bot-bridge-v0.6.19-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/SHA256SUMS.txt) |
-| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.19 | [下载 · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/AI-bot-bridge-v0.6.19-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.19/SHA256SUMS.txt) |
+| Windows 桥接 · Windows 10/11 x64 | 0.6.20 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-bridge-v0.6.20-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt) |
+| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.20 | [下载 · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-bridge-v0.6.20-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt) |
 | ESP8266 小屏 · 首刷／升级通用 | 0.5.8 | [下载 · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
-| TAB5 · 出厂系统首次安装 | 0.2.319-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/AI-bot-tab5-0.2.319-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/SHA256SUMS.txt) |
-| TAB5 · 已有 AI-bot 升级 | 0.2.319-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/AI-bot-tab5-0.2.319-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.319-ui/SHA256SUMS.txt) |
+| TAB5 · 出厂系统首次安装 | 0.2.320-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/AI-bot-tab5-0.2.320-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/SHA256SUMS.txt) |
+| TAB5 · 已有 AI-bot 升级 | 0.2.320-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/AI-bot-tab5-0.2.320-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/SHA256SUMS.txt) |
 
-[首次安装图文指南](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/FIRST-INSTALL.zh.md) · [升级与排错](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md)
+[首次安装图文指南](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/FIRST-INSTALL.zh.md) · [升级与排错](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/INSTALL.zh.md) · [书画精选图库](https://github.com/yaoyouzhong/AI-bot/blob/main/docs/GALLERY-PACKS.md)
 <!-- downloads:end -->
 
 [图库下载与导入](docs/GALLERY-PACKS.md)
@@ -165,7 +167,7 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.19.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](docs/RELEASE-0.6.20.md) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](tab5/) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)

@@ -7,12 +7,12 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 ### Overview and connection
 
 - Refine connection status, calendar and weather on the overview. Center the applicable holiday, solar term and lunar date.
-- Support Wi-Fi touch checks and automatic post-upgrade boot verification with the updated bridge. The R6 image passed USB and Wi-Fi upgrades on a physical TAB5 with display settings preserved.
+- Support Wi-Fi touch checks and automatic post-upgrade boot verification with the updated bridge. The firmware passed USB and Wi-Fi upgrades on a physical TAB5 with display settings preserved.
 
 ### Display and validation
 
 - Adjust display DMA recovery. An overview test recorded one LCD underrun, and the counter held steady during the subsequent observation.
-- The factory and upgrade ZIPs carry the same tested R6 application. The factory ZIP was checked offline. [Corresponding R6 source and image identity](TAB5-320-R6-SOURCE-20261112.md)
+- The factory and upgrade ZIPs carry the same tested firmware. The factory ZIP was checked offline. [Corresponding firmware source](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/AI-bot-tab5-0.2.320-ui-source.zip)
 
 ## 0.2.319-ui - 2026-11-11
 
