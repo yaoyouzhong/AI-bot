@@ -534,6 +534,7 @@ private final class MacTab5SerialWire {
     private var input = Data()
     private var lastWriteSize = 0
     private var lastWriteMs = 0
+    private var discovered = false
     private var hostSession = MacTab5USBHostSession()
     private(set) var packedStatus = false
     private(set) var deltaStatus = false
@@ -555,11 +556,18 @@ private final class MacTab5SerialWire {
     }
     deinit { Darwin.close(descriptor); MacSerialPortLease.release(path) }
     func identity() throws -> (device: String, rpc: Bool) {
-        try send(["version": 1, "type": "tab5_ping"])
-        let hello = try reply("tab5_hello")
+        func query() throws -> [String: Any] {
+            try send(["version": 1, "type": "tab5_ping"])
+            return try reply("tab5_hello")
+        }
+        let hello = try discovered ? query() : MacTab5USBDiscovery.onOpen(write: write, query: query) {
+            guard let failure = $0 as? MacTab5USBReadTimeout else { return false }
+            return failure.expected == "tab5_hello" && failure.received == 0 && failure.buffered == 0
+        }
         guard MacTab5Protocol.integer(hello["version"]) == 1, let device = hello["deviceId"] as? String,
               MacTab5Protocol.isHex(device, count: 12) else { throw MacTab5Error.identity }
         try hostSession.observe(hello)
+        discovered = true
         packedStatus = MacTab5USBStatus.supportsPacked(hello,device:device)
         deltaStatus = MacTab5USBStatus.supportsPacked(hello,device:device,field:"usbDelta")
         deltaLease = MacTab5USBStatus.deltaRenewsOwnership(hello,device:device)

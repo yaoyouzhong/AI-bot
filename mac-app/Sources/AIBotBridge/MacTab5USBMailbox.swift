@@ -1,5 +1,20 @@
 import Foundation
 
+enum MacTab5USBDiscovery {
+    // Firmware can discard the first short OUT packet after DTR resets an
+    // outstanding bulk receive. Keep this delimiter outside the identity line.
+    static func onOpen<T>(write: (Data) throws -> Void, query: () throws -> T,
+                          emptyTimeout: (Error) -> Bool) throws -> T {
+        try write(Data([10]))
+        do { return try query() }
+        catch where emptyTimeout(error) {
+            // The driver may have coalesced both writes. Only the public
+            // identity query may be sent again, before any authenticated RPC.
+            return try query()
+        }
+    }
+}
+
 // Existing Windows/firmware CDC protocol. Capabilities belong to one open
 // serial connection; a failed exchange must close it, never retry in place.
 struct MacTab5USBMailbox {

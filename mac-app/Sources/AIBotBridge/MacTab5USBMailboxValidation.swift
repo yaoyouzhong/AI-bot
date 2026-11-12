@@ -7,6 +7,34 @@ enum MacTab5USBMailboxValidation {
         func rejects(_ work: () throws -> Void) throws {
             do { try work() } catch { checks += 1; return }; throw MacTab5Error.unconfirmed
         }
+        // A peer with a stale bulk submission discards the first USB packet.
+        // Cover both a distinct delimiter and a driver-coalesced delimiter.
+        for coalesced in [false, true] {
+            var stale = true, probes = 0
+            let reply = try MacTab5USBDiscovery.onOpen(write: { delimiter in
+                try check(delimiter == Data([10]))
+                if !coalesced { stale = false }
+            }, query: {
+                probes += 1
+                if stale { stale = false; throw MacTab5Error.timeout }
+                return "tab5_hello"
+            }, emptyTimeout: { ($0 as? MacTab5Error) == .timeout })
+            try check(reply == "tab5_hello" && probes == (coalesced ? 2 : 1))
+        }
+        var attempts = 0
+        try rejects {
+            _ = try MacTab5USBDiscovery.onOpen(write: { _ in }, query: {
+                attempts += 1; throw MacTab5Error.timeout
+            }, emptyTimeout: { ($0 as? MacTab5Error) == .timeout }) as String
+        }
+        try check(attempts == 2)
+        attempts = 0
+        try rejects {
+            _ = try MacTab5USBDiscovery.onOpen(write: { _ in }, query: {
+                attempts += 1; throw MacTab5Error.invalidPacket
+            }, emptyTimeout: { ($0 as? MacTab5Error) == .timeout }) as String
+        }
+        try check(attempts == 1)
         let full: [String:Any] = ["rpcUsbBinary":1,"rpcUsbChunk":16384,"rpcUsbBinaryChunk":65526,"usbRxBatch":4096,"rpcUsbWait":20]
         let caps = MacTab5USBMailbox(full)
         try check(caps.binary && caps.chunk == 65526 && caps.receiveBatch == 4096 && caps.readyWait == 20)
