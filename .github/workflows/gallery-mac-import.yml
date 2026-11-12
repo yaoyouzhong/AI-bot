@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   import:
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 150
     strategy:
       fail-fast: false
