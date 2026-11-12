@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.20 - 2026-11-12
+
+### TAB5 connection, touch and firmware updates
+
+- Keep discovery and status replies responsive during Wi-Fi synchronization. Paired Wi-Fi checks cover taps, swipes and screenshots, then verify USB recovery and retained device settings.
+- After firmware transfer, wait for reboot and the device health check. Verify the exact image and boot partition and report success when the running image reaches `VALID`.
+- Improve device identification after a macOS serial reconnect so that a lost initial identification message is less likely to prevent USB recovery.
+
+### Weather location and refresh
+
+- Improve automatic location and district matching for QWeather on Windows and macOS. Refresh after location, settings or permission recovery changes, and retain the most recent forecast if a request fails.
+- Windows checks permission before saving automatic location. On Mac, background refresh uses existing authorization and the user initiates the first location request from the interface.
+
+### First-time Mac setup
+
+- Add a system-permissions window for weather location and direct Codex conversation navigation. The window can be reopened from the menu.
+- Include the macOS location entitlement and a recovery path for an existing system permission that has stopped applying.
+
 ## 0.6.19 - 2026-11-11
 
 ### Windows and Mac
