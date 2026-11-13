@@ -40,9 +40,24 @@ class CandidateTests(unittest.TestCase):
             pipeline.refresh_release_download_intro(custom, 'tab5', '0.2.320-ui', intro)
 
     def test_release_titles_identify_component_and_version(self):
-        self.assertEqual(pipeline.release_title({'component': 'bridge', 'version': '0.6.20'}), 'AI-bot v0.6.20')
+        self.assertEqual(pipeline.release_title({'component': 'bridge', 'version': '0.6.20'}), '桥接 0.6.20')
         self.assertEqual(pipeline.release_title({'component': 'tab5', 'version': '0.2.320-ui'}), 'TAB5 0.2.320-ui')
         self.assertEqual(pipeline.release_title({'component': 'esp8266', 'version': '0.5.8'}), 'ESP8266 0.5.8')
+
+    def test_frozen_legacy_bridge_candidate_keeps_acceptance_with_new_component_tag(self):
+        folder, candidate = self.candidate()
+        legacy = dict(candidate)
+        legacy['tag'] = 'v' + legacy['version']
+        legacy['candidateId'] = pipeline.canonical_id({k:v for k,v in legacy.items() if k != 'candidateId'})
+        pipeline.write(folder / 'CANDIDATE.json', legacy)
+        acceptance = self.accepted(folder, legacy)
+        report = pipeline.promote(folder, acceptance, 'owner/repo', target_tag='bridge-v' + legacy['version'])
+        self.assertEqual(report['candidateId'], legacy['candidateId'])
+        self.assertEqual(report['tag'], 'bridge-v' + legacy['version'])
+        self.assertEqual(report['acceptedCandidateTag'], legacy['tag'])
+        self.assertEqual(pipeline.read(folder / 'CANDIDATE.json'), legacy)
+        with self.assertRaisesRegex(ValueError, 'canonical bridge'):
+            pipeline.promote(folder, acceptance, 'owner/repo', target_tag='bridge-v9.9.9')
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -75,7 +90,8 @@ class CandidateTests(unittest.TestCase):
             (folder / (artifact.name + ".sha256")).write_text(f"{pipeline.digest(artifact)}  {artifact.name}\n")
         prepare(folder, current[component], SOURCE, component=component, versions=current, desktop_platform=platform, tab5_source=source_zip)
         note = self.root / ("notes" + suffix + ".md")
-        note.write_text(f"## {current[component]} - 2026-11-03\n\nFixture release details.\n")
+        label = {'bridge': '桌面桥接', 'tab5': 'TAB5', 'esp8266': 'ESP8266'}[component]
+        note.write_text(f"## 下载\n\nFixture download.\n\n## {label} {current[component]}\n\n- 中文测试说明\n\n## English\n\n- Fixture release details.\n", encoding='utf-8')
         return folder, note, source_zip
 
     def candidate(self, platform="windows", suffix="", component="bridge"):

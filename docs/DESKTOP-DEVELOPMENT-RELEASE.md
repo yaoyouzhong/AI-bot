@@ -12,7 +12,7 @@
 
 ## 版本与发布负责人
 
-- 桥接保持现有共用版本线；每次指定一个发布负责人，统一维护 VERSION、平台元数据、release-manifest.json 和中英文说明。发布负责人可在 Windows 或 Mac 上操作。
+- 产品总发布号与桥接组件号独立；桥接保持现有 Windows／Mac 共用组件版本线。每次指定一个发布负责人，统一维护 VERSION、平台元数据、release-manifest.json 和中英文说明。发布负责人可在 Windows 或 Mac 上操作。
 - 双平台发布使用同一桥接版本；单平台更新只交付该平台，另一平台保留实际已发布版本和下载入口，不重新打包凑号。
 - `components.bridge.desktopPlatform` 必须明确为 `windows`、`macos` 或 `all`。TAB5、ESP8266 独立编号，按协议和最低版本判断兼容性，不要求版本号一致。
 - 同一次发布只有一个执行方管理标签、草稿和公开发布，另一端提供代码、构建物与验证记录，避免覆盖同名附件或重复创建 Release。

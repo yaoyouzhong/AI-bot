@@ -2,7 +2,7 @@
 
 Windows / Mac 协作、候选构建物与发布职责见[统一开发发布流程](DESKTOP-DEVELOPMENT-RELEASE.md)；本页维护版本规则，发布收尾继续使用既有清单。
 
-桥接、ESP8266 和 TAB5 分别更新，不要求三个版本号相同。只修改一个组件时，不重编号、重发或要求用户重刷另外两个组件。历史 `v0.5.0` 标签与已发布文件保持不变。
+产品对外版本从 `0.6.20` 序列独立递增；桥接、ESP8266 和 TAB5 分别更新，不要求版本号相同。只修改一个组件时，不重编号、重发或要求用户重刷另外两个组件。历史 `v0.5.0` 标签与已发布文件保持不变。
 
 2026-11-12 发布 Windows／Mac **0.6.20**、TAB5 **0.2.320-ui** 和精选图库 **2026.2**。Windows 和 Mac 使用同一份候选源码提交。ESP8266 当前正式版本为 **0.5.8**。[统一下载](../DOWNLOADS.md) · [发布说明](RELEASE-0.6.20.md)
 
@@ -12,8 +12,8 @@ Both desktop platforms ship 0.6.20 from the same source commit. TAB5 0.2.320-ui 
 
 | 组件 | 当前版本 | 版本文件 | 正式组件标签 |
 | --- | --- | --- | --- |
-| Windows 桥接 | 0.6.20 | 根目录 `VERSION` | `v0.6.20` |
-| Mac 桥接 | 0.6.20 | 根目录 `VERSION` | `v0.6.20` |
+| Windows 桥接 | 0.6.20 | 根目录 `VERSION` | 历史 `v0.6.20`；后续 `bridge-vX.Y.Z` |
+| Mac 桥接 | 0.6.20 | 根目录 `VERSION` | 历史 `v0.6.20`；后续 `bridge-vX.Y.Z` |
 | ESP8266 固件 | 0.5.8 | `esp8266/VERSION` | `esp8266-v0.5.8` |
 | TAB5 固件 | 0.2.320-ui | `versions/TAB5` | `tab5-v0.2.320-ui` |
 
@@ -29,7 +29,7 @@ Both desktop platforms ship 0.6.20 from the same source commit. TAB5 0.2.320-ui 
 
 此前桥接 `0.6.6` 与 TAB5 `0.2.194-ui` 的实际交付保留在[历史说明](RELEASE-0.6.6.md)。历史验收见 [0.6.16 说明](RELEASE-0.6.16.md)、[Mac 0.6.15](RELEASE-0.6.15.md) 与 [0.6.14 双平台桥接说明](RELEASE-0.6.14.md)，上轮见 [0.6.11／281 说明](RELEASE-0.6.11.md)，此前结果保留在 [0.6.7／205 历史说明](RELEASE-0.6.7.md)。字库随 TAB5 固件安装，年度精选名画与书法各 366 件以独立图文包提供，旧图库保持兼容。The three independently versioned components and optional collections retain separate verification and acceptance records.
 
-桥接与历史组合版的发布展示标题统一使用 `AI-bot v版本号`，例如 `AI-bot v0.6.7`；功能说明放在正文。ESP8266 和 TAB5 保留各自命名方式，固件版本值和新包名不加 `v`。电脑端 Git 发布标签统一为 `vX.Y.Z`；固件保留组件前缀。后续构建物和旧客户端兼容规则见[命名规范](NAMING-CONVENTIONS.md)。
+产品总页标题使用 `AI-bot v产品版本号`，标签使用 `vX.Y.Z`；桥接组件使用 `bridge-vX.Y.Z`，ESP8266 和 TAB5 保留各自组件前缀。旧 `v` 桥接／组合版保持历史语义，固件版本值和新包名不加 `v`。后续构建物和旧客户端兼容规则见[命名规范](NAMING-CONVENTIONS.md)。
 
 ## 构建与检查
 
@@ -54,12 +54,13 @@ python scripts/package_esp8266_local.py artifacts/esp8266-package
 标签检查按组件路由：
 
 ```powershell
-python scripts/check_version.py --tag v0.6.10
+python scripts/check_version.py --tag bridge-v0.6.20
 python scripts/check_version.py --tag esp8266-v0.5.1
 python scripts/check_version.py --tag tab5-v0.2.151-ui
+python scripts/check_product_release_tag.py v0.6.21
 ```
 
-上述命令只检查格式与本地声明，不创建标签。0.5.0 及更早的 `vX.Y.Z` 保留为桥接主导的组合版本；0.5.1 起的 `vX.Y.Z` 只路由电脑端，不能触发固件打包。旧 `bridge-vX.Y.Z` 仍可读取为兼容别名。包内各组件仍用独立版本。`extract_release_notes.py` 从对应组件的中英文日志选取说明；未完成的日志继续阻止正式打标签。
+上述命令只检查格式与本地声明，不创建标签。历史 `vX.Y.Z` 桥接／组合版本继续可读；后续 `vX.Y.Z` 表示产品总页，组件验证使用各自前缀。包内各组件仍用独立版本。`extract_release_notes.py` 从对应组件的中英文日志选取说明；未完成的日志继续阻止正式打组件标签。
 
 `prepare_release_assets.py --component bridge|esp8266|tab5` 分别验证对应包，不要求另一组件同时交付。新流程用 `release_pipeline.py assemble/seal` 冻结后统一晋级：桥接为 Windows 安装器、Mac ZIP；ESP8266 为固件材料 ZIP；TAB5 为首刷 ZIP、升级 ZIP 和对应源码。每个 Release 附许可证、第三方声明、候选与验收记录及校验清单，并保留旧客户端需要的兼容别名。便携包和完整桥接源码保留在候选归档；可选名画与书法包分别按下载索引中的正式版本提供。三条组件版本线对应 Windows、Mac、ESP8266、TAB5 四项交付，不把两端桥接合计为一个安装包。
 
@@ -104,7 +105,7 @@ python scripts/test_download_catalog.py
 
 ## English
 
-Bridge and legacy bundle release titles use `AI-bot v<version>`, for example `AI-bot v0.6.7`, with feature descriptions in release notes. ESP8266 and TAB5 retain their existing title conventions; firmware version values and canonical filenames omit `v`. Keep existing Git tag prefixes. See [artifact naming and legacy-client compatibility](NAMING-CONVENTIONS.md).
+Product release titles use `AI-bot v<product version>`. New bridge component releases use `bridge-v`; ESP8266 and TAB5 keep their existing prefixes. Historical `v` bridge and bundle releases remain readable. Firmware version values and canonical filenames omit `v`. See [artifact naming and legacy-client compatibility](NAMING-CONVENTIONS.md).
 
 The fixed entry points are DOWNLOADS.md and DOWNLOADS.en.md. download-catalog.json records seven published stable downloads separately from candidate versions. `download_catalog.py refresh`, `sync`, `check` and `verify-online` verify published assets and generate bilingual download centers and README tables. These individual catalog commands never push or publish. The promotion wrapper runs download closeout after publication, updates the Release download table, and can explicitly commit only generated metadata within an existing push authorization. Draft links become downloadable only after publication. Packaging, installation and hardware acceptance remain separate evidence.
 

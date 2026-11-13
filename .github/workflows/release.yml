@@ -1,10 +1,12 @@
 name: Release tag validation
 # aibot-tag-validation-only: 1
+# aibot-product-version-tags: 1
 
 on:
   push:
     tags:
       - "v*.*.*"
+      - "bridge-v*.*.*"
       - "esp8266-v*.*.*"
       - "tab5-v*.*.*"
 
@@ -23,6 +25,10 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          python scripts/check_version.py --tag "$RELEASE_TAG"
-          python scripts/extract_release_notes.py "$RELEASE_TAG" release-notes.md --require-final
+          if [[ "$RELEASE_TAG" == v* ]]; then
+            python scripts/check_product_release_tag.py "$RELEASE_TAG"
+          else
+            python scripts/check_version.py --tag "$RELEASE_TAG"
+            python scripts/extract_release_notes.py "$RELEASE_TAG" release-notes.md --require-final
+          fi
           echo 'Promote sealed candidates using scripts/release_pipeline.py or promote.yml. A tag never builds or publishes packages.'

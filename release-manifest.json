@@ -4,7 +4,7 @@
     "bridge": {
       "versionFile": "VERSION",
       "desktopPlatform": "all",
-      "tagPrefix": "v",
+      "tagPrefix": "bridge-v",
       "changelogs": ["CHANGELOG.md", "CHANGELOG.zh.md"]
     },
     "esp8266": {

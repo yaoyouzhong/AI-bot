@@ -40,6 +40,14 @@ internal static class ComponentUpdateSelfTest
            found["esp8266"].Package?.Name!="AI-bot-esp8266-0.5.4-firmware.zip"||
            found["tab5"].Package?.Name!="AI-bot-tab5-0.2.206-ui-upgrade.zip")
             throw new InvalidOperationException("Canonical packages, firmware versions without v and compatibility aliases must agree.");
+        using var productPage = JsonDocument.Parse(JsonSerializer.Serialize(new[] {
+            Release("v0.6.21", []),
+            Release("bridge-v0.6.20", ["AI-bot-bridge-v0.6.20-windows-x64-setup.exe", "SHA256SUMS.txt"]),
+            Release("tab5-v0.2.321-ui", ["AI-bot-tab5-0.2.321-ui-upgrade.zip", "SHA256SUMS.txt"])
+        }));
+        found = ComponentUpdateCatalog.Read(productPage.RootElement);
+        if (found["bridge"].Version != "0.6.20" || found["tab5"].Version != "0.2.321-ui")
+            throw new InvalidOperationException("A product-only release must not change independently selected component versions.");
         const string flash="AI-bot-esp8266-0.5.8-flash.zip", full="AI-bot-esp8266-0.5.8-firmware.zip";
         var compactRelease=Release("esp8266-v0.5.8",[flash,flash+".sha256"]);
         var fullRelease=Release("esp8266-v0.5.8",[full,"SHA256SUMS.txt"]);

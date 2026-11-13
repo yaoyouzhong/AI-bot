@@ -66,6 +66,22 @@ class DownloadCatalogTests(unittest.TestCase):
             releases.append(invalid)
         self.assertEqual(catalog.discover(releases), self.data)
 
+    def test_product_version_does_not_replace_independent_component_versions(self):
+        releases = self.releases()
+        bridge = 'AI-bot-bridge-v0.6.21-windows-x64-setup.exe'
+        firmware = 'AI-bot-tab5-0.2.321-ui-upgrade.zip'
+        first = 'AI-bot-tab5-0.2.321-ui-first-install.zip'
+        def release(tag, names):
+            return {'tag_name':tag, 'published_at':'2027-01-01', 'draft':False, 'prerelease':False,
+                    'assets':[{'name':name, 'size':10, 'digest':'sha256:' + 'a'*64} for name in names]}
+        releases += [release('bridge-v0.6.21', [bridge, 'SHA256SUMS.txt']),
+                     release('tab5-v0.2.321-ui', [first, firmware, 'SHA256SUMS.txt']),
+                     release('v0.6.22', [bridge, first, firmware, 'SHA256SUMS.txt'])]
+        found = catalog.discover(releases)['downloads']
+        self.assertEqual((found['windows']['version'], found['windows']['tag']), ('0.6.21', 'bridge-v0.6.21'))
+        self.assertEqual((found['tab5-upgrade']['version'], found['tab5-upgrade']['tag']), ('0.2.321-ui', 'tab5-v0.2.321-ui'))
+        self.assertEqual(found['macos'], self.data['downloads']['macos'])
+
     def test_windows_only_release_preserves_current_mac_download(self):
         releases = self.releases() + [{"tag_name": "v99.0.0", "published_at": "2020-01-01", "draft": False, "prerelease": False,
             "assets": [{"name": "AIBotBridge-99.0.0-setup-win-x64.exe", "size": 10, "digest": "sha256:"+"a"*64}, {"name": "SHA256SUMS.txt"}]}]

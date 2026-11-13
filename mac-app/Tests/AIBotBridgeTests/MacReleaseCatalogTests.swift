@@ -3,6 +3,21 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacReleaseCatalogTests: XCTestCase {
+    func testProductPageAndIndependentBridgeTag() throws {
+        func release(_ tag: String, _ names: [String]) -> [String: Any] {
+            ["tag_name": tag, "draft": false, "prerelease": false, "assets": names.map {
+                ["name": $0, "size": 100, "browser_download_url": "https://github.com/yaoyouzhong/AI-bot/releases/download/\(tag)/\($0)"] as [String: Any]
+            }]
+        }
+        let rows = [release("v0.6.21", []),
+                    release("bridge-v0.6.20", ["AI-bot-bridge-v0.6.20-macos-arm64.zip", "SHA256SUMS.txt"]),
+                    release("tab5-v0.2.321-ui", ["AI-bot-tab5-0.2.321-ui-upgrade.zip", "SHA256SUMS.txt"])]
+        let (candidates, _) = try MacReleaseCatalog.parse(JSONSerialization.data(withJSONObject: rows))
+        XCTAssertEqual(candidates.first { $0.component == "bridge" }?.version, "0.6.20")
+        XCTAssertEqual(candidates.first { $0.component == "tab5" }?.version, "0.2.321-ui")
+        XCTAssertEqual(candidates.count, 2)
+    }
+
     func testCompactESPSelectionAndLegacyFallback() throws {
         let flash = "AI-bot-esp8266-0.5.8-flash.zip"
         let full = "AI-bot-esp8266-0.5.8-firmware.zip"

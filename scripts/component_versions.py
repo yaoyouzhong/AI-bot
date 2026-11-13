@@ -37,6 +37,8 @@ def release_target(tag, root=ROOT):
         version = tag[1:]
         if tuple(map(int, version.split("-", 1)[0].split("."))) <= (0, 5, 0):
             return "bundle", version
+        # Existing v tags through the historical bridge line remain readable.
+        return "bridge", version
     # Read archived aliases, but generate/publish only the manifest's canonical prefix.
     if tag.startswith("bridge-v") and SEMVER.fullmatch(tag[len("bridge-v"):]):
         return "bridge", tag[len("bridge-v"):]

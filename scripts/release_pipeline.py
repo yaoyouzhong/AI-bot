@@ -182,11 +182,15 @@ def verify(directory, *, expected_source=None):
     wanted = ["release-review"] + [k + "-install-startup" for k in ("windows", "macos") if k in keys]
     if candidate["component"] != "bridge":
         wanted.append(candidate["component"] + "-device")
+    expected_tag = components()[candidate["component"]]["tagPrefix"] + candidate["version"]
+    accepted_tags = {expected_tag}
+    if candidate["component"] == "bridge":
+        accepted_tags.add("v" + candidate["version"])  # frozen candidates from the former bridge tag convention
     if (candidate["requiredChecks"] != wanted or build["sourceCommit"] != candidate["sourceCommit"]
             or build["version"] != candidate["version"] or build["component"] != candidate["component"]
             or build["desktopPlatform"] != candidate["desktopPlatform"]
             or build["componentVersions"][candidate["component"]] != candidate["version"]
-            or candidate["tag"] != components()[candidate["component"]]["tagPrefix"] + candidate["version"]):
+            or candidate["tag"] not in accepted_tags):
         raise ValueError("Candidate scope/acceptance requirements disagree")
     return candidate
 
@@ -391,14 +395,19 @@ def require_release_scope(candidates, *, online, reason):
 
 
 def release_title(candidate):
-    prefix = {"bridge": "AI-bot v", "tab5": "TAB5 ", "esp8266": "ESP8266 "}[candidate["component"]]
+    prefix = {"bridge": "桥接 ", "tab5": "TAB5 ", "esp8266": "ESP8266 "}[candidate["component"]]
     return prefix + candidate["version"]
 
 
-def promote(directory, acceptance, repository, *, execute=False, publish=False, expected_source=None, commit_closeout=False, run_closeout=True, allow_deferred=False, minimal_bridge_assets=False, minimal_tab5_assets=False, scope_reason=None, scope_checked=False):
+def promote(directory, acceptance, repository, *, execute=False, publish=False, expected_source=None, commit_closeout=False, run_closeout=True, allow_deferred=False, minimal_bridge_assets=False, minimal_tab5_assets=False, scope_reason=None, scope_checked=False, target_tag=None):
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("Invalid GitHub repository")
     candidate, data, pending = readiness(directory, acceptance, expected_source=expected_source)
+    accepted_tag = candidate['tag']
+    if target_tag is not None:
+        if candidate['component'] != 'bridge' or target_tag != 'bridge-v' + candidate['version']:
+            raise ValueError('Only the canonical bridge component tag may replace a frozen legacy bridge tag')
+        candidate = {**candidate, 'tag': target_tag}
     if pending and not (allow_deferred and all(data['checks'].get(c, {}).get('result') == 'deferred' and data['checks'][c].get('reason', '').strip() for c in pending)):
         raise ValueError("Pending or failed acceptance: " + ", ".join(pending))
     if commit_closeout and not publish:
@@ -406,6 +415,8 @@ def promote(directory, acceptance, repository, *, execute=False, publish=False, 
     report = {"candidateId": candidate["candidateId"], "tag": candidate["tag"], "sourceCommit": candidate["sourceCommit"],
               "component": candidate["component"], "version": candidate["version"], "desktopPlatform": candidate["desktopPlatform"],
               "repository": repository, "publish": publish, "execute": execute}
+    if accepted_tag != candidate['tag']:
+        report['acceptedCandidateTag'] = accepted_tag
     if publish and not scope_checked:
         report["releaseScope"] = require_release_scope([candidate], online=execute, reason=scope_reason)
     minimal = minimal_bridge_assets or minimal_tab5_assets
@@ -441,7 +452,7 @@ def promote(directory, acceptance, repository, *, execute=False, publish=False, 
         release = remote_identity(repository, candidate["tag"])
     verify_remote(release, manifest)
     if publish and release["draft"]:
-        run_cli(["release", "edit", candidate["tag"], "--repo", repository, "--draft=false", "--latest=" + ("true" if candidate["component"] == "bridge" else "false")], timeout=120)
+        run_cli(["release", "edit", candidate["tag"], "--repo", repository, "--draft=false", "--latest=false"], timeout=120)
         release = remote_identity(repository, candidate["tag"])
         if release["draft"]:
             raise ValueError("Release remained a draft")
@@ -613,8 +624,13 @@ def main():
         candidate, _, pending = readiness(**args)
         result = {"candidateId": candidate["candidateId"], "ready": not pending, "pending": pending}
     elif command == "promote":
-        args["repository"] = args.pop("repo"); result = promote(**args)
-    elif command == "promote-set": result = promote_set(**args)
+        from product_promotion import promote_product
+        repository = args.pop("repo")
+        options = {key: args.pop(key) for key in ("execute", "publish", "commit_closeout", "scope_reason")}
+        result = promote_product([args], repository, **options)
+    elif command == "promote-set":
+        from product_promotion import promote_product_set
+        result = promote_product_set(**args)
     elif command == "scope": result = release_scope(**args)
     else:
         result = closeout(repository=args["repo"], tags=args["tag"], commit=args["commit"]) if args["execute"] else {"wouldRun": ["download_catalog.py refresh", "download_catalog.py sync", "download_catalog.py check"], "builds": False, "commit": args["commit"]}
