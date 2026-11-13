@@ -4,8 +4,8 @@ cd "$(dirname "$0")"
 printf 'Choose 1 for painting or 2 for calligraphy: '
 read -r choice
 case "$choice" in
-1) archive='AI-bot-gallery-painting-hd-2026.11.12.1.zip'; whole='63cd2f20c0322db36615110e329e0f36cd8dc785d590420a6d4e2359aa266045'; names=('AI-bot-gallery-painting-hd-2026.11.12.1.zip.part101' 'AI-bot-gallery-painting-hd-2026.11.12.1.zip.part102'); hashes=('1f1d4e292798e1f8db06bab798f1dc4f8c4e6287d2269d57831c03d265f6f704' '8f144d5f48be9342f521445c70c2fe615623c1b5e71a70adc7c21ed0ae43b9f9');;
-2) archive='AI-bot-gallery-calligraphy-hd-2026.11.12.1.zip'; whole='f1ff5f59f54dce19341d8a3dcfe560771036979013b0836217a2c639828b608b'; names=('AI-bot-gallery-calligraphy-hd-2026.11.12.1.zip.part101' 'AI-bot-gallery-calligraphy-hd-2026.11.12.1.zip.part102'); hashes=('8e0b28f3624aede795391f2c29ee37a40ca6250fc453df4a387c9f4dce079de7' 'ebe70aa1728bf2473e57a688e66dfa546cdee68cc74d3c22352d7c4d16ae6bb3');;
+1) archive='AI-bot-gallery-painting-hd-2026.11.12.1.zip'; whole='5173ef666cac71a2b13cfa8a85c952b2cc391d03afcf96342a17caf36326228b'; names=('AI-bot-gallery-painting-hd-2026.11.12.1.zip.part201' 'AI-bot-gallery-painting-hd-2026.11.12.1.zip.part202'); hashes=('2ddae33755db944b0a2aea7c689321c8b7738e92f1e4f6722c34b99bb3dfcdc6' '04ecc7e691c7e6d198f51467dce4399c84ede49e7eecf0b41932311ffa435d47');;
+2) archive='AI-bot-gallery-calligraphy-hd-2026.11.12.1.zip'; whole='5fc40849c20fb033faf9222d3a48a2f75377ccb6b64d8283530a9cef45a7176a'; names=('AI-bot-gallery-calligraphy-hd-2026.11.12.1.zip.part201' 'AI-bot-gallery-calligraphy-hd-2026.11.12.1.zip.part202'); hashes=('3a8c941f7e82b3474d08944bc6d74d5bbe04aeed5da26cd892846bb61a508043' '55266564e2b20812e15284d26d908d922e81e0784fe7b3980ee889acbe7050e2');;
 *) echo 'Invalid selection'; exit 1;;
 esac
 base='https://github.com/yaoyouzhong/AI-bot/releases/download/gallery-2026.11.12.1'

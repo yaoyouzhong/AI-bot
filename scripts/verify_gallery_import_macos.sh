@@ -8,11 +8,8 @@ for candidate in /Applications/Xcode_26.3.app /Applications/Xcode_26.2.app /Appl
   fi
 done
 swift --version
-case "$CATEGORY" in
-  painting) full_sha=63cd2f20c0322db36615110e329e0f36cd8dc785d590420a6d4e2359aa266045 ;;
-  calligraphy) full_sha=f1ff5f59f54dce19341d8a3dcfe560771036979013b0836217a2c639828b608b ;;
-  *) exit 1 ;;
-esac
+case "$CATEGORY" in painting|calligraphy) ;; *) exit 1 ;; esac
+full_sha=$(python3 -c 'import json,sys; d=json.load(open("scripts/Gallery-HD-candidate.json")); print(next(a["sha256"] for a in d["archives"] if a["name"].startswith("AI-bot-gallery-"+sys.argv[1]+"-")))' "$CATEGORY")
 repo=yaoyouzhong/AI-bot
 temp="${RUNNER_TEMP:?}/gallery-$CATEGORY"
 mkdir -p "$temp"
@@ -34,7 +31,7 @@ cp scripts/Download-HD-Gallery.command "$temp/Download-HD-Gallery.command"
 if [ "$CATEGORY" = painting ]; then choice=1; else choice=2; fi
 (cd "$temp" && printf '%s\n' "$choice" | bash ./Download-HD-Gallery.command)
 echo "$full_sha  $temp/$name" | shasum -a 256 -c -
-rm "$temp/$name.part101" "$temp/$name.part102"
+rm "$temp/$name.part201" "$temp/$name.part202"
 export GALLERY_TEST_PACKAGE="$temp/$name" GALLERY_TEST_KIND=hd
 (cd mac-app && swift test --filter GalleryDeliveryImportTests/testPublishedPackageImport)
 echo "MACOS_ACTUAL_GALLERY_IMPORT_OK $CATEGORY"
