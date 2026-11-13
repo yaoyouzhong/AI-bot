@@ -1,0 +1,167 @@
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+index a6bcd2d..2b46d0d 100644
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R4";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R5";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/firmware/main/gallery_remote.c b/firmware/main/gallery_remote.c
+index 2530bb7..6f3ce93 100644
+--- a/firmware/main/gallery_remote.c
++++ b/firmware/main/gallery_remote.c
+@@ -218,13 +218,24 @@ static uint8_t *store_allocate(size_t bytes,size_t *capacity) {
+     const jpeg_decode_memory_alloc_cfg_t cfg={.buffer_direction=JPEG_DEC_ALLOC_INPUT_BUFFER};
+     return jpeg_alloc_decoder_mem(bytes,&cfg,capacity);
+ }
+-static gallery_jpeg card_take(const gallery_image *key,const char *revision,gallery_guide **guide) {
++static gallery_jpeg card_take(const gallery_image *key,const char *revision,gallery_guide **guide,bool complete_base) {
+     gallery_jpeg value={0};cJSON *raw=NULL;
+     if(!atomic_load(&storage_enabled)||!sd_storage_lock())return value;
+     gallery_image normalized=card_key(key,revision);
++    gallery_catalog active={0};
++    if(complete_base) {
++        // A new target may not have a local catalog yet. Read the canonical
++        // key from the last complete catalog and authenticate against it.
++        if(!gallery_catalog_load(SD_STORAGE_MOUNT,key->category,"",&active)||active.next!=active.works) {
++            sd_storage_unlock(gallery_store_media_error());
++            return value;
++        }
++        gallery_catalog_key(key->date,active.works,normalized.date);
++        revision=active.revision;
++    }
+     bool ok=gallery_store_get(SD_STORAGE_MOUNT,&normalized,revision,store_allocate,&value,&raw);
+     sd_storage_unlock(gallery_store_media_error());
+-    if(ok&&raw) {
++    if(ok&&raw&&!complete_base) {
+         *guide=guide_read(raw,key->date);
+         if(!*guide||strcmp((*guide)->work_id,value.key.work_id)||((*guide)->transcription_page_count>1&&!gallery_text_pages_complete(*guide))){gallery_guide_free(*guide);*guide=NULL;free(value.data);value=(gallery_jpeg){0};ok=false;}
+     }
+@@ -520,7 +531,12 @@ unsigned gallery_pack_sync(const char *painting,const char *calligraphy) {
+ }
+ bool gallery_request_available(int category,const char *date,int frame,bool portrait) {
+     if(speed_active())return false;
+-    if(atomic_load(&prefetching))atomic_store(&cancel_prefetch,true);
++    if(atomic_load(&prefetching)) {
++        // Keep the displayed bitmap while a catalog probe establishes the
++        // new guide links. Foreground draws can still preempt image prefetch.
++        if(prefetch_job.purpose==2)return false;
++        atomic_store(&cancel_prefetch,true);
++    }
+     if(atomic_load(&working)||result.pixels||foreground_busy()||category<0||category>1||!date||strlen(date)!=10||frame<0||frame>=64)return false;
+     gallery_image key={.category=category,.frame=frame,.portrait=portrait};snprintf(key.date,sizeof(key.date),"%s",date);
+     xSemaphoreTake(device_mutex,portMAX_DELAY);bool cached=gallery_jpeg_has(&jpeg_cache,&key);xSemaphoreGive(device_mutex);
+@@ -579,7 +595,7 @@ static void worker(void *unused) {
+         if(w->local_catalog.works&&w->local_catalog.next==w->local_catalog.works){validated=true;goto done;}
+         goto network;
+     }
+-    if(!sample&&!w->cached.data){w->cached=card_take(&w->job,w->context.revision,&guide);from_card=w->cached.data!=NULL;}
++    if(!sample&&!w->cached.data){w->cached=card_take(&w->job,w->context.revision,&guide,false);from_card=w->cached.data!=NULL;}
+     if(w->cached.data&&!from_card&&background&&atomic_load(&storage_enabled)&&w->cached.key.work_id[0]) {
+         // RAM JPEG entries own no guide. Persist an independent complete guide,
+         // or refetch its manifest instead of writing a newer image-only record
+@@ -593,7 +609,11 @@ static void worker(void *unused) {
+         if(background){if(foreground_busy()||atomic_load(&cancel_prefetch))goto done;validated=true;persisted=from_card||card_put(root,&w->cached,w->context.revision,guide,!library,NULL,false);if(guide&&!library){xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_guide_free(guides[w->job.category]);guides[w->job.category]=guide;guide=NULL;xSemaphoreGive(device_mutex);}record(diagnostic_stage,10);goto done;}
+         atomic_store(&pack_status[w->job.category],0);goto decode;
+     }
+-    if(library&&!sample){gallery_guide *old_guide=NULL;w->stale=card_take(&w->job,"",&old_guide);gallery_guide_free(old_guide);}
++    if(!sample&&!w->stale.data&&(library||(*w->context.revision&&atomic_load(&library_enabled)))) {
++        gallery_guide *old_guide=NULL;
++        w->stale=card_take(&w->job,"",&old_guide,!library);
++        gallery_guide_free(old_guide);
++    }
+ network:
+     if(w->context.cached_only||transport==LINK_NONE)goto done; // Never overlap network mailbox owners.
+     request=cJSON_CreateObject();
+diff --git a/tests/ui-preview/gallery_worker_test.c b/tests/ui-preview/gallery_worker_test.c
+index ff89e84..fe0b3b4 100644
+--- a/tests/ui-preview/gallery_worker_test.c
++++ b/tests/ui-preview/gallery_worker_test.c
+@@ -185,6 +185,7 @@ static unsigned fail_catalogs;
+ static int last_catalog_link;
+ static unsigned batch_range_requests;
+ static bool fail_usb_batch_range;
++static int fixture_image_variant;
+ static unsigned range_calls;
+ static const char *fixture_overview="museum context";
+ static cJSON *annual_fixture;
+@@ -249,7 +250,7 @@ static cJSON *rpc_data_call(int channel,void *http,cJSON *request,int *status,ch
+         return reply;
+     }
+     int frame=cJSON_GetObjectItem(request,"frame")->valueint;
+-    int seed=1+category_index*20+work_index*50+frame*2+(orientation&&!strcmp(orientation,"portrait"));
++    int seed=1+fixture_image_variant+category_index*20+work_index*50+frame*2+(orientation&&!strcmp(orientation,"portrait"));
+     const int size=image_bytes;static uint8_t bytes[1048576];for(int i=0;i<size;i++)bytes[i]=(uint8_t)(seed+i);
+     cJSON *reply=cJSON_CreateObject();*status=200;
+     if(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(request,"op")),"manifest")) {
+@@ -410,7 +411,68 @@ static void annual_long_readers(const char *path) {
+     annual_fixture=NULL;cJSON_Delete(rows);test_card=false;gallery_storage_enable(false);assert(text_page_allocations>0);
+     puts("NATIVE_ANNUAL_LONG_READERS_OK works=7 link_facades=3; production worker, per-page copies, exact complete SHA-256, TF offline reload, rejected corrupted/cancelled replacement retains previous guide, frozen reader survives in-flight next-work completion and pack replacement, releases pages; no hardware claim");
+ }
++// Drive the same foreground entry called by the artwork screensaver,
++// against a complete previous TF catalog with the new guide link absent.
++static void display_canonical(int expected) {
++    gallery_image shown;assert(gallery_request(0,"2026-01-01",0,false,NULL)&&gallery_take(&shown));
++    assert(shown.pixels[0]==expected);gallery_recycle(shown.pixels);
++}
++static void foreground_before_guide_commit(bool request_first,bool changed_image) {
++    assert(GetTempPathA(MAX_PATH,test_card_root));
++    size_t at=strlen(test_card_root);
++    snprintf(test_card_root+at,MAX_PATH-at,"aibot-saver-order-%lu",GetCurrentProcessId());
++    assert(!_mkdir(test_card_root));
++    test_card=true;test_catalog=true;link=LINK_USB;
++    gallery_storage_enable(true);gallery_library_supported(true);
++    char old[65],newrev[65],images[65];
++    memset(old,'a',64);memset(newrev,'b',64);memset(images,'c',64);
++    old[64]=newrev[64]=images[64]=0;
++    gallery_catalog complete={.works=3,.next=3};memcpy(complete.revision,old,65);
++    assert(gallery_catalog_save(SD_STORAGE_MOUNT,0,&complete));
++    uint8_t jpeg[65536];for(unsigned i=0;i<sizeof(jpeg);i++)jpeg[i]=(uint8_t)(1+i);
++    gallery_jpeg image={.key={.category=0,.frame=0,.frames=3},.data=jpeg,.size=sizeof(jpeg),.capacity=sizeof(jpeg)};
++    strcpy(image.key.date,"2026-01-01");strcpy(image.key.work_id,"fixture-work-0");
++    assert(gallery_store_put(SD_STORAGE_MOUNT,&image,old,NULL));
++    assert(gallery_pack_sync(old,NULL)==1);
++    display_canonical(1);
++    gallery_cache_reclaim();free(gallery_take_buffer());
++    memcpy(remote_revisions[0],newrev,65);
++    assert(gallery_pack_sync(newrev,NULL)==1);
++    unsigned ranges_before=range_calls, jpeg_before=atomic_load(&gallery_image_payload_bytes);
++    if(request_first) {
++        if(changed_image)fixture_image_variant=7;
++        display_canonical(changed_image?8:1);
++        unsigned downloaded=atomic_load(&gallery_image_payload_bytes)-jpeg_before;
++        if(changed_image) {
++            assert(range_calls>ranges_before&&downloaded==sizeof(jpeg));
++            puts("SAVER_CHANGED_IMAGE_OK changed JPEG still downloaded and displayed");
++            return;
++        }
++        assert(range_calls==ranges_before&&downloaded==0);
++        gallery_cache_reclaim();free(gallery_take_buffer());
++        atomic_store(&prefetching,true);prefetch_job.purpose=2;
++        assert(!gallery_request_available(0,"2026-01-01",0,false)&&!atomic_load(&cancel_prefetch));
++        atomic_store(&prefetching,false);
++    }
++    // Commit the exact R4 store format, with no guide changes, then activate
++    // the directory link to the already complete previous image revision.
++    uint8_t batch[140+3*40]={0};
++    memcpy(batch,"AIBGB002",8);batch[8]=3;memcpy(batch+12,old,64);memcpy(batch+76,images,64);
++    assert(gallery_guide_batch_save(test_card_root,0,newrev,batch,sizeof(batch),3,0));
++    assert(gallery_guide_delta_link(SD_STORAGE_MOUNT,0,newrev,old));
++    memcpy(complete.revision,newrev,65);assert(gallery_catalog_save(SD_STORAGE_MOUNT,0,&complete));
++    gallery_cache_reclaim();free(gallery_take_buffer());
++    int calls_after_commit=network_calls;
++    link=LINK_NONE;display_canonical(1);
++    assert(network_calls==calls_after_commit);
++    if(!request_first) assert(range_calls==ranges_before&&atomic_load(&gallery_image_payload_bytes)==jpeg_before);
++    printf("SAVER_ORDER_%s image_ranges=%u jpeg_bytes=%u offline_RPC=%d\n",request_first?"FOREGROUND_FIRST":"COMMIT_FIRST",
++        range_calls-ranges_before,atomic_load(&gallery_image_payload_bytes)-jpeg_before,network_calls-calls_after_commit);
++}
+ int main(int argc,char **argv) {
++    if(argc==2&&!strcmp(argv[1],"--saver-foreground-first")){foreground_before_guide_commit(true,false);return 0;}
++    if(argc==2&&!strcmp(argv[1],"--saver-commit-first")){foreground_before_guide_commit(false,false);return 0;}
++    if(argc==2&&!strcmp(argv[1],"--saver-changed-image")){foreground_before_guide_commit(true,true);return 0;}
+     if(argc==2){annual_long_readers(argv[1]);return 0;}
+     char painting_revision[65],calligraphy_revision[65];
+     memset(painting_revision,'a',64);painting_revision[64]=0;

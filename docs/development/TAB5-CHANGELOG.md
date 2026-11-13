@@ -4,8 +4,9 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 ## 0.2.321-ui - 2026-11-13
 
-### Local candidate 321-R4
+### Artwork and display
 
+- Reuse TF artwork when the screensaver requests an image before a guide-only update finishes.
 - Batch compressed guide updates and keep per-work digests on TF. Reuse verified JPEGs after the matching TF catalog is linked. R4 can still fetch images if the screensaver requests them before the link is committed.
 - Retry failed USB gallery transfers on available Wi-Fi without the normal one-minute catalog recheck delay.
 - On ST7121, copy display pixels in small CPU batches. The overview hardware observation recorded zero LCD underruns and zero flush errors over 10 minutes and 43 seconds on R3.
