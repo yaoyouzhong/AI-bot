@@ -32,3 +32,7 @@ python scripts/release_pipeline.py scope --online
 2. **冻结实际交付的包。** 桥接候选走 `candidate.yml`，指定最终 SHA 和平台。Mac 开发 App 已通过 524 项 Swift 测试（4 跳过、0 失败）、Release 构建及本地签名校验；未形成冻结安装 ZIP，也没有公证或最终包安装验收证据。TAB5 R4 的真机 ELF 已记入证据；本机固定 `latest` 仍是 320-R6，不可拿来准备 321。Windows 端提供最终 BIN、首刷／升级 ZIP、对应源码和实际 sidecar；运行 `prepare_tab5_firmware.ps1`、预览实际说明，再用 `prepare_release_assets.py` 和 `seal` 绑定最终包。
 3. **按实际包登记。** 运行对应系统安装／启动和资料保留检查，以及上表的设备检查。将真实结果与候选 ID、源码 SHA、文件 SHA-256 一起记录。缺失和失败保持原状态，开发二进制哈希不填入 ZIP 或安装器字段。
 4. **由 Windows 负责人晋级。** 按[发布自动化](../RELEASE-AUTOMATION.md)先做本地 `status` 和晋级预检；达到发布条件后晋级同一原包。候选随包提供 `LICENSE`、`THIRD_PARTY_NOTICES.md` 和校验文件。桥接草稿文案见两个 changelog 的 Unreleased 段落；TAB5 有独立双语更新日志。实际发布后按[收尾清单](../RELEASE-CHECKLIST.md)同步中英文主页、下载和安装说明，核对公开附件。界面和入口未变时可复用仍准确的截图和视频，文案只写最终候选已验证的行为。
+
+## 2026-11-14 补充
+
+见 [Mac 0.6.21 冻结包安装结果](MAC-0621-INSTALL-ACCEPTANCE-20261114.md)：覆盖安装后卡在钥匙串读取，菜单栏启动未通过；已恢复 0.6.20。R5 仍缺旧版全量图库测试卡的真实更新重放。
