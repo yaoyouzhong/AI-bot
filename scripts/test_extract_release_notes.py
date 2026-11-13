@@ -32,8 +32,14 @@ class ReleaseNoteTests(unittest.TestCase):
                 result = self.run_extract(directory, record["tagPrefix"] + "1.2.3")
                 self.assertEqual(result.returncode, 0, result.stderr)
                 notes = (directory / "notes.md").read_text(encoding="utf-8")
-                self.assertIn("#### 功能", notes)
-                self.assertIn("#### Features", notes)
+                self.assertIn("## 下载\n", notes)
+                heading = {"bridge": "桌面桥接", "tab5": "TAB5", "esp8266": "ESP8266"}[component] + " 1.2.3"
+                self.assertIn("## " + heading + "\n", notes)
+                self.assertIn("## English\n", notes)
+                self.assertIn("### 功能", notes)
+                self.assertIn("### Features", notes)
+                self.assertLess(notes.index("## 下载"), notes.index("## " + heading))
+                self.assertLess(notes.index("## " + heading), notes.index("## English"))
                 self.assertLess(notes.index("正式中文内容"), notes.index("English release content"))
                 self.assertNotIn("Earlier version", notes)
 

@@ -390,6 +390,11 @@ def require_release_scope(candidates, *, online, reason):
     return scope
 
 
+def release_title(candidate):
+    prefix = {"bridge": "AI-bot v", "tab5": "TAB5 ", "esp8266": "ESP8266 "}[candidate["component"]]
+    return prefix + candidate["version"]
+
+
 def promote(directory, acceptance, repository, *, execute=False, publish=False, expected_source=None, commit_closeout=False, run_closeout=True, allow_deferred=False, minimal_bridge_assets=False, minimal_tab5_assets=False, scope_reason=None, scope_checked=False):
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("Invalid GitHub repository")
@@ -425,7 +430,7 @@ def promote(directory, acceptance, repository, *, execute=False, publish=False, 
         releases = gh_json(["api", f"repos/{repository}/releases?per_page=100"])
         if any(x["tag_name"] == candidate["tag"] for x in releases):
             raise ValueError("Existing release lookup failed")
-        run_cli(["release", "create", candidate["tag"], "--repo", repository, "--verify-tag", "--draft", "--latest=false", "--title", ("AI-bot " if candidate["component"] == "bridge" else "") + candidate["tag"], "--notes-file", str((directory / "RELEASE-NOTES.md").resolve())], timeout=120)
+        run_cli(["release", "create", candidate["tag"], "--repo", repository, "--verify-tag", "--draft", "--latest=false", "--title", release_title(candidate), "--notes-file", str((directory / "RELEASE-NOTES.md").resolve())], timeout=120)
     release = remote_identity(repository, candidate["tag"])
     if release["draft"]:
         unexpected = {a["name"] for a in release["assets"]} - set(manifest)

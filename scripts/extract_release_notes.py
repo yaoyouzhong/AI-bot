@@ -7,7 +7,7 @@ import argparse
 import pathlib
 import re
 from component_versions import components, release_target
-from download_catalog import release_intro
+from download_catalog import CENTER, FIRST_INSTALL_GUIDE, REPO
 
 
 def version_section(filename: str, version: str) -> str:
@@ -36,17 +36,17 @@ def public_links(text: str, filename: str) -> str:
     return re.sub(r"\]\(([^)]+)\)", replace, text)
 
 
-def bilingual_notes(files: list[str], version: str) -> str:
+def bilingual_notes(files: list[str], version: str, component: str) -> str:
     english, chinese = [version_section(filename, version) for filename in files]
     header, en_body = english.split("\n", 1)
     zh_header, zh_body = chinese.split("\n", 1)
     if header != zh_header:
         raise SystemExit(f"Chinese and English release dates differ for {version}")
     sections = []
-    for label, body, filename in (("中文更新说明", zh_body, files[1]), ("English release notes", en_body, files[0])):
-        body = re.sub(r"^(#{3,}) ", r"#\1 ", body.strip(), flags=re.M)
-        sections.append(f"### {label}\n\n" + public_links(body, filename))
-    return header + "\n\n" + "\n\n".join(sections) + "\n"
+    component_title = {"bridge": "桌面桥接", "tab5": "TAB5", "esp8266": "ESP8266"}[component] + " " + version
+    for label, body, filename in ((component_title, zh_body, files[1]), ("English", en_body, files[0])):
+        sections.append(f"## {label}\n\n" + public_links(body.strip(), filename))
+    return "\n\n".join(sections) + "\n"
 
 
 def main() -> None:
@@ -65,8 +65,11 @@ def main() -> None:
             pending = re.search(rf"^## {heading}\s*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
             if pending and pending.group(1).strip():
                 raise SystemExit(f"Finalize pending changes in {filename} before tagging")
-    notes = bilingual_notes(files, version)
-    args.output.write_text(release_intro() + notes, encoding="utf-8")
+    notes = bilingual_notes(files, version, target)
+    downloads = ("## 下载\n\n从本页 Assets 或[下载中心](" + CENTER + ")获取本次发布的安装包。"
+                 "[首次安装图文](" + FIRST_INSTALL_GUIDE + ") · "
+                 "[All downloads](" + REPO + "/blob/main/DOWNLOADS.en.md)\n\n")
+    args.output.write_text(downloads + notes, encoding="utf-8")
 
 
 if __name__ == "__main__":

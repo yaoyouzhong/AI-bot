@@ -26,6 +26,11 @@ SOURCE = "a" * 40
 
 
 class CandidateTests(unittest.TestCase):
+    def test_release_titles_identify_component_and_version(self):
+        self.assertEqual(pipeline.release_title({'component': 'bridge', 'version': '0.6.20'}), 'AI-bot v0.6.20')
+        self.assertEqual(pipeline.release_title({'component': 'tab5', 'version': '0.2.320-ui'}), 'TAB5 0.2.320-ui')
+        self.assertEqual(pipeline.release_title({'component': 'esp8266', 'version': '0.5.8'}), 'ESP8266 0.5.8')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

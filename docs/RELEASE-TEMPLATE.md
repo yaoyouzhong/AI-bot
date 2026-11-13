@@ -1,0 +1,31 @@
+# Release 说明模板 / Release notes template
+
+正式发布标题只写产品或组件名和版本：电脑端 `AI-bot vX.Y.Z`、TAB5 `TAB5 X.Y.Z-ui`、ESP8266 `ESP8266 X.Y.Z`、图库 `AI-bot Gallery YYYY.N`。标签沿用各组件既有规则；标题不追加组件说明或内部候选代号。内部交接保留 Draft 状态，交接及验收细节放在正文，不冒充正式发布。
+
+正文先列下载入口，再按实际发布的组件说明更新，英文说明集中放在最后。不同版本只写本次实际交付的内容；历史版本整理保留原有功能、下载链接、来源与验收边界。
+
+```markdown
+## 下载
+
+从本页 Assets 或[下载中心](下载中心链接)获取本次安装包。[首次安装图文](安装指南链接)
+
+## 桌面桥接 X.Y.Z
+
+- 本次实际更新。
+
+## TAB5 X.Y.Z-ui
+
+- 本次实际更新。
+
+## 图库 YYYY.N
+
+- 本次实际更新及下载／导入说明。
+
+## English
+
+English download and release notes for the same published components.
+```
+
+示例中的组件段落按发布范围增删；不要为凑齐模板虚构其他组件。下载入口必须对应实际附件，保留必要的校验、兼容与验收说明。自动生成的单组件 Release 采用相同的“下载 → 组件更新 → English”顺序。
+
+Use the same title and section order in future releases. Preserve historical version details and acceptance limits; include only components actually delivered. GitHub Draft status remains in place for internal handoffs.
