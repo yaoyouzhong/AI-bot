@@ -15,9 +15,12 @@
    - 宣传视频的现有展示顺序已由用户优化确认，作为后续维护基线。只替换受影响的页面或镜头，或按需增加内容；新增内容保持既有段落的相对顺序。未经用户另行明确要求，不大幅改版、重排顺序或整片重做。仅为输出更新文件而重新编码，不视为获准重设计视频。
    - 新增或改动视频、播放器或观看入口时，验证受影响的主页内实际播放、独立观看入口与 MP4 下载，覆盖播放、暂停、拖动和重播；HTTP 200 不等同播放成功。媒体字节和播放集成都未变时，可复用既有播放验收，不因版本号变化重测整套播放流程。
 7. 运行公开内容与许可检查、文档链接检查和 `git diff --check`；核验公开主页、安装说明、媒体及实际下载入口。大文件优先比对本地完整哈希、服务器 digest、HEAD 和小 Range；不把抽查称为远端完整下载校验。
+   - 高清图库后续发布默认在本地生成分段，并在上传前验证各段 SHA-256、合并后的完整包 SHA-256 和导入；上传后核对服务器报告的大小、摘要及公开链接。例行发布不再为校验而重新下载整套高清包；下载工具、协议或网络路径发生变化时，按受影响范围另做下载与续传验证。
 8. 记录正式发布地址、提交、附件摘要、验证和剩余限制。以上项目均有完成证据后交付。
 
 Every release follows this checklist: confirm scope and authorization; preserve accepted bytes; validate source, tests, installation and hardware separately; publish verified assets; synchronize affected bilingual descriptions and download/install instructions; and verify public pages and downloads. Minor changes may retain accurate screenshots, video, covers and media source projects. Replace only material made misleading by changed interfaces, workflows or feature claims, registering new provenance, licenses and hashes. Record reuse without claiming new media was produced. An unchanged platform retains its published version; upload alone does not complete closeout.
+
+For future HD galleries, split locally and verify every part, the reconstructed archive SHA-256, and import before upload. After upload, check server-reported sizes and digests and public links; do not routinely redownload complete HD archives just for verification. Test actual download and resume paths when the tools, protocol, or network path changes.
 
 Homepage video covers the whole project: compare shared hardware features, present TAB5-only features separately, match captions and device order, and omit version numbers from covers. Changed video or playback integrations need actual playback checks; unchanged media and integrations may reuse prior acceptance. Synchronize affected bilingual copy.
 
