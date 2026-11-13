@@ -26,6 +26,19 @@ SOURCE = "a" * 40
 
 
 class CandidateTests(unittest.TestCase):
+    def test_closeout_refreshes_generated_template_without_losing_content(self):
+        body = '## 下载\n\n旧下载入口\n\n## TAB5 0.2.320-ui\n\n- 功能\n\n## English\n\n- Feature\n'
+        intro = '[下载](https://example.com)\n\n'
+        updated = pipeline.refresh_release_download_intro(body, 'tab5', '0.2.320-ui', intro)
+        self.assertEqual(updated, '## 下载\n\n' + intro + '## TAB5 0.2.320-ui\n\n- 功能\n\n## English\n\n- Feature\n')
+        self.assertEqual(pipeline.refresh_release_download_intro(updated, 'tab5', '0.2.320-ui', intro), updated)
+        self.assertEqual(pipeline.refresh_release_download_intro(body.replace('\n', '\r\n'), 'tab5', '0.2.320-ui', intro), updated)
+        legacy = '旧入口\n\n## 0.2.320-ui - 2026-11-12\n\n- 功能\n'
+        self.assertEqual(pipeline.refresh_release_download_intro(legacy, 'tab5', '0.2.320-ui', intro), intro + '## 0.2.320-ui - 2026-11-12\n\n- 功能\n')
+        custom = '## 下载\n\n旧入口\n\n## 下载图库\n\n图库入口\n\n## TAB5 0.2.320-ui\n\n- 功能\n'
+        with self.assertRaisesRegex(ValueError, 'editorial'):
+            pipeline.refresh_release_download_intro(custom, 'tab5', '0.2.320-ui', intro)
+
     def test_release_titles_identify_component_and_version(self):
         self.assertEqual(pipeline.release_title({'component': 'bridge', 'version': '0.6.20'}), 'AI-bot v0.6.20')
         self.assertEqual(pipeline.release_title({'component': 'tab5', 'version': '0.2.320-ui'}), 'TAB5 0.2.320-ui')

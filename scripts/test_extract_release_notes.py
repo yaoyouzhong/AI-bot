@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 from component_versions import ROOT, components
+from release_pipeline import refresh_release_download_intro
 
 
 class ReleaseNoteTests(unittest.TestCase):
@@ -42,6 +43,19 @@ class ReleaseNoteTests(unittest.TestCase):
                 self.assertLess(notes.index("## " + heading), notes.index("## English"))
                 self.assertLess(notes.index("正式中文内容"), notes.index("English release content"))
                 self.assertNotIn("Earlier version", notes)
+
+    def test_generated_notes_can_be_refreshed_during_release_closeout(self):
+        for component in components():
+            with self.subTest(component=component), tempfile.TemporaryDirectory() as temp:
+                directory = Path(temp)
+                record = self.seed(directory, component)
+                result = self.run_extract(directory, record["tagPrefix"] + "1.2.3")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                notes = (directory / "notes.md").read_text(encoding="utf-8")
+                refreshed = refresh_release_download_intro(notes, component, "1.2.3", "[下载](https://example.com)\n\n")
+                self.assertTrue(refreshed.startswith("## 下载\n\n[下载](https://example.com)\n\n"))
+                self.assertIn("正式中文内容", refreshed)
+                self.assertIn("English release content", refreshed)
 
     def test_missing_chinese_version_cannot_generate_an_english_only_page(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -521,6 +521,23 @@ def check_closeout_workspace():
                 raise ValueError("Automatic closeout would push unrelated local commits")
 
 
+def refresh_release_download_intro(body, component, version, intro):
+    """Refresh a generated download section without overwriting custom sections."""
+    body = body.replace("\r\n", "\n")
+    component = "bridge" if component == "bundle" else component
+    label = {"bridge": "桌面桥接", "tab5": "TAB5", "esp8266": "ESP8266"}[component]
+    current = re.search(r"^## " + re.escape(label + " " + version) + r"\s*$", body, re.M)
+    if body.startswith("## 下载\n\n") and current:
+        prefix = body[len("## 下载\n\n"):current.start()]
+        if re.search(r"^## ", prefix, re.M):
+            raise ValueError("Custom Release body needs an explicit editorial download-link update")
+        return "## 下载\n\n" + intro + body[current.start():]
+    legacy = re.search(r"^## " + re.escape(version) + r" - \d{4}-\d{2}-\d{2}", body, re.M)
+    if legacy:
+        return intro + body[legacy.start():]
+    raise ValueError("Custom Release body needs an explicit editorial download-link update")
+
+
 def closeout(*, repository=None, tags=(), commit=False):
     # No builds, flashes, or media re-encoding. Git writes require explicit opt-in.
     generated = GENERATED_DOWNLOADS
@@ -534,15 +551,12 @@ def closeout(*, repository=None, tags=(), commit=False):
         from component_versions import release_target
         from download_catalog import release_intro
         for tag in tags:
-            _, version = release_target(tag)
+            component, version = release_target(tag)
             release = gh_json(["release", "view", tag, "--repo", repository, "--json", "body,isDraft"])
             if release["isDraft"]:
                 raise ValueError("Cannot close out an unpublished release")
             body = release["body"]
-            header = re.search(r"^## " + re.escape(version) + r" - \d{4}-\d{2}-\d{2}", body, re.M)
-            if not header:
-                raise ValueError("Custom Release body needs an explicit editorial download-link update")
-            updated = release_intro(tag) + body[header.start():]
+            updated = refresh_release_download_intro(body, component, version, release_intro(tag))
             if updated != body:
                 import tempfile
                 with tempfile.TemporaryDirectory(prefix="aibot-release-notes-") as temp:
