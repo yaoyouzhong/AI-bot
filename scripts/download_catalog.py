@@ -97,7 +97,8 @@ def load_hd():
     data = json.loads(HD_CATALOG.read_text(encoding="utf-8"))
     if data.get("schemaVersion") != 1 or set(data.get("collections", {})) != {"painting", "calligraphy"}:
         raise ValueError("HD index must contain both complete collections")
-    release_target(data["tag"])
+    if not re.fullmatch(r"gallery-\d{4}\.\d{2}\.\d{2}(?:\.\d+)?", data["tag"]):
+        release_target(data["tag"])
     for key, item in data["collections"].items():
         expected = artifact_names(key + "-hd", data["version"])
         if (item["file"] not in expected or item["size"] <= 0 or item["parts"] <= 0
@@ -178,7 +179,8 @@ def verify_online(data):
                 raise ValueError(f"Download size changed: {key}")
         print(f"OK {key}: public asset, checksum and download URL")
     hd = load_hd()
-    with request(asset_url(hd, "HD-Gallery-parts.json")) as response:
+    manifest_name = "HD-Gallery-parts-3.json" if hd["tag"].startswith("gallery-") else "HD-Gallery-parts.json"
+    with request(asset_url(hd, manifest_name)) as response:
         archives = {a["name"]: a for a in json.load(response)["archives"]}
     for key, item in hd["collections"].items():
         archive = archives.get(item["file"], {})

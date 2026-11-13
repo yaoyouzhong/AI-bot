@@ -72,7 +72,7 @@ def build(standard_root, desktop_root, output, category, version):
             raise ValueError('HD source checksum is not in the inventory')
         paths[name] = (path,source['sha256'].lower())
     metadata = {
-        'catalog.json':json.dumps({'schema':1,'category':category,'edition':version+'-annual','works':works},ensure_ascii=False,separators=(',',':')).encode(),
+        'catalog.json':json.dumps({'schema':1,'category':category,'edition':version,'works':works},ensure_ascii=False,separators=(',',':')).encode(),
         'desktop-index.relative.json':json.dumps({'schema':1,'sources':sources,'pages':pages},ensure_ascii=False,separators=(',',':')).encode(),
         'LICENSE':license_text,
         'THIRD_PARTY_NOTICES.md':notices,

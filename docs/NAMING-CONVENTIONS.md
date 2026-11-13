@@ -43,9 +43,9 @@ These examples use current version numbers. Future builds use these names; the d
 | 高清名画 / HD painting | `AI-bot-gallery-painting-hd-2026.10.16.zip` |
 | 高清书法 / HD calligraphy | `AI-bot-gallery-calligraphy-hd-2026.10.16.zip` |
 
-高清分段在完整 ZIP 名后追加 `.part001`、`.part002`。校验文件沿用 `SHA256SUMS.txt` 或完整文件名加 `.sha256`。下载表统一显示「下载 · 大小」。
+高清分段在完整 ZIP 名后追加 `.partNNN`，实际编号以该版清单为准。校验文件沿用 `SHA256SUMS.txt` 或完整文件名加 `.sha256`。下载表统一显示「下载 · 大小」。
 
-HD parts append `.part001`, `.part002` to the complete ZIP name. Retain `SHA256SUMS.txt` or a `.sha256` sidecar. Download links display “Download · size”.
+HD parts append `.partNNN` to the complete ZIP name; use the numbering in that edition's manifest. Retain `SHA256SUMS.txt` or a `.sha256` sidecar. Download links display “Download · size”.
 
 ## 兼容与迁移 / Compatibility and migration
 

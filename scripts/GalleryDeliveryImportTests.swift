@@ -22,7 +22,7 @@ final class GalleryDeliveryImportTests: XCTestCase {
             let bytes = try Data(contentsOf: root.appendingPathComponent("desktop-index.relative.json"))
             let index = try JSONDecoder().decode(MacGalleryDesktopIndex.self, from: bytes)
             XCTAssertNotNil(try index.image(root: root, work: work, frame: 0, preview: preview))
-            XCTAssertNotNil(gallery.hdEdition(category))
+            XCTAssertEqual(gallery.hdEdition(category), "2026.11.12.1")
         }
     }
 }

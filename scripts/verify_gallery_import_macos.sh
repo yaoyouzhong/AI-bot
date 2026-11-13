@@ -26,7 +26,6 @@ export GALLERY_TEST_PACKAGE="$temp/$standard" GALLERY_TEST_KIND=standard
 (cd mac-app && swift test --filter GalleryDeliveryImportTests/testPublishedPackageImport)
 rm "$temp/$standard" "$temp/$standard.sha256"
 name="AI-bot-gallery-$CATEGORY-hd-2026.11.12.1.zip"
-python3 scripts/rebuild_gallery_public_parts.py "$CATEGORY" "$temp"
 cp scripts/Download-HD-Gallery.command "$temp/Download-HD-Gallery.command"
 if [ "$CATEGORY" = painting ]; then choice=1; else choice=2; fi
 (cd "$temp" && printf '%s\n' "$choice" | bash ./Download-HD-Gallery.command)

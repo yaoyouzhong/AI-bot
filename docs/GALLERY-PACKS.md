@@ -4,15 +4,15 @@
 
 | 作品 / Collection | 普通版 / Standard | 高清版 / HD |
 | --- | --- | --- |
-| 名画 / Painting | [下载 / Download](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-gallery-painting-standard-2026.11.12.1.zip) | [2.93 GiB · 24 段 / parts](GALLERY-HD.md#painting) |
-| 书法 / Calligraphy | [下载 / Download](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-gallery-calligraphy-standard-2026.11.12.1.zip) | [2.89 GiB · 24 段 / parts](GALLERY-HD.md#calligraphy) |
+| 名画 / Painting | [下载 / Download](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-gallery-painting-standard-2026.11.12.1.zip) | [2.93 GiB · 2 段 / parts](GALLERY-HD.md#painting) |
+| 书法 / Calligraphy | [下载 / Download](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-gallery-calligraphy-standard-2026.11.12.1.zip) | [2.89 GiB · 2 段 / parts](GALLERY-HD.md#calligraphy) |
 
-[高清下载与合并 / HD download and merge](GALLERY-HD.md#download) · [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt) · [版次说明 / Edition history](GALLERY-VERSIONS.md)
+[高清下载与合并 / HD download and merge](GALLERY-HD.md#download) · [普通版 SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt) · [高清版 SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/gallery-2026.11.12.1/SHA256SUMS.txt) · [版次说明 / Edition history](GALLERY-VERSIONS.md)
 
 ## 下载、浏览与导入
 
 1. 只需设备展示图，下载标准 ZIP；希望电脑细看作品，下载高清完整包。两版均含作品和导读，高清包已带标准图，任选一版即可。高清原作不发送给 TAB5。
-2. Windows **设备中心 → 屏保图库 → 安装图库包…**，直接选择完整 ZIP，无需解压。升级电脑软件保留图库；导入失败或取消保留旧内容，更新某类不改变另一类。
+2. Windows 或 Mac 打开 **设备中心 → 屏保图库 → 安装图库包…**，直接选择完整 ZIP，无需解压。升级电脑软件保留图库；导入失败或取消保留旧内容，更新某类不改变另一类。
 3. 点击 **浏览作品**，按标题、作者、日期或拼音查找。图片与阅读区独立；左右键循环翻页，I 展开阅读，F 全屏，Esc 返回。全屏可滚轮缩放、拖动、恢复适合屏幕。
 4. TAB5 **设置 → 屏幕与声音**选择每日名画或每日书法并预览。横屏资料位于作品左侧，竖屏保留简化信息。
 
@@ -32,4 +32,4 @@
 
 Edition 2026.2 contains 366 independent paintings and 366 calligraphy works, available in standard and complete HD packages (2026.11.12.1). Both editions include device previews, updated guides and source attribution. The HD edition adds desktop originals. Follow the [resumable download and merge guide](GALLERY-HD.md), then import the complete ZIP through Device Center → Artwork Collections. App upgrades preserve installed collections, and failed or cancelled imports preserve existing data.
 
-Desktop browsing supports title/artist/date/pinyin search, wrapped page navigation, independent reading, fullscreen, wheel zoom and pan. HD decoding is bounded and desktop-only; TAB5 receives standard previews. Explicit opt-in TF storage copies complete installed previews/guides over USB/Wi-Fi, resumes verified progress and reuses unchanged JPEGs. Device cache remains the default; no unrelated files are removed. Complete imports and full page reads were verified in isolation for edition 2026.1. Native captures are separate from physical firmware acceptance; see the release record for retained evidence and open boundaries.
+On Windows and Mac, choose **Device Center → Artwork Collections → Install Gallery Package** and select a complete standard or HD ZIP. Desktop browsing supports title/artist/date/pinyin search, wrapped page navigation, independent reading, fullscreen, wheel zoom and pan. HD decoding is bounded and desktop-only; TAB5 receives standard previews. Explicit opt-in TF storage copies complete installed previews/guides over USB/Wi-Fi, resumes verified progress and reuses unchanged JPEGs. Device cache remains the default; no unrelated files are removed. Complete imports and full page reads were verified in isolation for edition 2026.1. Native captures are separate from physical firmware acceptance; see the release record for retained evidence and open boundaries.

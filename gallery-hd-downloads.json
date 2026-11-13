@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "version": "2026.11.12.1",
-  "tag": "v0.6.20",
+  "tag": "gallery-2026.11.12.1",
   "collections": {
     "painting": {
       "file": "AI-bot-gallery-painting-hd-2026.11.12.1.zip",
-      "size": 3141300917,
-      "parts": 24,
-      "sha256": "63cd2f20c0322db36615110e329e0f36cd8dc785d590420a6d4e2359aa266045"
+      "size": 3141293222,
+      "parts": 2,
+      "sha256": "5173ef666cac71a2b13cfa8a85c952b2cc391d03afcf96342a17caf36326228b"
     },
     "calligraphy": {
       "file": "AI-bot-gallery-calligraphy-hd-2026.11.12.1.zip",
-      "size": 3104757745,
-      "parts": 24,
-      "sha256": "f1ff5f59f54dce19341d8a3dcfe560771036979013b0836217a2c639828b608b"
+      "size": 3104737018,
+      "parts": 2,
+      "sha256": "5fc40849c20fb033faf9222d3a48a2f75377ccb6b64d8283530a9cef45a7176a"
     }
   }
 }
