@@ -6,7 +6,7 @@ enum MacTab5ArtGuide {
         var result: [String] = [], page = "", bytes = 0, wireBytes = 0
         for scalar in text.unicodeScalars {
             let value = String(scalar)
-            let escaped = try JSONEncoder().encode(value).count - 2
+            let escaped = MacTab5GalleryWire.escapedSize(scalar)
             if bytes + value.utf8.count > 4095 || wireBytes + escaped > 6144 { result.append(page); page = ""; bytes = 0; wireBytes = 0 }
             page += value; bytes += value.utf8.count; wireBytes += escaped
         }

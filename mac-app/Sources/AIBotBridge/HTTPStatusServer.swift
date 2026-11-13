@@ -142,7 +142,11 @@ final class HTTPStatusServer {
                         self.queue.async {
                             self.pendingRequests -= 1
                             let again: (() -> Void)? = persist && response.starts(with: Data("HTTP/1.1 200 ".utf8)) ? { self.readNext(connection, remaining: remaining - 1, expires: expires) } : nil
-                            self.deliver(response, connection: connection, completion: again)
+                            // The service produces T5S1 only for authenticated
+                            // gallery reads. Let socket completion pace those blocks.
+                            let galleryStream = request.target == "/tab5/v1/rpc"
+                                && response.range(of: Data("\r\n\r\n".utf8)).map { response.suffix(from: $0.upperBound).starts(with: Data("T5S1".utf8)) } == true
+                            self.deliver(response, connection: connection, completion: again, paced: !galleryStream)
                         }
                     }
                 } else {

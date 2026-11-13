@@ -415,7 +415,7 @@ final class MacTab5Service {
         health["hostBindingVersion"] = 1; health["hostId"] = MacTab5HostBinding.id(pair)
         health["hostName"] = MacTab5HostBinding.name(ProcessInfo.processInfo.hostName)
         health["displayCommand"] = display.command.map { $0 as Any } ?? NSNull()
-        health["galleryPacks"] = gallery.revisions(); health["gallerySyncVersion"] = 1
+        health["galleryPacks"] = gallery.revisions(); health["gallerySyncVersion"] = 1; health["galleryStream"] = 1
         if computer.hasCapabilities { health["computerControlVersion"] = 1 }
         health["wifiUnlockVersion"] = unlock.configured(pair) ? 1:0
         if unlock.configured(pair,transport:"USB") { health["hostUnlockVersion"] = 1 }
@@ -664,6 +664,9 @@ final class MacTab5Service {
         var result = MacTab5RPCResult(status, body)
         let diagnostic = dispatchOperation ? interactionDiagnostics.begin(kind: root["kind"] as? String,
             operation: root["op"] as? String, transport: transport, queued: queued) : nil
+        let binary = root["binaryReply"] as? Bool == true, bulk = binary && root["bulkReply"] as? Bool == true
+        let galleryRequest = root["kind"] as? String == "gallery", operation = root["op"] as? String
+        let stream = galleryRequest && transport == "Wi-Fi" && bulk && (operation == "read" || operation == "guideBatchRead") && root["streamReply"] as? Bool == true
         if dispatchOperation {
             if currentBenchmark != 0, ["image-chunk","screen-preview","ota","ota_probe","ota-control","voice"].contains(root["kind"] as? String ?? "") { result = .error(409,"benchmark_busy") }
             else if root["kind"] as? String == "benchmark" { result = MacTab5Benchmark.handle(root,raw:raw,binary:root["binaryReply"] as? Bool == true,bulk:root["bulkReply"] as? Bool == true) }
@@ -675,12 +678,12 @@ final class MacTab5Service {
                 let bytes = raw.isEmpty ? Data(base64Encoded:root["data"] as? String ?? "") ?? Data():raw
                 result = screenPreview.receive(root,bytes:bytes,context:screenPreviewContext,device:device,transport:transport)
             }
-            else if !raw.isEmpty { result = .error(400, "unexpected_binary_data") }
+            else if !raw.isEmpty && !(galleryRequest && operation == "guideSummary") { result = .error(400, "unexpected_binary_data") }
             else if root["kind"] as? String == "runtime-diagnostics" {
                 result = deviceDiagnostics.receive(root,context:deviceDiagnosticContext,device:device,transport:transport)
             }
             else if root["kind"] as? String == "gallery", currentBenchmark == 1 { result = .error(409,"benchmark_busy") }
-            else if root["kind"] as? String == "gallery" { result = gallery.handle(root, binary: root["binaryReply"] as? Bool == true, bulk: root["bulkReply"] as? Bool == true) }
+            else if galleryRequest { result = gallery.handle(root, binary: binary, bulk: bulk, stream: stream, upload: raw) }
             else if root["kind"] as? String == "computer-control" { result = computer.handle(root) }
             else if ["wifi-unlock","host-unlock"].contains(root["kind"] as? String ?? "") {
                 result = unlock.handle(root,pair:pair,transport:transport,session:session,allowed:{ [weak self] in
@@ -710,7 +713,11 @@ final class MacTab5Service {
             lock.lock(); activeOperations -= 1; lock.unlock()
         }
         computer.observe(root, result: result, transport: transport, started: monotonic, queued: queued)
-        let binary = root["binaryReply"] as? Bool == true, bulk = binary && root["bulkReply"] as? Bool == true
+        if stream, result.status == 200, !result.bytes.isEmpty {
+            let reply = try? MacTab5GalleryStream.encode(result, key: pair.key, nonce: nonce)
+            interactionDiagnostics.finish(diagnostic, status: result.status, body: result.body)
+            return reply.map { (200, $0) } ?? (500, Data())
+        }
         var clear = try? MacTab5Binary.encode(result, binary: binary, bulk: bulk)
         if (clear?.count ?? Int.max) > MacTab5Binary.maximumMailbox - 28 { clear = try? MacTab5Binary.encode(.error(413, "response_too_large"), binary: false, bulk: false) }
         let reply = clear.flatMap { try? MacTab5Protocol.encrypt($0, key: pair.key, challenge: nonce, maximum: MacTab5Binary.maximumMailbox) }
