@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace AIBotBridge;
 
 // All files are curated local assets; authenticated callers cannot supply paths or URLs.
-internal sealed class Tab5Gallery
+internal sealed partial class Tab5Gallery
 {
     internal sealed record Artwork(string Id,string Category,string Title,string Author,string Source,string License,string[] Frames,string? WorkId=null,string[]? PortraitFrames=null);
     private readonly string _directory;
@@ -20,6 +20,8 @@ internal sealed class Tab5Gallery
     private readonly Dictionary<string,(long Stamp,long Length,string Expected,GalleryAnnualIndex Index)> _annual=[];
     private long _revision=-1;
     private long _imageUse;
+    private readonly Dictionary<string, (string Images, Artwork[] Works)> _syncCatalogs = [];
+    private readonly Dictionary<string, Dictionary<string, string>> _deltaSources = [];
     internal sealed record BrowserCatalog(string Category,string? Version,Artwork[] Works);
     internal sealed record BrowserPage(Artwork Work,Tab5ArtGuides.Guide? Guide,byte[] Jpeg);
     internal Tab5Gallery(string? directory=null) {
@@ -58,15 +60,79 @@ internal sealed class Tab5Gallery
         }
     }
     internal (int Status,object Body) Handle(JsonElement request,bool binary,bool bulk,bool stream=false)
+        => Handle(request,binary,bulk,stream,ReadOnlyMemory<byte>.Empty);
+
+    internal (int Status,object Body) Handle(JsonElement request,bool binary,bool bulk,bool stream,ReadOnlyMemory<byte> upload)
     {
         lock(GalleryPack.Gate) {
             RefreshRevision();
+            if (request.TryGetProperty("op", out var operation) && operation.ValueKind==JsonValueKind.String &&
+                operation.GetString() is "guideBatch" or "guideBatchRead" or "guideSummary")
+                return HandleGuideBatch(request,binary,bulk,stream,upload);
             return HandleCore(request,binary,bulk,stream);
         }
     }
     private void RefreshRevision() {
         if(_revision==GalleryPack.Revision)return;
-        lock(_gate){_catalogs.Clear();_images.Clear();_guides.Clear();_digests.Clear();_annual.Clear();_revision=GalleryPack.Revision;}
+        lock(_gate){_catalogs.Clear();_images.Clear();_guides.Clear();_digests.Clear();_annual.Clear();_syncCatalogs.Clear();_deltaSources.Clear();_guideBatches.Clear();_guideSummaries.Clear();_revision=GalleryPack.Revision;}
+    }
+    private (string Images, Artwork[] Works)? SyncCatalog(string category, string directory)
+    {
+        if (_syncCatalogs.TryGetValue(category, out var existing)) return existing;
+        if (_packs is null || directory != Path.Combine(_packs, category) ||
+            GalleryPack.Installed(category, _packs) is not { } manifest) return null;
+        var works = VisibleWorks(directory, category);
+        var identity = ImageRevision(manifest);
+        var catalog = (identity, works);
+        _syncCatalogs[category] = catalog;
+        return catalog;
+    }
+
+    private static string ImageRevision(GalleryPackManifest manifest)
+    {
+        var files = manifest.Files.Where(file => file.Key.EndsWith(".jpg", StringComparison.Ordinal) ||
+            file.Key is "catalog.json" or "annual-index.json").OrderBy(file => file.Key, StringComparer.Ordinal);
+        var scope = manifest.Collection != "full" ? "annual" :
+            GalleryPreferences.Full ? "full:annual-first-v1" : "full:annual";
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new { manifest.Category, scope, files });
+        return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+    }
+
+    private Dictionary<string, string> DeltaSources(string category, string imageRevision)
+    {
+        if (_deltaSources.TryGetValue(category, out var cached)) return cached;
+        var sources = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (_packs is null) return sources;
+        foreach (string backup in Directory.EnumerateDirectories(_packs, category + ".backup-*"))
+        {
+            string manifestPath = Path.Combine(backup, "PACK.json");
+            if (!File.Exists(manifestPath) || new FileInfo(manifestPath).Length > 2 * 1024 * 1024) continue;
+            GalleryPackManifest? previous;
+            try { previous = JsonSerializer.Deserialize<GalleryPackManifest>(File.ReadAllBytes(manifestPath), JsonDefaults.Options); }
+            catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException) { continue; }
+            if (previous?.Files is null || previous.Category != category || ImageRevision(previous) != imageRevision) continue;
+            var digest = GalleryPack.Digest(previous);
+            if (digest.Length == 64) sources.TryAdd(digest, backup);
+        }
+        _deltaSources[category] = sources;
+        return sources;
+    }
+
+    private (int Status, object Body) GuideDelta(string category, string directory, string from, string to)
+    {
+        if (from.Length != 64 || to != ContentDigest(category) ||
+            SyncCatalog(category, directory) is not { } current ||
+            !DeltaSources(category, current.Images).TryGetValue(from, out string? backup))
+            return (409, new { error = "gallery_delta_unavailable" });
+        int[] changed;
+        try {
+            changed = current.Works.Select((work, index) => (work, index))
+                .Where(entry => Guide(backup, entry.work, 0) != Guide(directory, entry.work, 0))
+                .Select(entry => entry.index).ToArray();
+        } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) {
+            return (409, new { error = "gallery_delta_unavailable" });
+        }
+        return (200, new { from, revision = to, imageRevision = current.Images, works = current.Works.Length, changed });
     }
     private string ContentDigest(string category) {
         if(_packs is null)return "";
@@ -162,10 +228,13 @@ internal sealed class Tab5Gallery
         string Text(string key)=>request.TryGetProperty(key,out var value)&&value.ValueKind==JsonValueKind.String?value.GetString()!:"";
         try {
             string category=Text("category");
+            string operation=Text("op");
             DateOnly date=default;
-            if(category is not ("painting" or "calligraphy")||(Text("op")!="catalog"&&!DateOnly.TryParseExact(Text("date"),"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out date)))return(400,new{error="invalid_gallery_date"});
+            if(category is not ("painting" or "calligraphy")||(operation is not ("catalog" or "guideDelta")&&!DateOnly.TryParseExact(Text("date"),"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out date)))return(400,new{error="invalid_gallery_date"});
             string directory=CategoryDirectory(category);
-            var works=VisibleWorks(directory,category);
+            if(operation=="guideDelta")return GuideDelta(category,directory,Text("from"),Text("revision"));
+            var sync=SyncCatalog(category,directory);
+            var works=sync?.Works??VisibleWorks(directory,category);
             if(works.Length==0)return(404,new{error="gallery_pack_missing",category});
             if(Text("op")=="catalog") {
                 var installed=_packs is not null?GalleryPack.Installed(category,_packs):null;
@@ -173,9 +242,21 @@ internal sealed class Tab5Gallery
                 if(Works(directory).Count(w=>w.Category==category)!=installed.Works||works.Length>4096||works.Any(w=>w.Frames.Length is <1 or >64||w.PortraitFrames?.Length!=w.Frames.Length))
                     return(503,new{error="invalid_gallery_catalog"});
                 string revision=ContentDigest(category);
+                if (Text("guideBatch")=="1" && sync is { } batch)
+                    return (200,new {syncVersion=1,works=works.Length,revision,baseDate="2026-01-01",
+                        imageRevision=batch.Images,guideBatch=1,deltaSources=DeltaSources(category,batch.Images).Keys.Order(StringComparer.Ordinal).Take(12).ToArray()});
+                if (Text("guideDelta")=="1" && sync is { } catalog)
+                    return (200, new {syncVersion=1, works=works.Length, revision, baseDate="2026-01-01",
+                        imageRevision=catalog.Images, deltaSources=DeltaSources(category,catalog.Images).Keys.Order(StringComparer.Ordinal).Take(12).ToArray()});
                 return(200,new{syncVersion=1,works=works.Length,revision,baseDate="2026-01-01"});
             }
             var work=works[DayIndex(date,works.Length)];
+            if(operation=="workGuide") {
+                string revision=ContentDigest(category);
+                if(revision.Length!=64||Text("revision")!=revision)return(409,new{error="gallery_guide_changed"});
+                var guide=Guide(directory,work,3);
+                return(200,new{revision,guideVersion=3,workId=work.WorkId??work.Source,guide});
+            }
             if(Text("op")=="guidePage") {
                 var full=Guide(directory,work,0);
                 if(full is null||Text("workId")!=full.WorkId||Text("sha256")!=Tab5ArtGuides.TextHash(full.Transcription))

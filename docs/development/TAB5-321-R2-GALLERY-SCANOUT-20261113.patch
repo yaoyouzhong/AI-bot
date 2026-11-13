@@ -1,0 +1,1564 @@
+diff --git a/firmware/CMakeLists.txt b/firmware/CMakeLists.txt
+index cb63131..bef8274 100644
+--- a/firmware/CMakeLists.txt
++++ b/firmware/CMakeLists.txt
+@@ -1,6 +1,6 @@
+ cmake_minimum_required(VERSION 3.16)
+ include("${CMAKE_CURRENT_LIST_DIR}/../cmake/WindowsNinjaResponseFiles.cmake")
+-set(PROJECT_VER "0.2.320-ui")
++set(PROJECT_VER "0.2.321-ui")
+ option(TAB5_LOCAL_ART "Build daily art support; collections are installed separately" ON)
+ if(TAB5_LOCAL_VERSION)
+     set(PROJECT_VER "${TAB5_LOCAL_VERSION}")
+diff --git a/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c b/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c
+index b8e618e..113f168 100644
+--- a/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c
++++ b/firmware/components/esp_lvgl_port/src/lvgl9/esp_lvgl_port_disp.c
+@@ -24,6 +24,8 @@
+ #include "esp_lcd_panel_io.h"
+ #include "esp_lcd_panel_ops.h"
+ #include "esp_lvgl_port.h"
++extern void tab5_lcd_rotate_boundary(bool) __attribute__((weak));
++extern void tab5_lcd_submit_boundary(bool) __attribute__((weak));
+ #include "esp_lvgl_port_priv.h"
+ #if CONFIG_IDF_TARGET_ESP32S3 && ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+ #include "esp_lcd_panel_rgb.h"
+@@ -1060,6 +1062,7 @@ static void lvgl_port_flush_callback(lv_display_t* drv, const lv_area_t* area, u
+             // interrupt dependency. The destination is compact, with swapped
+             // dimensions only for quarter turns.
+             uint32_t dst_stride = disp_ctx->current_rotation == LV_DISPLAY_ROTATION_180 ? w_stride : h_stride;
++            if (tab5_lcd_rotate_boundary) tab5_lcd_rotate_boundary(false);
+             int64_t rotate_start = esp_timer_get_time();
+             if (cf == LV_COLOR_FORMAT_RGB565 && disp_ctx->current_rotation != LV_DISPLAY_ROTATION_180) {
+                 tab5_rotate_ui(color_map, disp_ctx->draw_buffs[2], ww, hh, w_stride, dst_stride,
+@@ -1069,6 +1072,7 @@ static void lvgl_port_flush_callback(lv_display_t* drv, const lv_area_t* area, u
+                                   w_stride, dst_stride, disp_ctx->current_rotation, cf);
+             }
+             tab5_display_rotate_us = (unsigned)(esp_timer_get_time() - rotate_start);
++            if (tab5_lcd_rotate_boundary) tab5_lcd_rotate_boundary(true);
+             disp_ctx->frame_rotate_us += tab5_display_rotate_us;
+             if (tab5_display_rotate_us > tab5_display_rotate_peak_us)
+                 tab5_display_rotate_peak_us = tab5_display_rotate_us;
+@@ -1109,8 +1113,10 @@ static void lvgl_port_flush_callback(lv_display_t* drv, const lv_area_t* area, u
+             portEXIT_CRITICAL(&disp_ctx->direct_lock);
+             assert(submitted);
+         }
++        if (tracked && tab5_lcd_submit_boundary) tab5_lcd_submit_boundary(false);
+         esp_err_t draw_result = esp_lcd_panel_draw_bitmap(disp_ctx->panel_handle, offsetx1, offsety1,
+                                                         offsetx2 + 1, offsety2 + 1, color_map);
++        if (tracked && tab5_lcd_submit_boundary) tab5_lcd_submit_boundary(true);
+         tab5_display_flush_count++;
+         if (draw_result != ESP_OK) {
+             if (tracked) {
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+index c581647..1b0ae21 100644
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R6";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R2";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/firmware/main/display_diagnostics.c b/firmware/main/display_diagnostics.c
+index 47f64d6..d94b1fa 100644
+--- a/firmware/main/display_diagnostics.c
++++ b/firmware/main/display_diagnostics.c
+@@ -1,5 +1,6 @@
+ #include "screen_preview.h"
+ #include "display_diagnostics.h"
++#include "scanout_history.h"
+ #include "display_bandwidth.h"
+ #include "photo_display_probe.h"
+ #include "draw_orthogonal.h"
+@@ -25,6 +26,9 @@ static volatile unsigned copy_sequence,copy_begin_frame,copy_begin_latch,copy_en
+ static volatile unsigned underrun_copy_valid,underrun_read_frame;
+ static volatile unsigned underrun_begin_frame,underrun_begin_latch,underrun_end_frame,underrun_end_latch;
+ static volatile unsigned underrun_copy_active,underrun_copy_start_age,underrun_copy_end_age,underrun_copy_pixels;
++static tab5_history copy_history,ui_history;
++static unsigned history_sequence,history_fault_count,history_used;
++static tab5_history_event history_fault[TAB5_HISTORY_MAX_EVENTS];
+ 
+ // A sticky DSI flag is sampled, never cleared here. A frame callback
+ // crossing a boundary makes that boundary ambiguous rather than "clear".
+@@ -35,12 +39,21 @@ static inline __attribute__((always_inline)) unsigned copy_latch_sample(volatile
+     return before==frame_count?latched:2u;
+ }
+ 
++static inline __attribute__((always_inline)) void ui_mark(unsigned kind) {
++    unsigned frame,latch=copy_latch_sample(&frame);
++    tab5_history_mark(&ui_history,kind,frame,latch,(unsigned)esp_timer_get_time());
++}
++void tab5_lcd_render_boundary(bool ending) { ui_mark(ending?TAB5_HISTORY_RENDER_END:TAB5_HISTORY_RENDER_BEGIN); }
++void tab5_lcd_rotate_boundary(bool ending) { ui_mark(ending?TAB5_HISTORY_ROTATE_END:TAB5_HISTORY_ROTATE_BEGIN); }
++void tab5_lcd_submit_boundary(bool ending) { ui_mark(ending?TAB5_HISTORY_SUBMIT_END:TAB5_HISTORY_SUBMIT_BEGIN); }
++
+ void IRAM_ATTR tab5_lcd_copy_begin(unsigned pixels) {
+     copy_sequence++;
+     __asm__ volatile("fence rw,rw" ::: "memory");
+     copy_begin_latch=copy_latch_sample(&copy_begin_frame);
+     copy_end_frame=0;copy_end_latch=2;
+     copy_started=(unsigned)esp_timer_get_time();copy_pixels=pixels;copy_count++;copy_active=1;
++    tab5_history_mark(&copy_history,TAB5_HISTORY_COPY_BEGIN,copy_begin_frame,copy_begin_latch,copy_started);
+     __asm__ volatile("fence rw,rw" ::: "memory");
+     copy_sequence++;
+ }
+@@ -49,6 +62,7 @@ void IRAM_ATTR tab5_lcd_copy_end(void) {
+     __asm__ volatile("fence rw,rw" ::: "memory");
+     copy_end_latch=copy_latch_sample(&copy_end_frame);
+     copy_finished=(unsigned)esp_timer_get_time();copy_active=0;
++    tab5_history_mark(&copy_history,TAB5_HISTORY_COPY_END,copy_end_frame,copy_end_latch,copy_finished);
+     __asm__ volatile("fence rw,rw" ::: "memory");
+     copy_sequence++;
+ }
+@@ -76,6 +90,25 @@ void IRAM_ATTR tab5_lcd_underrun(void) {
+     underrun_sequence++;
+ }
+ 
++// Called only on a fault, after the DMA is already rearmed. Copy at most
++// four copy marks and eight LVGL marks; do not wait, allocate or log.
++void IRAM_ATTR tab5_lcd_capture_before(void) {
++    tab5_history_event snapshot[TAB5_HISTORY_MAX_EVENTS];
++    unsigned used=tab5_history_collect(&copy_history,underrun_us,underrun_read_frame,snapshot,4);
++    used+=tab5_history_collect(&ui_history,underrun_us,underrun_read_frame,snapshot+used,8);
++    unsigned seq=__atomic_load_n(&history_sequence,__ATOMIC_RELAXED);
++    __atomic_store_n(&history_sequence,seq+1,__ATOMIC_RELAXED);
++    __atomic_thread_fence(__ATOMIC_SEQ_CST);
++    __atomic_store_n(&history_used,used,__ATOMIC_RELAXED);
++    __atomic_store_n(&history_fault_count,tab5_lcd_underruns,__ATOMIC_RELAXED);
++    for(unsigned i=0;i<used;i++) {
++        __atomic_store_n(&history_fault[i].tag,snapshot[i].tag,__ATOMIC_RELAXED);
++        __atomic_store_n(&history_fault[i].frame_age,snapshot[i].frame_age,__ATOMIC_RELAXED);
++        __atomic_store_n(&history_fault[i].age_us,snapshot[i].age_us,__ATOMIC_RELAXED);
++    }
++    __atomic_store_n(&history_sequence,seq+2,__ATOMIC_RELEASE);
++}
++
+ static volatile uint32_t frame_gap_count, frame_gap_at_us;
+ static volatile uint32_t flash_count, flash_start_us, flash_peak_us, flash_end_us;
+ static volatile uint32_t watchdog_count, watchdog_at_us;
+@@ -145,8 +178,29 @@ void IRAM_ATTR tab5_flash_guard_end(void) {
+     crash_record_checkpoint(RUNTIME_FLASH,0,0);
+ }
+ 
+-void display_diagnostics_format(char *out,unsigned size,char *copy_window,unsigned window_size) {
++static void format_before(char *out,unsigned size,unsigned count) {
++    unsigned seq=__atomic_load_n(&history_sequence,__ATOMIC_ACQUIRE);
++    if(!seq||(seq&1u)||__atomic_load_n(&history_fault_count,__ATOMIC_RELAXED)!=count)return;
++    unsigned used=__atomic_load_n(&history_used,__ATOMIC_RELAXED);
++    if(!used||used>TAB5_HISTORY_MAX_EVENTS)return;
++    int n=snprintf(out,size,";before,1,%u",count);
++    if(n<=0||(unsigned)n>=size){out[0]=0;return;}
++    unsigned offset=(unsigned)n;
++    for(unsigned i=0;i<used;i++) {
++        n=snprintf(out+offset,size-offset,",%u,%u,%u",
++            __atomic_load_n(&history_fault[i].tag,__ATOMIC_RELAXED),
++            __atomic_load_n(&history_fault[i].frame_age,__ATOMIC_RELAXED),
++            __atomic_load_n(&history_fault[i].age_us,__ATOMIC_RELAXED));
++        if(n<=0||(unsigned)n>=size-offset){out[0]=0;return;}
++        offset+=(unsigned)n;
++    }
++    __atomic_thread_fence(__ATOMIC_SEQ_CST);
++    if(seq!=__atomic_load_n(&history_sequence,__ATOMIC_ACQUIRE))out[0]=0;
++}
++
++void display_diagnostics_format(char *out,unsigned size,char *copy_window,unsigned window_size,char *before,unsigned before_size) {
+     if(copy_window&&window_size)copy_window[0]=0;
++    if(before&&before_size)before[0]=0;
+     snprintf(out, size, "%u,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u", (unsigned)frame_count,
+              (unsigned)frame_peak_us, (unsigned)frame_gap_count, (unsigned)frame_gap_at_us,
+              (unsigned)flash_count, (unsigned)flash_peak_us, (unsigned)flash_end_us,
+@@ -192,7 +246,7 @@ void display_diagnostics_format(char *out,unsigned size,char *copy_window,unsign
+     char ime[128];tab5_pinyin_diagnostics(ime,sizeof(ime));
+     if(used<size)snprintf(out+used,size-used,";ime,%s,%u",ime,(unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+     used=(unsigned)strlen(out);
+-    if(used<size)snprintf(out+used,size-used,";copy,1,32,%u,%u",(unsigned)copy_active,(unsigned)copy_count);
++    if(used<size)snprintf(out+used,size-used,";copy,1,16,%u,%u",(unsigned)copy_active,(unsigned)copy_count);
+     used=(unsigned)strlen(out);
+     unsigned sequence=underrun_sequence;
+     if(used<size&&frame_count)snprintf(out+used,size-used,";fifo,1,%u,%u,%u",
+@@ -214,6 +268,7 @@ void display_diagnostics_format(char *out,unsigned size,char *copy_window,unsign
+                     valid,frame,begin_frame,begin_latch,end_frame,end_latch);
+                 if(len<=0||(unsigned)len>=window_size)copy_window[0]=0;
+             }
++            if(wrote>0&&(unsigned)wrote<size-used&&before&&before_size)format_before(before,before_size,count);
+         }
+     }
+ 
+diff --git a/firmware/main/display_diagnostics.h b/firmware/main/display_diagnostics.h
+index d05fc04..6bd66b0 100644
+--- a/firmware/main/display_diagnostics.h
++++ b/firmware/main/display_diagnostics.h
+@@ -1,7 +1,11 @@
+ #pragma once
++#include <stdbool.h>
+ 
+ // Timing counters and sanitized RTOS task names only; no application payload.
+ // Values are observational snapshots, not a lock-consistent
+ // trace. Microsecond timestamps wrap after ~71 minutes; compare unsigned deltas.
+-enum { TAB5_COPY_WINDOW_CAPACITY=96 };
+-void display_diagnostics_format(char *out,unsigned size,char *copy_window,unsigned window_size);
++enum { TAB5_COPY_WINDOW_CAPACITY=96, TAB5_BEFORE_CAPACITY=176 };
++void tab5_lcd_render_boundary(bool ending);
++void tab5_lcd_rotate_boundary(bool ending);
++void tab5_lcd_submit_boundary(bool ending);
++void display_diagnostics_format(char *out,unsigned size,char *copy_window,unsigned window_size,char *before,unsigned before_size);
+diff --git a/firmware/main/gallery_guide_batch.inc b/firmware/main/gallery_guide_batch.inc
+new file mode 100644
+index 0000000..c713014
+--- /dev/null
++++ b/firmware/main/gallery_guide_batch.inc
+@@ -0,0 +1,134 @@
++static bool batch_number(cJSON *body,const char *name,unsigned expected) {
++    cJSON *value=cJSON_GetObjectItemCaseSensitive(body,name);
++    return cJSON_IsNumber(value)&&value->valuedouble==expected;
++}
++static unsigned batch_size(cJSON *body,const char *name,unsigned maximum) {
++    cJSON *value=cJSON_GetObjectItemCaseSensitive(body,name);
++    return cJSON_IsNumber(value)&&value->valuedouble==value->valueint&&value->valueint>0&&
++        (unsigned)value->valueint<=maximum?(unsigned)value->valueint:0;
++}
++static void batch_sha(const uint8_t *data,size_t size,char out[65]) {
++    uint8_t hash[32];mbedtls_sha256(data,size,hash,0);
++    for(unsigned i=0;i<32;i++)sprintf(out+i*2,"%02x",hash[i]);
++}
++static int batch_base(int category,const char *target,unsigned works,const char *images,cJSON *sources,char previous[65],uint8_t **hashes) {
++    if(!sd_storage_lock())return -1;
++    gallery_catalog active={0};
++    if(gallery_catalog_load(SD_STORAGE_MOUNT,category,"",&active)&&strcmp(active.revision,target)&&
++       active.works==works&&active.next==works) {
++        *hashes=heap_caps_malloc(works*32u,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++        if(*hashes&&gallery_guide_batch_summary(SD_STORAGE_MOUNT,category,active.revision,images,*hashes,works))
++            memcpy(previous,active.revision,65);
++        else {free(*hashes);*hashes=NULL;}
++    }
++    if(!previous[0]) {
++        cJSON *source;
++        cJSON_ArrayForEach(source,sources) {
++            const char *candidate=cJSON_GetStringValue(source);
++            if(candidate&&strcmp(candidate,target)&&gallery_catalog_completed(SD_STORAGE_MOUNT,category,candidate,works)){
++                memcpy(previous,candidate,65);break;
++            }
++        }
++    }
++    bool usable=previous[0]&&gallery_guide_delta_can_link(SD_STORAGE_MOUNT,category,previous);
++    sd_storage_unlock(gallery_store_media_error());
++    if(!usable){free(*hashes);*hashes=NULL;}
++    return usable?1:0;
++}
++static bool batch_upload_summary(link_kind transport,void *http,cJSON *request,const uint8_t *hashes,unsigned works,char sha[65]) {
++    unsigned total=works*32u;
++    batch_sha(hashes,total,sha);
++    cJSON_ReplaceItemInObjectCaseSensitive(request,"op",cJSON_CreateString("guideSummary"));
++    cJSON_AddStringToObject(request,"sha256",sha);
++    unsigned limit=rpc_data_limit(transport);
++    for(unsigned at=0;at<total;) {
++        if(download_cancelled(transport,true))return false;
++        unsigned count=total-at;if(count>limit)count=limit;
++        cJSON_DeleteItemFromObjectCaseSensitive(request,"offset");cJSON_AddNumberToObject(request,"offset",at);
++        int status=0;char nonce[33];
++        cJSON *reply=rpc_data_call(transport,http,request,&status,nonce,hashes+at,count,NULL,0,NULL);
++        bool ok=status==200&&batch_number(reply,"offset",at)&&batch_number(reply,"count",count);
++        cJSON_Delete(reply);
++        if(!ok)return false;
++        at+=count;
++    }
++    cJSON_DeleteItemFromObjectCaseSensitive(request,"sha256");
++    cJSON_AddStringToObject(request,"summarySha",sha);
++    return true;
++}
++static bool batch_receive(link_kind transport,void *http,cJSON *request,uint8_t *data,unsigned bytes) {
++    cJSON_ReplaceItemInObjectCaseSensitive(request,"op",cJSON_CreateString("guideBatchRead"));
++    bool stream=transport==LINK_WIFI&&rpc_gallery_stream_ready();
++    unsigned limit=stream?bytes:rpc_data_limit(transport);
++    for(unsigned at=0;at<bytes;) {
++        if(download_cancelled(transport,true))return false;
++        unsigned count=bytes-at;if(count>limit)count=limit;
++        cJSON_DeleteItemFromObjectCaseSensitive(request,"offset");cJSON_AddNumberToObject(request,"offset",at);
++        cJSON_DeleteItemFromObjectCaseSensitive(request,"count");cJSON_AddNumberToObject(request,"count",count);
++        int status=0;size_t got=0;char nonce[33];
++        cJSON *reply=stream?rpc_gallery_stream_call(http,request,&status,nonce,data+at,count,&got,NULL,NULL):
++            gallery_call(transport,true,http,request,&status,data+at,count,&got);
++        bool ok=status==200&&got==count&&batch_number(reply,"offset",at);
++        cJSON_Delete(reply);
++        if(!ok)return false;
++        at+=count;
++    }
++    return true;
++}
++static __attribute__((noinline)) int sync_guide_batch(int category,const char *revision,unsigned works,cJSON *catalog,link_kind transport,void *http,cJSON *request) {
++    const char *images=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(catalog,"imageRevision"));
++    if(!images||strlen(images)!=64)return 0;
++    int64_t began=esp_timer_get_time();
++    char previous[65]={0};uint8_t *hashes=NULL;
++    int base=batch_base(category,revision,works,images,cJSON_GetObjectItemCaseSensitive(catalog,"deltaSources"),previous,&hashes);
++    if(base<=0)return base;
++    atomic_store(&library_saving,true);
++    cJSON_AddStringToObject(request,"from",previous);
++    cJSON_AddStringToObject(request,"revision",revision);
++    cJSON_AddStringToObject(request,"imageRevision",images);
++    char sha[65];
++    bool ready=!hashes||batch_upload_summary(transport,http,request,hashes,works,sha);
++    free(hashes);
++    if(!ready)return -1;
++    cJSON_ReplaceItemInObjectCaseSensitive(request,"op",cJSON_CreateString("guideBatch"));
++    int status=0;
++    cJSON *plan=gallery_call(transport,true,http,request,&status,NULL,0,NULL);
++    unsigned bytes=batch_size(plan,"bytes",1048576),decoded=batch_size(plan,"decoded",3u*1024u*1024u);
++    unsigned changed=batch_size(plan,"changed",works);
++    const char *digest=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(plan,"sha"));
++    const char *from=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(plan,"from"));
++    const char *to=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(plan,"revision"));
++    bool ok=status==200&&bytes&&decoded&&digest&&strlen(digest)==64&&from&&!strcmp(from,previous)&&
++        to&&!strcmp(to,revision)&&batch_number(plan,"works",works)&&batch_number(plan,"changed",changed);
++    if(ok)cJSON_AddStringToObject(request,"sha256",digest);
++    uint8_t *packed=ok?heap_caps_malloc(bytes,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT):NULL;
++    int64_t receiving=esp_timer_get_time();
++    ok=packed&&batch_receive(transport,http,request,packed,bytes);
++    unsigned rx_ms=(esp_timer_get_time()-receiving)/1000;
++    if(ok){batch_sha(packed,bytes,sha);ok=!strcmp(sha,digest);}
++    cJSON_Delete(plan);
++    uint8_t *plain=ok?heap_caps_malloc(decoded,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT):NULL;
++    tinfl_decompressor *inflater=plain?heap_caps_malloc(sizeof(*inflater),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT):NULL;
++    ok=inflater!=NULL;
++    if(ok){
++        size_t in=bytes,out=decoded;tinfl_init(inflater);
++        ok=tinfl_decompress(inflater,packed,&in,plain,plain,&out,TINFL_FLAG_PARSE_ZLIB_HEADER|TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF)
++            ==TINFL_STATUS_DONE&&in==bytes&&out==decoded&&decoded>=140&&!memcmp(plain+12,previous,64)&&!memcmp(plain+76,images,64);
++    }
++    free(inflater);free(packed);
++    unsigned write_ms=0;
++    if(ok&&!download_cancelled(transport,true)&&sd_storage_lock()){
++        int64_t writing=esp_timer_get_time();
++        ok=gallery_guide_batch_save(SD_STORAGE_MOUNT,category,revision,plain,decoded,works,changed)&&
++            gallery_guide_delta_link(SD_STORAGE_MOUNT,category,revision,previous);
++        write_ms=(esp_timer_get_time()-writing)/1000;
++        sd_storage_unlock(gallery_store_media_error());
++    }else ok=false;
++    free(plain);
++    if(ok){
++        atomic_store(&guide_batch_bytes[category],bytes);atomic_store(&guide_batch_rx_ms[category],rx_ms);
++        atomic_store(&guide_batch_write_ms[category],write_ms);
++        atomic_store(&guide_batch_total_ms[category],(unsigned)((esp_timer_get_time()-began)/1000));
++    }
++    return ok?1:status==409?0:-1;
++}
+diff --git a/firmware/main/gallery_remote.c b/firmware/main/gallery_remote.c
+index cd518c0..ce7c461 100644
+--- a/firmware/main/gallery_remote.c
++++ b/firmware/main/gallery_remote.c
+@@ -21,6 +21,7 @@
+ #include "driver/jpeg_decode.h"
+ #include "freertos/idf_additions.h"
+ #include "mbedtls/sha256.h"
++#include "miniz.h"
+ #include <stdatomic.h>
+ #include <limits.h>
+ #include <stdio.h>
+@@ -157,9 +158,15 @@ static uint64_t stored_pages[2][2];
+ static int stored_frames[2]={1,1};
+ static gallery_catalog catalogs[2];
+ static bool catalog_loaded[2];
++static bool guide_delta_checked[2];
+ static unsigned sync_cursor[2],sync_category;
+ static atomic_bool library_enabled;
+ static atomic_bool storage_enabled;
++static atomic_bool library_saving;
++static atomic_uint library_guide_progress,library_guide_total;
++static atomic_int library_guide_category;
++static atomic_uint guide_batch_bytes[2],guide_batch_rx_ms[2],guide_batch_write_ms[2],guide_batch_total_ms[2];
++static atomic_uint gallery_image_payload_bytes;
+ void gallery_storage_enable(bool enabled) {
+     bool previous=atomic_exchange(&storage_enabled,enabled);
+     if(previous&&!enabled&&atomic_load(&prefetching))atomic_store(&cancel_prefetch,true);
+@@ -170,9 +177,21 @@ void gallery_storage_status(char *out,size_t size) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_catalog p=catalogs[0],c=catalogs[1];unsigned failures=card_failures;xSemaphoreGive(device_mutex);
+     if(sd_storage_state()!=1)snprintf(out,size,"等待 TF 卡就绪");
+     else if(failures&&esp_timer_get_time()/1000<prefetch_retry)snprintf(out,size,"保存暂停，请检查 TF 卡");
+-    else if(!p.works&&!c.works)snprintf(out,size,"等待电脑已安装的图库");
+-    else if(p.next==p.works&&c.next==c.works)snprintf(out,size,"保存完成 · 名画 %u · 书法 %u",p.works,c.works);
+-    else snprintf(out,size,"正在保存 · 名画 %u/%u · 书法 %u/%u",p.next,p.works,c.next,c.works);
++    else if(p.works&&c.works&&p.next==p.works&&c.next==c.works)snprintf(out,size,"保存完成 · 名画 %u · 书法 %u",p.works,c.works);
++    else {
++        int link=rpc_library_link_select();
++        unsigned guide_total=atomic_load(&library_guide_total);
++        if(guide_total){
++            snprintf(out,size,"%s详情更新 %u/%u",atomic_load(&library_guide_category)?"书法":"名画",
++                atomic_load(&library_guide_progress),guide_total);
++            return;
++        }
++        const char *status=atomic_load(&library_saving)?"正在保存":
++            !atomic_load(&library_enabled)||(link!=LINK_USB&&link!=LINK_WIFI)?"等待电脑连接":
++            heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)<GALLERY_SYNC_PSRAM_RESERVE?"等待可用内存":
++            !p.works&&!c.works?"等待图库目录":"等待继续保存";
++        snprintf(out,size,"%s · 名画 %u/%u · 书法 %u/%u",status,p.next,p.works,c.next,c.works);
++    }
+ }
+ static int64_t catalog_check_after[2];
+ static __attribute__((noinline)) void catalog_load(int category,const char *revision,bool force) {
+@@ -268,6 +287,11 @@ void gallery_diagnostics(char *out,size_t size) {
+     snprintf(out,size,"%u,%d,%d,%d,%d,%d,%d,%d,%u,%u,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%u,%u,%u",atomic_load(&diagnostic_requests),atomic_load(&working)||atomic_load(&prefetching),atomic_load(&diagnostic_category),atomic_load(&diagnostic_portrait),atomic_load(&diagnostic_stage),atomic_load(&diagnostic_error),atomic_load(&diagnostic_frame),atomic_load(&diagnostic_reused),atomic_load(&diagnostic_allocations),hits,misses,bytes,atomic_load(&diagnostic_fetch_ms),atomic_load(&diagnostic_decode_ms),atomic_load(&diagnostic_total_ms),sd_storage_state(),ch,cw,cf,painting.next,painting.works,calligraphy.next,calligraphy.works);
+     size_t used=strlen(out);unsigned stack=atomic_load(&worker_stack_free);
+     if(stack!=UINT_MAX&&used<size)snprintf(out+used,size-used,";stack,1,%u",stack);
++    used=strlen(out);
++    if(used<size)snprintf(out+used,size-used,";batch,2,%u,%u,%u,%u,%u,%u,%u,%u,%u",
++        atomic_load(&guide_batch_bytes[0]),atomic_load(&guide_batch_rx_ms[0]),atomic_load(&guide_batch_write_ms[0]),atomic_load(&guide_batch_total_ms[0]),
++        atomic_load(&guide_batch_bytes[1]),atomic_load(&guide_batch_rx_ms[1]),atomic_load(&guide_batch_write_ms[1]),atomic_load(&guide_batch_total_ms[1]),
++        atomic_load(&gallery_image_payload_bytes));
+ 
+ }
+ int gallery_pack_status(int category){return category>=0&&category<2?atomic_load(&pack_status[category]):0;}
+@@ -368,6 +392,104 @@ static cJSON *gallery_call(link_kind transport,bool background,void *http,cJSON
+     }
+     return NULL;
+ }
++#include "gallery_guide_batch.inc"
++
++// Only a completed, image-identical TF edition can supply the JPEG base.
++// Keep the previous edition readable until every changed work is durable.
++static __attribute__((noinline)) int sync_work_guides(int category,const char *revision,unsigned works,cJSON *sources,link_kind transport,void *http,cJSON *request) {
++    char previous[65]={0};
++    if(!cJSON_IsArray(sources)||!sd_storage_lock())return 0;
++    cJSON *source;
++    cJSON_ArrayForEach(source,sources) {
++        const char *candidate=cJSON_GetStringValue(source);
++        if(candidate&&gallery_catalog_completed(SD_STORAGE_MOUNT,category,candidate,works)) {
++            memcpy(previous,candidate,65);break;
++        }
++    }
++    sd_storage_unlock(gallery_store_media_error());
++    if(!previous[0])return 0;
++    cJSON_ReplaceItemInObjectCaseSensitive(request,"op",cJSON_CreateString("guideDelta"));
++    cJSON_AddStringToObject(request,"from",previous);
++    cJSON_AddStringToObject(request,"revision",revision);
++    int status=0;
++    cJSON *plan=gallery_call(transport,true,http,request,&status,NULL,0,NULL);
++    cJSON *changed=cJSON_GetObjectItemCaseSensitive(plan,"changed");
++    cJSON *plan_works=cJSON_GetObjectItemCaseSensitive(plan,"works");
++    const char *from=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(plan,"from"));
++    const char *to=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(plan,"revision"));
++    if(status!=200||!from||strcmp(from,previous)||!to||strcmp(to,revision)||
++       !cJSON_IsNumber(plan_works)||plan_works->valuedouble!=works||!cJSON_IsArray(changed)) {
++        cJSON_Delete(plan);return status==409?0:-1;
++    }
++    bool ok=true;
++    unsigned processed=0,total=cJSON_GetArraySize(changed);
++    atomic_store(&library_guide_progress,0);
++    atomic_store(&library_guide_category,category);
++    atomic_store(&library_guide_total,total);
++    int last=-1;
++    cJSON *entry;
++    cJSON_ArrayForEach(entry,changed) {
++        gallery_image key={.category=category};
++        int index=entry->valueint;
++        if(!cJSON_IsNumber(entry)||entry->valuedouble!=index||index<=last||index>=(int)works||
++           !gallery_catalog_date(index,key.date)||download_cancelled(transport,true)){ok=false;break;}
++        last=index;
++        if(!sd_storage_lock()){ok=false;break;}
++        bool saved=gallery_guide_delta_saved(SD_STORAGE_MOUNT,&key,revision);
++        sd_storage_unlock(gallery_store_media_error());
++        if(saved){atomic_store(&library_guide_progress,++processed);continue;}
++        cJSON_ReplaceItemInObjectCaseSensitive(request,"op",cJSON_CreateString("workGuide"));
++        cJSON_ReplaceItemInObjectCaseSensitive(request,"date",cJSON_CreateString(key.date));
++        cJSON_DeleteItemFromObjectCaseSensitive(request,"workId");
++        cJSON_DeleteItemFromObjectCaseSensitive(request,"sha256");
++        cJSON_DeleteItemFromObjectCaseSensitive(request,"page");
++        cJSON *reply=gallery_call(transport,true,http,request,&status,NULL,0,NULL);
++        const char *id=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"workId"));
++        const char *at=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"revision"));
++        cJSON *body=cJSON_GetObjectItemCaseSensitive(reply,"guide");
++        gallery_guide *guide=cJSON_IsObject(body)?guide_read(body,key.date):NULL;
++        ok=status==200&&at&&!strcmp(at,revision)&&id&&*id&&strlen(id)<sizeof(key.work_id)&&
++            (cJSON_IsNull(body)||(guide&&!strcmp(guide->work_id,id)));
++        if(ok)snprintf(key.work_id,sizeof(key.work_id),"%s",id);
++        cJSON_Delete(reply);
++        if(ok&&guide&&guide->transcription_page_count>1) {
++            cJSON_ReplaceItemInObjectCaseSensitive(request,"op",cJSON_CreateString("guidePage"));
++            cJSON_AddStringToObject(request,"workId",key.work_id);
++            cJSON_AddStringToObject(request,"sha256",guide->transcription_sha256);
++            for(int page=1;ok&&page<guide->transcription_page_count;page++) {
++                cJSON_DeleteItemFromObjectCaseSensitive(request,"page");cJSON_AddNumberToObject(request,"page",page);
++                reply=gallery_call(transport,true,http,request,&status,NULL,0,NULL);
++                const char *text=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"text"));
++                const char *part=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"pageSha256"));
++                const char *page_id=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"workId"));
++                const char *full=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"sha256"));
++                cJSON *page_index=cJSON_GetObjectItemCaseSensitive(reply,"page"),*pages=cJSON_GetObjectItemCaseSensitive(reply,"pages");
++                ok=status==200&&page_id&&!strcmp(page_id,key.work_id)&&full&&!strcmp(full,guide->transcription_sha256)&&
++                    cJSON_IsNumber(page_index)&&page_index->valuedouble==page&&cJSON_IsNumber(pages)&&
++                    pages->valuedouble==guide->transcription_page_count&&gallery_text_hash(text,part)&&gallery_text_page_set(guide,page,text);
++                cJSON_Delete(reply);
++            }
++            ok=ok&&gallery_text_pages_complete(guide);
++        }
++        if(ok&&(ok=sd_storage_lock())) {
++            ok=gallery_guide_delta_save(SD_STORAGE_MOUNT,&key,revision,guide);
++            sd_storage_unlock(gallery_store_media_error());
++            xSemaphoreTake(device_mutex,portMAX_DELAY);
++            if(ok)card_writes++;else card_failures++;
++            xSemaphoreGive(device_mutex);
++        }
++        gallery_guide_free(guide);
++        if(!ok)break;
++        atomic_store(&library_guide_progress,++processed);
++        taskYIELD();
++    }
++    cJSON_Delete(plan);
++    atomic_store(&library_guide_total,0);
++    if(!ok||processed!=total||!sd_storage_lock())return -1;
++    ok=gallery_guide_delta_link(SD_STORAGE_MOUNT,category,revision,previous);
++    sd_storage_unlock(gallery_store_media_error());
++    return ok?1:0;
++}
+ bool gallery_request_ready(void){return !atomic_load(&working)&&!atomic_load(&prefetching)&&!result.pixels&&!foreground_busy();}
+ unsigned gallery_pack_sync(const char *painting,const char *calligraphy) {
+     if(speed_active())return 0;
+@@ -386,7 +508,7 @@ unsigned gallery_pack_sync(const char *painting,const char *calligraphy) {
+         gallery_guide_free(library_guides[c]);library_guides[c]=NULL;library_guide_revisions[c][0]=0;
+         snprintf(pack_revisions[c],sizeof(pack_revisions[c]),"%s",values[c]);
+         memset(stored_pages[c],0,sizeof(stored_pages[c]));stored_frames[c]=1;
+-        catalogs[c]=(gallery_catalog){0};catalog_loaded[c]=false;sync_cursor[c]=0;catalog_check_after[c]=0;
++        catalogs[c]=(gallery_catalog){0};catalog_loaded[c]=false;guide_delta_checked[c]=false;sync_cursor[c]=0;catalog_check_after[c]=0;
+         atomic_store(&pack_status[c],0);
+         atomic_store(&decode_status[c*2],GALLERY_DECODE_OK);atomic_store(&decode_status[c*2+1],GALLERY_DECODE_OK);
+     }
+@@ -417,7 +539,7 @@ static void worker(void *unused) {
+         gallery_recycle(failed->image.pixels);failed->image.pixels=NULL;
+         if(failed->purpose==3){speed_error=-12;atomic_store(&speed_phase,4);}
+         atomic_store(&diagnostic_error,-12);
+-        if(failed->background){prefetch_retry=esp_timer_get_time()/1000+5000;atomic_store(&prefetching,false);}
++        if(failed->background){prefetch_retry=esp_timer_get_time()/1000+5000;atomic_store(&library_saving,false);atomic_store(&prefetching,false);}
+         else {
+             atomic_store(&decode_status[failed->image.category*2+failed->image.portrait],GALLERY_DECODE_NO_MEMORY);
+             atomic_fetch_or(&failed_slots,1u<<(failed->image.category*2+failed->image.portrait));
+@@ -431,7 +553,7 @@ static void worker(void *unused) {
+     bool sample=w->context.purpose==3,library=w->context.purpose!=0;
+     const char *root=sample?speed_root:SD_STORAGE_MOUNT;
+     int64_t receive_started=0,receive_ended=0;
+-    if(library&&!atomic_load(&storage_enabled)){if(sample)atomic_store(&speed_phase,4);atomic_store(&prefetching,false);free(w);vTaskDeleteWithCaps(NULL);return;}
++    if(library&&!atomic_load(&storage_enabled)){if(sample)atomic_store(&speed_phase,4);atomic_store(&library_saving,false);atomic_store(&prefetching,false);free(w);vTaskDeleteWithCaps(NULL);return;}
+     // A blocked background transfer owns no RGB output. Cached foreground
+     // decoding can run independently, without a second network request.
+ #define record(counter,value) do {if(atomic_load(&diagnostic_requests)==w->context.request_id)atomic_store(&(counter),(value));} while(0)
+@@ -452,7 +574,7 @@ static void worker(void *unused) {
+     if(w->context.purpose==2) {
+         if(!sd_storage_lock())goto done;
+         sd_storage_unlock(false);
+-        if(w->local_catalog.works){validated=true;goto done;}
++        if(w->local_catalog.works&&w->local_catalog.next==w->local_catalog.works){validated=true;goto done;}
+         goto network;
+     }
+     if(!sample&&!w->cached.data){w->cached=card_take(&w->job,w->context.revision,&guide);from_card=w->cached.data!=NULL;}
+@@ -518,6 +640,10 @@ network:
+     }
+     if(foreground_busy())goto done;
+     cJSON_AddStringToObject(request,"kind","gallery");cJSON_AddStringToObject(request,"op",w->context.purpose==2?"catalog":"manifest");
++    if(w->context.purpose==2){
++        cJSON_AddStringToObject(request,"guideDelta","1");
++        cJSON_AddStringToObject(request,"guideBatch","1");
++    }
+     cJSON_AddBoolToObject(request,"includeGuide",true);
+     cJSON_AddNumberToObject(request,"guideVersion",3);
+     cJSON_AddStringToObject(request,"category",w->job.category?"calligraphy":"painting");
+@@ -544,8 +670,25 @@ network:
+            !revision||strlen(revision)!=64||strspn(revision,"0123456789abcdef")!=64||
+            (w->context.revision[0]&&strcmp(w->context.revision,revision)))goto done;
+         gallery_catalog value={.works=count->valueint};snprintf(value.revision,sizeof(value.revision),"%s",revision);
+-        if(!catalog_save(w->job.category,&value))goto done;
+-        xSemaphoreTake(device_mutex,portMAX_DELAY);catalogs[w->job.category]=value;catalog_loaded[w->job.category]=true;sync_cursor[w->job.category]=0;xSemaphoreGive(device_mutex);
++        if(w->local_catalog.works==value.works&&!strcmp(w->local_catalog.revision,revision))value.next=w->local_catalog.next;
++        cJSON *sources=cJSON_GetObjectItemCaseSensitive(reply,"deltaSources");
++        bool batch=batch_number(reply,"guideBatch",1);
++        int delta=batch?sync_guide_batch(w->job.category,value.revision,value.works,reply,transport,http,request):
++            sync_work_guides(w->job.category,value.revision,value.works,sources,transport,http,request);
++        if(delta<0)goto done;
++        if(delta>0)value.next=value.works;
++        bool reset=w->local_catalog.works!=value.works||strcmp(w->local_catalog.revision,revision);
++        int64_t committing=esp_timer_get_time();
++        if((reset||delta>0)&&!catalog_save(w->job.category,&value))goto done;
++        if(batch&&delta>0){
++            unsigned commit_ms=(esp_timer_get_time()-committing)/1000;
++            atomic_fetch_add(&guide_batch_write_ms[w->job.category],commit_ms);
++            atomic_fetch_add(&guide_batch_total_ms[w->job.category],commit_ms);
++        }
++        xSemaphoreTake(device_mutex,portMAX_DELAY);catalogs[w->job.category]=value;catalog_loaded[w->job.category]=true;
++        guide_delta_checked[w->job.category]=true;
++        if(reset||delta>0)sync_cursor[w->job.category]=0;
++        xSemaphoreGive(device_mutex);
+         validated=true;goto done;
+     }
+     const char *error=cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(reply,"error"));
+@@ -637,6 +780,7 @@ network:
+             w->writer.base=offset;char nonce[33];
+             reply=rpc_gallery_stream_call(http,request,&status,nonce,jpeg+offset,count,&received,resume_active?card_writer_progress:NULL,&w->writer);
+         }else reply=gallery_call(transport,background,http,request,&status,jpeg+offset,count,&received);
++        atomic_fetch_add(&gallery_image_payload_bytes,received);
+         record(diagnostic_error,status);
+         cJSON *at=cJSON_GetObjectItemCaseSensitive(reply,"offset");
+         if(status!=200||received!=(size_t)count||!cJSON_IsNumber(at)||at->valuedouble!=offset){if(stream&&received<=(size_t)count)offset+=(int)received;goto done;}
+@@ -779,7 +923,7 @@ done:
+         }
+         xSemaphoreGive(device_mutex);
+     }
+-    if(background)atomic_store(&prefetching,false);else atomic_store(&working,false);
++    if(background){atomic_store(&library_saving,false);atomic_store(&prefetching,false);}else atomic_store(&working,false);
+ #undef record
+     free(w);
+     sample_worker_stack();
+@@ -798,11 +942,11 @@ static bool start_request(int category,const char *date,int frame,bool portrait,
+     context->request_id=atomic_fetch_add(&diagnostic_requests,1)+1;atomic_store(&diagnostic_category,category);atomic_store(&diagnostic_portrait,portrait);atomic_store(&diagnostic_stage,1);atomic_store(&diagnostic_error,0);
+     atomic_store(&diagnostic_fetch_ms,0);atomic_store(&diagnostic_decode_ms,0);atomic_store(&diagnostic_total_ms,0);
+     atomic_store(&transfer_received,0);atomic_store(&transfer_written,0);atomic_store(&transfer_write_ms,0);atomic_store(&transfer_overlap,0);
+-    if(background){atomic_store(&cancel_prefetch,false);atomic_store(&prefetching,true);}
++    if(background){atomic_store(&cancel_prefetch,false);atomic_store(&library_saving,purpose==1);atomic_store(&prefetching,true);}
+     else atomic_store(&working,true);
+     if(xTaskCreateWithCaps(worker,"tab5_gallery",8192,context,2,NULL,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)!=pdPASS){
+         gallery_recycle(spare);context->image.pixels=NULL;
+-        if(background)atomic_store(&prefetching,false);else atomic_store(&working,false);
++        if(background){atomic_store(&library_saving,false);atomic_store(&prefetching,false);}else atomic_store(&working,false);
+         return false;
+     }
+     return true;
+@@ -824,7 +968,7 @@ void gallery_sync_library(void) {
+         if(esp_timer_get_time()>speed_deadline){speed_error=-1;atomic_store(&speed_phase,4);return;}
+         if(!gallery_request_ready())return;
+         speed_error=!atomic_load(&storage_enabled)||!sd_storage_available()?-2:
+-            (link!=LINK_USB&&link!=LINK_WIFI)?-3:heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)<5u*1024u*1024u?-4:0;
++            (link!=LINK_USB&&link!=LINK_WIFI)?-3:heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)<GALLERY_SYNC_PSRAM_RESERVE?-4:0;
+         if(speed_error){atomic_store(&speed_phase,4);return;}
+         if(speed_link==LINK_NONE)speed_link=link;
+         if(link!=speed_link){atomic_store(&speed_phase,4);return;}
+@@ -839,13 +983,21 @@ void gallery_sync_library(void) {
+         return;
+     }
+     if(!atomic_load(&storage_enabled)||!atomic_load(&library_enabled)||(link!=LINK_USB&&link!=LINK_WIFI)||!gallery_request_ready()||foreground_busy()||!sd_storage_available()||
+-       esp_timer_get_time()/1000<prefetch_retry||heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)<5u*1024u*1024u)return;
++       esp_timer_get_time()/1000<prefetch_retry)return;
+     for(unsigned step=0;step<2;step++) {
+         int category=(sync_category+step)%2;char date[11];
+-        xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_catalog value=catalogs[category];unsigned cursor=sync_cursor[category];int64_t after=catalog_check_after[category];xSemaphoreGive(device_mutex);
+-        bool probe=!value.works||value.next==value.works;
++        xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_catalog value=catalogs[category];unsigned cursor=sync_cursor[category];int64_t after=catalog_check_after[category];bool checked=guide_delta_checked[category];xSemaphoreGive(device_mutex);
++        bool probe=!value.works||value.next==value.works||!checked;
+         if(probe&&esp_timer_get_time()/1000<after)continue;
+         if(!gallery_catalog_date(value.next<value.works?value.next:0,date))continue;
++        // Encoded previews are disposable. Keep the safety reserve and leave
++        // the visible RGB frame, render cache and persisted TF data alone.
++        if(heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)<GALLERY_SYNC_PSRAM_RESERVE) {
++            xSemaphoreTake(device_mutex,portMAX_DELAY);
++            if(jpeg_cache.bytes)gallery_jpeg_clear(&jpeg_cache);
++            xSemaphoreGive(device_mutex);
++            if(heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT)<GALLERY_SYNC_PSRAM_RESERVE)return;
++        }
+         if(start_request(category,date,probe?0:cursor/2,probe?false:cursor%2,NULL,true,probe?2:1)){sync_category=category+1;return;}
+     }
+ }
+diff --git a/firmware/main/gallery_remote.h b/firmware/main/gallery_remote.h
+index 9d1a399..929a8ac 100644
+--- a/firmware/main/gallery_remote.h
++++ b/firmware/main/gallery_remote.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#define GALLERY_SYNC_PSRAM_RESERVE (5u * 1024u * 1024u)
+ #include <stdbool.h>
+ #include <stdint.h>
+ #include <stddef.h>
+diff --git a/firmware/main/gallery_store.c b/firmware/main/gallery_store.c
+index 596becf..4e8284b 100644
+--- a/firmware/main/gallery_store.c
++++ b/firmware/main/gallery_store.c
+@@ -198,10 +198,32 @@ static bool gallery_store_get_impl(const char *root,const gallery_image *key,con
+     }
+     return false;
+ }
++static unsigned guide_delta_chain(const char *root,int category,const char *revision,char chain[8][65]);
++static cJSON *guide_delta_read(const char *root,const gallery_image *key,const char *revision,const char *work_id);
++static cJSON *guide_batch_read(const char *root,const gallery_image *key,const char *revision,const char *work_id);
++
+ bool gallery_store_get(const char *root,const gallery_image *key,const char *revision,gallery_store_allocator allocate,gallery_jpeg *out,cJSON **guide) {
+     media_error=false;if(out)*out=(gallery_jpeg){0};if(guide)*guide=NULL;
++    if(!key||!revision)return false;
+     gallery_paths *w=path_workspace();if(!w)return false;
+-    bool operation_result=gallery_store_get_impl(root,key,revision,allocate,out,guide,w);free(w);return operation_result;
++    char chain[8][65];
++    unsigned count=guide_delta_chain(root,key->category,revision,chain);
++    const char *image_revision=count?chain[count-1]:revision;
++    bool ok=gallery_store_get_impl(root,key,image_revision,allocate,out,guide,w);
++    for(unsigned i=0;!ok&&i<count;i++)
++        ok=gallery_store_get_impl(root,key,i?chain[i-1]:revision,allocate,out,guide,w);
++    for(unsigned i=0;ok&&i<count;i++) {
++        const char *at=i?chain[i-1]:revision;
++        cJSON *overlay=guide_batch_read(root,key,at,out->key.work_id);
++        if(!overlay)overlay=guide_delta_read(root,key,at,out->key.work_id);
++        if(!overlay)continue;
++        cJSON_Delete(*guide);
++        *guide=cJSON_DetachItemFromObjectCaseSensitive(overlay,"guide");
++        if(cJSON_IsNull(*guide)){cJSON_Delete(*guide);*guide=NULL;}
++        cJSON_Delete(overlay);
++        break;
++    }
++    free(w);return ok;
+ }
+ static cJSON *guide_json(const gallery_guide *g) {
+     if(!g)return NULL;
+@@ -222,6 +244,192 @@ static cJSON *guide_json(const gallery_guide *g) {
+     }
+     return o;
+ }
++
++static bool guide_delta_path(char out[512],const char *root,int category,const char *revision,const char *date) {
++    if(category<0||category>1||!revision_ok(revision)||strlen(revision)!=64)return false;
++    int n=snprintf(out,512,"%s/%s/guide-%s%s%s",root,category?SD_STORAGE_CALLIGRAPHY_DIR:SD_STORAGE_PAINTING_DIR,revision,date?"-":"",date?date:"");
++    return n>0&&n<512;
++}
++
++#define GUIDE_BATCH_HEADER 140u
++#define GUIDE_BATCH_ENTRY 40u
++#define GUIDE_BATCH_LIMIT (3u*1024u*1024u)
++static FILE *guide_batch_open(gallery_paths *w,const char *root,int category,const char *revision,uint8_t header[GUIDE_BATCH_HEADER]) {
++    if(!guide_delta_path(w->paths[0],root,category,revision,"batch"))return NULL;
++    FILE *f=store_fopen(w->paths[0],"rb");
++    if(!f){io_error();return NULL;}
++    if(store_fread(header,1,GUIDE_BATCH_HEADER,f)==GUIDE_BATCH_HEADER&&!memcmp(header,"AIBGB002",8)&&
++       u32(header+8)>0&&u32(header+8)<=4096)return f;
++    if(ferror(f))io_error();
++    fclose(f);return NULL;
++}
++
++bool gallery_guide_batch_summary(const char *root,int category,const char *revision,const char *images,uint8_t *hashes,unsigned works) {
++    media_error=false;
++    gallery_paths *w=path_workspace();if(!w)return false;
++    uint8_t header[GUIDE_BATCH_HEADER],entry[GUIDE_BATCH_ENTRY];
++    FILE *f=guide_batch_open(w,root,category,revision,header);
++    bool ok=f&&u32(header+8)==works&&!memcmp(header+76,images,64);
++    for(unsigned i=0;ok&&i<works;i++) {
++        ok=store_fread(entry,1,sizeof(entry),f)==sizeof(entry);
++        if(ok)memcpy(hashes+i*32,entry,32);
++    }
++    if(f&&fclose(f))ok=false;
++    free(w);return ok;
++}
++
++static cJSON *guide_batch_read(const char *root,const gallery_image *key,const char *revision,const char *work_id) {
++    gallery_paths *w=path_workspace();if(!w)return NULL;
++    uint8_t header[GUIDE_BATCH_HEADER],entry[GUIDE_BATCH_ENTRY],hash[32];
++    FILE *f=guide_batch_open(w,root,key->category,revision,header);
++    unsigned index=0;
++    char date[11];
++    // The key is already normalized to the catalog's canonical date.
++    if(f&&gallery_catalog_key(key->date,4096,date)&&!strcmp(date,key->date)) {
++        unsigned lo=0,hi=4096;
++        while(lo<hi){
++            unsigned mid=(lo+hi)/2;gallery_catalog_date(mid,date);
++            if(strcmp(date,key->date)<0)lo=mid+1;else hi=mid;
++        }
++        index=lo;
++    }else index=4096;
++    cJSON *result=NULL;
++    if(f&&index<u32(header+8)&&!fseek(f,GUIDE_BATCH_HEADER+index*GUIDE_BATCH_ENTRY,SEEK_SET)&&
++       store_fread(entry,1,sizeof(entry),f)==sizeof(entry)) {
++        unsigned offset=u32(entry+32),size=u32(entry+36);
++        if(size&&size<=65536&&offset>=GUIDE_BATCH_HEADER+u32(header+8)*GUIDE_BATCH_ENTRY&&offset<=GUIDE_BATCH_LIMIT-size&&
++           !fseek(f,offset,SEEK_SET)) {
++            char *json=malloc(size+1);
++            if(json&&store_fread(json,1,size,f)==size&&!mbedtls_sha256((uint8_t *)json,size,hash,0)&&!memcmp(hash,entry,32)){
++                json[size]=0;result=cJSON_ParseWithLength(json,size+1);
++                if(result&&strcmp(text(result,"workId"),work_id)){cJSON_Delete(result);result=NULL;}
++            }
++            free(json);
++        }
++    }
++    if(f&&fclose(f))io_error();
++    free(w);return result;
++}
++
++bool gallery_guide_batch_save(const char *root,int category,const char *revision,const uint8_t *data,size_t size,unsigned works,unsigned changed) {
++    media_error=false;
++    if(!data||!works||works>4096||size<GUIDE_BATCH_HEADER+works*GUIDE_BATCH_ENTRY||size>GUIDE_BATCH_LIMIT||
++       memcmp(data,"AIBGB002",8)||u32(data+8)!=works)return false;
++    size_t next=GUIDE_BATCH_HEADER+works*GUIDE_BATCH_ENTRY;
++    unsigned records=0;
++    for(unsigned i=0;i<works;i++) {
++        const uint8_t *entry=data+GUIDE_BATCH_HEADER+i*GUIDE_BATCH_ENTRY;
++        unsigned offset=u32(entry+32),bytes=u32(entry+36);
++        if(!bytes){if(offset)return false;continue;}
++        uint8_t hash[32];
++        if(offset!=next||bytes>65536||bytes>size-next||mbedtls_sha256(data+offset,bytes,hash,0)||memcmp(hash,entry,32))return false;
++        next+=bytes;records++;
++    }
++    if(next!=size||records!=changed)return false;
++    gallery_paths *w=path_workspace();if(!w)return false;
++    bool ok=guide_delta_path(w->paths[0],root,category,revision,"batch");
++    if(ok)snprintf(w->temp,sizeof(w->temp),"%s.part",w->paths[0]);
++    FILE *f=ok?store_fopen(w->temp,"wb"):NULL;
++    ok=f&&store_fwrite(data,1,size,f)==size&&fflush(f)==0&&store_sync_profiled(f)==0;
++    if(f&&fclose(f))ok=false;
++    if(ok&&remove(w->paths[0])&&errno!=ENOENT)ok=false;
++    if(ok&&rename(w->temp,w->paths[0]))ok=false;
++    if(!ok&&*w->temp){io_error();remove(w->temp);}
++    free(w);return ok;
++}
++
++static cJSON *guide_delta_record(const char *path) {
++    FILE *f=store_fopen(path,"rb");
++    if(!f){io_error();return NULL;}
++    uint8_t header[36],hash[32];
++    bool header_ok=store_fread(header,1,sizeof(header),f)==sizeof(header);
++    size_t size=header_ok?u32(header):0;
++    char *json=size&&size<=META_LIMIT?malloc(size+1):NULL;
++    cJSON *value=NULL;
++    if(json&&store_fread(json,1,size,f)==size&&fgetc(f)==EOF&&!ferror(f)&&
++       !mbedtls_sha256((uint8_t *)json,size,hash,0)&&!memcmp(hash,header+4,32)) {
++        json[size]=0;value=cJSON_ParseWithLength(json,size+1);
++    }
++    if(ferror(f))io_error();
++    if(fclose(f)){io_error();cJSON_Delete(value);value=NULL;}
++    free(json);return value;
++}
++
++static bool guide_delta_write(gallery_paths *w,cJSON *value) {
++    char *json=cJSON_PrintUnformatted(value);
++    size_t size=json?strlen(json):0;
++    uint8_t header[36];set32(header,size);
++    bool ok=size&&size<=META_LIMIT&&!mbedtls_sha256((uint8_t *)json,size,header+4,0);
++    snprintf(w->temp,sizeof(w->temp),"%s.part",w->paths[0]);
++    FILE *f=ok?store_fopen(w->temp,"wb"):NULL;
++    ok=f&&store_fwrite(header,1,sizeof(header),f)==sizeof(header)&&store_fwrite(json,1,size,f)==size&&
++        fflush(f)==0&&store_sync_profiled(f)==0;
++    if(f&&fclose(f))ok=false;
++    if(ok&&remove(w->paths[0])&&errno!=ENOENT)ok=false;
++    if(ok&&rename(w->temp,w->paths[0]))ok=false;
++    if(!ok){io_error();remove(w->temp);}
++    free(json);return ok;
++}
++
++static unsigned guide_delta_chain(const char *root,int category,const char *revision,char chain[8][65]) {
++    if(!revision||strlen(revision)!=64)return 0;
++    gallery_paths *w=path_workspace();if(!w)return 0;
++    unsigned count=0;
++    const char *current=revision;
++    while(count<8&&guide_delta_path(w->paths[0],root,category,current,NULL)) {
++        cJSON *link=guide_delta_record(w->paths[0]);
++        const char *previous=cJSON_GetStringValue(link);
++        bool valid=previous&&strlen(previous)==64&&revision_ok(previous)&&strcmp(previous,revision);
++        for(unsigned i=0;valid&&i<count;i++)valid=strcmp(previous,chain[i])!=0;
++        if(valid){memcpy(chain[count],previous,65);current=chain[count++];}
++        cJSON_Delete(link);
++        if(!valid)break;
++    }
++    free(w);return count;
++}
++
++static cJSON *guide_delta_read(const char *root,const gallery_image *key,const char *revision,const char *work_id) {
++    gallery_paths *w=path_workspace();if(!w)return NULL;
++    cJSON *value=guide_delta_path(w->paths[0],root,key->category,revision,key->date)?guide_delta_record(w->paths[0]):NULL;
++    const cJSON *guide=cJSON_GetObjectItemCaseSensitive(value,"guide");
++    const char *stored_id=text(value,"workId");
++    if(value&&(!*stored_id||(work_id&&strcmp(stored_id,work_id))||(!cJSON_IsNull(guide)&&
++       (!cJSON_IsObject(guide)||strcmp(text((cJSON *)guide,"workId"),stored_id))))) {
++        cJSON_Delete(value);value=NULL;
++    }
++    free(w);return value;
++}
++bool gallery_guide_delta_saved(const char *root,const gallery_image *key,const char *revision) {
++    media_error=false;
++    cJSON *saved=guide_delta_read(root,key,revision,NULL);
++    bool ok=saved!=NULL;cJSON_Delete(saved);return ok;
++}
++
++bool gallery_guide_delta_save(const char *root,const gallery_image *key,const char *revision,const gallery_guide *guide) {
++    media_error=false;
++    if(!key_ok(key)||!key->work_id[0]||(guide&&strcmp(key->work_id,guide->work_id)))return false;
++    gallery_paths *w=path_workspace();if(!w)return false;
++    cJSON *value=cJSON_CreateObject(),*payload=guide?guide_json(guide):cJSON_CreateNull();
++    bool attached=value&&payload&&cJSON_AddItemToObject(value,"guide",payload);
++    bool ok=attached&&cJSON_AddStringToObject(value,"workId",key->work_id)&&
++        guide_delta_path(w->paths[0],root,key->category,revision,key->date)&&guide_delta_write(w,value);
++    if(!attached)cJSON_Delete(payload);
++    cJSON_Delete(value);free(w);return ok;
++}
++
++bool gallery_guide_delta_can_link(const char *root,int category,const char *previous) {
++    char chain[8][65];
++    return previous&&strlen(previous)==64&&revision_ok(previous)&&guide_delta_chain(root,category,previous,chain)<7;
++}
++
++bool gallery_guide_delta_link(const char *root,int category,const char *revision,const char *previous) {
++    media_error=false;
++    if(!revision||!gallery_guide_delta_can_link(root,category,previous)||!strcmp(revision,previous))return false;
++    gallery_paths *w=path_workspace();if(!w)return false;
++    cJSON *value=cJSON_CreateString(previous);
++    bool ok=value&&guide_delta_path(w->paths[0],root,category,revision,NULL)&&guide_delta_write(w,value);
++    cJSON_Delete(value);free(w);return ok;
++}
+ static bool store_put_impl(const char *root,const gallery_jpeg *v,const char *revision,const gallery_guide *guide,const gallery_resume *progress,gallery_paths *w) {
+     media_error=false;
+     if(!v||!v->data||v->size<16||v->size>JPEG_LIMIT||v->capacity<v->size||!key_ok(&v->key)||!revision_ok(revision)||
+@@ -537,6 +745,13 @@ static CATALOG_SMALL uint32_t catalog_pair_load(const char *root,int category,co
+     }
+     return newest;
+ }
++bool gallery_catalog_completed(const char *root,int category,const char *revision,unsigned works) {
++    media_error=false;
++    gallery_catalog saved;
++    return revision&&strlen(revision)==64&&revision_ok(revision)&&
++        (catalog_pair_load(root,category,revision,true,&saved)||catalog_pair_load(root,category,revision,false,&saved))&&
++        saved.works==works&&saved.next==works;
++}
+ static bool catalog_pair_save(const char *,int,const gallery_catalog *,bool);
+ static bool catalog_migrate(const char *,int);
+ CATALOG_SMALL bool gallery_catalog_load(const char *root,int category,const char *revision,gallery_catalog *out) {
+diff --git a/firmware/main/gallery_store.h b/firmware/main/gallery_store.h
+index 7dd09dd..e929061 100644
+--- a/firmware/main/gallery_store.h
++++ b/firmware/main/gallery_store.h
+@@ -29,6 +29,13 @@ bool gallery_resume_clear(const char *root,const gallery_image *key,const char *
+ typedef struct { char revision[65]; unsigned works,next; } gallery_catalog;
+ bool gallery_catalog_load(const char *root,int category,const char *revision,gallery_catalog *out);
+ bool gallery_catalog_save(const char *root,int category,const gallery_catalog *value);
++bool gallery_catalog_completed(const char *root,int category,const char *revision,unsigned works);
++bool gallery_guide_delta_can_link(const char *root,int category,const char *previous);
++bool gallery_guide_delta_link(const char *root,int category,const char *revision,const char *previous);
++bool gallery_guide_delta_save(const char *root,const gallery_image *key,const char *revision,const gallery_guide *guide);
++bool gallery_guide_delta_saved(const char *root,const gallery_image *key,const char *revision);
++bool gallery_guide_batch_save(const char *root,int category,const char *revision,const uint8_t *data,size_t size,unsigned works,unsigned changed);
++bool gallery_guide_batch_summary(const char *root,int category,const char *revision,const char *images,uint8_t *hashes,unsigned works);
+ bool gallery_catalog_date(unsigned index,char out[11]);
+ bool gallery_catalog_key(const char *date,unsigned works,char out[11]);
+ 
+diff --git a/firmware/main/rpc_link.c b/firmware/main/rpc_link.c
+index 1793b8f..ff58313 100644
+--- a/firmware/main/rpc_link.c
++++ b/firmware/main/rpc_link.c
+@@ -471,7 +471,8 @@ cJSON *rpc_data_call(link_kind link,void *http,cJSON *request,int *status,char n
+ }
+ cJSON *rpc_gallery_stream_call(void *http,cJSON *request,int *status,char nonce[33],uint8_t *download,size_t capacity,size_t *received,rpc_gallery_progress progress,void *context) {
+     cJSON *op=cJSON_GetObjectItemCaseSensitive(request,"op"),*kind=cJSON_GetObjectItemCaseSensitive(request,"kind");
+-    if(!http||!rpc_gallery_stream_ready()||!cJSON_IsString(kind)||strcmp(kind->valuestring,"gallery")||!cJSON_IsString(op)||strcmp(op->valuestring,"read")){*status=0;*received=0;return NULL;}
++    if(!http||!rpc_gallery_stream_ready()||!cJSON_IsString(kind)||strcmp(kind->valuestring,"gallery")||
++       !cJSON_IsString(op)||(strcmp(op->valuestring,"read")&&strcmp(op->valuestring,"guideBatchRead"))){*status=0;*received=0;return NULL;}
+     if(!cJSON_AddBoolToObject(request,"streamReply",true)){*status=0;*received=0;return NULL;}
+     cJSON *result=rpc_call_impl(LINK_WIFI,request,status,nonce,http,NULL,0,download,capacity,received,progress,context);
+     cJSON_DeleteItemFromObjectCaseSensitive(request,"streamReply");return result;
+diff --git a/firmware/main/runtime_diagnostics.c b/firmware/main/runtime_diagnostics.c
+index 08d638a..04437c5 100644
+--- a/firmware/main/runtime_diagnostics.c
++++ b/firmware/main/runtime_diagnostics.c
+@@ -62,10 +62,13 @@ cJSON *runtime_diagnostics_snapshot(void) {
+     char value[1024];
+ #define diagnostic(key,formatter) do{value[0]=0;formatter(value,sizeof(value));cJSON_AddStringToObject(out,key,value);}while(0)
+     diagnostic("cameraDiag",camera_preview_diagnostics);
+-    char copy_window[TAB5_COPY_WINDOW_CAPACITY];
+-    display_diagnostics_format(value,sizeof(value),copy_window,sizeof(copy_window));
+-    size_t used=strlen(value),extra=strlen(copy_window);
+-    if(extra<sizeof(value)-used)memcpy(value+used,copy_window,extra+1);
++    char copy_window[TAB5_COPY_WINDOW_CAPACITY],before[TAB5_BEFORE_CAPACITY];
++    display_diagnostics_format(value,sizeof(value),copy_window,sizeof(copy_window),before,sizeof(before));
++    const char *optional[]={copy_window,before};
++    for(unsigned i=0;i<2;i++) {
++        size_t used=strlen(value),extra=strlen(optional[i]);
++        if(extra<sizeof(value)-used)memcpy(value+used,optional[i],extra+1);
++    }
+     cJSON_AddStringToObject(out,"displayDiag",value);
+     diagnostic("photoDiag",photo_diagnostics);diagnostic("photoUploadDiag",codex_remote_upload_diagnostics);
+     diagnostic("cameraLogHex",camera_preview_driver_error_hex);diagnostic("otaDiag",ota_update_diagnostics);
+diff --git a/firmware/main/scanout_history.h b/firmware/main/scanout_history.h
+new file mode 100644
+index 0000000..fecd733
+--- /dev/null
++++ b/firmware/main/scanout_history.h
+@@ -0,0 +1,51 @@
++#pragma once
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++
++enum {
++    TAB5_HISTORY_SLOTS=8, TAB5_HISTORY_MAX_EVENTS=12, TAB5_HISTORY_MAX_AGE_US=50000,
++    TAB5_HISTORY_COPY_BEGIN=1, TAB5_HISTORY_COPY_END,
++    TAB5_HISTORY_RENDER_BEGIN, TAB5_HISTORY_RENDER_END,
++    TAB5_HISTORY_ROTATE_BEGIN, TAB5_HISTORY_ROTATE_END,
++    TAB5_HISTORY_SUBMIT_BEGIN, TAB5_HISTORY_SUBMIT_END
++};
++
++typedef struct { unsigned ticket,tag,frame,at; } tab5_history_slot;
++typedef struct { unsigned head; tab5_history_slot slots[TAB5_HISTORY_SLOTS]; } tab5_history;
++typedef struct { unsigned tag,frame_age,age_us; } tab5_history_event;
++
++// Each ring has a single ordered producer. Copy EOF publishes before the
++// completion callback can admit another copy. UI marks run in the LVGL task.
++static inline __attribute__((always_inline)) void tab5_history_mark(
++        tab5_history *ring,unsigned kind,unsigned frame,unsigned latch,unsigned at) {
++    unsigned ticket=__atomic_load_n(&ring->head,__ATOMIC_RELAXED)+1;
++    tab5_history_slot *slot=&ring->slots[(ticket-1)&(TAB5_HISTORY_SLOTS-1)];
++    __atomic_store_n(&slot->ticket,0,__ATOMIC_RELAXED);
++    __atomic_thread_fence(__ATOMIC_SEQ_CST);
++    __atomic_store_n(&slot->tag,kind*4+latch,__ATOMIC_RELAXED);
++    __atomic_store_n(&slot->frame,frame,__ATOMIC_RELAXED);
++    __atomic_store_n(&slot->at,at,__ATOMIC_RELAXED);
++    __atomic_store_n(&slot->ticket,ticket,__ATOMIC_RELEASE);
++    __atomic_store_n(&ring->head,ticket,__ATOMIC_RELEASE);
++}
++
++// The consumer never waits for a writer. Reject overwritten/torn, future,
++// and unrelated old records, including across timer and frame-counter wrap.
++static inline __attribute__((always_inline)) unsigned tab5_history_collect(
++        const tab5_history *ring,unsigned at,unsigned frame,tab5_history_event *out,unsigned limit) {
++    unsigned head=__atomic_load_n(&ring->head,__ATOMIC_ACQUIRE),used=0;
++    for(unsigned i=0;i<TAB5_HISTORY_SLOTS&&used<limit;i++) {
++        unsigned ticket=head-i;
++        const tab5_history_slot *slot=&ring->slots[(ticket-1)&(TAB5_HISTORY_SLOTS-1)];
++        if(!ticket||__atomic_load_n(&slot->ticket,__ATOMIC_ACQUIRE)!=ticket)continue;
++        unsigned tag=__atomic_load_n(&slot->tag,__ATOMIC_RELAXED);
++        unsigned frame_age=frame-__atomic_load_n(&slot->frame,__ATOMIC_RELAXED);
++        unsigned age=at-__atomic_load_n(&slot->at,__ATOMIC_RELAXED);
++        __atomic_thread_fence(__ATOMIC_SEQ_CST);
++        if(__atomic_load_n(&slot->ticket,__ATOMIC_ACQUIRE)!=ticket||
++           frame_age>8||age>TAB5_HISTORY_MAX_AGE_US)continue;
++        out[used++]=(tab5_history_event){tag,frame_age,age};
++    }
++    return used;
++}
+diff --git a/firmware/main/ui.c b/firmware/main/ui.c
+index 1a3537b..6593309 100644
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -2864,8 +2864,12 @@ static void gallery_sync_with_memory(void) {
+ #ifndef TAB5_UI_PREVIEW
+     if(gallery_library_pending()&&gallery_request_ready()) {
+         unsigned free_bytes=heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+-        const unsigned reserve=5u*1024u*1024u;
+-        if(free_bytes<reserve)tab5_draw_cache_trim_hidden(reserve-free_bytes);
++        if(free_bytes<GALLERY_SYNC_PSRAM_RESERVE) {
++            tab5_draw_cache_reclaim_staging();
++            free_bytes=heap_caps_get_free_size(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
++            if(free_bytes<GALLERY_SYNC_PSRAM_RESERVE)
++                tab5_draw_cache_trim_hidden(GALLERY_SYNC_PSRAM_RESERVE-free_bytes);
++        }
+     }
+ #endif
+     gallery_sync_library();
+@@ -3707,7 +3711,7 @@ static void tick_work(lv_timer_t *timer) {
+     boot_verify_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
+     runtime_diagnostics_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
+     screen_preview_tick(shown,last_link,esp_timer_get_time()/1000,last_received);
+-    tf_storage_refresh();
++    if(current_page==9&&lv_obj_is_visible(tf_storage_row))tf_storage_refresh();
+     static int64_t reading_saved_at;
+     int64_t reading_now=esp_timer_get_time();
+     if(reading_now-reading_saved_at>=15000000&&!gesture_active()&&!ota_update_busy()&&!flash_benchmark_busy()) {
+diff --git a/firmware/main/ui_gallery_saver.h b/firmware/main/ui_gallery_saver.h
+index edce44a..b9f1daf 100644
+--- a/firmware/main/ui_gallery_saver.h
++++ b/firmware/main/ui_gallery_saver.h
+@@ -21,8 +21,14 @@ static bool preview_gallery_library_pending;
+ bool gallery_library_pending(void){return preview_gallery_library_pending;}
+ void gallery_library_supported(bool enabled){(void)enabled;}
+ static bool preview_gallery_storage_enabled;
++static bool preview_gallery_low_memory;
++static bool preview_gallery_guide_delta;
+ void gallery_storage_enable(bool enabled){preview_gallery_storage_enabled=enabled;}
+-void gallery_storage_status(char *out,size_t size){snprintf(out,size,"%s",preview_gallery_storage_enabled?"正在保存 · 名画 123/366 · 书法 88/366":"使用设备缓存");}
++void gallery_storage_status(char *out,size_t size){
++    if(!preview_gallery_storage_enabled){snprintf(out,size,"使用设备缓存");return;}
++    if(preview_gallery_guide_delta){snprintf(out,size,"书法详情更新 420/585");return;}
++    snprintf(out,size,"%s · 名画 123/1765 · 书法 88/929",preview_gallery_low_memory?"等待可用内存":"正在保存");
++}
+ static gallery_guide preview_guide;
+ static unsigned preview_gallery_pack_changes;
+ unsigned gallery_pack_sync(const char *painting,const char *calligraphy){
+diff --git a/firmware/main/usb_link.c b/firmware/main/usb_link.c
+index 917e563..c9cf476 100644
+--- a/firmware/main/usb_link.c
++++ b/firmware/main/usb_link.c
+@@ -232,12 +232,13 @@ static void write_reply(const char *type,uint64_t seq) {
+     char camera_diag[128],display_diag[1024],upload_diag[192];camera_preview_diagnostics(camera_diag,sizeof(camera_diag));
+     codex_remote_upload_diagnostics(upload_diag,sizeof(upload_diag));
+     char copy_window[TAB5_COPY_WINDOW_CAPACITY];
+-    display_diagnostics_format(display_diag,sizeof(display_diag),copy_window,sizeof(copy_window));
++    static char before[TAB5_BEFORE_CAPACITY]; // this CDC task owns write_reply
++    display_diagnostics_format(display_diag,sizeof(display_diag),copy_window,sizeof(copy_window),before,sizeof(before));
+     photo_diagnostics(photo_diag,sizeof(photo_diag));
+     char ota_diag[64];ota_update_diagnostics(ota_diag,sizeof(ota_diag));
+     char camera_log[320];camera_preview_driver_error_hex(camera_log,sizeof(camera_log));
+     char orientation_diag[80];art_orientation_diagnostics(orientation_diag,sizeof(orientation_diag));
+-    char gallery_diag[160]="",transfer_diag[96]="";
++    char gallery_diag[256]="",transfer_diag[96]="";
+     char wifi_isolation[96];wifi_probe_diagnostics(wifi_isolation,sizeof(wifi_isolation));
+ #if TAB5_LOCAL_ART
+     gallery_diagnostics(gallery_diag,sizeof(gallery_diag));
+@@ -273,6 +274,7 @@ static void write_reply(const char *type,uint64_t seq) {
+     extra=snprintf(automation_suffix,sizeof(automation_suffix),",\"uiAutomation\":\"%s\"}\n",automation);
+     if(extra>0&&(size_t)extra<sizeof(automation_suffix)&&(size_t)(n-2+extra)<sizeof(out)){memcpy(out+n-2,automation_suffix,(size_t)extra+1);n=n-2+extra;}
+     n=(int)append_display_diagnostic_suffix(out,sizeof(out),(size_t)n,copy_window);
++    n=(int)append_display_diagnostic_suffix(out,sizeof(out),(size_t)n,before);
+     usb_write(out,n);return;
+ essential:
+     // Optional counters can fill the legacy 4 KiB line. Still acknowledge the
+diff --git a/scripts/apply-display-diagnostics.py b/scripts/apply-display-diagnostics.py
+index a34d5ff..7b8a956 100644
+--- a/scripts/apply-display-diagnostics.py
++++ b/scripts/apply-display-diagnostics.py
+@@ -54,6 +54,15 @@ if rearm_marker not in source:
+     if source.count(old) != 1:
+         raise SystemExit('Unexpected DPI underrun path; inspect before removing ISR logging.')
+     source = source.replace(old, '        ' + rearm_marker)
++history_marker = '/* TAB5 pre-underrun history after DMA rearm */'
++if history_marker not in source:
++    point = '    dw_gdma_channel_enable_ctrl(chan, true);'
++    if source.count(point) != 1:
++        raise SystemExit('Unexpected DPI DMA rearm; inspect before adding history.')
++    source = source.replace(point, point + '\n    ' + history_marker +
++        '\n    extern void tab5_lcd_capture_before(void) __attribute__((weak));' +
++        '\n    if (unlikely(error_status & MIPI_DSI_LL_EVENT_UNDERRUN) && tab5_lcd_capture_before)' +
++        '\n        tab5_lcd_capture_before();')
+ if source != original:
+     driver.write_text(source, encoding='utf-8')
+ 
+@@ -101,4 +110,12 @@ if marker not in source:
+             raise SystemExit('Unexpected pinned framebuffer copy driver; inspect before applying.')
+         source = source.replace(old,new)
+     copy_driver.write_text(source,encoding='utf-8')
+-print('TAB5 framebuffer copy burst limited to 32 bytes; in-flight diagnostics ready')
++# Update SDK trees that already carry the earlier framebuffer copy hook.
++source = copy_driver.read_text(encoding='utf-8')
++previous_ability = '.data_burst_length = DMA2D_DATA_BURST_LENGTH_32}'
++current_ability = '.data_burst_length = DMA2D_DATA_BURST_LENGTH_16}'
++if source.count(previous_ability) == 1:
++    copy_driver.write_text(source.replace(previous_ability, current_ability), encoding='utf-8')
++elif source.count(current_ability) != 1:
++    raise SystemExit('Unexpected framebuffer copy DMA burst setting.')
++print('TAB5 framebuffer copy burst limited to 16 bytes; in-flight diagnostics ready')
+diff --git a/scripts/apply-lvgl-render-cache.py b/scripts/apply-lvgl-render-cache.py
+index 9edac73..d124818 100644
+--- a/scripts/apply-lvgl-render-cache.py
++++ b/scripts/apply-lvgl-render-cache.py
+@@ -60,6 +60,15 @@ changes={
+          '        return;\n'
+          '    }\n'
+          '    /*If the screen is transparent initialize it when the flushing is ready*/'),
++        ('bool (*tab5_lvgl_native_render)(lv_layer_t *) = NULL;\n',
++         'extern void tab5_lcd_render_boundary(bool ending) __attribute__((weak));\n'
++         'bool (*tab5_lvgl_native_render)(lv_layer_t *) = NULL;\n'),
++        ('    // TAB5_NATIVE_CACHE: keep the normal draw-buffer and DMA ownership path.',
++         '    if(tab5_lcd_render_boundary) tab5_lcd_render_boundary(false);\n'
++         '    // TAB5_NATIVE_CACHE: keep the normal draw-buffer and DMA ownership path.'),
++        ('    /* In double buffered mode wait until the other buffer is freed',
++         '    if(tab5_lcd_render_boundary) tab5_lcd_render_boundary(true);\n\n'
++         '    /* In double buffered mode wait until the other buffer is freed'),
+         ('void lv_obj_redraw(lv_layer_t * layer, lv_obj_t * obj)\n{',
+          '// TAB5_RENDER_CACHE_HOOKS\n'
+          'bool (*tab5_lvgl_cache_ready)(const lv_obj_t *) = NULL;\n'
+diff --git a/tests/ui-preview/CMakeLists.txt b/tests/ui-preview/CMakeLists.txt
+index 279cc1d..9dae37e 100644
+--- a/tests/ui-preview/CMakeLists.txt
++++ b/tests/ui-preview/CMakeLists.txt
+@@ -929,7 +929,7 @@ math(EXPR GALLERY_MEMORY_LENGTH "${GALLERY_MEMORY_END}-${GALLERY_MEMORY_START}+2
+ string(SUBSTRING "${GALLERY_MEMORY_UI}" ${GALLERY_MEMORY_START} ${GALLERY_MEMORY_LENGTH} GALLERY_MEMORY_BODY)
+ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/gallery_memory_ui_under_test.inc" "${GALLERY_MEMORY_BODY}\n")
+ add_executable(gallery-worker-test gallery_worker_test.c "${ROOT}/firmware/main/gallery_jpeg_cache.c" "${ROOT}/firmware/main/gallery_buffer.c" "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
+-target_include_directories(gallery-worker-test PRIVATE "${ROOT}/firmware/main" "${CMAKE_CURRENT_BINARY_DIR}" "${ROOT}/.tools/esp-idf/components/json/cJSON")
++target_include_directories(gallery-worker-test PRIVATE "${ROOT}/firmware/main" "${CMAKE_CURRENT_BINARY_DIR}" "${ROOT}/.tools/esp-idf/components/json/cJSON" "${ROOT}/.tools/esp-idf/components/esp_rom/include" "${ROOT}/.tools/esp-idf/components/esp_rom/esp32p4")
+ target_compile_definitions(gallery-worker-test PRIVATE TAB5_LOCAL_ART=1)
+ target_link_libraries(gallery-worker-test PRIVATE bcrypt)
+ add_executable(gallery-store-test gallery_store_test.c "${ROOT}/.tools/esp-idf/components/json/cJSON/cJSON.c")
+diff --git a/tests/ui-preview/gallery_store_test.c b/tests/ui-preview/gallery_store_test.c
+index 6c7eae0..5fed709 100644
+--- a/tests/ui-preview/gallery_store_test.c
++++ b/tests/ui-preview/gallery_store_test.c
+@@ -112,10 +112,51 @@ static void check_workspace_failures(const char *root){
+     }
+     puts("GALLERY_PATH_WORKSPACE_OK nested allocation failures preserve completed records; every private path workspace released");
+ }
++static void check_guide_batch(const char *root) {
++    static const char payload[]="{\"workId\":\"fixture:batch\",\"guide\":{\"workId\":\"fixture:batch\",\"overview\":\"new guide\"}}";
++    char old[65],updated[65],later[65],images[65];
++    memset(old,'a',64);memset(updated,'b',64);memset(later,'c',64);memset(images,'d',64);
++    old[64]=updated[64]=later[64]=images[64]=0;
++    uint8_t jpeg[8192]={7};
++    gallery_jpeg image={.key={.category=0,.frame=0,.frames=1},.data=jpeg,.size=sizeof(jpeg),.capacity=sizeof(jpeg)};
++    strcpy(image.key.date,"2026-01-02");strcpy(image.key.work_id,"fixture:batch");
++    assert(gallery_store_put(root,&image,old,NULL));
++    image.key.portrait=true;assert(gallery_store_put(root,&image,old,NULL));
++    enum { index_size=GUIDE_BATCH_HEADER+2*GUIDE_BATCH_ENTRY };
++    uint8_t batch[index_size+sizeof(payload)-1]={0};
++    memcpy(batch,"AIBGB002",8);set32(batch+8,2);memcpy(batch+12,old,64);memcpy(batch+76,images,64);
++    uint8_t *entry=batch+GUIDE_BATCH_HEADER+GUIDE_BATCH_ENTRY;
++    assert(!mbedtls_sha256((const uint8_t*)payload,sizeof(payload)-1,entry,0));
++    set32(entry+32,index_size);set32(entry+36,sizeof(payload)-1);memcpy(batch+index_size,payload,sizeof(payload)-1);
++    batch[index_size]^=1;
++    assert(!gallery_guide_batch_save(root,0,updated,batch,sizeof(batch),2,1));
++    batch[index_size]^=1;
++    fail_rename=true;assert(!gallery_guide_batch_save(root,0,updated,batch,sizeof(batch),2,1));fail_rename=false;
++    uint8_t hashes[64];
++    assert(!gallery_guide_batch_summary(root,0,updated,images,hashes,2));
++    gallery_store_profile_reset();
++    assert(gallery_guide_batch_save(root,0,updated,batch,sizeof(batch),2,1));
++    assert(gallery_store_profile_get().write_bytes==sizeof(batch));
++    assert(gallery_guide_batch_summary(root,0,updated,images,hashes,2)&&!memcmp(hashes+32,entry,32));
++    assert(!gallery_guide_batch_summary(root,0,updated,old,hashes,2));
++    assert(gallery_guide_delta_link(root,0,updated,old));
++    memcpy(batch+12,updated,64);memset(entry+32,0,8);
++    assert(gallery_guide_batch_save(root,0,later,batch,index_size,2,0));
++    assert(gallery_guide_delta_link(root,0,later,updated));
++    for(int portrait=0;portrait<=1;portrait++) {
++        image.key.portrait=portrait;
++        gallery_jpeg saved;cJSON *guide=NULL;
++        assert(gallery_store_get(root,&image.key,later,allocate,&saved,&guide)&&guide);
++        assert(!strcmp(text(guide,"overview"),"new guide")&&saved.size==sizeof(jpeg)&&!memcmp(saved.data,jpeg,sizeof(jpeg)));
++        release(&saved,guide);
++    }
++    puts("GALLERY_GUIDE_BATCH_OK one TF payload; digest reload; corrupt payload and failed commit rejected; unchanged guide survives next revision; both JPEG orientations reused");
++}
++
+ int main(void) {
+     workspace_size=sizeof(gallery_paths);
+     char tmp[MAX_PATH],root[MAX_PATH];GetTempPathA(sizeof(tmp),tmp);snprintf(root,sizeof(root),"%saibot-tf-%lu",tmp,GetCurrentProcessId());assert(!_mkdir(root));
+-    check_bulk_io(root);check_incremental_metadata(root);check_workspace_failures(root);
++    check_bulk_io(root);check_incremental_metadata(root);check_workspace_failures(root);check_guide_batch(root);
+     uint8_t bytes[50000];for(unsigned i=0;i<sizeof(bytes);i++)bytes[i]=(uint8_t)i;
+     gallery_jpeg value={.key={.category=0,.frame=0,.frames=3,.portrait=false},.data=bytes,.size=sizeof(bytes),.capacity=sizeof(bytes)};
+     strcpy(value.key.date,"2026-10-11");strcpy(value.key.work_id,"museum:reviewed-work");
+diff --git a/tests/ui-preview/gallery_worker_test.c b/tests/ui-preview/gallery_worker_test.c
+index 41d9817..528954f 100644
+--- a/tests/ui-preview/gallery_worker_test.c
++++ b/tests/ui-preview/gallery_worker_test.c
+@@ -39,7 +39,8 @@ static SRWLOCK device_test_lock=SRWLOCK_INIT;
+ static int link=LINK_USB,network_calls,wifi_users,decodes;
+ static bool bad_hash,http_failure,foreground;
+ static size_t free_psram=16u*1024u*1024u;
+-static size_t heap_caps_get_free_size(int caps){(void)caps;return free_psram;}
++static const size_t *test_psram_usage;
++static size_t heap_caps_get_free_size(int caps){(void)caps;return free_psram-(test_psram_usage?*test_psram_usage:0);}
+ static int fail_offset=-1,fail_remaining,fail_status,first_ranges,tail_ranges,manifests;
+ static void (*rpc_hook)(void);
+ static unsigned cached_total_ms,cached_decode_ms;
+@@ -112,6 +113,11 @@ static int mbedtls_sha256(const uint8_t *bytes,size_t size,uint8_t *out,int vari
+ #define gallery_store_finish file_store_finish
+ #define gallery_catalog_load file_catalog_load
+ #define gallery_catalog_save file_catalog_save
++#define gallery_catalog_completed file_catalog_completed
++#define gallery_guide_delta_save file_guide_delta_save
++#define gallery_guide_delta_saved file_guide_delta_saved
++#define gallery_guide_delta_can_link file_guide_delta_can_link
++#define gallery_guide_delta_link file_guide_delta_link
+ #define gallery_resume_load file_resume_load
+ #define gallery_resume_append file_resume_append
+ #define gallery_resume_clear file_resume_clear
+@@ -123,6 +129,11 @@ static int mbedtls_sha256(const uint8_t *bytes,size_t size,uint8_t *out,int vari
+ #undef gallery_store_finish
+ #undef gallery_catalog_load
+ #undef gallery_catalog_save
++#undef gallery_catalog_completed
++#undef gallery_guide_delta_save
++#undef gallery_guide_delta_saved
++#undef gallery_guide_delta_can_link
++#undef gallery_guide_delta_link
+ #undef gallery_resume_load
+ #undef gallery_resume_append
+ #undef gallery_resume_clear
+@@ -149,6 +160,11 @@ bool gallery_store_refresh(const char *root,const gallery_jpeg *value,const char
+ bool gallery_store_finish(const char *root,const gallery_jpeg *value,const char *revision,const gallery_guide *guide,const gallery_resume *state){test_card_operations++;assert(!locked);return file_store_finish(mapped_root(root),value,revision,guide,state);}
+ bool gallery_catalog_load(const char *root,int category,const char *revision,gallery_catalog *out){test_card_operations++;assert(!locked);return file_catalog_load(mapped_root(root),category,revision,out);}
+ bool gallery_catalog_save(const char *root,int category,const gallery_catalog *value){test_card_operations++;assert(!locked);return file_catalog_save(mapped_root(root),category,value);}
++bool gallery_catalog_completed(const char *root,int category,const char *revision,unsigned works){return file_catalog_completed(mapped_root(root),category,revision,works);}
++bool gallery_guide_delta_save(const char *root,const gallery_image *key,const char *revision,const gallery_guide *guide){return file_guide_delta_save(mapped_root(root),key,revision,guide);}
++bool gallery_guide_delta_saved(const char *root,const gallery_image *key,const char *revision){return file_guide_delta_saved(mapped_root(root),key,revision);}
++bool gallery_guide_delta_can_link(const char *root,int category,const char *previous){return file_guide_delta_can_link(mapped_root(root),category,previous);}
++bool gallery_guide_delta_link(const char *root,int category,const char *revision,const char *previous){return file_guide_delta_link(mapped_root(root),category,revision,previous);}
+ bool gallery_resume_load(const char *root,const gallery_image *key,const char *revision,const char *sha,uint8_t *jpeg,size_t total,gallery_resume *state){test_card_operations++;assert(!locked);return file_resume_load(mapped_root(root),key,revision,sha,jpeg,total,state);}
+ bool gallery_resume_append(const char *root,const gallery_image *key,const char *revision,const char *sha,const uint8_t *jpeg,size_t total,size_t end,gallery_resume *state){test_card_operations++;assert(!locked);atomic_store(&card_writing,true);if(slow_card)Sleep(20);bool ok=file_resume_append(mapped_root(root),key,revision,sha,jpeg,total,end,state);atomic_store(&card_writing,false);return ok;}
+ bool gallery_resume_clear(const char *root,const gallery_image *key,const char *revision,const char *sha,size_t total){test_card_operations++;assert(!locked);return file_resume_clear(mapped_root(root),key,revision,sha,total);}
+@@ -163,6 +179,8 @@ static size_t rpc_data_limit(int channel){assert(channel>=0&&channel<=2);return
+ static int fixture_guide_version=2;
+ static bool test_catalog;
+ static char remote_revisions[2][65];
++static char delta_previous[65];
++static unsigned delta_work_requests;
+ static unsigned range_calls;
+ static const char *fixture_overview="museum context";
+ static cJSON *annual_fixture;
+@@ -189,10 +207,30 @@ static cJSON *rpc_data_call(int channel,void *http,cJSON *request,int *status,ch
+     if(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(request,"op")),"catalog")) {
+         cJSON *reply=cJSON_CreateObject();*status=test_catalog?200:400;
+         cJSON_AddNumberToObject(reply,"syncVersion",1);cJSON_AddNumberToObject(reply,"works",category_index?2:3);
+-        cJSON_AddStringToObject(reply,"baseDate","2026-01-01");cJSON_AddStringToObject(reply,"revision",remote_revisions[category_index]);return reply;
++        cJSON_AddStringToObject(reply,"baseDate","2026-01-01");cJSON_AddStringToObject(reply,"revision",remote_revisions[category_index]);
++        if(delta_previous[0]&&!category_index)cJSON_AddItemToArray(cJSON_AddArrayToObject(reply,"deltaSources"),cJSON_CreateString(delta_previous));
++        return reply;
++    }
++    const char *op=cJSON_GetStringValue(cJSON_GetObjectItem(request,"op"));
++    if(!strcmp(op,"guideDelta")){
++        cJSON *reply=cJSON_CreateObject();*status=200;
++        cJSON_AddStringToObject(reply,"from",delta_previous);
++        cJSON_AddStringToObject(reply,"revision",remote_revisions[category_index]);
++        cJSON_AddNumberToObject(reply,"works",category_index?2:3);
++        cJSON_AddItemToArray(cJSON_AddArrayToObject(reply,"changed"),cJSON_CreateNumber(0));
++        return reply;
+     }
+     int work_index=0;
+     if(test_catalog){char canonical[11];assert(gallery_catalog_key(cJSON_GetStringValue(cJSON_GetObjectItem(request,"date")),category_index?2:3,canonical));work_index=canonical[9]-'1';}
++    if(!strcmp(op,"workGuide")) {
++        delta_work_requests++;*status=200;
++        cJSON *reply=cJSON_CreateObject(),*guide=cJSON_AddObjectToObject(reply,"guide");
++        cJSON_AddStringToObject(reply,"revision",remote_revisions[category_index]);
++        cJSON_AddStringToObject(reply,"workId","fixture-work-0");
++        cJSON_AddStringToObject(guide,"workId","fixture-work-0");
++        cJSON_AddStringToObject(guide,"overview","work delta");
++        return reply;
++    }
+     int frame=cJSON_GetObjectItem(request,"frame")->valueint;
+     int seed=1+category_index*20+work_index*50+frame*2+(orientation&&!strcmp(orientation,"portrait"));
+     const int size=image_bytes;static uint8_t bytes[1048576];for(int i=0;i<size;i++)bytes[i]=(uint8_t)(seed+i);
+@@ -249,9 +287,13 @@ static cJSON *rpc_gallery_stream_call(void *http,cJSON *request,int *status,char
+     }
+     return reply;
+ }
++static void *heap_caps_malloc(size_t size,int caps){assert(caps==(MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));return malloc(size);}
++#define TAB5_TEST_EXTERNAL_HEAP
++#include "ota_zlib_host.h"
+ #include "gallery_worker_under_test.inc"
+ static unsigned memory_trim_calls;
+ static void tab5_draw_cache_trim_hidden(unsigned bytes){memory_trim_calls++;free_psram+=bytes;}
++static unsigned tab5_draw_cache_reclaim_staging(void){return 0;}
+ #include "gallery_memory_ui_under_test.inc"
+ 
+ static void cached_during_rpc(void) {
+@@ -583,6 +625,20 @@ int main(int argc,char **argv) {
+     memset(remote_revisions[0],'7',64);memset(remote_revisions[1],'8',64);
+     assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==3);gallery_library_supported(true);
+     assert(gallery_library_pending());
++    char waiting[160];int paused_calls=network_calls;
++    free_psram=GALLERY_SYNC_PSRAM_RESERVE-1;
++    gallery_sync_library();gallery_storage_status(waiting,sizeof(waiting));
++    assert(network_calls==paused_calls&&strstr(waiting,"等待可用内存"));
++    gallery_jpeg expendable={.key={.category=0,.date="2026-01-01",.frames=1},.data=malloc(65536),.size=65536,.capacity=65536};
++    assert(expendable.data);
++    gallery_jpeg_put(&jpeg_cache,expendable,jpeg_cache.generation);
++    assert(jpeg_cache.bytes==65536);
++    test_psram_usage=&jpeg_cache.bytes;
++    free_psram=GALLERY_SYNC_PSRAM_RESERVE+32768;
++    gallery_sync_library();
++    assert(network_calls>paused_calls&&catalogs[0].works+catalogs[1].works>0&&!jpeg_cache.bytes);
++    test_psram_usage=NULL;
++    free_psram=16u*1024u*1024u;
+     unsigned ranges_before=range_calls,full_before=full_guides,ref_before=referenced_guides;int library_decodes_before=decodes;
+     for(int i=0;i<18;i++)gallery_sync_library();
+     assert(catalogs[0].next>=1&&catalogs[1].next>=1&&catalogs[0].next<3);
+@@ -612,13 +668,30 @@ int main(int argc,char **argv) {
+     assert(network_calls==idle_calls&&card_writes==idle_writes);
+     puts("GALLERY_UNCHANGED_LIBRARY_OK same authenticated digests and completed cursors cause zero network requests and zero writes");
+     char storage[160];gallery_storage_status(storage,sizeof(storage));assert(strstr(storage,"保存完成"));
++    memcpy(delta_previous,remote_revisions[0],65);remote_revisions[0][0]='d';
++    unsigned delta_ranges=range_calls,delta_manifests=manifests;
++    gallery_catalog interrupted={.works=3,.next=1};
++    memcpy(interrupted.revision,remote_revisions[0],65);
++    assert(gallery_catalog_save(SD_STORAGE_MOUNT,0,&interrupted));
++    assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==1);
++    gallery_store_profile_reset();
++    for(int i=0;i<4&&catalogs[0].next!=3;i++)gallery_sync_library();
++    gallery_io_profile guide_io=gallery_store_profile_get();
++    assert(catalogs[0].next==3&&delta_work_requests==1&&range_calls==delta_ranges&&manifests==delta_manifests);
++    assert(guide_io.read_bytes<65536&&guide_io.write_bytes<65536);
++    link=LINK_NONE;
++    assert(gallery_request(0,"2026-01-01",2,true,NULL)&&gallery_take(&image));gallery_recycle(image.pixels);
++    gallery_guide *delta_guide=calloc(1,sizeof(*delta_guide));assert(delta_guide);
++    assert(gallery_guide_copy(0,"2026-01-01","fixture-work-0",delta_guide)&&!strcmp(delta_guide->overview,"work delta"));
++    free(delta_guide);delta_previous[0]=0;
++    puts("GALLERY_WORK_DELTA_OK one changed work, zero image manifests/ranges, all layouts reuse prior TF images");
+     // Whole collection, not just today's work: both layouts of all pages are
+     // available after another reboot, including a different calendar year.
+     gallery_cache_reclaim();memset(pack_revisions,0,sizeof(pack_revisions));memset(catalogs,0,sizeof(catalogs));memset(catalog_loaded,0,sizeof(catalog_loaded));
+     link=LINK_NONE;int calls_before=network_calls;
+     for(int c=0;c<2;c++)for(int w=0;w<(c?2:3);w++)for(int page=0;page<3;page++)for(int portrait=0;portrait<2;portrait++) {
+         char date[11];assert(gallery_catalog_date(w,date));assert(gallery_request(c,date,page,portrait,NULL));assert(gallery_take(&image));
+-        assert(image.pixels[0]==1+c*20+w*50+page*2+portrait);gallery_guide g;assert(gallery_guide_copy(c,image.date,image.work_id,&g)&&!strcmp(g.overview,"museum context"));gallery_recycle(image.pixels);
++        assert(image.pixels[0]==1+c*20+w*50+page*2+portrait);gallery_guide g;assert(gallery_guide_copy(c,image.date,image.work_id,&g)&&!strcmp(g.overview,!c&&!w?"work delta":"museum context"));gallery_recycle(image.pixels);
+     }
+     assert(gallery_request(1,"2028-02-29",2,true,NULL)&&gallery_take(&image));assert(image.pixels[0]==76&&!strcmp(image.date,"2028-02-29"));gallery_recycle(image.pixels);assert(network_calls==calls_before);
+     // Text-only category update reuses identical JPEG bytes, fetches no ranges,
+diff --git a/tests/ui-preview/preview.c b/tests/ui-preview/preview.c
+index fedcebc..e3bd37e 100644
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -13,6 +13,12 @@ static bool preview_screen_busy;
+ static bool screen_preview_busy(void){return preview_screen_busy;}
+ static unsigned preview_scratch_reclaims;
+ static unsigned screen_preview_cache_reclaim(bool force){if(force)preview_scratch_reclaims++;return 0;}
++// Offscreen rendering has no radio or authenticated host switch.
++static bool device_host_changing(void){return false;}
++static bool device_wifi_test_active(void){return false;}
++static void device_wifi_test_tick(int64_t now){(void)now;}
++static bool device_wifi_test_begin(unsigned host,int64_t now){(void)host;(void)now;return false;}
++static bool device_wifi_test_restore(unsigned host){(void)host;return false;}
+ #include "../../firmware/main/ui.c"
+ #include "../../firmware/main/art_orientation_filter.h"
+ #include <assert.h>
+@@ -2157,6 +2163,24 @@ int main(void) {
+     assert(ui_time_value(&steady,0,0,120000)==1120000); // disconnected local time keeps advancing
+     assert(ui_time_value(&steady,1200000,120100,120100)==1200000); // deliberate large clock correction
+     lv_init(); ui_start();
++#if TAB5_LOCAL_ART
++    if(getenv("TAB5_TF_STORAGE_ONLY")) {
++        page(9);settings_select(SETTINGS_STORAGE);
++        lv_dropdown_set_selected(tf_cache_selector,1);
++        lv_obj_send_event(tf_cache_selector,LV_EVENT_VALUE_CHANGED,NULL);
++        assert(tf_cache_enabled);
++        preview_tf_state=1;preview_gallery_low_memory=true;tf_storage_refresh();
++        assert(strstr(lv_label_get_text(tf_storage_value),"等待可用内存"));
++        capture("settings-tf-waiting-memory");
++        preview_gallery_low_memory=false;tf_storage_refresh();
++        assert(strstr(lv_label_get_text(tf_storage_value),"正在保存"));
++        capture("settings-tf-library");
++        preview_gallery_guide_delta=true;tf_storage_refresh();
++        assert(strstr(lv_label_get_text(tf_storage_value),"书法详情更新 420/585"));
++        capture("settings-tf-guide-delta");
++        return 0;
++    }
++#endif
+     if(getenv("TAB5_BRAND_ASSET_GEN_ONLY")) {
+         page(8);lv_obj_update_layout(lv_screen_active());
+         for(int i=0;i<2;i++)for(int j=0;j<2;j++) {
+@@ -4622,8 +4646,12 @@ int main(void) {
+     lv_dropdown_set_selected(saver_selector,ui_saver_option_from_style(6));lv_obj_send_event(saver_selector,LV_EVENT_VALUE_CHANGED,NULL);tick(NULL);
+     lv_obj_update_layout(lv_screen_active());
+     assert(!lv_obj_has_flag(tf_storage_row,LV_OBJ_FLAG_HIDDEN)&&lv_obj_has_flag(date_settings_row,LV_OBJ_FLAG_HIDDEN));
+-    assert(lv_obj_get_style_y(screen_sound_group,0)==386&&strstr(lv_label_get_text(tf_storage_value),"名画 123/366"));
++    assert(lv_obj_get_style_y(screen_sound_group,0)==386&&strstr(lv_label_get_text(tf_storage_value),"名画 123/1765"));
+     capture("settings-tf-library");
++    preview_gallery_low_memory=true;tf_storage_refresh();
++    assert(strstr(lv_label_get_text(tf_storage_value),"等待可用内存"));
++    capture("settings-tf-waiting-memory");
++    preview_gallery_low_memory=false;tf_storage_refresh();
+     lv_dropdown_set_selected(saver_selector,1);lv_obj_send_event(saver_selector,LV_EVENT_VALUE_CHANGED,NULL);
+     assert(!lv_obj_has_flag(tf_storage_row,LV_OBJ_FLAG_HIDDEN)&&lv_obj_get_style_y(screen_sound_group,0)==386);
+     for(int style=0;style<=UI_SAVER_COUNTDOWN;style++) {
+@@ -4639,7 +4667,7 @@ int main(void) {
+     assert(strstr(lv_label_get_text(tf_storage_value),"使用设备缓存")&&tf_cache_enabled);
+     capture("settings-tf-unavailable");
+     preview_tf_state=1;tick(NULL);assert(!strcmp(lv_label_get_text(tf_card_value),"已就绪"));
+-    assert(strstr(lv_label_get_text(tf_storage_value),"名画 123/366"));capture("settings-tf-independent");shown=tf_previous_shown;
++    assert(strstr(lv_label_get_text(tf_storage_value),"名画 123/1765"));capture("settings-tf-independent");shown=tf_previous_shown;
+     puts("TF_SETTINGS_OK independent storage section, all screensavers/offline detection, default device cache, TF opt-in saved, failed save rolls back, unavailable TF falls back");
+     lv_dropdown_set_selected(tf_cache_selector,0);lv_obj_send_event(tf_cache_selector,LV_EVENT_VALUE_CHANGED,NULL);
+     assert(!tf_cache_enabled&&!preview_gallery_storage_enabled&&strstr(lv_label_get_text(tf_storage_value),"设备缓存"));
+diff --git a/tests/ui-preview/runtime_diagnostics_test.c b/tests/ui-preview/runtime_diagnostics_test.c
+new file mode 100644
+index 0000000..cbb911b
+--- /dev/null
++++ b/tests/ui-preview/runtime_diagnostics_test.c
+@@ -0,0 +1,114 @@
++#undef NDEBUG
++#include <assert.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <stdatomic.h>
++#include "cJSON.h"
++#include "../../firmware/main/link_state.h"
++#include "../../firmware/main/display_diagnostics.h"
++#define TRUSTED_HOST_NAME 64
++#define TAB5_LOCAL_ART 1
++#define MALLOC_CAP_INTERNAL 1
++#define MALLOC_CAP_8BIT 2
++#define MALLOC_CAP_SPIRAM 4
++#define portMAX_DELAY 0
++#define pdPASS 1
++#define pdMS_TO_TICKS(ms) (ms)
++typedef struct{char id[16],host[16];int port;}device_config;
++static device_config device_get_config(void){return(device_config){"001122aabbcc","192.0.2.1",18765};}
++static unsigned epoch=1,calls,busy_calls,created;static bool changing,fail_task,fail_http;
++static unsigned device_host_epoch(void){return epoch;}
++static bool device_host_changing(void){return changing;}
++static void device_host_identity(char *id,char *name){strcpy(id,"11111111111111111111111111111111");strcpy(name,"fixture");}
++static int64_t now=123456;
++static int64_t esp_timer_get_time(void){return now*1000+789;}
++static void vTaskDelay(unsigned ms){now+=ms;}
++static int esp_reset_reason(void){return 3;}
++static size_t heap_caps_get_free_size(unsigned caps){return caps*1000;}
++static unsigned diagnostic_largest_value=300,diagnostic_largest_calls;
++static unsigned camera_viewport_diagnostic_largest(unsigned caps){assert(caps==(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT));diagnostic_largest_calls++;return diagnostic_largest_value;}
++typedef struct{char version[32];}app_desc;
++static const app_desc *esp_app_get_description(void){static app_desc d={"0.2.250-ui"};return &d;}
++static void *device_mutex;static bool wifi_connected=true,ble_connected;
++static unsigned ble_connect_count=4,ble_disconnect_reason=0;
++static struct{int64_t received_ms[3];}device_links={{-1,123400,123300}};
++static void xSemaphoreTake(void *p,unsigned t){(void)p;(void)t;}
++static void xSemaphoreGive(void *p){(void)p;}
++static unsigned assets_ready(void){return 7;}static unsigned assets_cached(void){return 3;}
++volatile unsigned tab5_display_rotate_us,tab5_display_rotate_peak_us,tab5_display_flush_count=42,tab5_display_flush_errors;
++volatile unsigned tab5_codex_notice_state,tab5_pc_wakes,tab5_backlight_changes,tab5_lcd_underruns;
++volatile int tab5_ui_page=8,tab5_saver_active,tab5_backlight_percent=70;
++volatile int tab5_ui_data_age_ms,tab5_ui_task_selected,tab5_ui_session_ready,tab5_ui_voice_check,tab5_ui_voice_age_ms;
++volatile int tab5_voice_http_stage,tab5_voice_http_status,tab5_voice_request_ms,tab5_voice_last_seq;
++unsigned tab5_ui_age_ms(void){return 9;}
++#define formatter(name) static void name(char *s,unsigned n){snprintf(s,n,"1,2,3");}
++formatter(camera_preview_diagnostics) formatter(photo_diagnostics)
++static unsigned copy_window_fixture;
++void display_diagnostics_format(char *s,unsigned n,char *window,unsigned window_size,char *before,unsigned before_size){
++    snprintf(before,before_size,"%s",copy_window_fixture?";before,1,1,5,1,900":"");
++    if(copy_window_fixture==2){memset(s,'1',n-1);s[n-1]=0;}
++    else snprintf(s,n,"1,2,3");
++    snprintf(window,window_size,"%s",copy_window_fixture?";copywindow,1,1,4,3,0,0,2":"");
++}
++formatter(codex_remote_upload_diagnostics) formatter(camera_preview_driver_error_hex) formatter(ota_update_diagnostics)
++formatter(art_orientation_diagnostics) formatter(rpc_failure_diagnostics) formatter(tab5_wifi_numeric_diagnostics)
++formatter(tab5_wifi_recovery_diagnostics) formatter(tab5_wifi_http_diagnostics) formatter(tab5_wifi_path_diagnostics)
++formatter(tab5_wireless_boot_diagnostics) formatter(wifi_probe_diagnostics) formatter(gallery_diagnostics) formatter(gallery_transfer_diagnostics)
++static void (*worker)(void *);static void *argument;
++static int xTaskCreate(void (*fn)(void*),const char *name,unsigned stack,void *arg,unsigned priority,void *handle){
++    (void)name;(void)priority;(void)handle;assert(stack==8192);if(fail_task)return 0;assert(!argument);worker=fn;argument=arg;created++;return pdPASS;
++}
++static void vTaskDelete(void *p){assert(!p);}
++typedef void *esp_http_client_handle_t;
++typedef struct{const char *url;int timeout_ms;bool disable_auto_redirect;}esp_http_client_config_t;
++static void *esp_http_client_init(const esp_http_client_config_t *cfg){assert(cfg->disable_auto_redirect&&strstr(cfg->url,"192.0.2.1"));return fail_http?NULL:(void*)1;}
++static void esp_http_client_cleanup(void *p){assert(p);}
++static cJSON *respond(cJSON *request,int *status){
++    calls++;assert(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(request,"kind")),"runtime-diagnostics"));
++    cJSON *s=cJSON_GetObjectItemCaseSensitive(request,"snapshot");assert(s);
++    assert(cJSON_GetObjectItemCaseSensitive(s,"uptimeMs")->valuedouble==(double)123456);
++    char *wire=cJSON_PrintUnformatted(s);assert(wire&&strlen(wire)<8192&&!strstr(wire,"fixture")&&!strstr(wire,"192.0.2.1"));free(wire);
++    if(busy_calls){busy_calls--;*status=0;return NULL;}*status=200;return cJSON_CreateObject();
++}
++static cJSON *rpc_call(link_kind link,cJSON *r,int *s,char *n){assert(link==LINK_BLE);(void)n;return respond(r,s);}
++static cJSON *rpc_http_call(void *http,cJSON *r,int *s,char *n){assert(http);(void)n;return respond(r,s);}
++#include "runtime_diagnostics_under_test.inc"
++static void finish(void){void *job=argument;argument=NULL;worker(job);assert(!atomic_load(&sending));}
++static cJSON *item(cJSON *o,const char *key){return cJSON_GetObjectItemCaseSensitive(o,key);}
++static bool remote_ota_hex(const char *s,unsigned n){if(!s||strlen(s)!=n)return false;for(unsigned i=0;i<n;i++)if(!strchr("0123456789abcdef",s[i]))return false;return true;}
++#include "../../firmware/main/runtime_diagnostics.inc"
++int main(void){
++    // The real viewport test verifies scan gating; this checks the snapshot
++    // preserves the helper's unknown value without substituting total free bytes.
++    for(unsigned i=0;i<3;i++) {
++        diagnostic_largest_value=i==1?0:300;unsigned before=diagnostic_largest_calls;
++        copy_window_fixture=i;
++        cJSON *s=runtime_diagnostics_snapshot();assert(s);
++        const char *display=cJSON_GetStringValue(item(s,"displayDiag"));assert(display);
++        if(i==2)assert(strlen(display)==1023&&!strchr(display,';'));
++        else assert(!strcmp(display,i?"1,2,3;copywindow,1,1,4,3,0,0,2;before,1,1,5,1,900":"1,2,3"));
++        copy_window_fixture=0;
++        assert(item(s,"internalLargest")->valuedouble==diagnostic_largest_value);
++        assert(item(s,"internalFree")->valuedouble==3000);
++        assert(diagnostic_largest_calls==before+1);cJSON_Delete(s);
++    }
++    const char *id="22222222222222222222222222222222",*session="33333333333333333333333333333333";
++    assert(runtime_diagnostics_report(id,session,LINK_WIFI));assert(!runtime_diagnostics_report(id,session,LINK_WIFI));finish();assert(calls==1);
++    busy_calls=2;assert(runtime_diagnostics_report(id,session,LINK_BLE));finish();assert(calls==4);now=123456;
++    assert(runtime_diagnostics_report(id,session,LINK_BLE));epoch++;finish();assert(calls==4);
++    changing=true;assert(!runtime_diagnostics_report(id,session,LINK_BLE));changing=false;
++    fail_task=true;assert(!runtime_diagnostics_report(id,session,LINK_WIFI)&&!atomic_load(&sending));fail_task=false;
++    fail_http=true;assert(runtime_diagnostics_report(id,session,LINK_WIFI));finish();assert(calls==4);fail_http=false;
++    cJSON *frame=cJSON_Parse("{\"epochMilliseconds\":1700000000000,\"pcInput\":{\"session\":\"33333333333333333333333333333333\"},\"connectionHealth\":{\"runtimeDiagnosticCommand\":{\"version\":1,\"requestId\":\"22222222222222222222222222222222\",\"transport\":\"Wi-Fi\",\"expiresAt\":1700000010000}}}");assert(frame);
++    unsigned before=created;
++    runtime_diagnostics_tick(frame,LINK_USB,1000,1000);runtime_diagnostics_tick(frame,LINK_BLE,1000,1000);
++    runtime_diagnostics_tick(frame,LINK_WIFI,10000,1000);runtime_diagnostics_tick(frame,LINK_WIFI,999,1000);assert(created==before);
++    cJSON *command=item(item(frame,"connectionHealth"),"runtimeDiagnosticCommand");
++    cJSON_SetNumberValue(item(command,"expiresAt"),1700000000000.5);runtime_diagnostics_tick(frame,LINK_WIFI,1000,1000);assert(created==before);
++    cJSON_SetNumberValue(item(command,"expiresAt"),1700000010000);runtime_diagnostics_tick(frame,LINK_WIFI,1000,1000);assert(created==before+1);finish();
++    runtime_diagnostics_tick(frame,LINK_WIFI,1000,1000);assert(created==before+1);cJSON_Delete(frame);
++    puts("RUNTIME_FIRMWARE_OK actual snapshot/worker/tick; Wi-Fi/BLE, bounded contention retry, integer uptime, host switch, failure cleanup, stale/channel/expiry/duplicate rejection, unknown largest value kept distinct from free");return 0;
++}

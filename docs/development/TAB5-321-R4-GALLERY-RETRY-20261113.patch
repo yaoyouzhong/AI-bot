@@ -1,0 +1,204 @@
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+index 28b0cb5..a6bcd2d 100644
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R3";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R4";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/firmware/main/gallery_guide_batch.inc b/firmware/main/gallery_guide_batch.inc
+index c713014..f75c9b3 100644
+--- a/firmware/main/gallery_guide_batch.inc
++++ b/firmware/main/gallery_guide_batch.inc
+@@ -35,6 +35,9 @@ static int batch_base(int category,const char *target,unsigned works,const char
+     if(!usable){free(*hashes);*hashes=NULL;}
+     return usable?1:0;
+ }
++static bool batch_link_preempted(link_kind transport) {
++    return transport==LINK_USB&&rpc_library_link_select()==LINK_WIFI;
++}
+ static bool batch_upload_summary(link_kind transport,void *http,cJSON *request,const uint8_t *hashes,unsigned works,char sha[65]) {
+     unsigned total=works*32u;
+     batch_sha(hashes,total,sha);
+@@ -42,7 +45,7 @@ static bool batch_upload_summary(link_kind transport,void *http,cJSON *request,c
+     cJSON_AddStringToObject(request,"sha256",sha);
+     unsigned limit=rpc_data_limit(transport);
+     for(unsigned at=0;at<total;) {
+-        if(download_cancelled(transport,true))return false;
++        if(download_cancelled(transport,true)||batch_link_preempted(transport))return false;
+         unsigned count=total-at;if(count>limit)count=limit;
+         cJSON_DeleteItemFromObjectCaseSensitive(request,"offset");cJSON_AddNumberToObject(request,"offset",at);
+         int status=0;char nonce[33];
+@@ -61,13 +64,18 @@ static bool batch_receive(link_kind transport,void *http,cJSON *request,uint8_t
+     bool stream=transport==LINK_WIFI&&rpc_gallery_stream_ready();
+     unsigned limit=stream?bytes:rpc_data_limit(transport);
+     for(unsigned at=0;at<bytes;) {
+-        if(download_cancelled(transport,true))return false;
++        if(download_cancelled(transport,true)||batch_link_preempted(transport))return false;
+         unsigned count=bytes-at;if(count>limit)count=limit;
+         cJSON_DeleteItemFromObjectCaseSensitive(request,"offset");cJSON_AddNumberToObject(request,"offset",at);
+         cJSON_DeleteItemFromObjectCaseSensitive(request,"count");cJSON_AddNumberToObject(request,"count",count);
+         int status=0;size_t got=0;char nonce[33];
+-        cJSON *reply=stream?rpc_gallery_stream_call(http,request,&status,nonce,data+at,count,&got,NULL,NULL):
+-            gallery_call(transport,true,http,request,&status,data+at,count,&got);
++        cJSON *reply;
++        if(stream)reply=rpc_gallery_stream_call(http,request,&status,nonce,data+at,count,&got,NULL,NULL);
++        else if(transport==LINK_USB) {
++            // Return to the scheduler after one failed USB range so it can
++            // select the now-ready Wi-Fi link before issuing another request.
++            reply=rpc_data_call(transport,http,request,&status,nonce,NULL,0,data+at,count,&got);
++        }else reply=gallery_call(transport,true,http,request,&status,data+at,count,&got);
+         bool ok=status==200&&got==count&&batch_number(reply,"offset",at);
+         cJSON_Delete(reply);
+         if(!ok)return false;
+@@ -82,6 +90,7 @@ static __attribute__((noinline)) int sync_guide_batch(int category,const char *r
+     char previous[65]={0};uint8_t *hashes=NULL;
+     int base=batch_base(category,revision,works,images,cJSON_GetObjectItemCaseSensitive(catalog,"deltaSources"),previous,&hashes);
+     if(base<=0)return base;
++    if(batch_link_preempted(transport)){free(hashes);return -1;}
+     atomic_store(&library_saving,true);
+     cJSON_AddStringToObject(request,"from",previous);
+     cJSON_AddStringToObject(request,"revision",revision);
+diff --git a/firmware/main/gallery_remote.c b/firmware/main/gallery_remote.c
+index ce7c461..2530bb7 100644
+--- a/firmware/main/gallery_remote.c
++++ b/firmware/main/gallery_remote.c
+@@ -193,7 +193,9 @@ void gallery_storage_status(char *out,size_t size) {
+         snprintf(out,size,"%s · 名画 %u/%u · 书法 %u/%u",status,p.next,p.works,c.next,c.works);
+     }
+ }
++enum { CATALOG_RECHECK_MS=60000, CATALOG_RETRY_MS=1000 };
+ static int64_t catalog_check_after[2];
++static link_kind catalog_retry_link[2]={LINK_NONE,LINK_NONE};
+ static __attribute__((noinline)) void catalog_load(int category,const char *revision,bool force) {
+     xSemaphoreTake(device_mutex,portMAX_DELAY);bool loaded=catalog_loaded[category];xSemaphoreGive(device_mutex);
+     if(!atomic_load(&storage_enabled)||(loaded&&!force)||!sd_storage_lock())return;
+@@ -508,7 +510,7 @@ unsigned gallery_pack_sync(const char *painting,const char *calligraphy) {
+         gallery_guide_free(library_guides[c]);library_guides[c]=NULL;library_guide_revisions[c][0]=0;
+         snprintf(pack_revisions[c],sizeof(pack_revisions[c]),"%s",values[c]);
+         memset(stored_pages[c],0,sizeof(stored_pages[c]));stored_frames[c]=1;
+-        catalogs[c]=(gallery_catalog){0};catalog_loaded[c]=false;guide_delta_checked[c]=false;sync_cursor[c]=0;catalog_check_after[c]=0;
++        catalogs[c]=(gallery_catalog){0};catalog_loaded[c]=false;guide_delta_checked[c]=false;sync_cursor[c]=0;catalog_check_after[c]=0;catalog_retry_link[c]=LINK_NONE;
+         atomic_store(&pack_status[c],0);
+         atomic_store(&decode_status[c*2],GALLERY_DECODE_OK);atomic_store(&decode_status[c*2+1],GALLERY_DECODE_OK);
+     }
+@@ -899,7 +901,13 @@ done:
+         }else {xSemaphoreTake(device_mutex,portMAX_DELAY);sync_cursor[w->job.category]=next;xSemaphoreGive(device_mutex);}
+     }
+     if(library&&!sample) {
+-        xSemaphoreTake(device_mutex,portMAX_DELAY);catalog_check_after[w->job.category]=esp_timer_get_time()/1000+(w->context.purpose==2?60000:0);xSemaphoreGive(device_mutex);
++        if(w->context.purpose==2) {
++            int64_t now=esp_timer_get_time()/1000;
++            xSemaphoreTake(device_mutex,portMAX_DELAY);
++            catalog_check_after[w->job.category]=now+(validated?CATALOG_RECHECK_MS:CATALOG_RETRY_MS);
++            catalog_retry_link[w->job.category]=validated?LINK_NONE:transport;
++            xSemaphoreGive(device_mutex);
++        }
+         if(!persisted&&w->context.purpose==1)validated=false;
+     }
+     free(w->stale.data);
+@@ -909,7 +917,7 @@ done:
+         xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_jpeg_put(&jpeg_cache,value,generation);xSemaphoreGive(device_mutex);
+     } else free(jpeg);
+     gallery_recycle(pixels);
+-    if(background){if(!validated)prefetch_retry=esp_timer_get_time()/1000+5000;}
++    if(background){if(!validated&&w->context.purpose!=2)prefetch_retry=esp_timer_get_time()/1000+5000;}
+     else if(!result.pixels)atomic_fetch_or(&failed_slots,1u<<(w->job.category*2+w->job.portrait));
+     if(sample) {
+         xSemaphoreTake(device_mutex,portMAX_DELAY);
+@@ -986,9 +994,15 @@ void gallery_sync_library(void) {
+        esp_timer_get_time()/1000<prefetch_retry)return;
+     for(unsigned step=0;step<2;step++) {
+         int category=(sync_category+step)%2;char date[11];
+-        xSemaphoreTake(device_mutex,portMAX_DELAY);gallery_catalog value=catalogs[category];unsigned cursor=sync_cursor[category];int64_t after=catalog_check_after[category];bool checked=guide_delta_checked[category];xSemaphoreGive(device_mutex);
++        xSemaphoreTake(device_mutex,portMAX_DELAY);
++        gallery_catalog value=catalogs[category];unsigned cursor=sync_cursor[category];
++        int64_t after=catalog_check_after[category];bool checked=guide_delta_checked[category];
++        link_kind retry_link=catalog_retry_link[category];
++        xSemaphoreGive(device_mutex);
+         bool probe=!value.works||value.next==value.works||!checked;
+-        if(probe&&esp_timer_get_time()/1000<after)continue;
++        // A newly ready link can immediately retry a failed probe. A successful
++        // check retains its normal cadence regardless of link changes.
++        if(probe&&(retry_link==LINK_NONE||retry_link==link)&&esp_timer_get_time()/1000<after)continue;
+         if(!gallery_catalog_date(value.next<value.works?value.next:0,date))continue;
+         // Encoded previews are disposable. Keep the safety reserve and leave
+         // the visible RGB frame, render cache and persisted TF data alone.
+diff --git a/tests/ui-preview/gallery_worker_test.c b/tests/ui-preview/gallery_worker_test.c
+index 528954f..ff89e84 100644
+--- a/tests/ui-preview/gallery_worker_test.c
++++ b/tests/ui-preview/gallery_worker_test.c
+@@ -181,6 +181,10 @@ static bool test_catalog;
+ static char remote_revisions[2][65];
+ static char delta_previous[65];
+ static unsigned delta_work_requests;
++static unsigned fail_catalogs;
++static int last_catalog_link;
++static unsigned batch_range_requests;
++static bool fail_usb_batch_range;
+ static unsigned range_calls;
+ static const char *fixture_overview="museum context";
+ static cJSON *annual_fixture;
+@@ -205,13 +209,26 @@ static cJSON *rpc_data_call(int channel,void *http,cJSON *request,int *status,ch
+         return body;
+     }
+     if(!strcmp(cJSON_GetStringValue(cJSON_GetObjectItem(request,"op")),"catalog")) {
+-        cJSON *reply=cJSON_CreateObject();*status=test_catalog?200:400;
++        last_catalog_link=channel;
++        cJSON *reply=cJSON_CreateObject();
++        if(fail_catalogs){fail_catalogs--;*status=503;return reply;}
++        *status=test_catalog?200:400;
+         cJSON_AddNumberToObject(reply,"syncVersion",1);cJSON_AddNumberToObject(reply,"works",category_index?2:3);
+         cJSON_AddStringToObject(reply,"baseDate","2026-01-01");cJSON_AddStringToObject(reply,"revision",remote_revisions[category_index]);
+         if(delta_previous[0]&&!category_index)cJSON_AddItemToArray(cJSON_AddArrayToObject(reply,"deltaSources"),cJSON_CreateString(delta_previous));
+         return reply;
+     }
+     const char *op=cJSON_GetStringValue(cJSON_GetObjectItem(request,"op"));
++    if(!strcmp(op,"guideBatchRead")) {
++        batch_range_requests++;
++        if(fail_usb_batch_range){assert(channel==LINK_USB);*status=0;return NULL;}
++        unsigned offset=cJSON_GetObjectItemCaseSensitive(request,"offset")->valueint;
++        unsigned count=cJSON_GetObjectItemCaseSensitive(request,"count")->valueint;
++        assert(download&&capacity>=count&&received);
++        memset(download,17,count);*received=count;*status=200;
++        cJSON *reply=cJSON_CreateObject();cJSON_AddNumberToObject(reply,"offset",offset);
++        return reply;
++    }
+     if(!strcmp(op,"guideDelta")){
+         cJSON *reply=cJSON_CreateObject();*status=200;
+         cJSON_AddStringToObject(reply,"from",delta_previous);
+@@ -675,6 +692,32 @@ int main(int argc,char **argv) {
+     assert(gallery_catalog_save(SD_STORAGE_MOUNT,0,&interrupted));
+     assert(gallery_pack_sync(remote_revisions[0],remote_revisions[1])==1);
+     gallery_store_profile_reset();
++    link=LINK_USB;sync_category=0;fail_catalogs=2;
++    gallery_sync_library();
++    assert(last_catalog_link==LINK_USB&&catalog_retry_link[0]==LINK_USB&&catalogs[0].next==1);
++    int calls_after_failure=network_calls;
++    gallery_sync_library();
++    assert(network_calls==calls_after_failure);
++    ticks+=CATALOG_RETRY_MS;
++    gallery_sync_library();
++    assert(network_calls==calls_after_failure+1&&last_catalog_link==LINK_USB);
++    assert(catalog_check_after[0]>ticks&&catalog_retry_link[0]==LINK_USB);
++    link=LINK_WIFI;
++    assert(batch_link_preempted(LINK_USB)&&!batch_link_preempted(LINK_WIFI));
++    gallery_sync_library();
++    assert(last_catalog_link==LINK_WIFI&&catalog_retry_link[0]==LINK_NONE);
++    assert(catalog_check_after[0]>ticks+CATALOG_RECHECK_MS-50);
++    puts("GALLERY_CATALOG_RETRY_OK USB backoff, same-link retry after one second, immediate Wi-Fi takeover, normal success cadence");
++    cJSON *batch_request=cJSON_CreateObject();assert(batch_request);
++    cJSON_AddStringToObject(batch_request,"op","guideBatch");
++    cJSON_AddStringToObject(batch_request,"category","painting");
++    uint8_t batch_bytes[12];
++    link=LINK_USB;fail_usb_batch_range=true;
++    assert(!batch_receive(LINK_USB,NULL,batch_request,batch_bytes,sizeof(batch_bytes))&&batch_range_requests==1);
++    link=LINK_WIFI;fail_usb_batch_range=false;
++    assert(!batch_receive(LINK_USB,NULL,batch_request,batch_bytes,sizeof(batch_bytes))&&batch_range_requests==1);
++    cJSON_Delete(batch_request);
++    puts("GALLERY_USB_BATCH_YIELD_OK failed range returns once; ready Wi-Fi prevents another USB read");
+     for(int i=0;i<4&&catalogs[0].next!=3;i++)gallery_sync_library();
+     gallery_io_profile guide_io=gallery_store_profile_get();
+     assert(catalogs[0].next==3&&delta_work_requests==1&&range_calls==delta_ranges&&manifests==delta_manifests);

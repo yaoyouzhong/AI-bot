@@ -1,0 +1,87 @@
+diff --git a/firmware/components/m5stack_tab5/m5stack_tab5.c b/firmware/components/m5stack_tab5/m5stack_tab5.c
+index 3acfcfc..e14635a 100644
+--- a/firmware/components/m5stack_tab5/m5stack_tab5.c
++++ b/firmware/components/m5stack_tab5/m5stack_tab5.c
+@@ -1464,7 +1464,7 @@ esp_err_t bsp_display_new_with_handles_to_st7123(const bsp_display_config_t* con
+             },
+         .flags =
+             {
+-                .use_dma2d = true,
++                .use_dma2d = !is_st7121,
+             },
+     };
+ 
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+index 1b0ae21..28b0cb5 100644
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R2";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R3";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/firmware/main/display_diagnostics.c b/firmware/main/display_diagnostics.c
+index d94b1fa..7e06ffa 100644
+--- a/firmware/main/display_diagnostics.c
++++ b/firmware/main/display_diagnostics.c
+@@ -22,6 +22,8 @@ extern volatile int tab5_saver_active;
+ static volatile unsigned underrun_sequence, underrun_us, underrun_location, underrun_stages;
+ static volatile uint32_t frame_count, frame_previous_us, frame_peak_us;
+ static volatile unsigned copy_active,copy_started,copy_finished,copy_pixels,copy_count;
++static volatile unsigned copy_dma_burst=16;
++void tab5_lcd_cpu_copy_enable(void){copy_dma_burst=0;}
+ static volatile unsigned copy_sequence,copy_begin_frame,copy_begin_latch,copy_end_frame,copy_end_latch;
+ static volatile unsigned underrun_copy_valid,underrun_read_frame;
+ static volatile unsigned underrun_begin_frame,underrun_begin_latch,underrun_end_frame,underrun_end_latch;
+@@ -246,7 +248,7 @@ void display_diagnostics_format(char *out,unsigned size,char *copy_window,unsign
+     char ime[128];tab5_pinyin_diagnostics(ime,sizeof(ime));
+     if(used<size)snprintf(out+used,size-used,";ime,%s,%u",ime,(unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+     used=(unsigned)strlen(out);
+-    if(used<size)snprintf(out+used,size-used,";copy,1,16,%u,%u",(unsigned)copy_active,(unsigned)copy_count);
++    if(used<size)snprintf(out+used,size-used,";copy,1,%u,%u,%u",(unsigned)copy_dma_burst,(unsigned)copy_active,(unsigned)copy_count);
+     used=(unsigned)strlen(out);
+     unsigned sequence=underrun_sequence;
+     if(used<size&&frame_count)snprintf(out+used,size-used,";fifo,1,%u,%u,%u",
+diff --git a/scripts/apply-display-diagnostics.py b/scripts/apply-display-diagnostics.py
+index 7b8a956..9c7c38e 100644
+--- a/scripts/apply-display-diagnostics.py
++++ b/scripts/apply-display-diagnostics.py
+@@ -119,3 +119,37 @@ if source.count(previous_ability) == 1:
+ elif source.count(current_ability) != 1:
+     raise SystemExit('Unexpected framebuffer copy DMA burst setting.')
+ print('TAB5 framebuffer copy burst limited to 16 bytes; in-flight diagnostics ready')
++
++
++# Bound the task-context RGB565 copy on panels using the CPU path.
++# The existing color-done callback still fires once after all rows reach PSRAM.
++dpi_source = driver.read_text(encoding='utf-8')
++cpu_marker = '/* TAB5 bounded CPU framebuffer copy */'
++if cpu_marker not in dpi_source:
++    start = '        // please note, we assume the user provided draw_buffer is compact,'
++    stop = '        // invoke the trans done callback'
++    cpu = dpi_source.index('} else if (!dpi_panel->fbcpy_handle) { // copy by CPU')
++    begin = dpi_source.index(start, cpu)
++    end = dpi_source.index(stop, begin)
++    body = """        /* TAB5 bounded CPU framebuffer copy */
++        extern void tab5_lcd_cpu_copy_enable(void) __attribute__((weak));
++        extern void tab5_lcd_copy_begin(unsigned) __attribute__((weak));
++        extern void tab5_lcd_copy_end(void) __attribute__((weak));
++        if (tab5_lcd_cpu_copy_enable) tab5_lcd_cpu_copy_enable();
++        for (int y = y_start; y < y_end;) {
++            int remaining = y_end - y;
++            int rows = remaining > 4 ? 4 : remaining;
++            if (tab5_lcd_copy_begin) tab5_lcd_copy_begin((x_end - x_start) * rows);
++            for (int row = 0; row < rows; ++row) {
++                memcpy(to, from, copy_bytes_per_line);
++                to += bytes_per_line;
++                from += copy_bytes_per_line;
++            }
++            uint8_t *first = frame_buffer + y * bytes_per_line;
++            esp_cache_msync(first, rows * bytes_per_line,
++                            ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
++            if (tab5_lcd_copy_end) tab5_lcd_copy_end();
++            y += rows;
++        }
++"""
++    driver.write_text(dpi_source[:begin] + body + dpi_source[end:], encoding='utf-8')

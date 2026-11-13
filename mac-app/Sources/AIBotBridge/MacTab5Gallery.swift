@@ -27,6 +27,7 @@ final class MacTab5Gallery {
     private let lock = NSLock()
     private struct Cache { let stamp: String; let bytes: Data; let manifest: MacTab5GalleryManifest; let works: [MacTab5Artwork]; let guides: [String: [String: Any]]; let annual: [String]? }
     private var catalogs: [String: Cache] = [:]
+    private var deltaSources: [String: [String: URL]] = [:]
     private var lastImage: (path: String, stamp: String, sha: String, bytes: Data)?
     private let fixedDirectory: URL?
     private let baseDirectory: URL
@@ -41,7 +42,7 @@ final class MacTab5Gallery {
         lock.lock(); defer { lock.unlock() }
         guard fixedDirectory == nil else { return }
         UserDefaults.standard.set(full,forKey:"galleryFullCollection"); UserDefaults.standard.set(high,forKey:"galleryHighQuality")
-        catalogs.removeAll(); lastImage = nil
+        catalogs.removeAll(); deltaSources.removeAll(); lastImage = nil
     }
     func install(_ url: URL, progress: MacGalleryProgress? = nil, expectedCollection:String? = nil) throws -> MacTab5GalleryManifest {
         let archive = try MacTab5Archive(url, maximumSize: 16 * 1024 * 1024 * 1024, allowNested: true, allowUnicode: true, maximumEntries: 20000)
@@ -101,7 +102,7 @@ final class MacTab5Gallery {
         do { try fm.moveItem(at: staging, to: target) }
         catch { if previous { try? fm.moveItem(at: backup, to: target) }; throw error }
         // Previous installed artwork remains in a backup until separately removed.
-        catalogs.removeValue(forKey: category); lastImage = nil
+        catalogs.removeValue(forKey: category); deltaSources.removeValue(forKey: category); lastImage = nil
     }
     private func installHD(_ archive: MacTab5Archive, progress: MacGalleryProgress? = nil, expectedCollection:String? = nil) throws -> MacTab5GalleryManifest {
         let files = archive.names.filter { !$0.hasSuffix("/") }
@@ -196,6 +197,27 @@ final class MacTab5Gallery {
         return "\(size)|\(values.contentModificationDate?.timeIntervalSince1970 ?? 0)|\(String(describing: values.fileResourceIdentifier))"
     }
     private func revision(_ cache:Cache) -> String { MacTab5Protocol.sha256(cache.bytes + (cache.manifest.collection == "full" ? Data((fullCollection ? "full:annual-first-v1":"annual").utf8) : Data())) }
+    private func imageFiles(_ manifest: MacTab5GalleryManifest) -> [String: String] {
+        manifest.files.filter { $0.key.hasSuffix(".jpg") || $0.key == "catalog.json" || $0.key == "annual-index.json" }
+    }
+    private func guideDeltaSources(_ cache: Cache, category: String) throws -> [String: URL] {
+        if let saved = deltaSources[category] { return saved }
+        var sources: [String: URL] = [:]
+        let images = imageFiles(cache.manifest)
+        for root in try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            where root.lastPathComponent.hasPrefix(category + ".backup-") {
+            let path = root.appendingPathComponent("PACK.json")
+            guard (try? stamp(path, maximum: 2 * 1024 * 1024)) != nil,
+                  let bytes = try? Data(contentsOf: path),
+                  let old = try? JSONDecoder().decode(MacTab5GalleryManifest.self, from: bytes),
+                  old.category == category, old.collection == cache.manifest.collection,
+                  imageFiles(old) == images else { continue }
+            let suffix = old.collection == "full" ? Data((fullCollection ? "full:annual-first-v1" : "annual").utf8) : Data()
+            sources[MacTab5Protocol.sha256(bytes + suffix)] = root
+        }
+        deltaSources[category] = sources
+        return sources
+    }
     private static func annualIndex(_ root:URL,category:String,works:[MacTab5Artwork],manifest:MacTab5GalleryManifest) throws -> MacGalleryAnnualIndex {
         let path=root.appendingPathComponent("annual-index.json"), size=try path.resourceValues(forKeys:[.fileSizeKey]).fileSize ?? 0
         guard size > 0 && size <= 1024*1024, let hash=manifest.files["annual-index.json"] else { throw MacTab5Error.invalidPacket }
@@ -233,7 +255,8 @@ final class MacTab5Gallery {
         if !guideStamp.isEmpty { let guideBytes = try Data(contentsOf: guideURL); guard MacTab5Protocol.sha256(guideBytes) == manifest.files["guides.zh.json"] else { throw MacTab5Error.invalidPacket }; guides = try MacTab5ArtGuide.read(guideBytes, works: works) }
         let annual: [String]?
         if manifest.collection == "full" { annual = try Self.annualIndex(root,category:category,works:works,manifest:manifest).ids } else { annual = nil }
-        let cache = Cache(stamp: identity, bytes: bytes, manifest: manifest, works: works, guides: guides, annual:annual); catalogs[category] = cache; return cache
+        let cache = Cache(stamp: identity, bytes: bytes, manifest: manifest, works: works, guides: guides, annual:annual)
+        catalogs[category] = cache; deltaSources.removeValue(forKey: category); return cache
     }
     func handle(_ request: [String: Any], binary: Bool, bulk: Bool) -> MacTab5RPCResult {
         lock.lock(); defer { lock.unlock() }
@@ -242,11 +265,46 @@ final class MacTab5Gallery {
             let root = directory.appendingPathComponent(category)
             let cache = try load(category), manifest = cache.manifest, works = try visible(cache,category:category)
             guard !works.isEmpty else { return .error(404,"gallery_pack_missing") }
-            if request["op"] as? String == "catalog" { return .init(200, ["syncVersion": 1, "works": works.count, "revision": revision(cache), "baseDate": "2026-01-01"]) }
+            let operation = request["op"] as? String
+            if operation == "catalog" {
+                var body: [String: Any] = ["syncVersion": 1, "works": works.count, "revision": revision(cache), "baseDate": "2026-01-01"]
+                if request["guideDelta"] as? String == "1" {
+                    body["deltaSources"] = Array(try guideDeltaSources(cache, category: category).keys.sorted().prefix(12))
+                }
+                return .init(200, body)
+            }
+            if operation == "guideDelta" {
+                let target = revision(cache)
+                guard request["revision"] as? String == target, let from = request["from"] as? String,
+                      let backup = try guideDeltaSources(cache, category: category)[from] else { return .error(409, "gallery_delta_unavailable") }
+                let oldPath = backup.appendingPathComponent("guides.zh.json")
+                var old: [String: [String: Any]] = [:]
+                if FileManager.default.fileExists(atPath: oldPath.path) {
+                    guard (try? stamp(oldPath, maximum: 16 * 1024 * 1024)) != nil,
+                          let bytes = try? Data(contentsOf: oldPath),
+                          let guides = try? MacTab5ArtGuide.read(bytes, works: cache.works) else {
+                        return .error(409, "gallery_delta_unavailable")
+                    }
+                    old = guides
+                }
+                let changed = works.enumerated().compactMap { index, work -> Int? in
+                    let id = work.workId ?? work.source
+                    return NSDictionary(dictionary: old[id] ?? [:]).isEqual(to: cache.guides[id] ?? [:]) ? nil : index
+                }
+                return .init(200, ["from": from, "revision": target, "works": works.count, "changed": changed])
+            }
             let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"; formatter.isLenient = false
             guard let text = request["date"] as? String, let date = formatter.date(from: text), formatter.string(from: date) == text else { return .error(400, "invalid_gallery_date") }
             let work = works[Self.dayIndex(date, count: works.count)]
             let guide = cache.guides[work.workId ?? work.source]
+            if operation == "workGuide" {
+                let target = revision(cache)
+                guard request["revision"] as? String == target else { return .error(409, "gallery_guide_changed") }
+                let payload: Any
+                if let guide { payload = try MacTab5ArtGuide.projection(guide, version: 3) }
+                else { payload = NSNull() }
+                return .init(200, ["revision": target, "guideVersion": 3, "workId": work.workId ?? work.source, "guide": payload])
+            }
             if request["op"] as? String == "guidePage" {
                 guard let guide, let text = guide["transcription"] as? String,
                       request["workId"] as? String == guide["workId"] as? String,

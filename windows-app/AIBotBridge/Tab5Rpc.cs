@@ -91,7 +91,8 @@ internal sealed partial class Tab5Service
                 }
                 if(!valid)result=(400,new{error="invalid_session_or_time"});
                 else if(replay)result=(409,new{error="already_submitted"});
-                else if(!opened.Data.IsEmpty&&Text(root,"kind") is not ("image-chunk" or "benchmark" or "screen-preview"))result=(400,new{error="unexpected_binary_data"});
+                else if(!opened.Data.IsEmpty&&Text(root,"kind") is not ("image-chunk" or "benchmark" or "screen-preview")&&
+                    !(Text(root,"kind")=="gallery"&&Text(root,"op")=="guideSummary"))result=(400,new{error="unexpected_binary_data"});
                 else if(Text(root,"kind") is "ota" or "ota_probe")result=allowOta?RpcOta(root,transport,binaryReply,bulkReply):(409,new{error="firmware_requires_ota_transport"});
                 else if(Text(root,"kind")=="screen-preview")result=ScreenPreview.Receive(root,opened.Data.ToArray(),ScreenPreviewContext,id,transport);
                 else if(Text(root,"kind")=="image-chunk") {
@@ -103,11 +104,11 @@ internal sealed partial class Tab5Service
                 }
                 else if(Text(root,"kind")=="gallery") {
                     galleryReply=true;
-                    streamReply=transport=="Wi-Fi"&&bulkReply&&Text(root,"op")=="read"&&root.TryGetProperty("streamReply",out var stream)&&stream.ValueKind==JsonValueKind.True;
+                    streamReply=transport=="Wi-Fi"&&bulkReply&&(Text(root,"op") is "read" or "guideBatchRead")&&root.TryGetProperty("streamReply",out var stream)&&stream.ValueKind==JsonValueKind.True;
                     // The gallery test owns the benchmark gate but needs this actual
                     // image path. Keep OTA, photo uploads and other probes exclusive.
                     result=BackgroundTransferPaused||Volatile.Read(ref _benchmarkRunning)==1||ImageTransferPending||(_voice is Tab5VoiceHost galleryVoice&&galleryVoice.Busy)
-                        ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply,streamReply);
+                        ?(409,new{error="gallery_busy"}):_gallery.Handle(root,binaryReply,bulkReply,streamReply,opened.Data);
                     // A manifest is small, but starts a sequence of image ranges.
                     // Keep the existing BLE throughput lease across that sequence;
                     // USB/Wi-Fi requests and rejected/replayed packets never renew it.

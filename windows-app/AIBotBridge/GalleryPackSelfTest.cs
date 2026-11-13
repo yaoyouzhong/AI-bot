@@ -179,6 +179,13 @@ internal static class GalleryPackSelfTest
         var changed=Reading("painting",3,guideRevision,"one").Body;
         Check(!changed.GetProperty("guideUnchanged").GetBoolean()&&changed.GetProperty("guide").GetProperty("overview").GetString()=="更新简介"&&CatalogRevision("painting")!=guideRevision,"Stale guide hint survived text-only hot update");
         Check(Reading("painting",3,CatalogRevision("painting"),"one").Body.GetProperty("guideUnchanged").GetBoolean(),"Updated guide hint not reusable");
+        string targetRevision=CatalogRevision("painting");
+        var delta=gallery.Handle(JsonSerializer.SerializeToElement(new{category="painting",op="guideDelta",from=guideRevision,revision=targetRevision}),true,true);
+        var deltaBody=JsonSerializer.SerializeToElement(delta.Body,JsonDefaults.Options);
+        Check(delta.Status==200&&deltaBody.GetProperty("changed").EnumerateArray().Single().GetInt32()==0,"Text-only update did not produce one changed work");
+        var workGuide=gallery.Handle(JsonSerializer.SerializeToElement(new{category="painting",op="workGuide",date="2026-10-07",revision=targetRevision}),true,true);
+        Check(workGuide.Status==200&&JsonSerializer.SerializeToElement(workGuide.Body,JsonDefaults.Options).GetProperty("guide").GetProperty("overview").GetString()=="更新简介","Work guide did not return updated text");
+        Check(gallery.Handle(JsonSerializer.SerializeToElement(new{category="painting",op="guideDelta",from=new string('0',64),revision=targetRevision}),true,true).Status==409,"Unknown TF base revision accepted");
         Console.WriteLine("GALLERY_GUIDE_REFERENCE_OK exact revision/work only; old readers and stale/wrong hints receive full text; same-size/time update invalidates digest");
         Check(Reading("calligraphy").Body.GetProperty("guide").GetProperty("transcription").GetString()==new string('文',1000),"Painting update replaced calligraphy text");
         var mismatched=WithGuide("painting");mismatched["guides.zh.json"]=Guides("painting",identity:"different-work");Reject(Archive(mismatched,schema:2));
