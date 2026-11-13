@@ -2,7 +2,7 @@
 
 ## 范围与接手入口
 
-来源为 Windows 桥接和 TAB5，接收方为 macOS 桥接。拉取 `origin/codex/tab5-321-gallery-sync-20261113`，本文所在提交即交接源码。设备目标为 0.2.321-ui（内部 321-R4），Mac 桥接版本随后续候选确定。遵循[统一开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md)。
+来源为 Windows 桥接和 TAB5，接收方为 macOS 桥接。拉取 `origin/codex/tab5-321-gallery-sync-20261113`，原 Windows 交接源码为 `135e47d`。最新发布接续见 [Windows 发布交接](WINDOWS-RELEASE-TAB5-321-HANDOFF-20261113.md)。设备目标为 0.2.321-ui（内部 321-R4），Mac 桥接版本随后续候选确定。遵循[统一开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md)。
 
 名画、书法按类别同步。电脑状态携带各自的版本摘要，TAB5 发现变化后发送 TF 上的逐件摘要。桥接比对后只打包变更详情和完整原文分页。同图、同顺序、同作品范围的更新复用 TF 原图。普通版和高清版的选择作用于电脑本地浏览，TAB5 使用设备适配 JPEG。
 
@@ -30,7 +30,7 @@ Windows 逐件摘要当前直接对 UTF-8 v3 记录序列化结果计算 SHA-256
 
 ## Mac 接手结果
 
-- 来源分支已推送，基线为 `135e47da07f6de4ce32600398a7636a435a6b89e`；接收分支为本地 `codex/mac-tab5-321-gallery-sync-20261113`。本次为本地开发对齐，Mac 候选版本和发布安排待另行确定。
+- 来源分支已推送，基线为 `135e47da07f6de4ce32600398a7636a435a6b89e`；接收分支为 `codex/mac-tab5-321-gallery-sync-20261113`。本轮将开发和验收证据交给 Windows 负责人，Mac 正式候选版本待冻结。
 - 设备目标仍为 TAB5 321-R4；本次无 Windows 或固件代码改动，也无界面改动。已有普通／高清桌面设置继续适用；Mac 仅在年度／全量范围变化时重置设备侧同步缓存。
 
 | 能力 | Mac 状态 | 实现与证据 |

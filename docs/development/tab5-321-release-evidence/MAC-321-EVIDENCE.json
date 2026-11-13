@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "type": "development-evidence-not-candidate-acceptance",
+  "date": "2026-11-13",
+  "windowsBaseline": "135e47da07f6de4ce32600398a7636a435a6b89e",
+  "macBuild": {
+    "sourceSHA": "2dd20957def61a9a0964cbb099667b6d7e1c7853",
+    "version": "0.6.20",
+    "architecture": "arm64",
+    "executable": {
+      "bytes": 14205184,
+      "sha256": "068678616a004c77a3f17f06b4a0beb78966713482c1538d5fe89bad5114cd5d"
+    },
+    "signatureVerification": "codesign --verify --deep --strict passed",
+    "notarizationVerified": false,
+    "releaseCandidateId": null,
+    "zipSHA256": null,
+    "swiftTest": {
+      "total": 524,
+      "skipped": 4,
+      "failed": 0
+    },
+    "releaseBuild": "passed"
+  },
+  "device": {
+    "firmware": "0.2.321-ui",
+    "revision": "R4",
+    "runningELFSHA256": "d43f4c24154c9c1cc6731c85138d75ab606461d83ffe7cf2d99a89cdb5a5cdee",
+    "partition": "ota_1",
+    "partitionValid": true,
+    "firmwareInstalledDuringMacCheck": false,
+    "gallery": {
+      "packVersions": {
+        "painting": "2026.10.14.1",
+        "calligraphy": "2026.10.15.1"
+      },
+      "scope": "annual",
+      "worksPerCategory": 366,
+      "painting": {
+        "compressedBytes": 12538,
+        "receiveMs": 33,
+        "writeMs": 163,
+        "totalMs": 322
+      },
+      "calligraphy": {
+        "compressedBytes": 12528,
+        "receiveMs": 79,
+        "writeMs": 165,
+        "totalMs": 351
+      },
+      "bothCatalogsComplete": true,
+      "zeroJPEG": "failed",
+      "saverActive": true,
+      "firstJPEGBytesBeforeAnyBatch": 337022,
+      "jpegBytesAtLastCandidateSample": 2239072,
+      "jpegBytesAtFirstRestoredCompleteSample": 2713725
+    },
+    "transport": {
+      "temporaryWiFi": "passed",
+      "restoreUSB": "passed",
+      "displaySettingsReadback": "same",
+      "failoverDuringActualBatch": "not-tested"
+    },
+    "displaySample": {
+      "flushErrors": 0,
+      "lcdUnderruns": 0
+    }
+  },
+  "simulation": {
+    "macGalleryTests": {
+      "total": 3,
+      "failed": 0
+    },
+    "r4Worker": "passed",
+    "r4Store": "passed",
+    "jpegBeforeCommit": {
+      "rangeRequests": 2,
+      "bytes": 65536,
+      "offlineReadsRPC": 0
+    },
+    "jpegAfterCommit": {
+      "rangeRequests": 0,
+      "bytes": 0,
+      "offlineReadsRPC": 0
+    }
+  },
+  "pending": [
+    "final frozen Windows and macOS packages and per-platform installation acceptance",
+    "final TAB5 image hashes and corresponding firmware source",
+    "zero JPEG with saver enabled on same-image guide update",
+    "designated full pack update and interrupted physical USB to Wi-Fi failover",
+    "physical Windows to Mac and Mac to Windows reuse and offline reading"
+  ]
+}

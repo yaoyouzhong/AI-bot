@@ -1,0 +1,60 @@
+diff --git a/tests/ui-preview/gallery_worker_test.c b/tests/ui-preview/gallery_worker_test.c
+--- a/tests/ui-preview/gallery_worker_test.c
++++ b/tests/ui-preview/gallery_worker_test.c
+@@ -410,7 +410,56 @@
+     annual_fixture=NULL;cJSON_Delete(rows);test_card=false;gallery_storage_enable(false);assert(text_page_allocations>0);
+     puts("NATIVE_ANNUAL_LONG_READERS_OK works=7 link_facades=3; production worker, per-page copies, exact complete SHA-256, TF offline reload, rejected corrupted/cancelled replacement retains previous guide, frozen reader survives in-flight next-work completion and pack replacement, releases pages; no hardware claim");
+ }
++// Drive the same foreground entry called by the artwork screensaver,
++// against a complete previous TF catalog with the new guide link absent.
++static void display_canonical(void) {
++    gallery_image shown;assert(gallery_request(0,"2026-01-01",0,false,NULL)&&gallery_take(&shown));
++    assert(shown.pixels[0]==1);gallery_recycle(shown.pixels);
++}
++static void foreground_before_guide_commit(bool request_first) {
++    assert(GetTempPathA(MAX_PATH,test_card_root));
++    size_t at=strlen(test_card_root);
++    snprintf(test_card_root+at,MAX_PATH-at,"aibot-saver-order-%lu",GetCurrentProcessId());
++    assert(!_mkdir(test_card_root));
++    test_card=true;test_catalog=true;link=LINK_USB;
++    gallery_storage_enable(true);gallery_library_supported(true);
++    char old[65],newrev[65],images[65];
++    memset(old,'a',64);memset(newrev,'b',64);memset(images,'c',64);
++    old[64]=newrev[64]=images[64]=0;
++    gallery_catalog complete={.works=3,.next=3};memcpy(complete.revision,old,65);
++    assert(gallery_catalog_save(SD_STORAGE_MOUNT,0,&complete));
++    uint8_t jpeg[65536];for(unsigned i=0;i<sizeof(jpeg);i++)jpeg[i]=(uint8_t)(1+i);
++    gallery_jpeg image={.key={.category=0,.frame=0,.frames=3},.data=jpeg,.size=sizeof(jpeg),.capacity=sizeof(jpeg)};
++    strcpy(image.key.date,"2026-01-01");strcpy(image.key.work_id,"fixture-work-0");
++    assert(gallery_store_put(SD_STORAGE_MOUNT,&image,old,NULL));
++    assert(gallery_pack_sync(old,NULL)==1);
++    display_canonical();
++    gallery_cache_reclaim();free(gallery_take_buffer());
++    memcpy(remote_revisions[0],newrev,65);
++    assert(gallery_pack_sync(newrev,NULL)==1);
++    unsigned ranges_before=range_calls, jpeg_before=atomic_load(&gallery_image_payload_bytes);
++    if(request_first) {
++        display_canonical();
++        assert(range_calls>ranges_before&&atomic_load(&gallery_image_payload_bytes)-jpeg_before==sizeof(jpeg));
++    }
++    // Commit the exact R4 store format, with no guide changes, then activate
++    // the directory link to the already complete previous image revision.
++    uint8_t batch[140+3*40]={0};
++    memcpy(batch,"AIBGB002",8);batch[8]=3;memcpy(batch+12,old,64);memcpy(batch+76,images,64);
++    assert(gallery_guide_batch_save(test_card_root,0,newrev,batch,sizeof(batch),3,0));
++    assert(gallery_guide_delta_link(SD_STORAGE_MOUNT,0,newrev,old));
++    memcpy(complete.revision,newrev,65);assert(gallery_catalog_save(SD_STORAGE_MOUNT,0,&complete));
++    gallery_cache_reclaim();free(gallery_take_buffer());
++    int calls_after_commit=network_calls;
++    link=LINK_NONE;display_canonical();
++    assert(network_calls==calls_after_commit);
++    if(!request_first) assert(range_calls==ranges_before&&atomic_load(&gallery_image_payload_bytes)==jpeg_before);
++    printf("SAVER_ORDER_%s image_ranges=%u jpeg_bytes=%u offline_RPC=%d\n",request_first?"FOREGROUND_FIRST":"COMMIT_FIRST",
++        range_calls-ranges_before,atomic_load(&gallery_image_payload_bytes)-jpeg_before,network_calls-calls_after_commit);
++}
+ int main(int argc,char **argv) {
++    if(argc==2&&!strcmp(argv[1],"--saver-foreground-first")){foreground_before_guide_commit(true);return 0;}
++    if(argc==2&&!strcmp(argv[1],"--saver-commit-first")){foreground_before_guide_commit(false);return 0;}
+     if(argc==2){annual_long_readers(argv[1]);return 0;}
+     char painting_revision[65],calligraphy_revision[65];
+     memset(painting_revision,'a',64);painting_revision[64]=0;
