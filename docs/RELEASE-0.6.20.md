@@ -6,7 +6,7 @@
 
 ## 图库下载
 
-普通版可直接下载 ZIP。Windows 高清版下载并解压[高清图库下载工具](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-HD-Gallery-Downloader.zip)，运行其中的 Download-HD-Gallery.cmd，选择名画或书法即可自动下载和合并。详细步骤见[高清图库指南](GALLERY-HD.md)。
+普通版可直接下载 ZIP。Windows 或 Mac 高清版下载并解压[高清图库下载工具](https://github.com/yaoyouzhong/AI-bot/releases/download/gallery-2026.11.12.1/AI-bot-HD-Gallery-Downloader-2026.3.zip)，选择名画或书法，下载、合并和校验后，在桥接程序中手动导入完整 ZIP。详细步骤见[高清图库指南](GALLERY-HD.md)。
 
 ## 桌面桥接 0.6.20
 
@@ -22,7 +22,7 @@
 ## 366 精选图库 2026.2
 
 - 名画和书法各 366 件。普通与高清包均含新版导览、逐件赏析及出处。书法精选附可读正文、节录或核实参考。
-- 高清包各分 24 段，随包提供合并工具及校验清单。内部包版本为 `2026.11.12.1`。
+- 高清包各分 2 段，提供下载合并工具及校验清单。包版本为 `2026.11.12.1`。
 
 ## English
 
@@ -30,7 +30,7 @@ Windows and Mac bridge 0.6.20 improve TAB5 discovery, Wi-Fi control, post-update
 
 TAB5 0.2.320-ui refines the overview, calendar and weather. USB and Wi-Fi upgrades passed on a physical device with settings retained. Both installation ZIPs include the tested firmware. The factory ZIP was verified offline. One LCD underrun was recorded in an overview test, and the counter held steady during subsequent observation.
 
-Artwork edition 2026.2 updates the guides, sources and readable calligraphy texts for 366 paintings and 366 calligraphy works. Both standard and HD collections are available. Each HD archive is distributed in 24 verified parts. [Downloads](https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.en.md)
+Artwork edition 2026.2 updates the guides, sources and readable calligraphy texts for 366 paintings and 366 calligraphy works. Both standard and HD collections are available. Each HD archive is distributed in two verified parts. [Downloads](https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.en.md)
 
 ## 安装与素材 / Installation and media
 
