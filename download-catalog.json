@@ -2,18 +2,18 @@
   "schemaVersion": 1,
   "downloads": {
     "windows": {
-      "version": "0.6.20",
-      "tag": "v0.6.20",
-      "file": "AI-bot-bridge-v0.6.20-windows-x64-setup.exe",
-      "size": 32056659,
-      "sha256": "8e6b4b5af5fa80b1ece7de6ee93a96ed801d591902e3c39e27633db758e94e65"
+      "version": "0.6.21",
+      "tag": "bridge-v0.6.21",
+      "file": "AI-bot-bridge-v0.6.21-windows-x64-setup.exe",
+      "size": 32085159,
+      "sha256": "79e87c82aaae06c33f117d69e7bca048710be07b7df13ed09904756c59eb1054"
     },
     "macos": {
-      "version": "0.6.20",
-      "tag": "v0.6.20",
-      "file": "AI-bot-bridge-v0.6.20-macos-arm64.zip",
-      "size": 19947162,
-      "sha256": "efb5cb5be76cf57b9afeab9ec382fdcdced7262fcacee54643c634a3260cab4e"
+      "version": "0.6.21",
+      "tag": "bridge-v0.6.21",
+      "file": "AI-bot-bridge-v0.6.21-macos-arm64.zip",
+      "size": 19978781,
+      "sha256": "3532f662d9946a20890706173a49b990079e3fdd4db3e8a1d223f30cfe687df3"
     },
     "esp8266": {
       "version": "0.5.8",
@@ -23,18 +23,18 @@
       "sha256": "135727db235e2ef88fc852357598539f236811564da353c86046bd4f759eca06"
     },
     "tab5-first": {
-      "version": "0.2.320-ui",
-      "tag": "tab5-v0.2.320-ui",
-      "file": "AI-bot-tab5-0.2.320-ui-first-install.zip",
-      "size": 5227419,
-      "sha256": "960ec8f1b743e7c56bfb2481f20dd0c145a04804a878b8ed6970d15ede8ecc30"
+      "version": "0.2.321-ui",
+      "tag": "tab5-v0.2.321-ui",
+      "file": "AI-bot-tab5-0.2.321-ui-first-install.zip",
+      "size": 5365345,
+      "sha256": "64a1fe8c6c0e73f4602c1bf540e540c7486873390c0613c22621cfc74d28e8d1"
     },
     "tab5-upgrade": {
-      "version": "0.2.320-ui",
-      "tag": "tab5-v0.2.320-ui",
-      "file": "AI-bot-tab5-0.2.320-ui-upgrade.zip",
-      "size": 5198297,
-      "sha256": "7cbdc00d5a9fa3c4c40d2c16480545a2dc285287aee6d592d70e8add88cb13ca"
+      "version": "0.2.321-ui",
+      "tag": "tab5-v0.2.321-ui",
+      "file": "AI-bot-tab5-0.2.321-ui-upgrade.zip",
+      "size": 5337550,
+      "sha256": "7b2fbf18f05e9862858255eb305345f300c336785c6bd600e88fd31e52b7cc51"
     },
     "calligraphy": {
       "version": "2026.11.12.1",
