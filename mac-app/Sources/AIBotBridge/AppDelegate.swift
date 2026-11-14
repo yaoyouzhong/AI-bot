@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import CoreBluetooth
 import MacKeychainSupport
 import Foundation
 import UniformTypeIdentifiers
@@ -32,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var espDisplayWindow: MacESPDisplayWindow?
     private var bridgeStatusWindow: MacBridgeStatusWindow?
     private var permissionSetupWindow: MacPermissionSetupWindow?
+    private var preparingPermissions = true
     private let dataStore = MacDataStore(quotaHistory: MacQuotaHistory())
     private lazy var dataService = MacDataService(store: dataStore, demanded: { MacDeviceRegistry.shared.demanded($0) })
     private lazy var quotaService = MacQuotaService(store: dataStore)
@@ -138,7 +140,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tab5USB = MacTab5USB(service: tab5)
         tab5USB?.start()
         tab5BLE = MacTab5BLE(service: tab5)
-        tab5BLE?.setEnabled(UserDefaults.standard.bool(forKey: MacTab5BLE.enabledKey))
         let espDiscovery = MacESPDiscovery(token:PairingTokenStore.read,
             enabled:{ MacDeviceRegistry.shared.enabled("esp8266") && MacDeviceRegistry.shared.device("esp8266")?.connection != "usb" },
             port:{ [weak self] in self?.server?.boundPort })
@@ -154,11 +155,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.dataStore.update(systemMetrics:metrics)
             if self.devices.source("system", kind: "esp8266") { self.serial?.sendMetrics(metrics) }
         }
-        prepareUpdateWindow(); updatesWindow?.startAutomaticChecks()
+        prepareUpdateWindow()
         updateTitle()
-        Task { await self.musicService.refreshIfEnabled() }
         musicTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self, self.devices.demanded("music") else { return }
+            guard let self, !self.preparingPermissions, self.devices.demanded("music") else { return }
             Task { await self.musicService.refreshIfEnabled() }
         }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.updateTitle() }
@@ -185,11 +185,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                     status: MacWeatherLocation.shared.authorizationStatus)
     }
 
-    private func desktopPermission() -> MacPermissionSetup.State {
+    @MainActor private func permissionEnabled(_ step: MacPermissionSetup.Step) -> Bool {
         let defaults = UserDefaults.standard
-        let direct = defaults.bool(forKey: MacTab5Codex.enabledKey) && defaults.bool(forKey: MacTab5Desktop.enabledKey)
-        return MacPermissionSetup.accessibility(enabled: direct || defaults.bool(forKey: MacTab5Computer.enabledKey),
-                                                trusted: AXIsProcessTrusted())
+        let codex = defaults.bool(forKey: MacTab5Codex.enabledKey)
+        let computer = defaults.bool(forKey: MacTab5Computer.enabledKey)
+        switch step {
+        case .location: return MacDataPreferences.load().automaticLocation
+        case .accessibility: return (codex && defaults.bool(forKey: MacTab5Desktop.enabledKey)) || computer || tab5?.claude.tasks.isEnabled == true || MacSpeechProvider.doubao
+        case .speech, .microphone: return tab5?.voice.isEnabled == true
+        case .notifications: return notifications.usesSystemNotifications || defaults.bool(forKey: MacUpdateWindow.automaticKey)
+        case .bluetooth: return defaults.bool(forKey: MacTab5BLE.enabledKey)
+        case .localNetwork: return server != nil
+        case .terminal: return true // Request access before pairing; device operations have their own checks.
+        case .music, .spotify: return defaults.bool(forKey: MacMusicService.enabledKey)
+        case .systemEvents: return computer
+        }
     }
 
     @MainActor private func prepareSystemPermissions() {
@@ -199,28 +209,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let allowed = self.weatherPermission() == .allowed
             let newlyAllowed = allowed && !wasAllowed
             wasAllowed = allowed
-            self.permissionSetupWindow?.refresh()
             if newlyAllowed { Task { await self.dataService.weatherAuthorizationGranted() } }
         }
-        guard MacPermissionSetup.shouldOffer([weatherPermission(), desktopPermission()]) else { return }
-        UserDefaults.standard.set(true, forKey: MacPermissionSetup.shownKey)
-        openPermissionSetup()
+        // System permission APIs require the installed application bundle.
+        guard Bundle.main.bundleURL.pathExtension == "app",
+              !UserDefaults.standard.bool(forKey: MacPermissionSetup.shownKey) else {
+            finishInitialPermissions()
+            return
+        }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let steps = MacPermissionSetup.startupSteps()
+            var states: [MacPermissionSetup.Step: MacPermissionSetup.State] = [:]
+            for step in MacPermissionSetup.Step.allCases {
+                states[step] = await MacPermissionSetup.state(step, enabled: self.permissionEnabled)
+            }
+            let shouldOffer = MacPermissionSetup.shouldOffer(steps.compactMap { states[$0] })
+            UserDefaults.standard.set(true, forKey: MacPermissionSetup.shownKey)
+            if shouldOffer {
+                let window = self.permissionWindow()
+                window.onIdle = { [weak self] in self?.finishInitialPermissions() }
+                window.open(initial: states, steps: steps)
+            } else { self.finishInitialPermissions() }
+        }
     }
 
-    @MainActor @objc private func openPermissionSetup() {
-        if permissionSetupWindow == nil {
-            permissionSetupWindow = MacPermissionSetupWindow(
-                location: { [weak self] in self?.weatherPermission() ?? .unused },
-                accessibility: { [weak self] in self?.desktopPermission() ?? .unused },
-                requestLocation: { state in
-                    if state == .request { MacWeatherLocation.shared.requestAuthorization() }
-                    else { MacPermissionSetup.openLocationSettings() }
-                },
-                requestAccessibility: MacPermissionSetup.requestAccessibility
-            )
+    @MainActor private func finishInitialPermissions() {
+        guard preparingPermissions else { return }
+        preparingPermissions = false
+        permissionSetupWindow?.onIdle = nil
+        if CBManager.authorization != .notDetermined {
+            tab5BLE?.setEnabled(UserDefaults.standard.bool(forKey: MacTab5BLE.enabledKey))
         }
-        permissionSetupWindow?.open()
+        updatesWindow?.startAutomaticChecks()
+        Task { await musicService.refreshIfEnabled() }
     }
+
+    @MainActor private func permissionWindow() -> MacPermissionSetupWindow {
+        if let permissionSetupWindow { return permissionSetupWindow }
+        let window = MacPermissionSetupWindow(
+            readState: { [weak self] step in
+                guard let self else { return .unused }
+                return await MacPermissionSetup.state(step, enabled: self.permissionEnabled)
+            },
+            request: { [weak self] step, state in
+                if step == .bluetooth, state == .request {
+                    self?.tab5BLE?.setEnabled(true)
+                    // Unsupported or unavailable Bluetooth can leave the
+                    // framework status undecided without a system alert.
+                    let deadline = ProcessInfo.processInfo.systemUptime + 60
+                    while !Task.isCancelled, CBManager.authorization == .notDetermined,
+                          ProcessInfo.processInfo.systemUptime < deadline {
+                        try? await Task.sleep(for: .milliseconds(250))
+                    }
+                } else {
+                    await MacPermissionSetup.request(step, state: state)
+                }
+            })
+        permissionSetupWindow = window
+        return window
+    }
+
+    @MainActor private func openPermissionSetup() { permissionWindow().open() }
 
     func applicationWillTerminate(_ notification: Notification) {
         timer?.invalidate()
@@ -274,7 +324,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         windowMenu.delegate = self
         windowMenu.addItem(NSMenuItem(title: "关闭窗口", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
         windowMenu.addItem(item("设备中心…", #selector(openTab5)))
-        windowMenu.addItem(item("系统授权…", #selector(openPermissionSetup)))
         windowItem.submenu = windowMenu
         menu.addItem(windowItem)
         NSApp.mainMenu = menu
@@ -338,7 +387,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func buildMenu() -> NSMenu {
-        let menu = MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
+        MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
             guard let self, let current = self.devices.device(device.kind), current.id == device.id, current.enabled else { return }
             if action == "mirror" {
                 if device.kind == "esp8266" { self.openMirror() }
@@ -359,8 +408,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if action == "devices" { self?.openTab5() }
             else if action == "exit" { self?.quit() }
         })
-        menu.insertItem(item("系统授权…", #selector(openPermissionSetup)), at: menu.items.count - 1)
-        return menu
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
@@ -453,6 +500,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             configurationWindow = MacConfigurationWindow { [weak self] in guard let self else { return }; self.reader.select(MacDisplayPolicy.load().selectedMode); self.updateTitle(); Task { await self.dataService.refreshDue(force:true) } }; configurationWindow?.open()
         case .notifications:
             notificationWindow = MacNotificationWindow(service:notifications); notificationWindow?.open()
+        case .permissions: Task { @MainActor in openPermissionSetup() }
         case .runtime: openRuntime()
         case .about: openAbout()
         case .updates:

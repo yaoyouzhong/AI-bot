@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.21 - 2026-11-13
 
+### Mac first launch
+
+- Guide users through applicable location, speech recognition, microphone, notification, Automation, Accessibility, Bluetooth, and local network permissions. Reopen the checklist from Device Center → Bridge Settings → System Permissions.
+- Request Terminal Automation at first launch, before TAB5 pairing. Controlling Terminal from TAB5 still requires a paired device.
+- Retry an undecided notification request and open Accessibility settings directly from the first-launch guide.
+- Request local speech recognition and microphone permissions even if Doubao is selected, so users can switch later.
+- Enable reminders and automatic update checks by default, with existing preferences preserved.
+
 ### TAB5 artwork updates
 
 - Windows and Mac can send updated artwork guides and original text to TAB5 in one batch.

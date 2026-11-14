@@ -166,7 +166,7 @@ final class MacBridgeNavigationButton: NSButton {
 
 enum MacBridgeAction {
     case status, cycle, screenSaver, mirror, petGallery, deviceInfo, flash, reprovisionLAN, pairingToken, copyAddress
-    case appearance, espConnection, espFallback, espReset, espData, tab5Data, quotaHistory, updates, configuration, notifications, runtime, about
+    case appearance, espConnection, espFallback, espReset, espData, tab5Data, quotaHistory, updates, configuration, notifications, permissions, runtime, about
 }
 
 enum MacBridgeSettingsStyle {

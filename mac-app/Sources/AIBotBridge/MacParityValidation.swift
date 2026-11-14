@@ -145,11 +145,11 @@ enum MacParityValidation {
         hd.pages[0].parts[0].crop = [0,0,17,8]
         try rejects("HD out-of-bounds rejected") { try hd.validate(category:"painting",works:[work],hashes:["original.png":sourceHash],previewHashes:["frame.jpg":MacTab5Protocol.sha256(preview)]) }
         let noticeAt = Date(timeIntervalSince1970:10000), noQuiet = MacNotificationOptions()
-        try check("notification completion stays on device",MacNotifications.outcome(kind:"completion",options:noQuiet,at:noticeAt,last:nil,active:true,onDevice:true) == "由 TAB5 提醒")
-        try check("completion uses backup sound",MacNotifications.outcome(kind:"completion",options:noQuiet,at:noticeAt,last:nil,active:true,onDevice:false) == "已请求备用音")
-        try check("quota coalesces five minutes",MacNotifications.outcome(kind:"quota",options:noQuiet,at:noticeAt,last:noticeAt.addingTimeInterval(-299),active:true,onDevice:false) == "合并频繁提醒")
-        try check("attention permits after ten seconds",MacNotifications.outcome(kind:"attention",options:noQuiet,at:noticeAt,last:noticeAt.addingTimeInterval(-10),active:true,onDevice:false) == "已请求通知")
-        try check("disabled notices retained as disabled",MacNotifications.outcome(kind:"health",options:.init(health:false),at:noticeAt,last:nil,active:true,onDevice:false) == "已关闭")
+        try check("notification completion stays on device",MacNotifications.outcome(kind:"completion",options:noQuiet,at:noticeAt,last:nil,onDevice:true) == "由 TAB5 提醒")
+        try check("completion uses backup sound",MacNotifications.outcome(kind:"completion",options:noQuiet,at:noticeAt,last:nil,onDevice:false) == "已请求备用音")
+        try check("quota coalesces five minutes",MacNotifications.outcome(kind:"quota",options:noQuiet,at:noticeAt,last:noticeAt.addingTimeInterval(-299),onDevice:false) == "合并频繁提醒")
+        try check("attention permits after ten seconds",MacNotifications.outcome(kind:"attention",options:noQuiet,at:noticeAt,last:noticeAt.addingTimeInterval(-10),onDevice:false) == "已请求通知")
+        try check("disabled notices retained as disabled",MacNotifications.outcome(kind:"health",options:.init(health:false),at:noticeAt,last:nil,onDevice:false) == "已关闭")
         try check("ESP full Windows rotation catalog",MacDisplayPolicy.modes.count == 16 && Set(MacDisplayPolicy.modes).count == 16 && MacDisplayPolicy.modes.allSatisfy(SerialBridge.displayModes.contains))
         for mode in MacDisplayPolicy.modes + ["activity","domestic","quotas"] { try MacConfigurationArchive(settings:["display_mode":mode],birthdays:[]).validate() }
         try check("all ESP pages restore",MacConfigurationArchive(settings:["display_cycle_pages":MacDisplayPolicy.modes.joined(separator:",")],birthdays:[]).data().count > 0)

@@ -38,6 +38,38 @@ enum LocalNetworkIdentity {
         return result
     }
     static func privateIPv4() -> String? { select(addresses()) }
+    // Apple TN3179: a UDP connect to an on-link address can trigger the
+    // macOS privacy alert. We never send a datagram and do not infer consent.
+    static func preparePrivacyPrompt() {
+        guard #available(macOS 15, *) else { return }
+        var first: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&first) == 0 else { return }
+        defer { freeifaddrs(first) }
+        var attempted = Set<String>(), cursor = first
+        while let node = cursor {
+            let entry = node.pointee; cursor = entry.ifa_next
+            guard entry.ifa_flags & UInt32(IFF_UP | IFF_RUNNING | IFF_BROADCAST) == UInt32(IFF_UP | IFF_RUNNING | IFF_BROADCAST),
+                  let address = entry.ifa_addr, address.pointee.sa_family == UInt8(AF_INET6),
+                  Int(address.pointee.sa_len) >= MemoryLayout<sockaddr_in6>.size else { continue }
+            let name = String(cString: entry.ifa_name)
+            var destination = UnsafeRawPointer(address).load(as: sockaddr_in6.self)
+            guard withUnsafeBytes(of: destination.sin6_addr, { $0[0] == 0xfe && $0[1] & 0xc0 == 0x80 }),
+                  attempted.insert(name).inserted else { continue }
+            destination.sin6_port = UInt16(9).bigEndian
+            destination.sin6_scope_id = if_nametoindex(entry.ifa_name)
+            withUnsafeMutableBytes(of: &destination.sin6_addr) { bytes in
+                for index in 8..<16 { bytes[index] = .random(in: 0...255) }
+            }
+            let fd = socket(AF_INET6, SOCK_DGRAM, 0)
+            guard fd >= 0 else { continue }
+            _ = withUnsafePointer(to: &destination) { pointer in
+                pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in6>.size))
+                }
+            }
+            close(fd)
+        }
+    }
     static func addresses() -> [Address] {
         var first: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&first) == 0 else { return [] }

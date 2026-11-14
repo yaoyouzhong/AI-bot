@@ -2,6 +2,75 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacFeaturePreferencesTests: XCTestCase {
+    @MainActor func testInitialPermissionRequestsIncludeInstalledAppsAndLocalNetwork() async {
+        typealias Step = MacPermissionSetup.Step
+        typealias State = MacPermissionSetup.State
+        let states: [Step: State] = [.location: .request, .speech: .allowed, .microphone: .settings,
+            .notifications: .request, .terminal: .openApp, .music: .request, .spotify: .unavailable,
+            .systemEvents: .openApp, .localNetwork: .settings, .accessibility: .settings]
+        var requested: [Step] = []
+        await MacPermissionSetup.runInitial(state: { states[$0] ?? .unused }, request: { step, _ in
+            await Task.yield()
+            requested.append(step)
+        })
+        XCTAssertEqual(requested, [.location, .notifications, .terminal, .music, .systemEvents, .localNetwork, .accessibility])
+    }
+
+    @MainActor func testPreviousGuideRequestsOnlyNewlyIncludedPermissions() async {
+        let (defaults, name) = preferences()
+        defer { defaults.removePersistentDomain(forName: name) }
+        XCTAssertEqual(MacPermissionSetup.startupSteps(defaults: defaults), MacPermissionSetup.Step.allCases)
+        defaults.set(true, forKey: "automatic_system_permissions_shown_v2")
+        var requested: [MacPermissionSetup.Step] = []
+        let steps = MacPermissionSetup.startupSteps(defaults: defaults)
+        await MacPermissionSetup.runInitial(steps: steps, state: { _ in .request }, request: { step, _ in
+            requested.append(step)
+        })
+        XCTAssertEqual(requested, [.speech, .microphone, .bluetooth, .terminal, .music, .spotify, .localNetwork])
+        defaults.set(true, forKey: "automatic_system_permissions_shown_v3")
+        XCTAssertEqual(MacPermissionSetup.startupSteps(defaults: defaults), [.terminal])
+        XCTAssertTrue(MacPermissionSetup.shouldOffer([.request], defaults: defaults))
+        defaults.set(true, forKey: MacPermissionSetup.shownKey)
+        XCTAssertFalse(MacPermissionSetup.shouldOffer([.request], defaults: defaults))
+    }
+
+    @MainActor func testNotificationRequestRetriesOnlyWhileSystemHasNoDecision() async {
+        for decision in [MacPermissionSetup.State.allowed, .settings] {
+            var state = MacPermissionSetup.State.request
+            var attempts = 0
+            await MacPermissionSetup.requestNotifications(state: { state }, request: {
+                attempts += 1
+                if attempts == 2 { state = decision }
+            }, settle: {})
+            XCTAssertEqual(attempts, 2)
+            await MacPermissionSetup.requestNotifications(state: { state }, request: {
+                attempts += 1
+            }, settle: {})
+            XCTAssertEqual(attempts, 2)
+        }
+    }
+
+    @MainActor func testCancellingGuideStopsAfterCurrentPrompt() async {
+        var requested: [MacPermissionSetup.Step] = []
+        let task = Task {
+            await MacPermissionSetup.runInitial(state: { _ in .request }, request: { step, _ in
+                requested.append(step)
+                withUnsafeCurrentTask { $0?.cancel() }
+            })
+        }
+        await task.value
+        XCTAssertEqual(requested, [.location])
+    }
+
+    func testNotificationDefaultsAndSavedOptOut() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let service = MacNotifications(directory: directory)
+        XCTAssertTrue(service.usesSystemNotifications)
+        try service.file.write(.init(attention: false, quota: false, health: false))
+        XCTAssertFalse(service.usesSystemNotifications)
+    }
+
     private func preferences() -> (UserDefaults, String) {
         let name = "AI-bot-preferences-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!
@@ -14,7 +83,7 @@ final class MacFeaturePreferencesTests: XCTestCase {
     func testFreshDefaultsEnableAvailableActions() {
         let (defaults, name) = preferences(); defer { defaults.removePersistentDomain(forName: name) }
         MacFeaturePreferences.register(defaults)
-        for key in [MacMusicService.enabledKey, MacMusicService.controlKey, MacTab5Codex.enabledKey, MacTab5Codex.sendKey, MacTab5Desktop.enabledKey, MacTab5Computer.enabledKey, MacTab5BLE.enabledKey, "weather_automatic_location"] {
+        for key in [MacMusicService.enabledKey, MacMusicService.controlKey, MacTab5Codex.enabledKey, MacTab5Codex.sendKey, MacTab5Desktop.enabledKey, MacTab5Computer.enabledKey, MacTab5BLE.enabledKey, MacUpdateWindow.automaticKey, "weather_automatic_location"] {
             XCTAssertTrue(defaults.bool(forKey: key), key)
         }
         var calls = 0
@@ -25,10 +94,10 @@ final class MacFeaturePreferencesTests: XCTestCase {
     func testExplicitOptOutSurvivesReregistration() {
         let (defaults, name) = preferences(); defer { defaults.removePersistentDomain(forName: name) }
         MacFeaturePreferences.register(defaults)
-        for key in [MacMusicService.enabledKey, MacMusicService.controlKey, MacTab5Codex.enabledKey, MacTab5Codex.sendKey, MacTab5Desktop.enabledKey, MacTab5Computer.enabledKey, MacTab5BLE.enabledKey, "weather_automatic_location"] { defaults.set(false, forKey: key) }
+        for key in [MacMusicService.enabledKey, MacMusicService.controlKey, MacTab5Codex.enabledKey, MacTab5Codex.sendKey, MacTab5Desktop.enabledKey, MacTab5Computer.enabledKey, MacTab5BLE.enabledKey, MacUpdateWindow.automaticKey, "weather_automatic_location"] { defaults.set(false, forKey: key) }
         let reopened = UserDefaults(suiteName: name)!
         MacFeaturePreferences.register(reopened)
-        for key in [MacMusicService.enabledKey, MacMusicService.controlKey, MacTab5Codex.enabledKey, MacTab5Codex.sendKey, MacTab5Desktop.enabledKey, MacTab5Computer.enabledKey, MacTab5BLE.enabledKey, "weather_automatic_location"] { XCTAssertFalse(reopened.bool(forKey: key), key) }
+        for key in [MacMusicService.enabledKey, MacMusicService.controlKey, MacTab5Codex.enabledKey, MacTab5Codex.sendKey, MacTab5Desktop.enabledKey, MacTab5Computer.enabledKey, MacTab5BLE.enabledKey, MacUpdateWindow.automaticKey, "weather_automatic_location"] { XCTAssertFalse(reopened.bool(forKey: key), key) }
     }
     func testExistingMusicPermissionMigratesOnceAndControlOptOutPersists() {
         let (defaults, name) = preferences(); defer { defaults.removePersistentDomain(forName: name) }

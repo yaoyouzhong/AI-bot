@@ -21,6 +21,7 @@ enum MacFeaturePreferences {
             MacTab5Desktop.enabledKey: true,
             MacTab5Computer.enabledKey: true,
             MacTab5BLE.enabledKey: true,
+            MacUpdateWindow.automaticKey: true,
             "weather_automatic_location": !manualWeather
         ])
     }

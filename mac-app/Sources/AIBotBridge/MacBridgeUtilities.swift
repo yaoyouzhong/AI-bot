@@ -42,37 +42,39 @@ struct MacNotificationOptions: Codable {
 final class MacNotifications {
     let file: MacProfileFile<MacNotificationOptions>
     init(directory: URL? = nil) { file = .init("notifications.json",directory:directory,initial:{.init()},validate:{ try $0.validate() }) }
+    var usesSystemNotifications: Bool {
+        guard let options = try? file.read() else { return false }
+        return options.attention || options.quota || options.health
+    }
     private(set) var history: [[String]] = []
     private var completions: [String: Int64] = [:], attention = Set<String>(), quota = Set<String>(), health = Set<String>()
     private var lastShown: [String: Date] = [:], initialized = false
     func observe(_ snapshot: MacStatusSnapshot, deviceOnline: Bool, healthKeys: [String]) {
         guard let options = try? file.read() else { return }
-        let active = FileManager.default.fileExists(atPath: file.url.path)
         defer { initialized = true }
         for (id, state) in [("Codex", snapshot.codex), ("Claude", snapshot.claude)] {
-            if initialized, state.completionAt > (completions[id] ?? 0), state.completionActive { record("completion", "\(id) 任务已完成", options: options, active: active, onDevice: deviceOnline) }
+            if initialized, state.completionAt > (completions[id] ?? 0), state.completionActive { record("completion", "\(id) 任务已完成", options: options, onDevice: deviceOnline) }
             completions[id] = max(state.completionAt, completions[id] ?? 0)
-            if state.needsInput { if attention.insert(id).inserted, initialized { record("attention", "\(id) 等待操作", options: options, active: active) } } else { attention.remove(id) }
+            if state.needsInput { if attention.insert(id).inserted, initialized { record("attention", "\(id) 等待操作", options: options) } } else { attention.remove(id) }
         }
         for value in [snapshot.quotas?.codex, snapshot.quotas?.claude].compactMap({ $0 }) {
             let abnormal = value.stale || max(value.primaryPercent ?? 0, value.weeklyPercent ?? 0) >= 90
-            if abnormal { if quota.insert(value.provider).inserted, initialized { record("quota", "\(value.provider) 额度需要关注", options: options, active: active) } } else { quota.remove(value.provider) }
+            if abnormal { if quota.insert(value.provider).inserted, initialized { record("quota", "\(value.provider) 额度需要关注", options: options) } } else { quota.remove(value.provider) }
         }
         let current = Set(healthKeys)
-        if initialized, !current.subtracting(health).isEmpty { record("health", "运行监控发现持续异常", options: options, active: active) }; health = current
+        if initialized, !current.subtracting(health).isEmpty { record("health", "运行监控发现持续异常", options: options) }; health = current
     }
-    static func outcome(kind:String, options:MacNotificationOptions, at:Date, last:Date?, active:Bool, onDevice:Bool) -> String {
+    static func outcome(kind:String, options:MacNotificationOptions, at:Date, last:Date?, onDevice:Bool) -> String {
         let enabled = kind == "completion" ? options.completion : kind == "attention" ? options.attention : kind == "health" ? options.health : options.quota
         if kind == "completion" && onDevice { return "由 TAB5 提醒" }
         if !enabled { return "已关闭" }
-        if !active { return "尚未启用系统提醒" }
         if options.isQuiet(at) { return "勿扰时段" }
         if let last, at.timeIntervalSince(last) < (kind == "quota" ? 300:10) { return "合并频繁提醒" }
         return kind == "completion" ? (options.sound ? "已请求备用音":"提醒音已关闭") : "已请求通知"
     }
-    private func record(_ kind: String, _ title: String, options: MacNotificationOptions, active: Bool, onDevice:Bool = false) {
+    private func record(_ kind: String, _ title: String, options: MacNotificationOptions, onDevice:Bool = false) {
         let now = Date(), stamp = DateFormatter.localizedString(from: now, dateStyle: .short, timeStyle: .medium)
-        let outcome = Self.outcome(kind:kind,options:options,at:now,last:lastShown[kind],active:active,onDevice:onDevice)
+        let outcome = Self.outcome(kind:kind,options:options,at:now,last:lastShown[kind],onDevice:onDevice)
         history.insert([stamp,title,outcome],at:0); history = Array(history.prefix(100))
         guard ["已请求通知","已请求备用音","提醒音已关闭"].contains(outcome) else { return }; lastShown[kind] = now
         if kind == "completion" { if options.sound { NSSound.beep() }; return }

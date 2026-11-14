@@ -192,6 +192,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
             commonCard("软件固件", "检查版本、下载校验与升级", id: "updates", .updates),
             commonCard("配置迁移", "备份、预览与选择恢复", id: "configuration-backup", .configuration),
             commonCard("提醒管理", "任务、额度、运行提醒与勿扰", id: "notifications", .notifications),
+            commonCard("系统授权", "定位、语音、通知与自动化", id: "system-permissions", .permissions),
             commonCard("运行监控", "系统采样、连接与网络诊断", id: "runtime-health", .runtime),
             commonCard("关于应用", "版本、许可与使用说明", id: "about", .about)
         ])

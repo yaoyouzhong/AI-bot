@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Foundation
 import ImageIO
 
@@ -109,6 +110,7 @@ actor MacMusicService {
     private var catalogNote = ""
     private var catalogAttemptKey = ""
     private var catalogAttemptAt: TimeInterval = -.infinity
+    private static let automationProbe = MacClaudeAutomationProbe()
     private static let maximumArtworkBytes = 10 * 1_024 * 1_024
 
     init(store: MacDataStore) {
@@ -124,7 +126,14 @@ actor MacMusicService {
 
     func refreshIfEnabled() async {
         await refresh(enabled: defaults.bool(forKey: Self.enabledKey),
-                      isRunning: Self.isRunning, read: Self.read)
+                      isRunning: Self.isRunning, read: { provider in
+            guard let target = NSRunningApplication.runningApplications(withBundleIdentifier: provider.bundleIdentifier).first,
+                  Self.automationProbe.status(pid: target.processIdentifier, request: false, observing: true, permission: {
+                      let descriptor = NSAppleEventDescriptor(processIdentifier: target.processIdentifier)
+                      return AEDeterminePermissionToAutomateTarget(descriptor.aeDesc, typeWildCard, typeWildCard, false)
+                  }) == noErr else { return nil }
+            return Self.read(provider)
+        })
     }
 
     func refresh(enabled: Bool, isRunning: (MacMusicProvider) -> Bool,

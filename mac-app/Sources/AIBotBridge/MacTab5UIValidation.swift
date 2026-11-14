@@ -4,7 +4,7 @@ import CryptoKit
 enum MacTab5UIValidation {
     // Fixture-only native rendering: no AppDelegate, listeners, device connection,
     // Keychain, Apple Events, microphone, Screen Recording or Codex connection.
-    static func run(_ output: URL) throws {
+    @MainActor static func run(_ output: URL) throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: false)
@@ -36,7 +36,7 @@ enum MacTab5UIValidation {
         center.managementMenu(for:"tab5").performActionForItem(at:1)
         guard registry.enabled("tab5"),galleryCard.isEnabled else { throw MacTab5Error.invalidPacket }
         try validateDeviceCenter(center, output: output)
-        guard invoked == ["weather", "stocks", "quotas", "quotaHistory", "status", "updates", "configuration", "notifications", "runtime", "about", "cycle", "appearance", "espData", "espConnection"] else { throw MacTab5Error.invalidPacket }
+        guard invoked == ["weather", "stocks", "quotas", "quotaHistory", "status", "updates", "configuration", "notifications", "permissions", "runtime", "about", "cycle", "appearance", "espData", "espConnection"] else { throw MacTab5Error.invalidPacket }
         let store = MacDataStore(defaults: defaults)
         try MacModelAccountValidation.runUI(store:store,defaults:defaults)
         defaults.set("separate",forKey:"domestic_source_deepseek")
@@ -372,33 +372,28 @@ enum MacTab5UIValidation {
 
     private static func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
 
-    private static func validatePermissionSetup(defaults: UserDefaults, output: URL) throws {
-        var location = MacPermissionSetup.location(enabled: true, status: .notDetermined)
-        var accessibility = MacPermissionSetup.accessibility(enabled: true, trusted: false)
-        guard MacPermissionSetup.shouldOffer([location, accessibility], defaults: defaults),
+    @MainActor private static func validatePermissionSetup(defaults: UserDefaults, output: URL) throws {
+        typealias Step = MacPermissionSetup.Step
+        typealias State = MacPermissionSetup.State
+        let pending: [Step: State] = [.location: .request, .speech: .allowed, .microphone: .request,
+            .notifications: .settings, .terminal: .openApp, .music: .request, .spotify: .unavailable,
+            .systemEvents: .allowed, .bluetooth: .request, .localNetwork: .settings, .accessibility: .settings]
+        guard MacPermissionSetup.shouldOffer(Array(pending.values), defaults: defaults),
               !MacPermissionSetup.shouldOffer([.allowed, .unused], defaults: defaults),
               MacPermissionSetup.location(enabled: false, status: .notDetermined) == .unused else { throw MacTab5Error.unconfirmed }
         defaults.set(true, forKey: MacPermissionSetup.shownKey)
-        guard !MacPermissionSetup.shouldOffer([location, accessibility], defaults: defaults) else { throw MacTab5Error.unconfirmed }
-        var locationRequests: [MacPermissionSetup.State] = [], accessibilityRequests = 0
-        let setup = MacPermissionSetupWindow(location: { location }, accessibility: { accessibility },
-            requestLocation: { locationRequests.append($0) }, requestAccessibility: { accessibilityRequests += 1 })
+        guard !MacPermissionSetup.shouldOffer(Array(pending.values), defaults: defaults) else { throw MacTab5Error.unconfirmed }
+        let setup = MacPermissionSetupWindow(readState: { pending[$0] ?? .unused }, request: { _, _ in })
         guard let window = setup.window, let content = window.contentView else { throw MacTab5Error.unavailable }
         let buttons = descendants(content).compactMap { $0 as? NSButton }
-        guard let weather = buttons.first(where: { $0.title == "允许天气定位…" }),
-              let direct = buttons.first(where: { $0.title == "打开辅助功能设置…" }),
-              let done = buttons.first(where: { $0.title == "稍后完成" }) else { throw MacTab5Error.unconfirmed }
+        func button(_ step: Step) -> NSButton? { buttons.first { $0.identifier?.rawValue == "permission-\(step)" } }
+        setup.display(pending, active: .microphone)
+        guard button(.terminal)?.title == "打开并授权…", button(.notifications)?.title == "打开系统设置…",
+              button(.speech)?.isHidden == true, buttons.contains(where: { $0.title == "稍后完成" }) else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions", output: output)
-        weather.performClick(nil); direct.performClick(nil)
-        location = MacPermissionSetup.location(enabled: true, status: .denied); setup.refresh()
-        guard weather.title == "打开定位服务设置…" else { throw MacTab5Error.unconfirmed }
-        weather.performClick(nil)
-        location = MacPermissionSetup.location(enabled: true, status: .authorizedAlways)
-        accessibility = MacPermissionSetup.accessibility(enabled: true, trusted: true)
-        setup.refresh()
-        guard locationRequests == [.request, .settings], accessibilityRequests == 1,
-              !weather.isEnabled, weather.isHidden, !direct.isEnabled, direct.isHidden,
-              done.title == "完成" else { throw MacTab5Error.unconfirmed }
+        setup.display(Dictionary(uniqueKeysWithValues: Step.allCases.map { ($0, State.allowed) }))
+        guard Step.allCases.allSatisfy({ button($0)?.isHidden == true }),
+              buttons.contains(where: { $0.title == "完成" }) else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions-granted", output: output)
         window.close()
     }
@@ -556,7 +551,7 @@ enum MacTab5UIValidation {
         }
         window.appearance = NSAppearance(named: .aqua); window.setContentSize(NSSize(width: 920, height: 620))
         for (index, name, actions) in [(1, "accounts", ["account-weather-stocks", "account-stocks", "account-quotas", "quota-trend"]),
-                                       (2, "bridge", ["bridge-status", "updates", "configuration-backup", "notifications", "runtime-health", "about"])] {
+                                       (2, "bridge", ["bridge-status", "updates", "configuration-backup", "notifications", "system-permissions", "runtime-health", "about"])] {
             tabs.selectTabViewItem(at: index); try checkPages()
             for id in actions { try click(id) }
             try render(content, to: output.appendingPathComponent("device-center-\(name).png"))
