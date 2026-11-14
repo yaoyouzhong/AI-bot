@@ -6,8 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### TAB5 artwork updates
 
-- Windows and macOS support compressed batches of changed artwork guides and complete original-text pages for compatible TAB5 firmware.
-- Use the same gallery and per-work digests on both platforms. macOS can migrate a completed catalog from an earlier Mac bridge when the images, order and scope match.
+- Windows and Mac can send updated artwork guides and original text to TAB5 in one batch.
+- After a Mac upgrade, previously synced artwork can be reused when the collection and images match.
 
 ## 0.6.20 - 2026-11-12
 

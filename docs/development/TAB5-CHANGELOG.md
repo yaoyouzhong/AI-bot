@@ -6,10 +6,9 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 ### Artwork and display
 
-- Reuse TF artwork when the screensaver requests an image before a guide-only update finishes.
-- Batch compressed guide updates and keep per-work digests on TF. Reuse verified JPEGs after the matching TF catalog is linked. R4 can still fetch images if the screensaver requests them before the link is committed.
-- Retry failed USB gallery transfers on available Wi-Fi without the normal one-minute catalog recheck delay.
-- On ST7121, copy display pixels in small CPU batches. The overview hardware observation recorded zero LCD underruns and zero flush errors over 10 minutes and 43 seconds on R3.
+- Gallery updates send only changed details. The artwork screensaver reuses matching images already on the card.
+- If USB sync fails, TAB5 switches sooner to Wi-Fi when it is connected.
+- Reduce occasional flicker on the left side of some TAB5 displays.
 
 ## 0.2.320-ui - 2026-11-12
 
