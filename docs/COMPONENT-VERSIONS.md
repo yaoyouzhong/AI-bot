@@ -4,20 +4,20 @@ Windows / Mac 协作、候选构建物与发布职责见[统一开发发布流�
 
 产品对外版本从 `0.6.20` 序列独立递增；桥接、ESP8266 和 TAB5 分别更新，不要求版本号相同。只修改一个组件时，不重编号、重发或要求用户重刷另外两个组件。历史 `v0.5.0` 标签与已发布文件保持不变。
 
-2026-11-12 发布 Windows／Mac **0.6.20**、TAB5 **0.2.320-ui** 和精选图库 **2026.2**。Windows 和 Mac 使用同一份候选源码提交。ESP8266 当前正式版本为 **0.5.8**。[统一下载](../DOWNLOADS.md) · [发布说明](RELEASE-0.6.20.md)
+2026-11-14 发布 Windows／Mac **0.6.21** 和 TAB5 **0.2.321-ui**。精选图库独立提供，当前为 **2026.2**。Windows 和 Mac 使用同一份候选源码提交。ESP8266 当前正式版本为 **0.5.8**。[统一下载](../DOWNLOADS.md) · [发布说明](RELEASE-0.6.21.md)
 
-Both desktop platforms ship 0.6.20 from the same source commit. TAB5 0.2.320-ui retains its own release and source archive. The optional artwork collections are edition 2026.2.
+Both desktop platforms ship 0.6.21 from the same source commit. TAB5 0.2.321-ui retains its own release and source archive. The optional artwork collections are edition 2026.2.
 
 ## 版本来源
 
 | 组件 | 当前版本 | 版本文件 | 正式组件标签 |
 | --- | --- | --- | --- |
-| Windows 桥接 | 0.6.20 | 根目录 `VERSION` | 历史 `v0.6.20`；后续 `bridge-vX.Y.Z` |
-| Mac 桥接 | 0.6.20 | 根目录 `VERSION` | 历史 `v0.6.20`；后续 `bridge-vX.Y.Z` |
+| Windows 桥接 | 0.6.21 | 根目录 `VERSION` | `bridge-v0.6.21` |
+| Mac 桥接 | 0.6.21 | 根目录 `VERSION` | `bridge-v0.6.21` |
 | ESP8266 固件 | 0.5.8 | `esp8266/VERSION` | `esp8266-v0.5.8` |
-| TAB5 固件 | 0.2.320-ui | `versions/TAB5` | `tab5-v0.2.320-ui` |
+| TAB5 固件 | 0.2.321-ui | `versions/TAB5` | `tab5-v0.2.321-ui` |
 
-表中登记各平台实际已发布版本；后续版本仍分别编号。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接源码元数据共用版本线，正式下载按平台实际存在的附件分别取版本；本轮 Windows 与 Mac 同时交付 0.6.20。
+表中登记各平台实际已发布版本；后续版本仍分别编号。`release-manifest.json` 登记每个组件的版本文件、标签前缀与中英文更新日志。桥接源码元数据共用版本线，正式下载按平台实际存在的附件分别取版本；本轮 Windows 与 Mac 同时交付 0.6.21。
 
 电脑端每次发布占用共用序列中的下一个版本号。例如 Mac 单独发布 0.6.15 时 Windows 仍为 0.6.14；下一次仅 Windows 补丁使用 0.6.16，Mac 仍为 0.6.15；若两端一起交付，则同时使用该次版本。Windows 项目及 Mac plist 的源码版本声明随根目录 `VERSION` 对齐，不表示未交付的平台已有新安装包。Each desktop release advances the shared sequence, but only shipped platforms adopt that release version. A Mac-only 0.6.15 can coexist with Windows 0.6.14; a later Windows-only patch would be 0.6.16 while Mac retains 0.6.15. Shared source metadata is not a claim that an unbuilt platform was released.
 
@@ -54,7 +54,7 @@ python scripts/package_esp8266_local.py artifacts/esp8266-package
 标签检查按组件路由：
 
 ```powershell
-python scripts/check_version.py --tag bridge-v0.6.20
+python scripts/check_version.py --tag bridge-v0.6.21
 python scripts/check_version.py --tag esp8266-v0.5.1
 python scripts/check_version.py --tag tab5-v0.2.151-ui
 python scripts/check_product_release_tag.py v0.6.21

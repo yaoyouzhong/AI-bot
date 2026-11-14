@@ -4,13 +4,13 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](docs/RELEASE-0.6.20.md) · [简体中文](README.md)
+[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](docs/RELEASE-0.6.21.md) · [简体中文](README.md)
 
 **Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
-**This update**　Windows and Mac bridge **0.6.20** improves TAB5 discovery, post-update boot verification and location-aware weather. Mac adds a system permissions window. [Bridge release notes](docs/RELEASE-0.6.20.md) · [Installation guide](docs/INSTALL.zh.md)
+**This update**　Windows and Mac bridge **0.6.21** support compressed batches of updated art guides and complete original-text pages. [Bridge release notes](docs/RELEASE-0.6.21.md) · [Installation guide](docs/INSTALL.zh.md)
 
-**TAB5 0.2.320-ui** refines the overview, calendar and weather. [Firmware release](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.320-ui)
+**TAB5 0.2.321-ui** stores per-work digests on the TF card and reuses verified JPEGs for guide-only updates. [Firmware release](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.321-ui)
 
 **Artwork edition 2026.2** updates guides, appreciation and sources for 366 paintings and 366 calligraphy works. Standard and HD editions are available. [Artwork downloads](docs/GALLERY-PACKS.md)
 
@@ -176,7 +176,7 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.20.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.21.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](tab5/) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

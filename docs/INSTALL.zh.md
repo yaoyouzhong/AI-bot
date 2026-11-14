@@ -2,7 +2,7 @@
 
 第一次安装？请先按[首次安装图文指南](FIRST-INSTALL.zh.md)逐步操作。
 
-适用于 **Windows 0.6.20、Mac 0.6.20、TAB5 0.2.320-ui、ESP8266 0.5.8**，说明更新于 2026-11-12。Windows 与 Apple Silicon Mac 均支持两类设备。
+适用于 **Windows 0.6.21、Mac 0.6.21、TAB5 0.2.321-ui、ESP8266 0.5.8**，说明更新于 2026-11-14。Windows 与 Apple Silicon Mac 均支持两类设备。
 
 **先安装电脑应用，再按设备当前系统选择路线。** 第一次只需完成 USB 接入、添加设备和屏幕检查；模型账号、语音、Wi-Fi 和图库都可稍后设置。
 
@@ -21,13 +21,13 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 
 | 你要做什么 | 下载什么 |
 | --- | --- |
-| Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-bridge-v0.6.20-windows-x64-setup.exe) |
-| Mac 安装应用（macOS 13+、M 系列芯片） | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/AI-bot-bridge-v0.6.20-macos-arm64.zip) |
+| Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.21/AI-bot-bridge-v0.6.21-windows-x64-setup.exe) |
+| Mac 安装应用（macOS 13+、M 系列芯片） | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.21/AI-bot-bridge-v0.6.21-macos-arm64.zip) |
 | ESP8266 首刷或更新 | [ESP8266 精简刷机 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) |
-| TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/AI-bot-tab5-0.2.320-ui-first-install.zip) |
-| TAB5 已安装 AI-bot，更新固件 | [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/AI-bot-tab5-0.2.320-ui-upgrade.zip) |
+| TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.321-ui/AI-bot-tab5-0.2.321-ui-first-install.zip) |
+| TAB5 已安装 AI-bot，更新固件 | [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.321-ui/AI-bot-tab5-0.2.321-ui-upgrade.zip) |
 
-**TAB5 首刷也是 0.2.320-ui，无需先刷旧版。** 首刷包直接选择 ZIP；升级包先解压，再选里面的 `aibot_tab5.bin`，同目录保留 `aibot_tab5.bin.notes.json`。两种硬件的固件不可互换；GitHub 的 Source code 不是刷机文件。
+**TAB5 首刷也是 0.2.321-ui，无需先刷旧版。** 首刷包直接选择 ZIP；升级包先解压，再选里面的 `aibot_tab5.bin`，同目录保留 `aibot_tab5.bin.notes.json`。两种硬件的固件不可互换；GitHub 的 Source code 不是刷机文件。
 
 桥接、ESP8266 和 TAB5 分别更新，版本号可以不同；以后只升级更新说明要求的部分，无需每次一起刷机。
 
@@ -83,7 +83,7 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 使用 **USB-C 数据接口**连接电脑。首次安装会替换 P4 原固件与设置，工具先完整备份；保留备份以便恢复。已有 AI-bot 的设备使用下方升级路线。
 
 1. **进入安装窗口与下载模式。** “添加”里选 **M5Stack TAB5 → TAB5 首次安装…**。连接 USB-C，长按 RESET 约 2 秒，内部绿灯快速闪烁后松开；点 **刷新设备**，选择这台 TAB5 的端口。[进入下载模式的官方说明](https://docs.m5stack.com/zh_CN/guide/tab5/restore_factory)。
-2. **选择首刷 ZIP 并安装。** 点 **选择安装包…**，选 `AI-bot-tab5-0.2.320-ui-first-install.zip`，勾选“确认是 TAB5，允许替换原固件及设置”，点 **备份并安装**。按提示确认设备；等待备份、写入、校验结束，不拔线。
+2. **选择首刷 ZIP 并安装。** 点 **选择安装包…**，选 `AI-bot-tab5-0.2.321-ui-first-install.zip`，勾选“确认是 TAB5，允许替换原固件及设置”，点 **备份并安装**。按提示确认设备；等待备份、写入、校验结束，不拔线。
 
 ![图 4：TAB5 首次安装；上方选端口，中间选 ZIP 并安装，下方检查启动](assets/screens/tab5-first-install.png)
 
@@ -95,8 +95,8 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 <a id="tab5-upgrade"></a>
 ### C. TAB5：已有 AI-bot，后续升级 · 4 步
 
-1. **解压并打开升级页。** 完整解压 `AI-bot-tab5-0.2.320-ui-upgrade.zip`。设备中心选中 TAB5 → **连接升级 → 固件升级**，保持有效连接和供电。
-2. **提供固件。** 点 **选择固件…**，选解压后的 `aibot_tab5.bin`，同目录保留更新说明文件；核对版本 **0.2.320-ui** 与更新说明，确认提供。
+1. **解压并打开升级页。** 完整解压 `AI-bot-tab5-0.2.321-ui-upgrade.zip`。设备中心选中 TAB5 → **连接升级 → 固件升级**，保持有效连接和供电。
+2. **提供固件。** 点 **选择固件…**，选解压后的 `aibot_tab5.bin`，同目录保留更新说明文件；核对版本 **0.2.321-ui** 与更新说明，确认提供。
 
 ![图 6：TAB5 固件升级界面示例；升级完成后在状态旁点“核验启动”](assets/screens/tab5-upgrade.png)
 
@@ -143,7 +143,7 @@ TAB5 需要无线时，在 **连接升级 → Wi-Fi** 保存网络并确认有�
 
 1. 在引导中点“打开系统设置…”，到“隐私与安全性 → 辅助功能”（部分系统名称为“设备控制与数据访问”）允许 **AI-bot Bridge**。
 2. 如果已有条目已勾选但定位仍失败，移除旧条目，用“+”重新添加 **`/Applications/AIBotBridge.app`** 并开启，再回 TAB5 定位。勾选状态不代替当前应用的有效授权。
-3. 统一钥匙串项目显示为 **“AI-bot Bridge 资料”**，本机验收为一次提示，选“始终允许”后同包重启无新提示。旧分散资料首次迁移仍可能分别询问；拒绝时保留原资料。麦克风、自动化等是另外的系统权限。
+3. 覆盖安装 0.6.21 后，macOS 可能在菜单栏图标出现前请求访问钥匙串中的 **“AI-bot Bridge 资料”**。确认是刚安装的 AI-bot 后，可选择“始终允许”。本次实测同包重启未再次提示。旧分散资料首次迁移仍可能分别询问；拒绝时保留原资料。麦克风、自动化等是另外的系统权限。
 
 升级前正常退出桥接；需要备份时用 ZIP 或“应用程序”外的独立目录，不把改名的旧 `.app` 留在“应用程序”中。辅助功能授权和钥匙串授权互不替代。[本次验收范围](RELEASE-0.6.15.md) · [24 秒授权说明短片](MAC-AUTHORIZATION-VIDEO.md)
 
@@ -174,7 +174,7 @@ TAB5 需要无线时，在 **连接升级 → Wi-Fi** 保存网络并确认有�
 
 备份保存在 `%LOCALAPPDATA%\AI-bot\device-backups\`，TAB5 的 `.bin` 和 `.bin.json` 一起保留；备份可能包含私人设置，不公开上传。USB 偶发中断仍有历史记录，失败先保留错误，不把重试成功理解为已修复。
 
-需要核对下载完整性时，使用对应组件发布页的 SHA-256 清单：[Windows 和 Mac](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt)、[TAB5](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.320-ui/SHA256SUMS.txt)、[名画与书法](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt)、[ESP8266 精简包](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256)。[发布说明](RELEASE-0.6.20.md) · [TAB5 开发者源码](../tab5/) · [许可范围](TAB5-LICENSE-SCOPE.md)
+需要核对下载完整性时，使用对应组件发布页的 SHA-256 清单：[Windows 和 Mac](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.21/SHA256SUMS.txt)、[TAB5](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.321-ui/SHA256SUMS.txt)、[名画与书法](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt)、[ESP8266 精简包](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256)。[发布说明](RELEASE-0.6.21.md) · [TAB5 开发者源码](../tab5/) · [许可范围](TAB5-LICENSE-SCOPE.md)
 
 ## 日常功能与更新说明
 
@@ -186,11 +186,11 @@ TAB5 需要无线时，在 **连接升级 → Wi-Fi** 保存网络并确认有�
 - **日程：** 在设备中心或 TAB5 应用页管理，最多 16 项；离线修改在重连后同步。
 - **图库：** 名画与书法各 366 件，按需选择[标准图库](GALLERY-PACKS.md)或[高清完整版](GALLERY-HD.md)，同类无需重复安装。字库已在固件中，不必单独下载。
 
-后续版本变化见[当前发布说明](RELEASE-0.6.20.md)与[更新日志](../CHANGELOG.zh.md)；界面示例见[截图说明](SCREENSHOTS.md)。安装步骤以本文当前路线为准。
+后续版本变化见[当前发布说明](RELEASE-0.6.21.md)与[更新日志](../CHANGELOG.zh.md)；界面示例见[截图说明](SCREENSHOTS.md)。安装步骤以本文当前路线为准。
 
 ## English quick start
 
-Current downloads: Windows 0.6.20 / Apple Silicon Mac 0.6.20, TAB5 0.2.320-ui and ESP8266 0.5.8. Install the desktop app first. Model accounts, speech, wireless access and artwork packs can be configured after the USB connection works.
+Current downloads: Windows 0.6.21 / Apple Silicon Mac 0.6.21, TAB5 0.2.321-ui and ESP8266 0.5.8. Install the desktop app first. Model accounts, speech, wireless access and artwork packs can be configured after the USB connection works.
 
 1. **Install the app.** On Windows, keep the default installation path unless needed. Setup downloads missing .NET 8 Desktop Runtime / WebView2 components and skips existing ones. It also attempts the previously documented unlock-component setup, which may require administrator approval. “App installed, unlock setup incomplete” is separate from device connectivity; retry unlock setup later in Computer Control. On Mac, extract the ZIP into Applications; the current Apple Silicon app is ad-hoc signed and not notarized. Follow [Apple's opening guidance](https://support.apple.com/102445) and grant only the permissions requested by the features you use. Intel is unverified.
 2. **Connect with a USB data cable.** A powered screen alone does not prove USB connectivity. Open Device Center → My Devices → Add, choose the hardware and refresh ports. Select your own device; if several ports are unclear, unplug/reconnect that device and refresh.
@@ -201,13 +201,13 @@ For later TAB5 updates, extract the upgrade ZIP and select `aibot_tab5.bin` with
 
 If no USB device appears, check the data cable, port and appropriate driver. If pairing times out, confirm the device has booted AI-bot and close competing serial tools. For a slow prerequisite download, install the [same Microsoft .NET 8 Desktop Runtime x64](https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/8.0.31/windowsdesktop-runtime-8.0.31-win-x64.exe) separately, then rerun setup; detected components are skipped. The ordinary .NET and ASP.NET runtimes do not replace the desktop runtime. Missing model quota requires account authorization, not reflashing. Keep original firmware backups private in `%LOCALAPPDATA%\AI-bot\device-backups\`.
 
-Optional sources are configured from Account Data or the selected device: speech, computer controls, agenda and [artwork packs](GALLERY-PACKS.md). Standard and complete HD editions contain the corresponding previews and guides; app upgrades preserve installed packs. See [release notes](RELEASE-0.6.20.md), [updates](UPDATES.md) and [screenshots](SCREENSHOTS.md) for ongoing features.
+Optional sources are configured from Account Data or the selected device: speech, computer controls, agenda and [artwork packs](GALLERY-PACKS.md). Standard and complete HD editions contain the corresponding previews and guides; app upgrades preserve installed packs. See [release notes](RELEASE-0.6.21.md), [updates](UPDATES.md) and [screenshots](SCREENSHOTS.md) for ongoing features.
 
 Mac 0.6.20 adds a system permissions window for location-aware weather and direct Codex conversation navigation. Select **系统授权… (System Permissions)** in the AI-bot menu and follow the macOS prompts for the features you use.
 
 Mac onboarding: adding TAB5 opens USB Pairing directly, including reused connection windows. Normal reopening preserves the selected tab, and firmware updates open the Firmware tab.
 
-Mac 0.6.15 enables available features by default while preserving explicit opt-outs. Follow its native authorization guide; a background launch defers the guide until the user clicks the menu-bar icon. Allow AI-bot Bridge in Accessibility, also called Device Control and Data Access on some systems. If an old enabled entry remains ineffective, remove it and re-add `/Applications/AIBotBridge.app`. The consolidated Keychain item is “AI-bot Bridge 资料”; local acceptance had one prompt and none after restarting the same build. Legacy-first migration may still require per-item approval. Other macOS permissions remain separate. Quit before replacing the app and keep old backups as ZIPs or outside Applications. See the [authorization video supplement](MAC-AUTHORIZATION-VIDEO.md).
+Mac 0.6.15 enables available features by default while preserving explicit opt-outs. Follow its native authorization guide; a background launch defers the guide until the user clicks the menu-bar icon. Allow AI-bot Bridge in Accessibility, also called Device Control and Data Access on some systems. If an old enabled entry remains ineffective, remove it and re-add `/Applications/AIBotBridge.app`. After updating to 0.6.21, macOS may ask to access the Keychain item “AI-bot Bridge 资料” before the menu bar icon appears. Verify that the prompt is from the AI-bot app you just installed before choosing Always Allow. The same package restarted without another prompt in testing. Legacy-first migration may still require per-item approval. Other macOS permissions remain separate. Quit before replacing the app and keep old backups as ZIPs or outside Applications. See the [authorization video supplement](MAC-AUTHORIZATION-VIDEO.md).
 
 ## 0.6.18 安装更新提示 / Update notes
 

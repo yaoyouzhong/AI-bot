@@ -1,6 +1,6 @@
 # 软件与固件更新 / Software and firmware updates
 
-本页对应电脑端 0.6.13。Windows 使用下述托盘设备中心入口；Mac 使用菜单栏 AI-bot 的设备中心与软件/固件入口，同样分别选择电脑应用、小屏和 TAB5 包。两端窗口布局不同，首刷与升级包不能混用。旧版 v0.5.0 用户先更新电脑应用。
+本页对应电脑端 0.6.21。Windows 使用下述托盘设备中心入口；Mac 使用菜单栏 AI-bot 的设备中心与软件/固件入口，同样分别选择电脑应用、小屏和 TAB5 包。两端窗口布局不同，首刷与升级包不能混用。旧版 v0.5.0 用户先更新电脑应用。
 
 [完整下载中心](../DOWNLOADS.md)集中提供 Windows / Mac 桥接、ESP8266 固件、TAB5 首刷与升级包、书法和名画图库。桥接 0.6.10 的「完整下载与安装说明」链接也指向此处。
 
@@ -9,7 +9,7 @@
 1. 在 Windows 托盘右键进入「设备中心 → 桥接设置 → 软件固件」，打开「软件与固件更新」。列表同时显示电脑软件和设备中心已添加的设备，分别列出当前版本、可用版本及操作状态。
 2. 点「检查更新」，选择要更新的一行，查看「所选更新说明」。设备版本来自已连接设备，不能根据电脑端版本猜测。支持版本上报的小屏按真实固件版本判断更新。
 3. 点「下载并安装电脑端」或「下载并准备升级」。程序自动选对应包并核对 SHA-256。下载可以取消，校验失败不会进入安装。
-4. 电脑端确认后打开安装程序；ESP8266 进入已有的小屏刷机窗口，连接 USB 后先备份再写入；TAB5 在设备「设置 → 固件升级」确认安装，重启后在升级工具核验启动。电脑端、两种硬件的版本号无需一致，也无需一起升级。
+4. 电脑端确认后打开安装程序；ESP8266 进入已有的小屏刷机窗口，连接 USB 后先备份再写入；TAB5 在设备「设置 → 固件升级」确认安装，桥接收到传输完成信号后自动等待设备重启，核对运行镜像指纹和启动分区。需要重新读取时，在升级窗口点「核验启动」。电脑端、两种硬件的版本号无需一致，也无需一起升级。
 
 勾选「自动检查并提醒」后，程序启动约 30 秒开始检查，成功后每 24 小时再检查；失败约 1 小时后重试。每个设备的同一版本只提醒一次，遵守静默时段。点击提醒进入更新窗口。关闭自动提醒不影响手动检查。只有已添加、启用且已读取当前版本的设备参与可用升级判断。
 
@@ -27,7 +27,7 @@ TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备�
 
 The [complete download center](../DOWNLOADS.en.md) lists both desktop apps, ESP8266 firmware, TAB5 first-install/upgrade packages and both artwork collections. Bridge 0.6.10's manual-download link opens this center.
 
-This describes desktop 0.6.13. Windows uses the tray Device Center; Mac uses its menu-bar device center and software/firmware entries for both display types. Native window layouts differ. v0.5.0 users need to install the newer computer app first. Open Device Center → Bridge Settings → Software/Firmware to reach Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5 and verify boot afterward. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
+This describes desktop 0.6.21. Windows uses the tray Device Center; Mac uses its menu-bar device center and software/firmware entries for both display types. Native window layouts differ. v0.5.0 users need to install the newer computer app first. Open Device Center → Bridge Settings → Software/Firmware to reach Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5. After transfer, the bridge waits for TAB5 to restart and verifies the firmware fingerprint and boot partition. Use Verify Boot in the upgrade window to read the result again if needed. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
 
 Optional automatic checks start about 30 seconds after launch and repeat daily after success, retrying failures after an hour. Notifications respect quiet hours and are deduplicated per device/version. Background checks never download or install. Failed queries retain the last successful in-memory catalog with an error. Unknown or changed device versions block automatic upgrade selection. Local and public builds share the same features. Import optional artwork ZIPs through Artwork Collections; app upgrades preserve the user-data collection directory. Manual checking remains available when reminders are disabled. An accepted download does not prove installation, verified boot or physical display behavior.
 
