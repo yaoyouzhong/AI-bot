@@ -16,6 +16,14 @@ enum MacDeviceCenterMenuValidation {
                 RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(0.01)))
             }
         }
+        // Dispatch the same target/action as AppKit without simulating menu
+        // tracking in a headless runner. The item's handler must still defer.
+        func invoke(_ item: NSMenuItem) throws {
+            guard let action = item.action, let target = item.target else {
+                throw MacTab5LocalError.invalid("Tray menu action missing: " + item.title)
+            }
+            try check("menu action dispatch", NSApp.sendAction(action, to: target, from: item))
+        }
         let tab = MacRegisteredDevice(kind: "tab5", name: "书桌平板")
         let screen = MacRegisteredDevice(kind: "esp8266", name: "办公室小屏")
         var disabled = tab; disabled.enabled = false
@@ -45,9 +53,9 @@ enum MacDeviceCenterMenuValidation {
                 try check("two menu levels", entries.allSatisfy { $0.submenu == nil })
                 try check("bounded device label", group.title.count <= 30 && (device.enabled || group.title.hasSuffix("（已停用）")))
                 if device.enabled {
-                    for (index, entry) in entries.enumerated() {
+                    for entry in entries {
                         received = nil
-                        group.submenu!.performActionForItem(at: index)
+                        try invoke(entry)
                         try check("dispatch after tracking", received == nil)
                         waitForCallback { received != nil }
                         try check("shortcut routes to original device", received?.0 == device.id && received?.1 == entry.identifier?.rawValue)
@@ -56,7 +64,7 @@ enum MacDeviceCenterMenuValidation {
             }
             for key in ["devices", "exit"] {
                 common = nil
-                menu.performActionForItem(at: menu.items.firstIndex { $0.identifier?.rawValue == key }!)
+                try invoke(menu.items.first { $0.identifier?.rawValue == key }!)
                 waitForCallback { common != nil }
                 try check("common command routing", common == key)
             }
@@ -68,8 +76,8 @@ enum MacDeviceCenterMenuValidation {
                     received = nil
                     if let choices = entry.submenu {
                         try check("selector device name", choices.items[index].title == device.name)
-                        choices.performActionForItem(at:index)
-                    } else { menu.performActionForItem(at:menu.items.firstIndex(of:entry)!) }
+                        try invoke(choices.items[index])
+                    } else { try invoke(entry) }
                     waitForCallback { received != nil }
                     try check("preview targets selected hardware",received?.0 == device.id && received?.1 == "mirror")
                 }
