@@ -76,15 +76,17 @@ python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json 
 
 也可显式调度 `promote.yml`，提供成功的 `candidate.yml` 批次 ID、组件、`record` 生成的完整验收 JSON 和 `publish`。它取回该批次的原候选并核对 SHA，不调用构建；默认 `publish=false`。输入只通过环境变量交给 JSON 解析器，不拼接进 shell。多组件发布在本地用 `promote-set` 可统一收尾；独立组件适合 Actions 晋级入口。TAB5 用本地晋级入口，不伪造原生 Actions 批次。
 
-每轮自动创建一个面向用户的 `AI-bot v产品版本` 总页：产品版本从现有 `v0.6.20` 产品标签序列继续递增，与桥接、TAB5、ESP8266 各自组件版本独立。单组件 `promote` 和多组件 `promote-set` 均创建或复用同一份绑定候选身份的产品草稿；总页只列本次实际交付的组件、说明和安装／升级包，并使用独立 `SHA256SUMS.txt`。组件包从已验收原包复制并逐件核对，不重建；组件页继续保留。组件或产品附件上传后核对服务端摘要；所有组件和收尾通过后才公开总页并设为 Latest。中断时复用同一产品号与草稿，不重复发布。
+每次交付统一使用一个面向用户的产品总页，标签为 `vX.Y.Z`，标题为 `AI-bot vX.Y.Z`。产品版本从 `v0.6.20` 序列继续递增，与组件版本独立。`promote` 和 `promote-set` 都会为本轮候选创建或复用同一个产品草稿，即使只交付一个组件。总页列出实际交付的组件版本、中英文说明、验收通过的安装或升级包及独立的 `SHA256SUMS.txt`。组件页也提供对应原包。脚本核对两类页面的服务端附件摘要，完成组件发布和下载元数据收尾后，再公开产品总页并设为 Latest。中断后重试复用原产品版本和草稿。
 
-桥接更新器读取 GitHub 正式发布列表，按平台、组件、标签及文件名选择包。新桥接组件标签使用 `bridge-vX.Y.Z`；产品总页使用 `v产品版本`，其附件名仍保留组件自身版本。固件独立标签继续提供原包及校验文件，特别是 ESP8266 精简包仍需同版本 `esp8266-vX.Y.Z` 标签和配套校验文件。旧标签和旧下载不改。核验时分别检查总页 Assets、下载中心，以及 Windows 和 Mac 对实际组件包的选择与校验。
+Every delivery uses one public entry point, the product release tagged `vX.Y.Z` and titled `AI-bot vX.Y.Z`. The product version advances from the `v0.6.20` series independently of component versions. Both `promote` and `promote-set` create or reuse one product draft for the selected candidates, including single-component deliveries. The product page lists the shipped component versions, bilingual notes, accepted install or upgrade packages, and its own `SHA256SUMS.txt`. Component pages also carry the corresponding accepted packages. The script checks server-side asset digests on both kinds of pages, completes component publication and download metadata closeout, then publishes the product page as Latest. Retries reuse the reserved product version and draft.
 
-Use one user-facing Release per delivery. Use the bridge release when the batch includes a bridge update, or the affected firmware release for a firmware-only delivery. For a batch with both firmware components, name the entry release in the plan. Include all delivered component versions, bilingual notes, and installable assets. Reuse the accepted package bytes and verify their checksums. Keep the platform packages on their bridge version tag and the firmware packages on their component tags. Installed bridges query the stable release list and select by platform and component. The ESP8266 compact update requires its matching ESP8266 tag and checksum sidecar. Check the public entry, download center, and installed update lookup separately.
+组件页的标签分别为 `bridge-vX.Y.Z`、`esp8266-vX.Y.Z` 和 `tab5-vX.Y.Z-ui`。Windows 和 Mac 更新器查询 GitHub 的正式发布列表，按平台、组件、标签和附件名选择包。产品总页和历史 `vX.Y.Z` 发布页上的桥接安装包及 TAB5 升级包也可按附件名中的组件版本识别。ESP8266 精简升级包要求匹配其版本的 `esp8266-vX.Y.Z` 标签和对应的 `.sha256` 文件。分别核对总页附件、下载中心和两端更新器实际选择的包及其校验文件。
+
+Component releases use `bridge-vX.Y.Z`, `esp8266-vX.Y.Z`, and `tab5-vX.Y.Z-ui`. The Windows and Mac updaters query GitHub's stable release list and select packages by platform, component, tag, and asset name. Bridge installers and TAB5 upgrade packages on product or historical `vX.Y.Z` releases can also be identified by the component version in their asset names. A compact ESP8266 update requires its matching `esp8266-vX.Y.Z` tag and `.sha256` sidecar. Verify product assets, the download center, and the packages and checksums selected by each updater.
 
 ## 4. 自动收尾，集中复核
 
-公开后自动刷新并验证 `download-catalog.json`、中英文下载中心及 README 下载块。Release 链接到统一下载中心，并保留对应版本的更新说明和附件。自动核验实际公开下载大小、摘要及所需抽查，不重复下载完整大包。公开的 `CANDIDATE.json`、`ACCEPTANCE.json`、许可证、第三方声明与 `SHA256SUMS.txt` 留存原包身份；便携包和完整桥接源码继续保留在候选归档。
+组件页公开后自动刷新并验证 `download-catalog.json`、中英文下载中心及 README 下载块。Release 链接到统一下载中心，并保留对应版本的更新说明和附件。自动核验实际公开下载大小、摘要及所需抽查，不重复下载完整大包。公开的 `CANDIDATE.json`、`ACCEPTANCE.json`、许可证、第三方声明与 `SHA256SUMS.txt` 留存原包身份；便携包和完整桥接源码继续保留在候选归档。
 
 默认只更新本地生成文档。在已有推送授权内加 `--commit-closeout`，只暂存并提交这些指定生成文件，拒绝已有相关改动、非空暂存区、落后主干或会夹带其他本地提交的情况；不自动 rebase。Actions 的公开晋级使用此选项，串行执行以减少冲突。如果分支保护不允许机器人直接推送，公开状态和收尾失败会被分别记录；负责人按仓库现有合并方式处理生成文档，不重新构建或验收包。
 
