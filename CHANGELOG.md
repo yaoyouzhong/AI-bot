@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.6.21 - 2026-11-13
+## 0.6.22 - 2026-11-16
+
+This release updates the Apple Silicon Mac bridge only. Windows remains at 0.6.21, TAB5 at 0.2.321-ui and ESP8266 at 0.5.8. No firmware update is required.
 
 ### Mac first launch
 
@@ -11,6 +13,8 @@ All notable changes to this project will be documented in this file.
 - Retry an undecided notification request and open Accessibility settings directly from the first-launch guide.
 - Request local speech recognition and microphone permissions even if Doubao is selected, so users can switch later.
 - Enable reminders and automatic update checks by default, with existing preferences preserved.
+
+## 0.6.21 - 2026-11-13
 
 ### TAB5 artwork updates
 
