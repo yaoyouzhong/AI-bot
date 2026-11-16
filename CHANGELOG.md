@@ -10,7 +10,7 @@ This release updates the Apple Silicon Mac bridge only. Windows remains at 0.6.2
 
 - Guide users through applicable location, speech recognition, microphone, notification, Automation, Accessibility, Bluetooth, and local network permissions. Reopen the checklist from Device Center → Bridge Settings → System Permissions.
 - Request Terminal Automation at first launch, before TAB5 pairing. Controlling Terminal from TAB5 still requires a paired device.
-- Retry an undecided notification request and open Accessibility settings directly from the first-launch guide.
+- Retry an undecided notification request and open Accessibility settings directly. If the switch is on but permission has not taken effect, the guide explains how to check the installed app and stays usable.
 - Request local speech recognition and microphone permissions even if Doubao is selected, so users can switch later.
 - Enable reminders and automatic update checks by default, with existing preferences preserved.
 

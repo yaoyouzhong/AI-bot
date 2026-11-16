@@ -388,12 +388,21 @@ enum MacTab5UIValidation {
         let buttons = descendants(content).compactMap { $0 as? NSButton }
         func button(_ step: Step) -> NSButton? { buttons.first { $0.identifier?.rawValue == "permission-\(step)" } }
         setup.display(pending, active: .microphone)
+        let reveal = buttons.first { $0.title == "在 Finder 中显示当前 App" }
         guard button(.terminal)?.title == "打开并授权…", button(.notifications)?.title == "打开系统设置…",
-              button(.speech)?.isHidden == true, buttons.contains(where: { $0.title == "稍后完成" }) else { throw MacTab5Error.unconfirmed }
+              button(.speech)?.isHidden == true, buttons.contains(where: { $0.title == "稍后完成" }),
+              reveal?.isHidden == true else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions", output: output)
+        setup.display(Dictionary(uniqueKeysWithValues: Step.allCases.map { ($0, $0 == .accessibility ? State.settings : .allowed) }))
+        guard button(.accessibility)?.isEnabled == true,
+              reveal?.isHidden == false,
+              buttons.contains(where: { $0.title == "稍后完成" && $0.isEnabled }),
+              descendants(content).compactMap({ $0 as? NSTextField }).contains(where: { $0.stringValue == "权限未生效" })
+        else { throw MacTab5Error.unconfirmed }
+        try validateSettings(window, name: "system-permissions-accessibility", output: output)
         setup.display(Dictionary(uniqueKeysWithValues: Step.allCases.map { ($0, State.allowed) }))
         guard Step.allCases.allSatisfy({ button($0)?.isHidden == true }),
-              buttons.contains(where: { $0.title == "完成" }) else { throw MacTab5Error.unconfirmed }
+              buttons.contains(where: { $0.title == "完成" }), reveal?.isHidden == true else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions-granted", output: output)
         window.close()
     }

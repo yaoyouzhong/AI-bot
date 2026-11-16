@@ -69,7 +69,7 @@ enum MacPermissionSetup {
             case .terminal: return "可提前授权；配对 TAB5 后才能操作 Claude Code 会话。"
             case .music, .spotify: return "显示播放状态，并支持从 TAB5 控制播放。"
             case .systemEvents: return "允许从 TAB5 锁定 Mac。"
-            case .accessibility: return "在系统设置中开启 AI-bot Bridge；若未列出，点＋添加。"
+            case .accessibility: return "部分 macOS 显示为「设备控制和数据访问」。开关已开但未生效时，核对当前 App 后关闭再开启；仍无效则移除旧条目，再添加当前 App。"
             }
         }
         var target: String? {
@@ -182,12 +182,8 @@ enum MacPermissionSetup {
                 // when macOS doesn't present its own alert.
                 _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
                 openSettings(step)
-                while !Task.isCancelled, !AXIsProcessTrusted() {
-                    try? await Task.sleep(for: .milliseconds(300))
-                }
-                if !Task.isCancelled, !CGPreflightPostEventAccess() {
-                    _ = CGRequestPostEventAccess()
-                }
+                // The checklist refreshes while Settings is open. Don't
+                // hold the request queue waiting for a system toggle.
             } else {
                 openSettings(step)
             }
