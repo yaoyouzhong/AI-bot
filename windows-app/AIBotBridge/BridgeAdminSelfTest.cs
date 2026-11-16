@@ -11,7 +11,8 @@ internal static class BridgeAdminSelfTest
             try{using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(15));
                 var state=await desktop.ReadAsync(task.Id,timeout.Token);
                 rows.Add(new{available=true,runtime=state.Runtime,status=state.Status});readable=true;break;
-            }catch(Exception ex) when(ex is IOException or InvalidOperationException or OperationCanceledException or UnauthorizedAccessException or System.Text.Json.JsonException){rows.Add(new{available=false,error=ex.GetType().Name});}
+            }catch(Tab5CodexDesktop.Rejected ex){rows.Add(new{available=false,error=ex.GetType().Name,code=ex.Code});}
+            catch(Exception ex) when(ex is IOException or InvalidOperationException or OperationCanceledException or UnauthorizedAccessException or System.Text.Json.JsonException){rows.Add(new{available=false,error=ex.GetType().Name});}
         }
         Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{administrator=BridgeElevation.IsAdministrator,readOnly=true,readable,observations=rows}));
         Environment.ExitCode=readable?0:1;

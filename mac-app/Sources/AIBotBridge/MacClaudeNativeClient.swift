@@ -68,6 +68,17 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
             return UUID(uuidString:id)
         })
     }
+    static func allLiveTerminalsIdle(config: URL) -> Bool {
+        let states = MacClaudeTerminalRegistration.rows(config).compactMap { row -> String? in
+            guard acceptsSessionRecord(row, entrypoint: "cli"), UUID(uuidString: row["sessionId"] as? String ?? "") != nil,
+                  let rawPID = row["pid"] as? Int, let pid = pid_t(exactly: rawPID),
+                  let startedAt = row["startedAt"] as? Double, let process = MacClaudeTerminalProcess.inspect(pid),
+                  validStart(Double(process.identity.seconds), registeredAt: startedAt),
+                  matchesExecutable(URL(fileURLWithPath: process.identity.executable), reportedVersion: row["version"] as? String) else { return nil }
+            return row["status"] as? String ?? "unknown"
+        }
+        return !states.isEmpty && states.allSatisfy { $0 == "idle" }
+    }
     static func find(_ session:UUID, entrypoint: String, config: URL = MacClaudeTerminalRegistration.defaultConfig) -> (any MacClaudeNativeSession)? {
         do {
             let root=config.appendingPathComponent("sessions")

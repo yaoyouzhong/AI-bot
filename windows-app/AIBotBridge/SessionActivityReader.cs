@@ -4,7 +4,7 @@ internal static class SessionActivityReader
 {
     private static readonly CodexLifecycleTracker CodexLifecycle = new();
     private static readonly Tab5CodexDesktop Desktop=new();
-    internal static readonly Tab5LiveActivity LiveActivity=new((id,ct)=>Desktop.ReadAsync(id,ct));
+    internal static readonly Tab5LiveActivity LiveActivity=new(Desktop.ReadActivityAsync);
     private static readonly LocalUsageReader Usage = new();
     internal static readonly ActivitySignals Signals = new();
     private static IReadOnlyDictionary<string, LocalProviderUsage> _usage = new Dictionary<string, LocalProviderUsage>();
@@ -21,7 +21,8 @@ internal static class SessionActivityReader
             _usage = Usage.Capture(Path.Combine(home, ".claude", "projects"), Path.Combine(home, ".codex", "sessions"));
             _nextUsageScan = Environment.TickCount64 + 5000;
         }
-        return new(codex, _usage);
+        long? claudeIdleAt = ClaudeNativeTerminal.AllLiveSessionsIdle() ? Environment.TickCount64 : null;
+        return new(codex, _usage, claudeIdleAt);
     }
 
     internal static object Diagnostics() => Cache.Diagnostics();
@@ -37,7 +38,8 @@ internal static class SessionActivityReader
         var usage = sample.Usage;
         var activity = usage.GetValueOrDefault("claude");
         long? age = activity is null ? null : Math.Max(0, now.ToUnixTimeSeconds() - activity.LastActivity);
-        var claude = new ToolState(age is null ? "offline" : age < 90 ? "working" : age <= 900 ? "idle" : "offline",
+        bool terminalIdle = sample.ClaudeIdleObservedAt is long observed && Environment.TickCount64 - observed is >= 0 and <= 15000;
+        var claude = new ToolState(terminalIdle ? "idle" : age is null ? "offline" : age < 90 ? "working" : age <= 900 ? "idle" : "offline",
             age, TokensToday: activity?.TokensToday ?? 0);
         var domestic = Domestic(now, usage);
         return new StatusSnapshot(

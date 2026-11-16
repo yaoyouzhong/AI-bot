@@ -4,6 +4,7 @@ import Foundation
 struct MacActivityTotals {
     var codex = ToolState(state: "offline", ageSeconds: nil)
     var claude = ToolState(state: "offline", ageSeconds: nil)
+    var claudeTerminalIdle = false
     var domestic: MacDomesticActivity? = nil
 }
 struct MacProviderActivity: Codable {
@@ -49,7 +50,9 @@ final class MacActivitySampler {
             }
             if let age = value.claude.ageSeconds {
                 value.claude.ageSeconds = age + elapsed
-                value.claude.state = SessionActivityReader.classify(ageSeconds: age + elapsed)
+                if !value.claudeTerminalIdle {
+                    value.claude.state = SessionActivityReader.classify(ageSeconds: age + elapsed)
+                }
             }
             // An unfinished scan is not evidence that an old task is still active.
             if elapsed > 30 {
@@ -202,6 +205,8 @@ final class MacActivityMetadata {
             let age = max(0, Int64(now.timeIntervalSince(claudeAt)))
             snapshot.claude = ToolState(state: SessionActivityReader.classify(ageSeconds: age), ageSeconds: age, tokensToday: usage["claude"] ?? 0)
         }
+        snapshot.claudeTerminalIdle = MacClaudeNativeClient.allLiveTerminalsIdle(config: home.appendingPathComponent(".claude"))
+        if snapshot.claudeTerminalIdle { snapshot.claude.state = "idle" }
         if newest != .distantPast { snapshot.codex = ToolState(state: now.timeIntervalSince(newest)>900 ? "offline":codexState,ageSeconds:max(0,Int64(now.timeIntervalSince(newest))),completionAt:completion,tokensToday:usage["codex"] ?? 0) }
         if let domestic = latest.filter({ !["claude","codex"].contains($0.key) }).max(by: { $0.value < $1.value }), now.timeIntervalSince(domestic.value) <= 900 {
             let providers = Dictionary(uniqueKeysWithValues: latest.filter { !["claude", "codex"].contains($0.key) && now.timeIntervalSince($0.value) <= 900 }.map { key, date in

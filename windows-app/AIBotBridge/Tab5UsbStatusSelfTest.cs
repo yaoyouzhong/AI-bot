@@ -33,11 +33,17 @@ internal static class Tab5UsbStatusSelfTest
         byte[] packed=Tab5Service.PackTelemetry(full);
         if(ReferenceEquals(full,packed))throw new Exception("Status fixture did not compress");
         const string ack="@AIBOT {\"type\":\"tab5_ack\",\"deviceId\":\"001122334455\",\"sequence\":42}\n";
-        JsonDocument Read(string value) {
+        JsonDocument Read(string value, string expected="tab5_ack") {
             byte[] input=Encoding.UTF8.GetBytes(value);int at=0;
             return Tab5UsbText.ReadBlocking((buffer,_)=>{
                 int count=Math.Min(buffer.Length,input.Length-at);input.AsSpan(at,count).CopyTo(buffer);at+=count;return count;
-            },"tab5_ack",Environment.TickCount64+1000,CancellationToken.None);
+            },expected,Environment.TickCount64+1000,CancellationToken.None);
+        }
+        foreach(string expected in new[]{"tab5_metrics_ack","tab5_ack"}) {
+            try {
+                using var unexpected=Read("@AIBOT {\"version\":1,\"type\":\"tab5_host_required\"}\n",expected);
+                throw new Exception("Expired USB ownership was accepted as an acknowledgement");
+            } catch(Tab5UsbHostRequired) {}
         }
         foreach(int reason in new[]{0,1,2,3,4,5,6}) {
             int reads=0;var writes=new List<byte[]>();

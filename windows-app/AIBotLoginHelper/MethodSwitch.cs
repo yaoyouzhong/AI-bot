@@ -33,10 +33,44 @@ internal static class MethodSwitch
     private static bool LogonUi(nint hwnd, int session, out int pid)
     {
         Native.GetWindowThreadProcessId(hwnd, out uint value); pid = (int)value;
+        return IsLogonUiProcess(pid,session);
+    }
+
+    private static bool IsLogonUiProcess(int pid,int session)
+    {
         try { using var process = Process.GetProcessById(pid);
             return process.SessionId == session && string.Equals(process.MainModule?.FileName,
                 Path.Combine(Environment.SystemDirectory, "LogonUI.exe"), StringComparison.OrdinalIgnoreCase);
         } catch { return false; }
+    }
+
+    private static string? FocusedCredential(int session,string target)
+    {
+        Guard(session);
+        var element=AutomationElement.FocusedElement;
+        if(element is null)return null;
+        var current=element.Current;
+        if(!IsLogonUiProcess(current.ProcessId,session)||current.ControlType!=ControlType.Edit||
+           !current.IsPassword||!current.HasKeyboardFocus||!current.IsEnabled||current.IsOffscreen||
+           LoginMethodLabels.ClassifyFocusedEdit(current.Name)!=target)return null;
+        return string.Join(',',element.GetRuntimeId());
+    }
+
+    private static bool ConfirmFocusedCredential(int session,string target)
+    {
+        try {
+            string? first=FocusedCredential(session,target);
+            if(string.IsNullOrEmpty(first))return false;
+            // Confirm the same protected foreground field across independent observations.
+            for(int confirmed=1;confirmed<3;confirmed++){
+                Thread.Sleep(40);
+                if(FocusedCredential(session,target)!=first)return false;
+            }
+            Guard(session);
+            return true;
+        } catch(Exception ex) when(Transient(ex)){
+            return false;
+        }
     }
 
     internal static bool IsLabelContext(IEnumerable<int> ancestors) =>
@@ -182,16 +216,24 @@ internal static class MethodSwitch
         Trace("selection-completed-no-credentials", targets.Length, "pin"); return 0;
     }
 
-    internal static bool Prepare(int session, string target, Func<bool> valid)
+    internal static bool Prepare(int session, string target, Func<bool> valid,out bool focused)
     {
+        focused=false;
         if (target is not ("pin" or "password")) return false;
         requestValid = valid;
-        try { return Select(session, 1, target, 3500); }
+        try {
+            focused=ConfirmFocusedCredential(session,target);
+            return focused||Select(session,1,target,3500);
+        }
         finally { requestValid = null; }
     }
 
     internal static void SelfTest()
     {
+        if (LoginMethodLabels.ClassifyFocusedEdit("输入 PIN")!="pin" ||
+            LoginMethodLabels.ClassifyFocusedEdit("Enter your password")!="password" ||
+            LoginMethodLabels.ClassifyFocusedEdit("I forgot my PIN")!="other")
+            throw new Exception("Focused credential label guard failed");
         if (Detect(["options", "pin", "pin"]) != "pin" || Detect(["password"]) != "password" ||
             Detect(["pin", "password"]) != "unknown" || Detect(["options"]) != "unknown") throw new Exception("Method ambiguity guard failed");
         // A credential tile can be a ListItem. Its label identifies its method;

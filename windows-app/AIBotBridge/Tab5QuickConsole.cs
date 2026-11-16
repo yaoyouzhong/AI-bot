@@ -190,7 +190,7 @@ internal sealed class Tab5QuickConsole
             if(Confirm())return Result("existing_target_verified",true);
         }
         if(!Tab5DesktopActivation.IsInteractive())return Result("desktop_not_interactive");
-        using(var process=Process.Start(new ProcessStartInfo(Tab5CodexDesktop.ThreadUri(id)){UseShellExecute=true})) { }
+        if(!Tab5DesktopActivation.OpenCodexThread(id))return Result("protocol_dispatch_failed");
         int attempts=windows.Length==0?100:40;
         for(int attempt=0;attempt<attempts;attempt++) {
             if(!Tab5DesktopActivation.IsInteractive())return Result("desktop_not_interactive");

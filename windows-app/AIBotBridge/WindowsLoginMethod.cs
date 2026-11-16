@@ -22,9 +22,11 @@ internal static class WindowsLoginMethod
     internal static bool Prepare(LoginMethodKind method)
     {
         if(method==LoginMethodKind.Manual)return true;
+        // Keep the whole preparation inside TAB5's six-second credential wait.
+        var timer=Stopwatch.StartNew();
         if(method is not (LoginMethodKind.Pin or LoginMethodKind.Password)||WindowsSessionLock.Read()!=true||!Installed)return false;
         string nonce=Guid.NewGuid().ToString("N"),target=HelperContract.Target(method);
-        int session=Process.GetCurrentProcess().SessionId;long issued=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        int session=Process.GetCurrentProcess().SessionId;
         try {
             dynamic service=Activator.CreateInstance(Type.GetTypeFromProgID("Schedule.Service")!)!;
             service.Connect();dynamic folder=service.GetFolder("\\");dynamic task=folder.GetTask(HelperContract.TaskName);
@@ -32,16 +34,21 @@ internal static class WindowsLoginMethod
             if((string)definition.Principal.UserId is not ("SYSTEM" or "S-1-5-18")||definition.Principal.LogonType!=5||definition.Actions.Count!=1||
                 !string.Equals((string)definition.Actions.Item(1).Path,Path.Combine(HelperContract.InstallPath,"AIBotLoginHelper.exe"),StringComparison.OrdinalIgnoreCase)||
                 (string)definition.Actions.Item(1).Arguments!=HelperContract.Arguments)return false;
+            if(timer.ElapsedMilliseconds>=HelperContract.RequestLifetimeMs||WindowsSessionLock.Read()!=true)return false;
+            long issued=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             task.Run(new string[]{nonce,session.ToString(),target,issued.ToString(System.Globalization.CultureInfo.InvariantCulture)});
-            var timer=Stopwatch.StartNew();
             string result=Path.Combine(HelperContract.InstallPath,"result.json");
-            while(timer.ElapsedMilliseconds<4700&&HelperContract.Fresh(issued,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())) {
+            while(timer.ElapsedMilliseconds<HelperContract.RequestLifetimeMs&&HelperContract.Fresh(issued,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())) {
                 if(WindowsSessionLock.Read()!=true)return false;
                 if(File.Exists(result)) {
                     var info=new FileInfo(result);
                     if(info.Length<=2048&&HelperContract.Trusted(info)) {
-                        var reply=JsonSerializer.Deserialize<HelperReply>(File.ReadAllText(result));
-                        if(reply?.Nonce==nonce)return HelperContract.Accept(reply,nonce,session,target,issued,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                        using var stream=new FileStream(result,FileMode.Open,FileAccess.Read,FileShare.Read|FileShare.Delete);
+                        if(stream.Length<=2048) {
+                            var reply=JsonSerializer.Deserialize<HelperReply>(stream);
+                            if(reply?.Nonce==nonce)return timer.ElapsedMilliseconds<HelperContract.RequestLifetimeMs&&
+                                HelperContract.Accept(reply,nonce,session,target,issued,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                        }
                     }
                 }
                 Thread.Sleep(40);

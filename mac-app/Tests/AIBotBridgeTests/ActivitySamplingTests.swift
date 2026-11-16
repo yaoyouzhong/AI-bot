@@ -2,6 +2,22 @@ import XCTest
 @testable import AIBotBridge
 
 final class ActivitySamplingTests: XCTestCase {
+    func testVerifiedIdleTerminalSurvivesAgedLogsUntilNextSample() {
+        let queue = DispatchQueue(label: "claude-idle-test"), at = Date(timeIntervalSince1970: 1800000000)
+        let sampler = MacActivitySampler(queue: queue) { now in
+            if now == at {
+                return MacActivityTotals(claude: ToolState(state: "idle", ageSeconds: 920), claudeTerminalIdle: true)
+            }
+            return MacActivityTotals()
+        }
+        _ = sampler.capture(now: at)
+        queue.sync {}
+        XCTAssertEqual(sampler.capture(now: at.addingTimeInterval(1)).claude.state, "idle")
+        _ = sampler.capture(now: at.addingTimeInterval(6))
+        queue.sync {}
+        XCTAssertEqual(sampler.capture(now: at.addingTimeInterval(7)).claude.state, "offline")
+    }
+
     func testSlowActivityScanDoesNotBlockSnapshotsOrMusicAndCoalescesRequests() throws {
         let queue = DispatchQueue(label: "activity-test")
         let started = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)

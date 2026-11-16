@@ -62,6 +62,8 @@ internal static class HelperInstaller
         definition.RegistrationInfo.Description="AI-bot: on-demand PIN/password page selection for the paired device; no credential input or network.";
         definition.Principal.UserId="SYSTEM";definition.Principal.LogonType=5;definition.Principal.RunLevel=1;
         definition.Settings.Enabled=true;definition.Settings.Hidden=true;definition.Settings.AllowDemandStart=true;
+        // The caller is waiting for a sign-in result on the device.
+        definition.Settings.Priority=4;
         definition.Settings.ExecutionTimeLimit="PT15S";definition.Settings.MultipleInstances=2;
         definition.Settings.DisallowStartIfOnBatteries=false;definition.Settings.StopIfGoingOnBatteries=false;
         dynamic action=definition.Actions.Create(0);

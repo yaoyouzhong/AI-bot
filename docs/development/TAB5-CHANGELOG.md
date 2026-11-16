@@ -2,6 +2,16 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.322-ui (unreleased)
+
+### Apps
+
+- Group the app grid by status, desktop functions, and time and planning. Open the calendar and birthdays from the new bottom-right Calendar tile.
+
+### Computer control
+
+- Prioritize USB login preparation and check the authenticated lock state while sending keys. The control page resumes its normal updates after unlock.
+
 ## 0.2.321-ui - 2026-11-13
 
 ### Artwork and display

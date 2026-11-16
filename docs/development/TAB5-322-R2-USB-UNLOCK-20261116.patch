@@ -1,0 +1,246 @@
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+index 02c6975..1b0ae21 100644
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R1";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R2";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/firmware/main/computer_remote.c b/firmware/main/computer_remote.c
+index 8cd5425..dbe146c 100644
+--- a/firmware/main/computer_remote.c
++++ b/firmware/main/computer_remote.c
+@@ -11,7 +11,11 @@
+ #include "oneclick_remote.inc"
+ #include "unlock_history.h"
+ 
+-typedef struct {char id[37],operation[16],target[37],icon_revision[65];int value;link_kind link;} computer_job;
++typedef struct {char id[37],operation[16],target[37],icon_revision[65];
++    int value;
++    link_kind link;
++    bool lock_only;
++} computer_job;
+ static computer_remote_state *state;
+ static char cover_request[37];
+ static bool cover_confirmed;
+@@ -98,10 +102,12 @@ static void run(void *argument) {
+     if(reading){state->diagnostic_operation=probing?2:1;state->diagnostic_status=status;state->diagnostic_started=started;}
+     if(valid&&history_generation)atomic_store(&tab5_unlock_history_received,history_generation);
+     if(probing) {
+-        strcpy(cover_request,job->id);cover_started=started;
+-        cover_confirmed=valid&&flag(body,"locked")&&flag(body,"lockScreenCover");
+-        cover_display=valid&&flag(body,"locked")?display_value(body):-1;
+-        state->display_state=cover_display;state->display_updated=started;
++        if(!job->lock_only) {
++            strcpy(cover_request,job->id);cover_started=started;
++            cover_confirmed=valid&&flag(body,"locked")&&flag(body,"lockScreenCover");
++            cover_display=valid&&flag(body,"locked")?display_value(body):-1;
++            state->display_state=cover_display;state->display_updated=started;
++        }
+         state->busy=false;state->reading=false;state->generation++;
+         xSemaphoreGive(device_mutex);cJSON_Delete(reply);cJSON_Delete(request);free(job);vTaskDelete(NULL);return;
+     }
+@@ -141,16 +147,29 @@ static void run(void *argument) {
+     }
+     xSemaphoreGive(device_mutex);cJSON_Delete(reply);cJSON_Delete(request);free(job);vTaskDelete(NULL);
+ }
+-bool computer_remote_start(const char *id,const char *operation,int value,const char *target) {
++static bool start_job(const char *id,const char *operation,int value,const char *target,bool lock_only) {
+     if(!id||strlen(id)!=36||!operation||strlen(operation)>=16||(target&&strlen(target)>36))return false;
+     if(strcmp(operation,"status")&&strcmp(operation,"lock-screen")&&strcmp(operation,"volume")&&strcmp(operation,"mute")&&strcmp(operation,"lock")&&strcmp(operation,"launch")&&strcmp(operation,"media"))return false;
+-    link_kind link=rpc_link_select();if(link==LINK_NONE)return false;
++    link_kind link=rpc_link_select();if(link==LINK_NONE||(lock_only&&link!=LINK_USB))return false;
+     computer_job *job=calloc(1,sizeof(*job));if(!job)return false;
+-    strcpy(job->id,id);strcpy(job->operation,operation);if(target)strcpy(job->target,target);job->value=value;job->link=link;
++    strcpy(job->id,id);strcpy(job->operation,operation);
++    if(target)strcpy(job->target,target);
++    job->value=value;job->link=link;job->lock_only=lock_only;
+     xSemaphoreTake(device_mutex,portMAX_DELAY);
+     if(!state_init()||state->busy){xSemaphoreGive(device_mutex);free(job);return false;}
+     strcpy(job->icon_revision,state->icon_revision);
+     state->busy=true;state->reading=!strcmp(operation,"status")||!strcmp(operation,"lock-screen");state->generation++;xSemaphoreGive(device_mutex);
+-    if(xTaskCreate(run,"computer-control",6144,job,4,NULL)!=pdPASS){xSemaphoreTake(device_mutex,portMAX_DELAY);state->busy=false;state->reading=false;state->ready=false;strcpy(state->message,"电脑控制暂时不可用，请重试");state->generation++;xSemaphoreGive(device_mutex);free(job);return false;}
++    if(xTaskCreate(run,"computer-control",6144,job,4,NULL)!=pdPASS){
++        xSemaphoreTake(device_mutex,portMAX_DELAY);
++        state->busy=false;state->reading=false;state->generation++;
++        if(!lock_only){state->ready=false;strcpy(state->message,"电脑控制暂时不可用，请重试");}
++        xSemaphoreGive(device_mutex);free(job);return false;
++    }
+     return true;
+ }
++bool computer_remote_start(const char *id,const char *operation,int value,const char *target) {
++    return start_job(id,operation,value,target,false);
++}
++bool computer_remote_start_usb_lock_poll(const char *id) {
++    return start_job(id,"lock-screen",0,NULL,true);
++}
+diff --git a/firmware/main/computer_remote.h b/firmware/main/computer_remote.h
+index f4df942..8736aff 100644
+--- a/firmware/main/computer_remote.h
++++ b/firmware/main/computer_remote.h
+@@ -36,3 +36,6 @@ bool computer_remote_cover_state(const char *request_id,bool *cover);
+ bool computer_remote_display_state(const char *request_id,int *display);
+ // No retry or transport failover after sending a side-effecting operation.
+ bool computer_remote_start(const char *request_id,const char *operation,int value,const char *target);
++// Refresh the authenticated USB lock sample without replacing the explicit
++// request-bound display evidence used to admit the first HID report.
++bool computer_remote_start_usb_lock_poll(const char *request_id);
+diff --git a/firmware/main/ui_computer.h b/firmware/main/ui_computer.h
+index 4470807..353d9a9 100644
+--- a/firmware/main/ui_computer.h
++++ b/firmware/main/ui_computer.h
+@@ -7,7 +7,7 @@ static computer_remote_state preview_computer;
+ bool computer_remote_oneclick_enabled(void){return preview_computer.one_click_unlock;}
+ bool computer_remote_lock_state(bool *locked,int64_t *updated){int64_t now=esp_timer_get_time()/1000;bool valid=preview_computer.lock_known&&now>=preview_computer.lock_updated&&now-preview_computer.lock_updated<6500;*locked=valid&&preview_computer.locked;*updated=preview_computer.lock_updated;return valid;}
+ bool computer_remote_screen_state(int *display){*display=preview_computer.ready&&esp_timer_get_time()/1000-preview_computer.updated<4000?preview_display:-1;return *display>=0;}
+-static unsigned preview_computer_commands,preview_status_reads;
++static unsigned preview_computer_commands,preview_status_reads,preview_usb_lock_polls;
+ static char preview_computer_op[16],preview_computer_target[37];
+ void computer_remote_get(computer_remote_state *out){*out=preview_computer;}
+ void computer_remote_diagnostic(unsigned *operation,int *status,int64_t *started){*operation=preview_computer.diagnostic_operation;*status=preview_computer.diagnostic_status;*started=preview_computer.diagnostic_started;}
+@@ -23,6 +23,12 @@ bool computer_remote_start(const char *id,const char *op,int value,const char *t
+     preview_computer.updated=esp_timer_get_time()/1000;preview_computer.generation++;
+     return true;
+ }
++bool computer_remote_start_usb_lock_poll(const char *id) {
++    (void)id;
++    if(preview_computer.busy||rpc_link_select()!=LINK_USB)return false;
++    preview_usb_lock_polls++;preview_computer.lock_updated=esp_timer_get_time()/1000;preview_computer.generation++;
++    return true;
++}
+ #endif
+ static lv_obj_t *computer_status,*computer_slider,*computer_volume,*computer_volume_icon,*computer_volume_slash,*computer_mute,*computer_lock,*computer_launch[4],*computer_launch_hint;
+ static lv_obj_t *music_controls,*music_control_buttons[3],*music_control_hint;
+@@ -31,7 +37,7 @@ static computer_remote_state *computer_view;
+ static lv_obj_t *computer_launch_icon[4],*computer_launch_symbol[4];
+ static lv_image_dsc_t computer_launch_images[4];
+ static uint8_t (*computer_launch_pixels)[32*32*4];
+-static int64_t computer_poll_at,computer_message_until;
++static int64_t computer_poll_at,computer_usb_lock_poll_at,computer_message_until;
+ static bool computer_adjusting;
+ static char computer_action_notice[160];
+ typedef struct {
+@@ -236,14 +242,24 @@ static void computer_refresh(void) {
+         }
+     }
+     bool confirming_unlock=unlock_overlay&&unlock_sent&&!unlock_success_until&&now-unlock_submitted_at<10000;
+-    int poll_interval=confirming_unlock?500:2000;
++    bool local_usb_unlock=unlock_overlay&&!unlock_success_until&&unlock_using_usb&&!unlock_host&&!unlock_wifi&&!unlock_pairing_mode;
++    bool usb_grant_pending=unlock_auto_requested&&!unlock_auto_consumed&&!unlock_auto_failed;
++    // Keep the mailbox available for explicit opening probes and the single
++    // credential grant. unlock_probe still refreshes state when it needs to.
++    if(local_usb_unlock&&(unlock_preparing||usb_grant_pending))return;
++    bool usb_lock_poll=local_usb_unlock&&confirming_unlock;
++    int poll_interval=usb_lock_poll?250:confirming_unlock?500:2000;
++    int64_t *poll_at=usb_lock_poll?&computer_usb_lock_poll_at:&computer_poll_at;
++    int64_t last_poll=usb_lock_poll&&*poll_at<unlock_submitted_at?unlock_submitted_at:*poll_at;
+     // Status polls never overwrite a held slider or submit a command. Keeping
+     // them running prevents a stale drag from permanently disabling controls.
+     host_unlock_state local_unlock;host_unlock_remote_get(&local_unlock);
+     // The active host-side unlock renews a short lease on this same mailbox.
+     // Resume status polling after completion for independent desktop confirmation.
+-    if(!computer_pending_click.active&&!local_unlock.busy&&(current_page==14||current_page==5||unlock_history_pending())&&computer_connected()&&computer_supported()&&!computer_view->busy&&(confirming_unlock||now>=computer_message_until)&&now-computer_poll_at>=poll_interval) {
+-        char id[37];codex_uuid(id);computer_poll_at=now;computer_remote_start(id,"status",0,NULL);
++    if(!computer_pending_click.active&&!local_unlock.busy&&(current_page==14||current_page==5||unlock_history_pending())&&computer_connected()&&computer_supported()&&!computer_view->busy&&(confirming_unlock||now>=computer_message_until)&&now-last_poll>=poll_interval) {
++        char id[37];codex_uuid(id);*poll_at=now;
++        if(usb_lock_poll)computer_remote_start_usb_lock_poll(id);
++        else computer_remote_start(id,"status",0,NULL);
+     }
+ }
+ static void computer_mute_slash_draw(lv_event_t *event) {
+diff --git a/tests/ui-preview/computer_cover_test.c b/tests/ui-preview/computer_cover_test.c
+index 8295083..674304e 100644
+--- a/tests/ui-preview/computer_cover_test.c
++++ b/tests/ui-preview/computer_cover_test.c
+@@ -136,6 +136,30 @@ int main(void){
+         assert(!computer_remote_lock_state(&locked,&sampled)&&!locked); // Age includes RPC time.
+     }
+     puts("COMMON_LOCK_CACHE_OK USB_WIFI_BLE probe_refreshes_independent_timestamp ordinary_failure_does_not_erase_or_renew 6500ms_expiry unknown_invalidates delayed_reply_no_renew older_sample_no_overwrite");
++    const char *poll_id="22222222-2222-4222-8222-222222222222";
++    selected=LINK_USB;
++    response="{\"version\":1,\"locked\":true,\"displayState\":1,\"volumeAvailable\":true,\"volume\":42}";
++    assert(computer_remote_start(id,"status",0,NULL));
++    assert(computer_remote_start(id,"lock-screen",0,NULL));
++    int64_t full_state_at=state->updated,display_at=state->display_updated;
++    int64_t sampled=0;bool locked=false;
++    clock_ms+=100;
++    response="{\"version\":1,\"locked\":false}";
++    assert(computer_remote_start_usb_lock_poll(poll_id));
++    assert(computer_remote_lock_state(&locked,&sampled)&&!locked&&sampled==clock_ms);
++    assert(computer_remote_display_state(id,&display)&&display==1);
++    assert(!computer_remote_display_state(poll_id,&display)&&display==-1);
++    assert(state->ready&&state->volume_available&&state->volume==42&&state->updated==full_state_at&&state->display_updated==display_at);
++    clock_ms+=100;int64_t unlocked_at=sampled;response_status=503;response="null";
++    assert(computer_remote_start_usb_lock_poll(poll_id));
++    assert(computer_remote_lock_state(&locked,&sampled)&&!locked&&sampled==unlocked_at);
++    fail_task=true;assert(!computer_remote_start_usb_lock_poll(poll_id)&&state->ready&&!state->busy&&!state->reading);fail_task=false;
++    before=probes;
++    for(int channel=0;channel<3;channel++)if(channel!=LINK_USB){
++        selected=(link_kind)channel;assert(!computer_remote_start_usb_lock_poll(poll_id));
++    }
++    assert(probes==before);
++    puts("USB_LOCK_POLL_OK lock_timestamp updated_only_on_valid_reply request_bound_HID_evidence_retained full_state_untouched no_transport_fallback");
+     unsigned words[UNLOCK_HISTORY_WORDS]={0,8,10000,1200,50,400,800,0x10000,300};unlock_history_append(words);expect_history=true;
+     for(int link=0;link<3;link++) {
+         selected=(link_kind)link;atomic_store(&tab5_unlock_history_received,0);
+diff --git a/tests/ui-preview/preview.c b/tests/ui-preview/preview.c
+index 45dd251..6aefbba 100644
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2845,6 +2845,9 @@ int main(void) {
+     if(getenv("TAB5_COMPUTER_CLICK_ONLY")) {
+         #include "computer_click_queue_test.h"
+     }
++    if(getenv("TAB5_USB_LOCK_POLL_ONLY")) {
++        #include "usb_lock_poll_test.h"
++    }
+     if(getenv("TAB5_HOST_UNLOCK_ONLY")) {
+         #include "host_unlock_ui_test.h"
+     }
+diff --git a/tests/ui-preview/usb_lock_poll_test.h b/tests/ui-preview/usb_lock_poll_test.h
+new file mode 100644
+index 0000000..f1c59c3
+--- /dev/null
++++ b/tests/ui-preview/usb_lock_poll_test.h
+@@ -0,0 +1,39 @@
++    cJSON *health=item(shown,"connectionHealth");
++    if(!health){health=cJSON_CreateObject();cJSON_AddItemToObject(shown,"connectionHealth",health);}
++    cJSON_AddNumberToObject(health,"computerControlVersion",1);
++    preview_usb_available=preview_usb_connected=true;preview_rpc_selection=LINK_USB;
++    preview_now_us=10000000;last_received=10000;
++    preview_keyboard=(ble_keyboard_state){.connected=true,.secure=true,.subscribed=true,.bridge_verified=true,.ready=true,.connection=301};
++    preview_computer=(computer_remote_state){.ready=true,.lock_known=true,.locked=true,.one_click_unlock=true,.updated=last_received,.lock_updated=last_received};
++    #define USB_POLL_ADVANCE(ms) do {preview_now_us+=(ms)*1000;last_received=preview_now_us/1000;computer_refresh();} while(0)
++    page(14);computer_refresh();
++    preview_oneclick_result=1;
++    unsigned statuses=preview_status_reads,probes=preview_cover_reads,polls=preview_usb_lock_polls;
++    unsigned grants=preview_oneclick_requests,submissions=preview_unlock_submissions;
++    computer_poll_at=last_received-2000;
++    unlock_open();computer_refresh();
++    for(int i=0;i<18&&!unlock_auto_requested;i++)USB_POLL_ADVANCE(100);
++    assert(unlock_auto_requested&&preview_oneclick_requests==grants+1&&preview_cover_reads>probes);
++    assert(preview_status_reads==statuses&&preview_usb_lock_polls==polls&&preview_unlock_submissions==submissions);
++    USB_POLL_ADVANCE(700);
++    assert(preview_status_reads==statuses&&preview_usb_lock_polls==polls&&!unlock_sent);
++    probes=preview_cover_reads;
++    preview_oneclick_state=2;
++    USB_POLL_ADVANCE(0);USB_POLL_ADVANCE(1);
++    assert(unlock_sent&&preview_unlock_submissions==submissions+1&&preview_cover_reads==probes+1);
++    char proof[37];strcpy(proof,preview_cover_request);
++    USB_POLL_ADVANCE(249);assert(preview_usb_lock_polls==polls);
++    USB_POLL_ADVANCE(1);assert(preview_usb_lock_polls==polls+1&&preview_status_reads==statuses);
++    assert(!strcmp(proof,preview_cover_request)&&!unlock_success_until);
++    preview_keyboard.busy=false;preview_keyboard.finished=true;
++    preview_computer.locked=false;preview_computer.lock_updated=unlock_submitted_at;
++    USB_POLL_ADVANCE(250);assert(preview_usb_lock_polls==polls+2&&!unlock_success_until);
++    USB_POLL_ADVANCE(100);assert(unlock_success_until);
++    assert(preview_status_reads==statuses+1&&preview_unlock_submissions==submissions+1&&preview_oneclick_requests==grants+1);
++    unlock_close();
++    computer_poll_at=last_received;
++    USB_POLL_ADVANCE(1999);assert(preview_status_reads==statuses+1);
++    USB_POLL_ADVANCE(1);assert(preview_status_reads==statuses+2);
++    #undef USB_POLL_ADVANCE
++    puts("USB_UNLOCK_POLL_UI_OK opening_and_grant_priority single_HID fresh_unlocked_proof 250ms_poll ordinary_status_resumes");
++    return 0;

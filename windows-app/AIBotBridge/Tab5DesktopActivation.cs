@@ -9,6 +9,8 @@ internal static class Tab5DesktopActivation
 {
     internal sealed record Calls(Func<nint,bool> Activate,Func<nint> Foreground,
         Func<bool> InputHeld,Func<uint> TapAlt,Action ReleaseAlt,Func<bool>? Interactive=null);
+    internal sealed record ThreadLaunchCalls(Func<bool> Interactive,Func<bool> Elevated,
+        Func<string,bool> OpenInExplorer,Func<string,bool> OpenDirect);
     internal readonly record struct Result(bool Foreground,bool Tapped,bool InputBlocked,bool PartialTap=false);
     internal enum InputAvailability { Ready, ForegroundPending, DesktopUnavailable, InputActive }
     private static readonly int[] HeldKeys=[0x10,0x11,0x12,0x5B,0x5C,0x01,0x02];
@@ -16,6 +18,38 @@ internal static class Tab5DesktopActivation
         ()=>HeldKeys.Any(key=>(GetAsyncKeyState(key)&0x8000)!=0),
         ()=>SendInput(2,[Key(false),Key(true)],Marshal.SizeOf<Input>()),
         ()=>SendInput(1,[Key(true)],Marshal.SizeOf<Input>()),IsInteractive);
+    private static readonly ThreadLaunchCalls ThreadLauncher=new(IsInteractive,()=>BridgeElevation.IsAdministrator,OpenInExplorer,OpenDirect);
+    internal static bool OpenCodexThread(string id,ThreadLaunchCalls? calls=null) {
+        calls??=ThreadLauncher;
+        if(!Guid.TryParseExact(id,"D",out _)||!calls.Interactive())return false;
+        string uri=Tab5CodexDesktop.ThreadUri(id);
+        return (calls.Elevated()?calls.OpenInExplorer:calls.OpenDirect)(uri);
+    }
+    private static bool OpenDirect(string uri) {
+        try {
+            using var process=Process.Start(new ProcessStartInfo(uri){UseShellExecute=true});
+            return true;
+        }catch(Exception ex) when(ex is InvalidOperationException or System.ComponentModel.Win32Exception){return false;}
+    }
+    private static bool OpenInExplorer(string uri) {
+        try {
+            var shellType=Type.GetTypeFromProgID("Shell.Application");
+            if(shellType is null||Activator.CreateInstance(shellType) is not {} shell)return false;
+            dynamic windows=((dynamic)shell).Windows();
+            object location=0,root=0;
+            int desktopHandle;
+            dynamic? desktop=windows.FindWindowSW(ref location,ref root,8,out desktopHandle,1);
+            if(desktop is null||desktopHandle==0)return false;
+            GetWindowThreadProcessId(GetShellWindow(),out uint shellPid);
+            GetWindowThreadProcessId((nint)desktopHandle,out uint desktopPid);
+            if(shellPid==0||desktopPid!=shellPid||!IsInteractive())return false;
+            // The existing desktop's shell resolves the registered handler in
+            // the interactive user's context, including packaged Codex.
+            desktop.Document.Application.ShellExecute(uri,"","","open",1);
+            return true;
+        }catch(Exception ex) when(ex is COMException or InvalidOperationException or System.ComponentModel.Win32Exception or
+            Microsoft.CSharp.RuntimeBinder.RuntimeBinderException){return false;}
+    }
     // UOI_IO checks whether our desktop currently receives input. Lock screens,
     // secure desktops and disconnected sessions must not trigger activation.
     private static bool InputDesktopActive()=>
@@ -62,6 +96,7 @@ internal static class Tab5DesktopActivation
     [StructLayout(LayoutKind.Sequential)]private struct KeyboardInput {public ushort Vk,Scan;public uint Flags,Time;public UIntPtr Extra;}
     [StructLayout(LayoutKind.Sequential)]private struct MouseInput {public int X,Y;public uint Data,Flags,Time;public UIntPtr Extra;}
     [DllImport("user32.dll")]private static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")]private static extern nint GetShellWindow();
     [DllImport("user32.dll")]private static extern uint GetWindowThreadProcessId(nint window,out uint pid);
     [DllImport("kernel32.dll")]private static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")]private static extern nint GetThreadDesktop(uint threadId);

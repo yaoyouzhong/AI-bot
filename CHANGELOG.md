@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Recognize open Claude Code terminals waiting for input. The companion can show Idle before the first task and after long periods without activity.
+- Windows renews USB host ownership through acknowledged status updates and reauthenticates on the same serial connection when the device requests it. Background metrics and asset transfers yield while the TAB5 control page is open.
+- The USB status sender uses already published data so catalog and music updates cannot hold up computer-control requests on the same serial link.
+- Windows one-click unlock directly confirms a focused PIN or password field on the secure desktop. The login helper uses interactive task priority, with its wait budget aligned to the TAB5 credential request.
+- Codex Direct hands conversation links to the interactive user's Explorer when the Windows bridge is elevated, then verifies the conversation in the foreground window.
+- The TAB5 overview reads Codex activity from the session snapshot's state fields, including newer snapshots that use the same fields.
+
 ## 0.6.23 - 2026-11-16
 
 This release updates the Apple Silicon Mac bridge only. Windows stays at 0.6.21, TAB5 at 0.2.321-ui, and ESP8266 at 0.5.8. No firmware update is needed.

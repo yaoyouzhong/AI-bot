@@ -1,7 +1,7 @@
 namespace AIBotBridge;
 
 internal sealed record ActivitySample(ToolState Codex,
-    IReadOnlyDictionary<string, LocalProviderUsage> Usage);
+    IReadOnlyDictionary<string, LocalProviderUsage> Usage, long? ClaudeIdleObservedAt = null);
 
 // Readers never acquire the scanner's locks or perform filesystem I/O.
 internal sealed class BackgroundActivityCache(Func<ActivitySample> scan)

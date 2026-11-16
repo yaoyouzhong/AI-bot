@@ -148,24 +148,29 @@ internal sealed partial class Tab5Service
     {
         using var timer=new PeriodicTimer(TimeSpan.FromMilliseconds(UsbMetricsTracePath is null?250:UsbMetricsTraceIntervalMs));
         while(await timer.WaitForNextTickAsync(token)) {
-            if(_usbTelemetryVersion!=1||BackgroundTransferPaused)continue;
+            if(!CanSendUsbMetrics)continue;
             if(!await TryUsbMetricsAsync(_usbGate,async ()=> {
                 try {
                     // Capture after ownership: a queued old sample/session must
                     // not delay RPC or be sent after a reconnect. History retains
                     // skipped samples for the next successful metrics frame.
-                    if(_usbTelemetryVersion!=1||_usbPort is not {} port||UsbMetricsFrame() is not {} frame)return;
+                    if(!CanSendUsbMetrics||!UsbHostLeaseHasMargin()||_usbPort is not {} port||UsbMetricsFrame() is not {} frame)return;
                     await SendUsbMetricsAsync(port,frame,token);
                 }catch(OperationCanceledException) when(token.IsCancellationRequested){throw;}
                 catch(Exception ex) when(Tab5UsbRecovery.IsDisconnect(ex,token)) {
+                     if(await TryRecoverUsbHostAsync(ex,_store.Current,token))return;
                     RecordUsbFailure("metrics",ex);CloseUsbPort();_usbStatus="USB 已断开，等待重新连接";
                 }
             },token))Interlocked.Increment(ref _usbMetricsDeferred);
         }
     }
+    // The control page uses the normal status stream and needs prompt mailbox
+    // replies for each lock-screen probe during unlock.
+    private bool CanSendUsbMetrics=>_usbTelemetryVersion==1&&!BackgroundTransferPaused&&
+        !_usbOnComputerControlPage&&_usbRpcPump?.ExchangeActive!=true;
     internal static async Task<bool> TryUsbMetricsAsync(SemaphoreSlim gate,Func<Task> send,CancellationToken token) {
         if(!await gate.WaitAsync(0,token))return false;
         try {await send();return true;}finally{gate.Release();}
     }
-    internal byte[]? UsbMetricsFrame()=>BackgroundTransferPaused||CurrentFrame is null?null:MetricsFrame();
+    internal byte[]? UsbMetricsFrame()=>BackgroundTransferPaused||FreshPublication() is null?null:MetricsFrame();
 }

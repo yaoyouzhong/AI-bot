@@ -8,15 +8,17 @@ namespace AIBot.LoginMethod;
 
 internal enum LoginMethodKind : byte { Manual, Pin, Password }
 internal sealed record HelperManifest(int Version, string OwnerSid, Dictionary<string,string> Files);
-internal sealed record HelperReply(int Version, string Nonce, int Session, string Target, bool Ready, long CompletedUtcMs, int ElapsedMs, string Status);
+internal sealed record HelperReply(int Version, string Nonce, int Session, string Target, bool Ready, long CompletedUtcMs, int ElapsedMs, string Status,
+    string? Evidence=null);
 internal static class HelperContract
 {
     internal const string TaskName = "AIBot-LoginMethodHelper";
     internal const string Arguments = "--prepare $(Arg0) $(Arg1) $(Arg2) $(Arg3)";
+    internal const int RequestLifetimeMs = 5500;
     internal static readonly string InstallPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AI-bot-LoginHelper");
     internal static readonly string[] Files = ["AIBotLoginHelper.exe", "AIBotLoginHelper.dll", "AIBotLoginHelper.deps.json", "AIBotLoginHelper.runtimeconfig.json"];
     internal static string Target(LoginMethodKind kind) => kind switch { LoginMethodKind.Pin => "pin", LoginMethodKind.Password => "password", _ => "manual" };
-    internal static bool Fresh(long issued, long now) => issued > 0 && now >= issued - 1000 && now - issued < 5000;
+    internal static bool Fresh(long issued, long now) => issued > 0 && now >= issued - 1000 && now - issued < RequestLifetimeMs;
     internal static bool Accept(HelperReply? reply, string nonce, int session, string target, long issued, long now) =>
         reply is {Version:1,Ready:true,Status:"ready"} && reply.Nonce == nonce && reply.Session == session && reply.Target == target &&
         reply.CompletedUtcMs >= issued && reply.CompletedUtcMs <= now + 1000 && now - reply.CompletedUtcMs < 1500 && Fresh(issued, now);

@@ -14,6 +14,8 @@ internal sealed partial class Tab5Service : IDisposable
     private int _voiceRequests;
     private volatile Tab5BleVoice? _usbRpcPump;
     private readonly Tab5VoiceTransportPriority _voiceTransportPriority=new();
+    private const int UsbComputerControlPage = 14;
+    private volatile bool _usbOnComputerControlPage;
     internal bool BackgroundAssetTransferPaused=>BackgroundTransferPaused||(_voice as Tab5VoiceHost)?.Busy==true||
         (_voice is not Tab5VoiceHost {SettingsEnabled:false}&&_voiceTransportPriority.Active)||_usbRpcPump?.ExchangeActive==true;
     internal CancellationToken LifetimeToken=>_lifetime.Token;
@@ -220,7 +222,7 @@ internal sealed partial class Tab5Service : IDisposable
     private string WifiConnectionStatus=>DescribeWifi(Environment.TickCount64,Interlocked.Read(ref _wifiRequestAt),Interlocked.Read(ref _wifiReportAt),_wifiReportedConnected);
     private volatile string _voiceAuthStatus="尚无语音请求";
     private volatile string _unlockHistory="解锁记录：等待设备回传";
-    internal string DiagnosticSummary => ProfileDiagnostic+"\n"+_unlockHistory+"\nWi-Fi 解锁："+(_wifiUnlock?.Diagnostic??"尚无请求")+GalleryDiagnostic+TcpUploadDiagnostic+GalleryHostDiagnostic+"\n"+ConnectionSummary+"\n"+Summary+"\n"+DeviceHealthDiagnostic+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\n语音会话："+(_voice as Tab5VoiceHost)?.Diagnostic+"\nCodex 直达："+Tab5QuickConsole.NavigationDiagnostic+"\nCodex 草稿："+Tab5CodexComposer.Diagnostic+"\nCodex 快捷发送："+Tab5CodexComposer.SubmitDiagnostic+"\nCodex 清空："+Tab5CodexComposer.ClearDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n历史读取："+_codexTasks.ReadDiagnostic+"; "+_readBatchDiagnostic+"\nHTTP 回复读取："+_httpReadDiagnostic+"\n蓝牙语音："+_bleVoiceDiagnostic+"\n蓝牙 RPC："+_bleRpcDiagnostic+"\n蓝牙最近中断："+_bleLastFailure+"\nUSB RPC："+_usbRpcTiming+"\nUSB 连接阶段："+UsbConnectionDiagnostic+"\nUSB 调度：otaActive="+BackgroundTransferPaused+"; rpcGateWaitMs="+Interlocked.Read(ref _usbRpcGateWaitMs)+"; rpcGateWaitPeakMs="+Interlocked.Read(ref _usbRpcGateWaitPeakMs)+"; metricsDeferred="+Interlocked.Read(ref _usbMetricsDeferred)+"\nUSB 状态恢复：attempts="+Interlocked.Read(ref _usbStatusRecoveryAttempts)+"; confirmed="+Interlocked.Read(ref _usbStatusRecoverySucceeded)+"\nUSB RPC 首次中断："+_usbRpcFirstFailure+"\nUSB RPC 最近中断："+_usbRpcLastFailure+"\nUSB 控制最近中断："+_usbControlFailure+"\n图片上传："+_imageUploadDiagnostic+"\n固件传输："+_otaTransferDiagnostic+"\n电脑升级："+RemoteOtaStatus+"\n启动核验："+_upgradeDiagnostic+"\nWi-Fi 临时功耗状态："+_wifiPowerDiagnostic+"\n蓝牙升级预检："+_bleOtaProbeDiagnostic+"\n蓝牙预检射频："+_bleRadioDiagnostic+"\n蓝牙临时 Wi-Fi 隔离："+_wifiIsolationDiagnostic+"\n蓝牙预检分段："+_bleProbeTrace.Json+"\n蓝牙参数对照："+_bleQueueComparison.Json+"\n传输测速："+_benchmarkDiagnostic+"\n封面传输："+_assets.Diagnostic;
+    internal string DiagnosticSummary => ProfileDiagnostic+"\n"+_unlockHistory+"\nWi-Fi 解锁："+(_wifiUnlock?.Diagnostic??"尚无请求")+GalleryDiagnostic+TcpUploadDiagnostic+GalleryHostDiagnostic+"\n"+ConnectionSummary+"\n"+Summary+"\n"+DeviceHealthDiagnostic+"\n语音鉴权："+_voiceAuthStatus+"；键盘诊断："+_hidDiagnostic+"\n语音会话："+(_voice as Tab5VoiceHost)?.Diagnostic+"\nCodex 直达："+Tab5QuickConsole.NavigationDiagnostic+"\nCodex 草稿："+Tab5CodexComposer.Diagnostic+"\nCodex 快捷发送："+Tab5CodexComposer.SubmitDiagnostic+"\nCodex 清空："+Tab5CodexComposer.ClearDiagnostic+"\nCodex 发送："+_codexTasks.SubmitDiagnostic+"\n蓝牙传输："+_bleDiagnostic+"\n历史读取："+_codexTasks.ReadDiagnostic+"; "+_readBatchDiagnostic+"\nHTTP 回复读取："+_httpReadDiagnostic+"\n蓝牙语音："+_bleVoiceDiagnostic+"\n蓝牙 RPC："+_bleRpcDiagnostic+"\n蓝牙最近中断："+_bleLastFailure+"\nUSB RPC："+_usbRpcTiming+"\nUSB 连接阶段："+UsbConnectionDiagnostic+"\nUSB 调度：otaActive="+BackgroundTransferPaused+"; rpcGateWaitMs="+Interlocked.Read(ref _usbRpcGateWaitMs)+"; rpcGateWaitPeakMs="+Interlocked.Read(ref _usbRpcGateWaitPeakMs)+"; metricsDeferred="+Interlocked.Read(ref _usbMetricsDeferred)+"\nUSB 主机认证恢复："+_usbHostRecovery+"\nUSB 状态恢复：attempts="+Interlocked.Read(ref _usbStatusRecoveryAttempts)+"; confirmed="+Interlocked.Read(ref _usbStatusRecoverySucceeded)+"\nUSB RPC 首次中断："+_usbRpcFirstFailure+"\nUSB RPC 最近中断："+_usbRpcLastFailure+"\nUSB 控制最近中断："+_usbControlFailure+"\n图片上传："+_imageUploadDiagnostic+"\n固件传输："+_otaTransferDiagnostic+"\n电脑升级："+RemoteOtaStatus+"\n启动核验："+_upgradeDiagnostic+"\nWi-Fi 临时功耗状态："+_wifiPowerDiagnostic+"\n蓝牙升级预检："+_bleOtaProbeDiagnostic+"\n蓝牙预检射频："+_bleRadioDiagnostic+"\n蓝牙临时 Wi-Fi 隔离："+_wifiIsolationDiagnostic+"\n蓝牙预检分段："+_bleProbeTrace.Json+"\n蓝牙参数对照："+_bleQueueComparison.Json+"\n传输测速："+_benchmarkDiagnostic+"\n封面传输："+_assets.Diagnostic;
     private string? _reservedPort;
     internal string CrashDiagnostic=>_crashes.Snapshot;
     // All callers hold _usbGate. Keeping DTR and the CDC handle stable avoids
@@ -232,9 +234,10 @@ internal sealed partial class Tab5Service : IDisposable
     }
     private void CloseUsbPort() {
         _usbHostBinding=_usbHostClaimed=false;_usbHostNonce=_usbHostEndpoint="";
-        _usbHostFullStatusAt=0;
+        _usbHostFullStatusAt=_usbHostClaimAt=_usbHostRecoveryAt=0;
         Interlocked.Increment(ref _usbGeneration);
         Interlocked.Exchange(ref _usbAckAt,0);
+        _usbOnComputerControlPage=false;
         _usbDataActive="";
         _usbState.Reset();_usbDelta=false;
         _usbStatusMaximum=Tab5Protocol.MaximumFrame;
@@ -350,11 +353,14 @@ internal sealed partial class Tab5Service : IDisposable
         }
     }
     internal byte[]? CurrentFrameForMaximum(int maximum) {
+        RefreshTransferPublication();
+        return FreshPublication()?.ForMaximum(maximum);
+    }
+    private void RefreshTransferPublication() {
         lock(_publishLock) {
             if(BackgroundAssetTransferPaused&&_publishedStatus?.MayContainResource==true&&_lastSnapshot is {} snapshot)Publish(snapshot);
         }
         RefreshMusicFrame();
-        return FreshPublication()?.ForMaximum(maximum);
     }
     internal byte[]? Discover(byte[] packet,System.Net.IPAddress peer) {
         var pair=_store.Current;var host=_host;var port=_port;
@@ -678,6 +684,8 @@ internal sealed partial class Tab5Service : IDisposable
                     // SetupAPI enumeration must not monopolize the serial gate
                     // while firmware fragments or interactive RPCs are flowing.
                     var candidates=await Task.Run(UsbDevices,token);
+                    Stage("publication");
+                    if(!_usbOnComputerControlPage&&_usbRpcPump?.ExchangeActive!=true)RefreshTransferPublication();
                     Stage("gate");
                     await _usbGate.WaitAsync(token);gateHeld=true;
                     Stage("discover_identity");
@@ -700,9 +708,15 @@ internal sealed partial class Tab5Service : IDisposable
                         }
                         if(!device.Identity.Equals(pairing.UsbIdentity,StringComparison.OrdinalIgnoreCase))_store.Pair(pairing.DeviceId,device.Identity);
                         Stage("host");
+                        // Accepted status renews USB ownership. If the device has
+                        // already expired it, recover from its explicit reply.
                         await ClaimUsbHostAsync(port,pairing,token);
                         if(!_usbHostBinding&&_host is not null) Send(port,new {version=1,type="tab5_host",host=_host,port=_port});
-                        if(CurrentFrameForMaximum(_usbStatusMaximum) is { } frame) {
+                        // Poll the immutable publication under the serial gate.
+                        // A slow catalog or music refresh must leave USB RPC free.
+                        var status=FreshPublication();
+                        if(status is not null&&(!status.MayContainResource||!BackgroundAssetTransferPaused)) {
+                            byte[] frame=status.ForMaximum(_usbStatusMaximum);
                             bool refreshHost=Tab5HostBinding.NeedsFullStatus(_usbHostBinding,Environment.TickCount64,_usbHostFullStatusAt);
                             byte[] wire=_usbState.Wire(frame,_usbPacked,_usbDelta&&!refreshHost,_usbStatusMaximum);
                             using var sent=JsonDocument.Parse(frame);
@@ -720,7 +734,7 @@ internal sealed partial class Tab5Service : IDisposable
                                 ack.RootElement.GetProperty("sequence").GetInt64()!=sent.RootElement.GetProperty("sequence").GetInt64()) throw new IOException("TAB5 数据确认不匹配。");
                             ObserveOtaRebootUsb(ack.RootElement,statusSequence,statusStarted,Environment.TickCount64);
                             _usbState.Confirm(frame,result.Retried?frame:wire);
-                            if(refreshHost||result.Retried)_usbHostFullStatusAt=Environment.TickCount64;
+                            if(refreshHost||result.Retried)_usbHostFullStatusAt=statusStarted;
                             if(result.Retried)Interlocked.Increment(ref _usbStatusRecoverySucceeded);
                             _usbPacked=ack.RootElement.TryGetProperty("usbPacked",out var packed)&&packed.TryGetInt32(out int pv)&&pv==1;
                             _usbRpcVersion=ack.RootElement.TryGetProperty("rpcVersion",out var rpcVersion)&&rpcVersion.TryGetInt32(out var rv)?rv:0;
@@ -729,6 +743,8 @@ internal sealed partial class Tab5Service : IDisposable
                             _usbRxBatch=_usbRpcBinary&&Tab5UsbShortPacket.SupportsBatch(ack.RootElement);
                             _usbRpcWait=_usbRpcBinary?Tab5UsbShortPacket.ReadyWait(ack.RootElement):0;
                             _usbTelemetryVersion=ack.RootElement.TryGetProperty("telemetryVersion",out var telemetryVersion)&&telemetryVersion.TryGetInt32(out var tv)?tv:0;
+                            _usbOnComputerControlPage=ack.RootElement.TryGetProperty("uiPage",out var page)&&
+                                page.ValueKind==JsonValueKind.Number&&page.TryGetInt32(out int pageId)&&pageId==UsbComputerControlPage;
                             _usbStatus="已连接 · "+device.Port;Interlocked.Exchange(ref _usbAckAt,Environment.TickCount64);
                             _usbDataActive=ack.RootElement.TryGetProperty("active",out var activeLink)&&activeLink.ValueKind==JsonValueKind.String?activeLink.GetString()??"":"";
                             Stage("connected");
@@ -736,7 +752,7 @@ internal sealed partial class Tab5Service : IDisposable
                                 _usbConnectionDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss.fff} total={Environment.TickCount64-began}ms; "+string.Join("; ",timings);
                             if(ack.RootElement.TryGetProperty("firmware",out var installedVersion)&&installedVersion.ValueKind==JsonValueKind.String) {
                                 _usbStatusMaximum=Tab5StatusCapacity.ForFirmware(installedVersion.GetString());
-                                ObserveFirmware(pairing.DeviceId,installedVersion.GetString()!);
+                                ObserveFirmware(pairing.DeviceId,installedVersion.GetString()!,republishOnCapacityChange:false);
                             }
                             string? reportedAssets=ack.RootElement.TryGetProperty("assetIds",out var idsValue)&&idsValue.ValueKind==JsonValueKind.String?idsValue.GetString():null;
                             _assets.Acknowledge(reportedAssets);
@@ -755,7 +771,7 @@ internal sealed partial class Tab5Service : IDisposable
                             ObserveOtaStopped(ack.RootElement,stopProbe,usb:true);
                             if(ack.RootElement.TryGetProperty("wifiIsolation",out _))_wifiIsolationDiagnostic=NumericProbeDiagnostic(ack.RootElement,"wifiIsolation",7);
                             // Bound each USB burst to preserve regular status heartbeats.
-                            if(!BackgroundAssetTransferPaused&&ack.RootElement.TryGetProperty("assetsReady",out var readyValue)&&readyValue.TryGetInt32(out var ready)) {
+                            if(!_usbOnComputerControlPage&&!BackgroundAssetTransferPaused&&ack.RootElement.TryGetProperty("assetsReady",out var readyValue)&&readyValue.TryGetInt32(out var ready)) {
                                 // USB, HTTP and BLE consume the same randomized resource budget.
                                 foreach(var resource in _assets.NextBatch(1)) {
                                     if(!BackgroundAssetTransferPaused) {
@@ -772,6 +788,7 @@ internal sealed partial class Tab5Service : IDisposable
                         }
                     }
                 } catch(Exception ex) when(Tab5UsbRecovery.IsDisconnect(ex,token)) {
+                     if(gateHeld&&await TryRecoverUsbHostAsync(ex,pairing,token))continue;
                     _usbConnectionDiagnostic=$"{DateTimeOffset.Now:HH:mm:ss.fff} failed={stage}; {ex.GetType().Name}; total={Environment.TickCount64-began}ms; stageMs={Environment.TickCount64-stageAt}; "+string.Join("; ",timings);
                     RecordUsbFailure(stage,ex);if(gateHeld)CloseUsbPort();_usbStatus="等待连接（"+ex.GetType().Name+"）";
                 }

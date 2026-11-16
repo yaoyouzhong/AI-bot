@@ -301,7 +301,7 @@ internal sealed class Tab5CodexTasks : IDisposable
     internal Tab5CodexTasks() : this(new Tab5CodexDesktop(),Tab5CodexCatalog.Recent,new Tab5CodexJournal(),liveActivity:SessionActivityReader.LiveActivity,displayScan:Tab5CodexCatalog.RecentScan) { }
     internal Tab5CodexTasks(Tab5CodexDesktop desktop,Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexJournal? journal=null,Tab5CodexImages? images=null,Func<string,string?>? rolloutPath=null,string? historyHome=null,Tab5LiveActivity? liveActivity=null,Func<IReadOnlyList<Tab5CodexTask>?>? displayScan=null)
     {
-        _desktop=desktop;_liveActivity=liveActivity??new((id,ct)=>desktop.ReadAsync(id,ct));_call=CallAsync;_connect=EnsureServerAsync;_catalog=catalog;_displayScan=displayScan??catalog;_journal=journal;_images=images??new();
+        _desktop=desktop;_liveActivity=liveActivity??new(desktop.ReadActivityAsync);_call=CallAsync;_connect=EnsureServerAsync;_catalog=catalog;_displayScan=displayScan??catalog;_journal=journal;_images=images??new();
         _rolloutPath=rolloutPath??Tab5CodexCatalog.RolloutPath;_historyHome=historyHome??Tab5CodexCatalog.HomePath;
         foreach(var record in journal?.Accepted()??[]) {
             _activeTurns[record.TaskId]=record.TurnId;_receipts[record.TaskId]="已发送 · 恢复动态";

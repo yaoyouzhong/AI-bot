@@ -8,6 +8,16 @@ internal static class ActivityCacheSelfTest
 {
     internal static async Task RunAsync()
     {
+        var empty = new Dictionary<string, LocalProviderUsage>();
+        var idleObservation = new ActivitySample(new("offline", null), empty, Environment.TickCount64);
+        await CheckClaudeAsync(idleObservation, "idle");
+        await CheckClaudeAsync(idleObservation with { ClaudeIdleObservedAt = null }, "offline");
+        await CheckClaudeAsync(idleObservation with { ClaudeIdleObservedAt = Environment.TickCount64 - 16000 }, "offline");
+        var working = new Dictionary<string, LocalProviderUsage>
+            { ["claude"] = new(42, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), "") };
+        await CheckClaudeAsync(new(new("offline", null), working), "working");
+        Console.WriteLine("CLAUDE_TERMINAL_ACTIVITY_OK blank idle session, exited or stale session, active work fallback");
+
         using var release = new ManualResetEventSlim();
         using var entered = new ManualResetEventSlim();
         var calls = 0;
@@ -54,5 +64,13 @@ internal static class ActivityCacheSelfTest
         if (!ReferenceEquals(cache.Read(), sample)) throw new Exception("Failure overwrote the previous sample.");
         if (!JsonSerializer.Serialize(cache.Diagnostics()).Contains("IOException")) throw new Exception("Scanner failure was hidden.");
         Console.WriteLine("ACTIVITY_CACHE_OK 10s blocked scanner: HTTP/heartbeat responsive, no overlap, cache retained, failure reported");
+    }
+
+    private static async Task CheckClaudeAsync(ActivitySample sample, string expected)
+    {
+        var cache = new BackgroundActivityCache(() => sample);
+        await cache.WaitForInitialScanAsync();
+        var state = SessionActivityReader.Capture(cache).Claude.State;
+        if (state != expected) throw new InvalidOperationException($"Expected Claude {expected}, got {state}.");
     }
 }

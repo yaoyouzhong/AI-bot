@@ -1,0 +1,148 @@
+diff --git a/firmware/CMakeLists.txt b/firmware/CMakeLists.txt
+--- a/firmware/CMakeLists.txt
++++ b/firmware/CMakeLists.txt
+@@ -1,6 +1,6 @@
+ cmake_minimum_required(VERSION 3.16)
+ include("${CMAKE_CURRENT_LIST_DIR}/../cmake/WindowsNinjaResponseFiles.cmake")
+-set(PROJECT_VER "0.2.321-ui")
++set(PROJECT_VER "0.2.322-ui")
+ option(TAB5_LOCAL_ART "Build daily art support; collections are installed separately" ON)
+ if(TAB5_LOCAL_VERSION)
+     set(PROJECT_VER "${TAB5_LOCAL_VERSION}")
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R5";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R1";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/firmware/main/ui.c b/firmware/main/ui.c
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -4339,36 +4339,53 @@
+     }
+     crash_record_checkpoint(channel,stage,current_page);
+ }
+-static UI_INIT_SMALL void app_icon(lv_obj_t *button_obj,int kind) {
+-    const uint32_t colors[]={AMBER,BLUE,GREEN,0xD5BCE5,0xB9D6D2,0xE2B5A7};
+-    const uint32_t backgrounds[]={0x403A2F,0x2B414A,0x2C4036,0x3D3348,0x2B403F,0x493A36};
++typedef enum {
++    APP_WEATHER, APP_SYSTEM, APP_MARKETS, APP_MUSIC, APP_CLOCK, APP_PET,
++    APP_CALENDAR, APP_AGENDA, APP_CONTROL
++} app_icon_kind;
++
++static UI_INIT_SMALL void app_icon(lv_obj_t *button_obj, app_icon_kind kind) {
++    if(kind==APP_AGENDA || kind==APP_CONTROL) {
++        lv_obj_t *icon=label(button_obj,kind==APP_AGENDA?LV_SYMBOL_LIST:LV_SYMBOL_SETTINGS,24,50,80,false);
++        ui_text_font(icon,&lv_font_montserrat_40,0);tint(icon,BLUE);
++        return;
++    }
++    const uint32_t colors[]={AMBER,BLUE,GREEN,0xD5BCE5,0xB9D6D2,0xE2B5A7,0xADCAEF};
++    const uint32_t backgrounds[]={0x403A2F,0x2B414A,0x2C4036,0x3D3348,0x2B403F,0x493A36,0x303F55};
+     uint32_t c=colors[kind];
+     lv_obj_t *icon=shape(button_obj,0,0,80,80,backgrounds[kind],24);
+     lv_obj_align(icon,LV_ALIGN_LEFT_MID,24,0);
+     lv_obj_remove_flag(icon,LV_OBJ_FLAG_CLICKABLE);
+-    if(kind==0) {
++    if(kind==APP_WEATHER) {
+         shape(icon,26,26,28,28,c,LV_RADIUS_CIRCLE);
+         shape(icon,38,12,4,9,c,2);shape(icon,38,59,4,9,c,2);
+         shape(icon,12,38,9,4,c,2);shape(icon,59,38,9,4,c,2);
+-    }else if(kind==1) {
++    }else if(kind==APP_SYSTEM) {
+         lv_obj_t *monitor=shape(icon,15,20,50,34,c,5);
+         ui_bg_opa(monitor,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(monitor,3,0);
+         ui_border_color(monitor,lv_color_hex(c),0);
+         shape(icon,38,55,4,8,c,1);shape(icon,26,63,28,3,c,1);
+-    }else if(kind==2) {
++    }else if(kind==APP_MARKETS) {
+         shape(icon,20,41,8,19,c,3);shape(icon,36,31,8,29,c,3);shape(icon,52,20,8,40,c,3);
+-    }else if(kind==3) {
++    }else if(kind==APP_MUSIC) {
+         lv_obj_t *note=lv_label_create(icon);lv_label_set_text(note,LV_SYMBOL_AUDIO);
+         ui_text_font(note,&lv_font_montserrat_40,0);tint(note,c);lv_obj_center(note);
+-    }else if(kind==4) {
++    }else if(kind==APP_CLOCK) {
+         lv_obj_t *face=shape(icon,16,16,48,48,c,LV_RADIUS_CIRCLE);
+         ui_bg_opa(face,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(face,3,0);
+         ui_border_color(face,lv_color_hex(c),0);
+         shape(icon,38,26,4,16,c,2);shape(icon,40,38,13,4,c,2);
+-    }else {
++    }else if(kind==APP_PET) {
+         shape(icon,28,40,28,22,c,11);
+         shape(icon,17,30,11,15,c,LV_RADIUS_CIRCLE);shape(icon,30,20,11,16,c,LV_RADIUS_CIRCLE);
+         shape(icon,45,20,11,16,c,LV_RADIUS_CIRCLE);shape(icon,58,30,11,15,c,LV_RADIUS_CIRCLE);
++    }else {
++        lv_obj_t *calendar=shape(icon,18,23,44,39,c,5);
++        ui_bg_opa(calendar,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(calendar,3,0);
++        ui_border_color(calendar,lv_color_hex(c),0);
++        shape(icon,27,18,4,11,c,2);shape(icon,49,18,4,11,c,2);
++        shape(icon,20,34,40,3,c,1);
++        shape(icon,28,44,5,5,c,1);shape(icon,38,44,5,5,c,1);shape(icon,48,44,5,5,c,1);
+     }
+ }
+ volatile unsigned tab5_ui_internal_buffer_bytes,tab5_ui_internal_free;
+@@ -4548,19 +4565,19 @@
+     settings_button=workbench_icon_button(screen,12,workbench_go,9);
+     lv_obj_t *settings_icon=lv_obj_get_child(settings_button,0);lv_label_set_text(settings_icon,LV_SYMBOL_SETTINGS);
+     ui_text_font(settings_icon,&lv_font_montserrat_32,0);lv_obj_center(settings_icon);
+-    const char *app_names[]={"日程","天气","系统","行情","音乐","时钟","桌宠","控制"};
+-    const int app_pages[]={13,2,4,3,5,7,6,14};
+-    const char *app_hints[]={"待办与提醒","实况与预报","电脑运行状态","关注的市场行情","播放与切歌","表盘与倒计时","AI 任务状态","音量与快捷启动"};
+-    for(int i=0;i<8;i++) {
+-        lv_obj_t *b=button(pages[11],app_names[i],(i%3)*414,(i/3)*176,390,workbench_go,app_pages[i]);
++    const struct {const char *name, *hint; int page; app_icon_kind icon;} apps[]={
++        {"桌宠","AI 任务状态",6,APP_PET}, {"天气","实况与预报",2,APP_WEATHER}, {"行情","关注的市场行情",3,APP_MARKETS},
++        {"系统","电脑运行状态",4,APP_SYSTEM}, {"控制","音量与快捷启动",14,APP_CONTROL}, {"音乐","播放与切歌",5,APP_MUSIC},
++        {"时钟","表盘与倒计时",7,APP_CLOCK}, {"日程","待办与提醒",13,APP_AGENDA}, {"日历","月历与生日",12,APP_CALENDAR}
++    };
++    for(unsigned i=0;i<sizeof(apps)/sizeof(apps[0]);i++) {
++        lv_obj_t *b=button(pages[11],apps[i].name,(i%3)*414,(i/3)*176,390,workbench_go,apps[i].page);
+         lv_obj_set_height(b,156);lv_obj_set_style_radius(b,22,0);lv_obj_set_style_pad_all(b,0,0);
+         ui_bg_color(b,lv_color_hex(SURFACE),0);
+         lv_obj_t *caption=lv_obj_get_child(b,0);ui_text_font(caption,&tab5_font_30,0);
+         lv_obj_align(caption,LV_ALIGN_LEFT_MID,128,-20);
+-        lv_obj_t *hint=muted(b,app_hints[i],128,91,240);
+-        if(i==7){lv_obj_t *icon=label(b,LV_SYMBOL_SETTINGS,24,50,80,false);ui_text_font(icon,&lv_font_montserrat_40,0);tint(icon,BLUE);}
+-        else if(i)app_icon(b,i-1);
+-        else {lv_obj_t *icon=label(b,LV_SYMBOL_LIST,24,50,80,false);ui_text_font(icon,&lv_font_montserrat_40,0);tint(icon,BLUE);}
++        muted(b,apps[i].hint,128,91,240);
++        app_icon(b,apps[i].icon);
+         lv_obj_t *arrow=lv_label_create(b);lv_label_set_text(arrow,LV_SYMBOL_RIGHT);
+         ui_text_font(arrow,&lv_font_montserrat_24,0);tint(arrow,0x82969D);
+         lv_obj_align(arrow,LV_ALIGN_RIGHT_MID,-24,0);
+diff --git a/tests/ui-preview/preview.c b/tests/ui-preview/preview.c
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2972,7 +2972,28 @@
+     puts("QUOTA_MODULE_DEFAULT_OK eleven_models direct_reentry overview_deeplink swipe_entry");
+     if(getenv("TAB5_QUOTA_NAV_ONLY"))return 0;
+     lv_obj_send_event(home_weather_action,LV_EVENT_CLICKED,NULL);assert(current_page==2);workbench_return(NULL);assert(current_page==0);
+-    calendar_set_today(2026,9,23);lv_obj_send_event(home_calendar_action,LV_EVENT_CLICKED,NULL);assert(current_page==12);
++    calendar_set_today(2026,9,23);
++    page(11);
++    lv_indev_t *apps_touch=lv_indev_create();lv_indev_set_type(apps_touch,LV_INDEV_TYPE_POINTER);
++    lv_indev_set_display(apps_touch,lv_display_get_default());lv_indev_set_read_cb(apps_touch,camera_touch_read);
++    const int destinations[]={6,2,3,4,14,5,7,13,12};
++    assert(lv_obj_get_child_count(pages[11])==9);
++    capture("apps-nine-grid");
++    for(unsigned i=0;i<sizeof(destinations)/sizeof(destinations[0]);i++) {
++        lv_obj_update_layout(lv_screen_active());
++        lv_obj_t *card=lv_obj_get_child(pages[11],i);
++        assert(!strcmp(lv_label_get_text(lv_obj_get_child(card,0)),names[destinations[i]]));
++        lv_area_t bounds;lv_obj_get_coords(card,&bounds);
++        gallery_pointer_click(apps_touch,(lv_point_t){bounds.x1+64,bounds.y1+78});
++        assert(current_page==destinations[i]);
++        if(current_page==12)capture("calendar-from-apps");
++        gallery_pointer_click(apps_touch,(lv_point_t){56,40});assert(current_page==11);
++    }
++    lv_indev_delete(apps_touch);
++    puts("APPS_NINE_GRID_OK nine ordered touch targets and detail returns");
++    if(getenv("TAB5_APPS_NAV_ONLY"))return 0;
++    page(0);
++    lv_obj_send_event(home_calendar_action,LV_EVENT_CLICKED,NULL);assert(current_page==12);
+     assert(strstr(lv_label_get_text(home_holiday),"家人")&&strstr(lv_label_get_text(home_holiday),"2 天"));
+     capture("calendar-september");
+     cJSON *calendar_birthdays=cJSON_DetachItemFromObject(calendar_detail(),"birthdays");

@@ -26,6 +26,20 @@ internal static class Tab5QuickConsoleSelfTest
     }
     internal static async Task RunAsync() {
         await CheckInitialObservationAsync();
+        string launchId=Guid.NewGuid().ToString("D"),launchedUri="";
+        int explorerLaunches=0,directLaunches=0;
+        var launch=new Tab5DesktopActivation.ThreadLaunchCalls(()=>true,()=>true,
+            uri=>{explorerLaunches++;launchedUri=uri;return true;},
+            uri=>{directLaunches++;launchedUri=uri;return true;});
+        Check(Tab5DesktopActivation.OpenCodexThread(launchId,launch)&&explorerLaunches==1&&directLaunches==0&&
+            launchedUri=="codex://threads/"+launchId,"elevated bridge delegates the exact session link to the desktop shell");
+        Check(!Tab5DesktopActivation.OpenCodexThread(launchId,launch with {OpenInExplorer=_=>false})&&directLaunches==0,
+            "unavailable desktop shell must not retry through elevated launch");
+        Check(!Tab5DesktopActivation.OpenCodexThread(launchId,launch with {Interactive=()=>false})&&
+            !Tab5DesktopActivation.OpenCodexThread(launchId+"?prompt=example",launch)&&explorerLaunches==1&&directLaunches==0,
+            "blocked desktop and non-GUID target never dispatch");
+        Check(Tab5DesktopActivation.OpenCodexThread(launchId,launch with {Elevated=()=>false})&&explorerLaunches==1&&directLaunches==1,
+            "normal user bridge keeps the registered direct URI launch");
         string prefix=new('长',60);
         var longA=Tab5CodexCatalog.WithDisplayTitle(new("long-a",prefix+"甲","project",2));
         var longB=Tab5CodexCatalog.WithDisplayTitle(new("long-b",prefix+"乙","project",1));

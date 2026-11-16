@@ -36,6 +36,10 @@ internal static class Tab5HostBindingSelfTest
         try{Check(pin is not null&&pin.AsSpan().SequenceEqual("x"u8));}finally{if(pin is not null)CryptographicOperations.ZeroMemory(pin);}
         Check(!Tab5HostBinding.NeedsFullStatus(false,12000,0));
         Check(Tab5HostBinding.NeedsFullStatus(true,3000,4000));
+        Check(!Tab5HostBinding.HasUsbLeaseMargin(100000,0));
+        Check(!Tab5HostBinding.HasUsbLeaseMargin(99999,100000));
+        Check(Tab5HostBinding.HasUsbLeaseMargin(105999,100000));
+        Check(!Tab5HostBinding.HasUsbLeaseMargin(106000,100000));
         var state=new Tab5UsbState();long fullAck=0,deviceLeaseSeen=0;int deltas=0;
         string catalog=string.Join(',',Enumerable.Range(0,500).Select(i=>(i*16777619L).ToString("X")));
         for(int step=0;step<13;step++) {

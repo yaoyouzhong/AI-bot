@@ -23,7 +23,10 @@ internal static class Program
             var reply = new HelperReply(1,"nonce",1,"pin",true,time,800,"ready");
             if (!HelperContract.Accept(reply,"nonce",1,"pin",time,time) || HelperContract.Accept(reply,"other",1,"pin",time,time) ||
                 HelperContract.Accept(reply,"nonce",2,"pin",time,time) || HelperContract.Accept(reply,"nonce",1,"password",time,time) ||
-                HelperContract.Accept(reply,"nonce",1,"pin",time,time+5000) || HelperContract.Accept(reply with {Ready=false},"nonce",1,"pin",time,time)) return 1;
+                HelperContract.Accept(reply with {CompletedUtcMs=time+HelperContract.RequestLifetimeMs},"nonce",1,"pin",time,time+HelperContract.RequestLifetimeMs) ||
+                HelperContract.Accept(reply,"nonce",1,"pin",time,time+1500) || HelperContract.Accept(reply with {Ready=false},"nonce",1,"pin",time,time) ||
+                FailureStatus(false,new InvalidOperationException("desktop_changed"))!="desktop_changed" ||
+                FailureStatus(true,new System.ComponentModel.Win32Exception(5,"fixture-only message"))!="launch_failed_win32_5") return 1;
             Console.WriteLine("LOGIN_HELPER_SELF_TEST_OK (method/nonce/session/freshness guards; real unlock not tested)"); return 0;
         }
         if (args.Length == 2 && args[0] is "--install" or "--uninstall" && int.TryParse(args[1], out int caller))
@@ -47,13 +50,27 @@ internal static class Program
             if (args[0] == "--prepare") return Launch(session,nonce,target,issued,elapsed);
             if (Process.GetCurrentProcess().SessionId != session) return 77;
             using var watchdog = new Timer(_ => Environment.Exit(124),null,4500,Timeout.Infinite);
-            bool ready = MethodSwitch.Prepare(session,target,() => HelperContract.Fresh(issued,Now()) && OwnerSession(session,manifest.OwnerSid));
+            bool ready = MethodSwitch.Prepare(session,target,() => HelperContract.Fresh(issued,Now()) && OwnerSession(session,manifest.OwnerSid),out bool focused);
             ready = ready && HelperContract.Fresh(issued,Now()) && OwnerSession(session,manifest.OwnerSid) && Native.Locked(session)==true;
-            Write(new(1,nonce,session,target,ready,Now(),(int)elapsed.ElapsedMilliseconds,ready?"ready":"method_not_ready"));
+            Write(new(1,nonce,session,target,ready,Now(),(int)elapsed.ElapsedMilliseconds,ready?"ready":"method_not_ready",
+                ready?(focused?"focused_edit":"window_scan"):null));
             return ready?0:6;
-        } catch {
-            Write(new(1,nonce,session,target,false,Now(),(int)elapsed.ElapsedMilliseconds,"helper_stopped")); return 7;
+        } catch (Exception error) {
+            Write(new(1,nonce,session,target,false,Now(),(int)elapsed.ElapsedMilliseconds,FailureStatus(args[0]=="--prepare",error)));
+            return 7;
         }
+    }
+
+    private static string FailureStatus(bool launching,Exception error)
+    {
+        // Report only known guard labels and error codes. Never persist an
+        // arbitrary exception message from UI Automation or the desktop.
+        if(!launching&&error is InvalidOperationException {Message:"request_expired" or "session_changed" or "desktop_unavailable" or "desktop_changed" or "ancestry_limit" or "tree_limit"})
+            return error.Message;
+        string phase=launching?"launch_failed_":"inspection_failed_";
+        return error is System.ComponentModel.Win32Exception native
+            ?phase+"win32_"+native.NativeErrorCode
+            :phase+"hresult_"+error.HResult.ToString("X8");
     }
 
     private static long Now() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

@@ -19,6 +19,18 @@ internal sealed class ClaudeNativeTerminal:IClaudeNativeSession
     internal static void ClearProbes(){lock(ProbeLock)Probes.Clear();}
     private ClaudeNativeTerminal(Guid session,int pid,string start,string record){Session=session;Pid=pid;_start=start;_record=record;}
     internal static HashSet<Guid> LiveSessions()=>Candidates().GroupBy(c=>c.Session).Where(g=>g.Count()==1).Select(g=>g.Key).ToHashSet();
+    internal static bool AllLiveSessionsIdle()
+    {
+        try
+        {
+            var sessions = Candidates();
+            return sessions.Count > 0 && sessions.All(session => session.State == "idle");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+    }
     internal static ClaudeNativeTerminal? Find(Guid session){var found=Candidates(session);return found.Count==1?found[0]:null;}
     private static List<ClaudeNativeTerminal> Candidates(Guid? session=null,IReadOnlySet<Guid>? known=null){
         string root=Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile),".claude","sessions");if(!Directory.Exists(root))return [];

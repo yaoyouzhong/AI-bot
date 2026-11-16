@@ -10,6 +10,8 @@ internal sealed class Tab5UsbRejected(string expected,int reason) : IOException(
     internal int Reason=>reason;
 }
 
+internal sealed class Tab5UsbHostRequired() : IOException("TAB5 USB 主机需要重新认证。");
+
 internal sealed class Tab5UsbReplyTimeout(string expected,int bytes,int lines,int pending,long elapsed) : TimeoutException("未收到 TAB5 确认："+expected)
 {
     // Only protocol names and numeric counters; never retain received content.
@@ -49,6 +51,7 @@ internal static class Tab5UsbText
                 if(doc.RootElement.ValueKind==JsonValueKind.Object&&doc.RootElement.TryGetProperty("type",out var t)&&t.ValueKind==JsonValueKind.String) {
                     string? received=t.GetString();
                     if(received==type)return doc;
+                    if(received=="tab5_host_required") {doc.Dispose();throw new Tab5UsbHostRequired();}
                     if(received==type+"_rejected") {
                         int reason=doc.RootElement.TryGetProperty("rejectReason",out var r)?r.TryGetInt32(out int code)&&code is >=0 and <=5?code:-1:0;
                         doc.Dispose();throw new Tab5UsbRejected(type,reason);

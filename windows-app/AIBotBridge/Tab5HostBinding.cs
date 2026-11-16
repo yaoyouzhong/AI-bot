@@ -13,6 +13,11 @@ internal static class Tab5HostBinding
     // retain their separate task freshness. Keep full ACKs inside its 8s lease.
     internal static bool NeedsFullStatus(bool binding,long now,long lastFullAck)=>
         binding&&(lastFullAck<=0||now<lastFullAck||now-lastFullAck>=4000);
+    // Reserve two seconds of the device's eight-second USB ownership lease
+    // for queued work and wire time. Full ACKs also cover older firmware that
+    // does not renew ownership on a delta.
+    internal static bool HasUsbLeaseMargin(long now, long lastProof) =>
+        lastProof > 0 && now >= lastProof && now - lastProof < 6000;
     internal static string Id(Tab5Pairing pair)=>Tab5Protocol.Proof(Convert.FromBase64String(pair.Key),"AIBOT_TAB5_HOST_V1")[..32];
     internal static string Name(string value) {
         var text=new StringBuilder();int bytes=0;
@@ -41,7 +46,11 @@ internal sealed partial class Tab5Service
     private bool _usbHostBinding,_usbHostClaimed;
     private string _usbHostNonce="",_usbHostEndpoint="";
     private volatile bool _usbAuthenticationRejected;
-    private long _usbHostFullStatusAt;
+    private long _usbHostFullStatusAt, _usbHostClaimAt;
+    private long _usbHostRecoveryAt;
+    private volatile string _usbHostRecovery = "无";
+    private bool UsbHostLeaseHasMargin() => !_usbHostBinding || (_usbHostClaimed &&
+        Tab5HostBinding.HasUsbLeaseMargin(Environment.TickCount64, Math.Max(_usbHostClaimAt, _usbHostFullStatusAt)));
     private void ReadHostBinding(JsonElement hello) {
         _usbHostBinding=hello.TryGetProperty("hostBindingVersion",out var v)&&v.TryGetInt32(out int version)&&version==1;
         _usbHostNonce=hello.TryGetProperty("hostNonce",out var n)&&n.ValueKind==JsonValueKind.String?n.GetString()??"":"";
@@ -51,13 +60,33 @@ internal sealed partial class Tab5Service
         if(!_usbHostBinding)return;
         string address=_host??"",endpoint=address+":"+_port;
         if(_usbHostClaimed&&_usbHostEndpoint==endpoint)return;
-        if(_usbHostClaimed)await ReadIdentityAsync(port,token,ReadHostBinding);
+        if((_usbHostClaimed||!Tab5Protocol.ValidNonce(_usbHostNonce))&&
+           (await ReadIdentityAsync(port,token,ReadHostBinding)!=pair.DeviceId||!_usbHostBinding))
+            throw new IOException("USB 设备身份不匹配");
         string nonce=_usbHostNonce;
+        long started=Environment.TickCount64;
         Send(port,Tab5HostBinding.Claim(pair,nonce,address,_port,Tab5HostBinding.Name(Environment.MachineName)));
         using var reply=await ReadReplyAsync(port,"tab5_host_claimed",token);
         try{Tab5HostBinding.Confirm(pair,nonce,reply.RootElement);}
         catch(IOException){if(!reply.RootElement.TryGetProperty("error",out var error)||error.ValueKind!=JsonValueKind.String||error.GetString()!="device_busy")_usbAuthenticationRejected=true;throw;}
-        _usbHostClaimed=true;_usbHostEndpoint=endpoint;_usbAuthenticationRejected=false;
+        _usbHostClaimed=true;_usbHostEndpoint=endpoint;_usbHostClaimAt=started;_usbAuthenticationRejected=false;
+    }
+    // Called with the USB gate held after a complete text rejection. No
+    // control packet or queued binary reply is replayed during reauthentication.
+    private async Task<bool> TryRecoverUsbHostAsync(Exception failure,Tab5Pairing? pair,CancellationToken token) {
+        if(failure is not Tab5UsbHostRequired||!_usbHostBinding||pair is null||_usbPort is not {} port)return false;
+        long now=Environment.TickCount64;
+        if(_usbHostRecoveryAt>0&&now-_usbHostRecoveryAt<2000)return false;
+        _usbHostRecoveryAt=now;
+        _usbHostClaimed=false;_usbHostNonce="";_usbHostClaimAt=_usbHostFullStatusAt=0;
+        try {
+            await ClaimUsbHostAsync(port,pair,token);
+            _usbHostRecovery=$"{DateTimeOffset.Now:HH:mm:ss} 同一串口重新认证成功";
+            return true;
+        } catch(Exception error) when(Tab5UsbRecovery.IsDisconnect(error,token)) {
+            _usbHostRecovery=$"{DateTimeOffset.Now:HH:mm:ss} 重新认证失败：{error.GetType().Name}";
+            return false;
+        }
     }
     private string HostBindingSummary=>_usbAuthenticationRejected?"当前电脑未通过配对认证，请通过 USB 验证配对。":
         _usbHostClaimed?"当前电脑："+Environment.MachineName+"（USB 已认证）":"电脑归属：由设备选择；其他电脑无线待命。";
