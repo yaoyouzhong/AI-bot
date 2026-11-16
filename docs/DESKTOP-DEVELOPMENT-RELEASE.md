@@ -4,7 +4,7 @@
 
 ## 开发与交接
 
-1. 开始时读取 AGENTS.md，检查当前分支、工作区和主干变化，保留已有工作。两端从已同步的 main 建立任务分支，建议使用 `codex/windows-*`、`codex/mac-*`；不维护长期分叉的操作系统主干。
+1. 开始时读取 [AGENTS.md](../AGENTS.md)，检查当前分支、工作区和主干变化，保留已有工作。两端共用 `main`，同一交付范围复用开发分支。需独立交付或隔离并行工作时，从已同步的 `main` 建立 `codex/` 分支。分支和 `.worktrees/` 按项目规则收尾。
 2. 修改前定义共同用户行为和协议契约；输入法、音频、窗口及 UI 按平台实现。已有能力先核对，不机械移植另一端代码。
 3. 涉及另一平台或固件时，使用[交接模板](development/CROSS-PLATFORM-HANDOFF-TEMPLATE.md)，记录实现位置、协议兼容性、测试证据及剩余事项；交接与代码一起提交。
 4. 在对应系统完成必要构建、自测及受影响路径验证后再合并。Windows 验证不能替代 Mac 验证，构建通过不能替代安装或真机通过。未知项写明，不隐去失败。
@@ -72,7 +72,7 @@ Evidence follows the actual change: identify candidates by source and archive ha
 
 ## English summary
 
-Use one repository and main branch, with short-lived platform branches and evidence-backed handoffs. Share behavior and protocol contracts while implementing native platform integrations. Keep the existing bridge version line and publish only changed platforms. One release owner coordinates each release from either OS.
+Use one repository and one main branch. Related changes for the same delivery share a development branch. Create a separate `codex/` branch from current `main` for independent deliveries or isolated parallel work. Follow [AGENTS.md](../AGENTS.md) for branch and worktree cleanup. Share behavior and protocol contracts while implementing native platform integrations. Keep the existing bridge version line and publish only changed platforms. One release owner coordinates each release from either OS.
 
 Select scope and source once, build the required native candidate packages once, record acceptance once, then promote exactly those bytes. Existing validated candidates and justified unchanged-path evidence are reusable. Acceptance is bound to the candidate identity and file hashes. Tag events only validate metadata; explicit promotion retrieves a successful candidate run without rebuilding, resumes verified uploads, and synchronizes download metadata. Ordinary code CI still checks changed products; documentation/tooling changes do not rebuild apps. See RELEASE-AUTOMATION.md for commands and recovery.
 
