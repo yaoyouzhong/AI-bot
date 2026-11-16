@@ -18,7 +18,14 @@
     "pdfpig/LICENSE": "4c510e162f896ea43b4b1cf1b743641d7c756f1004d0e5eaf0615b28b7ded409",
     "pdfpig/SOURCE.json": "7bc26e6e8658e4685767e880c0e7c314fd964360a2168b842d2b761b008c3582",
     "pmo-calendar/NOTICE.md": "3c13d8d0b8103a1486fa32c5ef525e8749210ce612fa30ca9b97f661b0f2f380",
-    "companion-art/NOTICE.md": "de2ce97bbb5bd15db70b7ef475b77400c9805722bc4f0d33386ec09aae4ada20"
+    "companion-art/NOTICE.md": "c5a7febd4a23bca6be641a5e1970507a29af1e4b14b8568e2046ba42295ff8d0"
+  },
+  "tab5ClaudeHeadphones20261111": {
+    "sourceCommit": "5f52a39bd5c4245aff24bfa3a23cde2d62d57e3c",
+    "sourcePath": "firmware/include/img/claude_sprite.h",
+    "originalApetSha256": "8c9e76f5f42e041ecd135df5c060dc29f6c69eb5ec6ec6cc6c15381d22fc03e5",
+    "encodedIncludeSha256": "e3be2cbac23df48a2cde61e2bdece24abb3470387da659296aecbdb133cb088b",
+    "scope": "Owner-confirmed public distribution of the six third-party animation frames and their transcoded form with AI-bot TAB5 firmware. Outside the MIT grant."
   },
   "windowsSdk": {
     "version": "10.0.22000.56",
@@ -241,7 +248,7 @@
     "docs/assets/screens/esp8266-stock-058-preview.png": "a81481504686526c2c4b69c74bff8c284d29449a11c028dbe4ca9295bc0688ce",
     "docs/assets/screens/tab5-companion-savers-0312-preview.png": "917c2181e8e9e8d7b9cc7a7b82bd640b8c30bb59527fd03bbda4fd27853bf65e",
     "docs/assets/screens/tab5-companion-savers-headphones-preview.png": "1852c50b4032d2335306491e39c53628c2524abb1d8f00b7ac220c9c35cda666",
-    "licenses/companion-art/NOTICE.md": "de2ce97bbb5bd15db70b7ef475b77400c9805722bc4f0d33386ec09aae4ada20",
+    "licenses/companion-art/NOTICE.md": "c5a7febd4a23bca6be641a5e1970507a29af1e4b14b8568e2046ba42295ff8d0",
     "docs/development/tab5-312-source/AI-bot-tab5-0.2.312-ui-source.zip": "8e47299f88d9cd2f1fed56ca2518112052912dcbe64a4b3599487d888000555b",
     "docs/development/tab5-313-source/AI-bot-tab5-0.2.313-ui-source.zip": "31de185bbcbd0895088d1f7b713a4ba47f68402b6545ebac07c206f6f2d96de3",
     "docs/assets/screens/tab5-dialogue-0313-preview.png": "32510ec1adfada77f2e83ac55b990518ea3ed054ffb6c46757d25d2a78f17db3",

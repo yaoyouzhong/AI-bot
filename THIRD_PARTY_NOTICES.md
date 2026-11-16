@@ -180,6 +180,14 @@ For TAB5 0.2.312-ui, the project owner confirmed public redistribution authoriza
 
 2026-11-04，项目维护者确认 Codex 官方图集和 Clawd 原版动画两套素材均具有随 AI-bot 固件公开再分发的授权。素材归属及指纹随声明保留，不纳入项目 MIT；旧宣传片素材的既有授权不作扩展。
 
+### Legacy Claude headphones animation
+
+On 2026-11-11, the project owner separately confirmed public distribution of the six-frame Claude headphones animation and its transcoded form with AI-bot TAB5 firmware. TAB5 0.2.319-ui R2 uses the six frames for Claude's working state. The artwork is outside AI-bot's MIT grant. The [companion artwork notice](licenses/companion-art/NOTICE.md) records the source, fingerprints and distribution scope.
+
+2026-11-11，项目维护者另行确认旧宣传片中的 Claude 耳机六帧及其固件内转码版本可随 AI-bot TAB5 固件公开分发。TAB5 0.2.319-ui R2 在 Claude 工作中状态使用这六帧。素材授权独立于 AI-bot 的 MIT 许可，来源、指纹和分发范围见[萌宠素材声明](licenses/companion-art/NOTICE.md)。
+
+### Optional preview media
+
 The optional PNG/GIF under `docs/assets/pet/` and selected documentation/video
 previews contain a Codex product mark on the laptop. That identifier remains the
 property of its respective owner and is outside AI-bot's MIT grant. AI-bot is not

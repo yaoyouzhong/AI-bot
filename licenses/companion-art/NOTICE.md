@@ -7,7 +7,13 @@ On 2026-11-04 the AI-bot project owner explicitly confirmed that both supplied o
 
 Artwork, character designs and product marks remain their respective owners' property and are **outside AI-bot's MIT grant**. State meanings, frame selection, playback, positioning and procedural backgrounds are AI-bot contributions. No endorsement or broader trademark right is claimed. This notice does not grant rights beyond the recorded distribution scope.
 
-本记录覆盖上述素材随本次 AI-bot 固件及对应来源材料公开分发，不将其改为 MIT 授权。来源、指纹、生成数据和相应声明随固件及源码材料保留。此前旧 Claude 动画的宣传视频授权仍只适用于对应视频，没有用于本次固件，也不扩展为对旧项目其他素材的授权。
+本节覆盖上述官方素材随 AI-bot 固件及对应来源材料公开分发。来源、指纹、生成数据和相应声明随固件及源码材料保留。两套官方素材均在 MIT 授权范围之外。
+
+## Legacy Claude headphones animation / 旧版 Claude 耳机动画
+
+2026-11-11，项目维护者明确确认宣传片所用的原版戴耳机六帧可随 AI-bot TAB5 固件公开分发。素材来自 `yaoyouzhong/esp8266-ai` 提交 `5f52a39bd5c4245aff24bfa3a23cde2d62d57e3c` 的 `firmware/include/img/claude_sprite.h`。本机原版 APET 与该提交的 RGB565 像素逐帧一致，SHA-256 为 `8c9e76f5f42e041ecd135df5c060dc29f6c69eb5ec6ec6cc6c15381d22fc03e5`。授权范围为此六帧动画及其固件内转码版本。其第三方归属保留在项目 MIT 授权之外。
+
+The project owner confirmed public distribution of these six frames with AI-bot TAB5 firmware on 2026-11-11. TAB5 uses the original order and 120 ms timing for Claude's working state in Overview and the Claude screensaver. The transcoder keys the original black background to transparency, preserves the black eyes, crops shared empty margins and packs the unchanged visible RGB565 values. The encoded include SHA-256 is `e3be2cbac23df48a2cde61e2bdece24abb3470387da659296aecbdb133cb088b`. The asset remains outside the project MIT grant.
 
 ## Native preview media
 
