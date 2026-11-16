@@ -213,23 +213,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // System permission APIs require the installed application bundle.
         guard Bundle.main.bundleURL.pathExtension == "app",
-              !UserDefaults.standard.bool(forKey: MacPermissionSetup.shownKey) else {
+              let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+              let mode = MacPermissionSetup.launchMode(version: version) else {
             finishInitialPermissions()
             return
         }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let steps = MacPermissionSetup.startupSteps()
             var states: [MacPermissionSetup.Step: MacPermissionSetup.State] = [:]
             for step in MacPermissionSetup.Step.allCases {
-                states[step] = await MacPermissionSetup.state(step, enabled: self.permissionEnabled)
+                states[step] = await MacPermissionSetup.state(step, enabled: self.permissionEnabled,
+                                                              startSystemEvents: mode == .upgrade)
             }
-            let shouldOffer = MacPermissionSetup.shouldOffer(steps.compactMap { states[$0] })
-            UserDefaults.standard.set(true, forKey: MacPermissionSetup.shownKey)
-            if shouldOffer {
+            let steps = MacPermissionSetup.pendingSteps(states, mode: mode)
+            // Do not repeat the automatic review after "Finish Later" or
+            // a denial. The full checklist remains available on demand.
+            UserDefaults.standard.set(version, forKey: MacPermissionSetup.checkedVersionKey)
+            if !steps.isEmpty {
                 let window = self.permissionWindow()
                 window.onIdle = { [weak self] in self?.finishInitialPermissions() }
-                window.open(initial: states, steps: steps)
+                window.open(initial: states, steps: steps, mode: mode)
             } else { self.finishInitialPermissions() }
         }
     }

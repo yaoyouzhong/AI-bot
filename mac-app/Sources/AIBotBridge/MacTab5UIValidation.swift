@@ -52,7 +52,7 @@ enum MacTab5UIValidation {
         }
         accountPreview.stop(); accountPreview.window?.close()
         let data = MacDataSettingsForm(.init(city: "示例城市", latitude: nil, longitude: nil, symbols: ["sh000001", "usAAPL"]))
-        try validatePermissionSetup(defaults: defaults, output: output)
+        try validatePermissionSetup(output: output)
         let deviceForm = MacBridgeSettingsForm("数据设置",subtitle:"隔离测试设备")
         deviceForm.window?.contentMinSize.height = 520
         let dataControls = MacDeviceDataControls(page:deviceForm.page,device:.init(kind:"tab5",name:"测试设备"))
@@ -372,17 +372,13 @@ enum MacTab5UIValidation {
 
     private static func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
 
-    @MainActor private static func validatePermissionSetup(defaults: UserDefaults, output: URL) throws {
+    @MainActor private static func validatePermissionSetup(output: URL) throws {
         typealias Step = MacPermissionSetup.Step
         typealias State = MacPermissionSetup.State
         let pending: [Step: State] = [.location: .request, .speech: .allowed, .microphone: .request,
             .notifications: .settings, .terminal: .openApp, .music: .request, .spotify: .unavailable,
             .systemEvents: .allowed, .bluetooth: .request, .localNetwork: .settings, .accessibility: .settings]
-        guard MacPermissionSetup.shouldOffer(Array(pending.values), defaults: defaults),
-              !MacPermissionSetup.shouldOffer([.allowed, .unused], defaults: defaults),
-              MacPermissionSetup.location(enabled: false, status: .notDetermined) == .unused else { throw MacTab5Error.unconfirmed }
-        defaults.set(true, forKey: MacPermissionSetup.shownKey)
-        guard !MacPermissionSetup.shouldOffer(Array(pending.values), defaults: defaults) else { throw MacTab5Error.unconfirmed }
+        guard MacPermissionSetup.location(enabled: false, status: .notDetermined) == .unused else { throw MacTab5Error.unconfirmed }
         let setup = MacPermissionSetupWindow(readState: { pending[$0] ?? .unused }, request: { _, _ in })
         guard let window = setup.window, let content = window.contentView else { throw MacTab5Error.unavailable }
         let buttons = descendants(content).compactMap { $0 as? NSButton }
@@ -393,6 +389,14 @@ enum MacTab5UIValidation {
               button(.speech)?.isHidden == true, buttons.contains(where: { $0.title == "稍后完成" }),
               reveal?.isHidden == true else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions", output: output)
+        let upgradeSteps = MacPermissionSetup.pendingSteps(pending, mode: .upgrade)
+        setup.configurePresentation(mode: .upgrade, steps: upgradeSteps)
+        setup.display(pending)
+        guard let terminal = button(.terminal), let location = button(.location),
+              terminal.isHiddenOrHasHiddenAncestor, !location.isHiddenOrHasHiddenAncestor,
+              button(.notifications)?.isHiddenOrHasHiddenAncestor == false else { throw MacTab5Error.unconfirmed }
+        try validateSettings(window, name: "system-permissions-upgrade", output: output)
+        setup.configurePresentation()
         setup.display(Dictionary(uniqueKeysWithValues: Step.allCases.map { ($0, $0 == .accessibility ? State.settings : .allowed) }))
         guard button(.accessibility)?.isEnabled == true,
               reveal?.isHidden == false,

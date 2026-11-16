@@ -10,8 +10,10 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
     private let page = MacBridgeSettingsPage()
     private let closeButton = NSButton(title: "稍后完成", target: nil, action: nil)
     private let revealAppButton = NSButton(title: "在 Finder 中显示当前 App", target: nil, action: nil)
+    private let subtitle = MacBridgeSettingsStyle.note("")
     private let progress = MacBridgeSettingsStyle.note("")
     private var rows: [Step: (view: NSView, status: NSTextField, button: NSButton)] = [:]
+    private var visibleSteps = Step.allCases
     private var notificationRequestPending = false
     private var followUpAccessibilityRequest = false
     private var states: [Step: State] = [:]
@@ -27,7 +29,9 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         window.contentView = MacBridgeSettingsShell(body: page, status: progress, actions: [closeButton, revealAppButton])
-        page.heading("系统授权", subtitle: "请依次确认 macOS 提示，最后在系统设置中开启辅助功能。也可稍后从「设备中心 → 桥接设置」补办。")
+        page.heading("系统授权")
+        page.add(subtitle)
+        configurePresentation()
         for (index, step) in Step.allCases.enumerated() {
             let status = MacBridgeSettingsStyle.note("")
             let button = NSButton(title: "授权…", target: self, action: #selector(allow(_:)))
@@ -65,15 +69,29 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
         button.heightAnchor.constraint(greaterThanOrEqualToConstant: 32).isActive = true
     }
 
-    func open(initial: [Step: State]? = nil, steps: [Step] = Step.allCases) {
+    func configurePresentation(mode: MacPermissionSetup.LaunchMode? = nil, steps: [Step] = Step.allCases) {
+        let upgrade = mode == .upgrade
+        visibleSteps = upgrade ? steps : Step.allCases
+        subtitle.stringValue = upgrade
+            ? "这些权限需要在升级后重新确认。也可稍后从「设备中心 → 桥接设置」补办。"
+            : "请依次确认 macOS 提示，最后在系统设置中开启辅助功能。也可稍后从「设备中心 → 桥接设置」补办。"
+        for (step, row) in rows { row.view.isHidden = !visibleSteps.contains(step) }
+    }
+
+    func open(initial: [Step: State]? = nil, steps: [Step] = Step.allCases, mode: MacPermissionSetup.LaunchMode? = nil) {
+        configurePresentation(mode: mode, steps: steps)
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        if let initial {
+        if let initial, let mode {
             display(initial)
             run { [weak self] in
                 guard let self else { return }
-                await MacPermissionSetup.runInitial(steps: steps, state: self.readState, request: self.perform)
+                await MacPermissionSetup.runInitial(steps: steps, mode: mode, state: self.readState) { step, state in
+                    // On upgrade, go straight to Settings. The OS's separate
+                    // invitation to open Settings can remain after access is granted.
+                    await self.perform(step, state, promptForAccessibility: mode == .firstLaunch)
+                }
             }
         } else { refresh() }
         if timer == nil {
@@ -96,7 +114,7 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
         refreshTask = Task { [weak self] in
             guard let self else { return }
             var next: [Step: State] = [:]
-            for step in Step.allCases {
+            for step in self.visibleSteps {
                 guard !Task.isCancelled else { break }
                 next[step] = await self.readState(step)
             }
@@ -130,10 +148,11 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
             row.button.isHidden = !state.needsPermission
             row.button.isEnabled = state.needsPermission && requestTask == nil
         }
-        let pending = states.filter { $0.key != .localNetwork && $0.value.needsPermission }.count
+        let pending = visibleSteps.filter { $0 != .localNetwork && states[$0]?.needsPermission == true }.count
         progress.stringValue = active.map { "正在处理：\($0.title)" } ?? (pending == 0 ? "已检查当前可用的权限。" : "还有 \(pending) 项可处理。")
         closeButton.title = pending == 0 && active == nil ? "完成" : "稍后完成"
-        revealAppButton.isHidden = states[.accessibility] != .settings || (active != nil && active != .accessibility)
+        revealAppButton.isHidden = !visibleSteps.contains(.accessibility) || states[.accessibility] != .settings
+            || (active != nil && active != .accessibility)
         page.needsLayout = true
         if let active, let row = rows[active]?.view {
             page.layoutSubtreeIfNeeded()
@@ -156,10 +175,14 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
         }
     }
 
-    private func perform(_ step: Step, _ state: State) async {
+    private func perform(_ step: Step, _ state: State, promptForAccessibility: Bool = true) async {
         if step == .accessibility, state == .settings { followUpAccessibilityRequest = true }
         display(states, active: step)
-        await request(step, state)
+        if step == .accessibility, state == .settings, !promptForAccessibility {
+            MacPermissionSetup.openSettings(step)
+        } else {
+            await request(step, state)
+        }
         guard !Task.isCancelled else { return }
         var next = states
         next[step] = await readState(step)

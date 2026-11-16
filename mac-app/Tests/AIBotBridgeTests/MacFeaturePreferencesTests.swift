@@ -16,22 +16,48 @@ final class MacFeaturePreferencesTests: XCTestCase {
         XCTAssertEqual(requested, [.location, .notifications, .terminal, .music, .systemEvents, .localNetwork, .accessibility])
     }
 
-    @MainActor func testPreviousGuideRequestsOnlyNewlyIncludedPermissions() async {
+    @MainActor func testPermissionReviewRunsOncePerVersionIncludingLegacyInstalls() {
         let (defaults, name) = preferences()
         defer { defaults.removePersistentDomain(forName: name) }
-        XCTAssertEqual(MacPermissionSetup.startupSteps(defaults: defaults), MacPermissionSetup.Step.allCases)
-        defaults.set(true, forKey: "automatic_system_permissions_shown_v2")
-        var requested: [MacPermissionSetup.Step] = []
-        let steps = MacPermissionSetup.startupSteps(defaults: defaults)
-        await MacPermissionSetup.runInitial(steps: steps, state: { _ in .request }, request: { step, _ in
-            requested.append(step)
-        })
-        XCTAssertEqual(requested, [.speech, .microphone, .bluetooth, .terminal, .music, .spotify, .localNetwork])
-        defaults.set(true, forKey: "automatic_system_permissions_shown_v3")
-        XCTAssertEqual(MacPermissionSetup.startupSteps(defaults: defaults), [.terminal])
-        XCTAssertTrue(MacPermissionSetup.shouldOffer([.request], defaults: defaults))
-        defaults.set(true, forKey: MacPermissionSetup.shownKey)
-        XCTAssertFalse(MacPermissionSetup.shouldOffer([.request], defaults: defaults))
+        XCTAssertEqual(MacPermissionSetup.launchMode(version: "0.6.22", defaults: defaults), .firstLaunch)
+        for old in 2...4 {
+            let key = "automatic_system_permissions_shown_v\(old)"
+            defaults.set(true, forKey: key)
+            XCTAssertEqual(MacPermissionSetup.launchMode(version: "0.6.22", defaults: defaults), .upgrade)
+            defaults.removeObject(forKey: key)
+        }
+        defaults.set("0.6.22", forKey: MacPermissionSetup.checkedVersionKey)
+        XCTAssertNil(MacPermissionSetup.launchMode(version: "0.6.22", defaults: defaults))
+        XCTAssertEqual(MacPermissionSetup.launchMode(version: "0.6.23", defaults: defaults), .upgrade)
+    }
+
+    @MainActor func testUpgradeReviewsActualMissingPermissionsAndRechecksBeforePrompting() async {
+        typealias Step = MacPermissionSetup.Step
+        typealias State = MacPermissionSetup.State
+        var states: [Step: State] = [.location: .request, .speech: .request, .microphone: .request,
+            .notifications: .allowed, .bluetooth: .unused, .terminal: .allowed, .music: .settings,
+            .spotify: .unavailable, .systemEvents: .openApp, .localNetwork: .settings, .accessibility: .settings]
+        let steps = MacPermissionSetup.pendingSteps(states, mode: .upgrade)
+        XCTAssertEqual(steps, [.location, .speech, .microphone, .music, .accessibility])
+        // Permission may change while the previous system sheet is displayed.
+        states[.microphone] = .allowed
+        var requested: [Step] = []
+        await MacPermissionSetup.runInitial(steps: steps, mode: .upgrade, state: { states[$0] ?? .unused },
+            request: { step, _ in requested.append(step) })
+        XCTAssertEqual(requested, [.location, .speech, .accessibility])
+        XCTAssertTrue(MacPermissionSetup.pendingSteps([.notifications: .allowed, .localNetwork: .settings,
+            .terminal: .openApp], mode: .upgrade).isEmpty)
+    }
+
+    @MainActor func testUpgradeOffersSystemEventsOnlyAfterActualPreflight() async {
+        typealias Step = MacPermissionSetup.Step
+        XCTAssertTrue(MacPermissionSetup.pendingSteps([.systemEvents: .openApp], mode: .upgrade).isEmpty)
+        XCTAssertTrue(MacPermissionSetup.pendingSteps([.systemEvents: .allowed], mode: .upgrade).isEmpty)
+        let steps = MacPermissionSetup.pendingSteps([.systemEvents: .request], mode: .upgrade)
+        var requested: [Step] = []
+        await MacPermissionSetup.runInitial(steps: steps, mode: .upgrade, state: { _ in .request },
+            request: { step, _ in requested.append(step) })
+        XCTAssertEqual(requested, [.systemEvents])
     }
 
     @MainActor func testNotificationRequestRetriesOnlyWhileSystemHasNoDecision() async {

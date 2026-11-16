@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Mac: Recheck system permissions after an upgrade and guide users through missing permissions for enabled features. Skip permissions that are already granted.
+
 ## 0.6.22 - 2026-11-16
 
 This release updates the Apple Silicon Mac bridge only. Windows remains at 0.6.21, TAB5 at 0.2.321-ui and ESP8266 at 0.5.8. No firmware update is required.

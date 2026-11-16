@@ -11,14 +11,26 @@ import UserNotifications
 @MainActor
 enum MacPermissionSetup {
     private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "AIBotBridge", category: "SystemPermissions")
-    static let shownKey = "automatic_system_permissions_shown_v4"
+    static let checkedVersionKey = "automatic_system_permissions_reviewed_version"
 
-    static func startupSteps(defaults: UserDefaults = .standard) -> [Step] {
-        // On upgrade, revisit only the permissions newly covered by this guide.
-        if defaults.bool(forKey: "automatic_system_permissions_shown_v3") { return [.terminal] }
-        return defaults.bool(forKey: "automatic_system_permissions_shown_v2")
-            ? [.speech, .microphone, .bluetooth, .terminal, .music, .spotify, .localNetwork]
-            : Step.allCases
+    enum LaunchMode { case firstLaunch, upgrade }
+
+    static func launchMode(version: String, defaults: UserDefaults = .standard) -> LaunchMode? {
+        let checkedVersion = defaults.string(forKey: checkedVersionKey)
+        guard checkedVersion != version else { return nil }
+        let previousGuide = (2...4).contains { defaults.bool(forKey: "automatic_system_permissions_shown_v\($0)") }
+        return checkedVersion != nil || previousGuide ? .upgrade : .firstLaunch
+    }
+
+    static func pendingSteps(_ states: [Step: State], mode: LaunchMode) -> [Step] {
+        Step.allCases.filter { step in
+            let state = states[step] ?? .checking
+            guard state.needsPermission else { return false }
+            // A stopped Automation target and Local Network don't have a
+            // definite status from a read-only check. System Events is a
+            // background system helper and can be started just for preflight.
+            return mode == .firstLaunch || (state != .openApp && step != .localNetwork)
+        }
     }
 
     enum State: Equatable {
@@ -104,7 +116,7 @@ enum MacPermissionSetup {
         }
     }
 
-    static func state(_ step: Step, enabled: (Step) -> Bool) async -> State {
+    static func state(_ step: Step, enabled: (Step) -> Bool, startSystemEvents: Bool = false) async -> State {
         guard enabled(step) else { return .unused }
         switch step {
         case .location: return location(enabled: true, status: MacWeatherLocation.shared.authorizationStatus)
@@ -140,10 +152,13 @@ enum MacPermissionSetup {
             return CGPreflightPostEventAccess() ? .allowed : .request
         default:
             guard let id = step.target else { return .unavailable }
-            guard let target = running(id) else {
+            let checkSystemEvents = step == .systemEvents && startSystemEvents
+            var target = running(id)
+            if target == nil, checkSystemEvents { target = await startAutomationTarget(id) }
+            guard let target else {
                 return NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) == nil ? .unavailable : .openApp
             }
-            switch await automation(target, prompt: false) {
+            switch await preflightAutomation(target, waitForLaunch: checkSystemEvents) {
             case noErr: return .allowed
             case OSStatus(errAEEventWouldRequireUserConsent): return .request
             case OSStatus(errAEEventNotPermitted): return .settings
@@ -154,20 +169,17 @@ enum MacPermissionSetup {
         }
     }
 
-    static func shouldOffer(_ states: [State], defaults: UserDefaults = .standard) -> Bool {
-        !defaults.bool(forKey: shownKey) && states.contains(where: \.needsPermission)
-    }
-
     static func runInitial(
-        steps: [Step] = Step.allCases, state: (Step) async -> State, request: (Step, State) async -> Void
+        steps: [Step] = Step.allCases, mode: LaunchMode = .firstLaunch,
+        state: (Step) async -> State, request: (Step, State) async -> Void
     ) async {
         for step in steps {
             guard !Task.isCancelled else { return }
             let current = await state(step)
             guard !Task.isCancelled else { return }
-            if step == .localNetwork, current == .settings {
+            if step == .localNetwork, current == .settings, mode == .firstLaunch {
                 await request(step, .request)
-            } else if current == .request || current == .openApp
+            } else if current == .request || (current == .openApp && (mode == .firstLaunch || step == .systemEvents))
                 || (step == .accessibility && current == .settings) {
                 await request(step, current)
             }
@@ -222,23 +234,11 @@ enum MacPermissionSetup {
         default:
             guard let id = step.target else { return }
             var target = running(id)
-            if target == nil, state == .openApp,
-               let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
-                let configuration = NSWorkspace.OpenConfiguration()
-                configuration.activates = false
-                configuration.addsToRecentItems = false
-                target = try? await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
-            }
+            if target == nil, state == .openApp { target = await startAutomationTarget(id) }
             guard let target, !Task.isCancelled else { return }
-            for attempt in 0..<8 {
-                let status = await automation(target, prompt: false)
-                guard !Task.isCancelled else { return }
-                if status == OSStatus(errAEEventWouldRequireUserConsent) {
-                    _ = await automation(target, prompt: true)
-                    return
-                }
-                guard status == OSStatus(procNotFound), attempt < 7 else { return }
-                try? await Task.sleep(for: .milliseconds(250))
+            let status = await preflightAutomation(target, waitForLaunch: true)
+            if !Task.isCancelled, status == OSStatus(errAEEventWouldRequireUserConsent) {
+                _ = await automation(target, prompt: true)
             }
         }
     }
@@ -264,6 +264,23 @@ enum MacPermissionSetup {
 
     private static func running(_ id: String) -> NSRunningApplication? {
         NSRunningApplication.runningApplications(withBundleIdentifier: id).first { !$0.isTerminated }
+    }
+
+    private static func startAutomationTarget(_ id: String) async -> NSRunningApplication? {
+        guard !Task.isCancelled, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else { return nil }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        configuration.addsToRecentItems = false
+        return try? await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+    }
+
+    private static func preflightAutomation(_ app: NSRunningApplication, waitForLaunch: Bool) async -> OSStatus {
+        for attempt in 0..<8 {
+            let status = await automation(app, prompt: false)
+            guard status == OSStatus(procNotFound), waitForLaunch, attempt < 7, !Task.isCancelled else { return status }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return OSStatus(procNotFound)
     }
 
     private static func automation(_ app: NSRunningApplication, prompt: Bool) async -> OSStatus {
