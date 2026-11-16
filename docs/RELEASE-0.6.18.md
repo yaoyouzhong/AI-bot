@@ -10,7 +10,7 @@
 - **Windows**：首次允许麦克风后，会接着录同一次语音。用安装器升级桥接只需确认一次管理员授权，日常运行的桥接也能直接提供 TAB5 固件。
 - **Mac**：可连接已打开且可确认的 Apple「终端」Claude Code 会话，按系统提示授权即可。额度历史图会直接标出每天记录到的用量占周额度多少；配合新版 TAB5 固件，键盘和触控板也可以退出萌宠屏保预览。
 
-[完整桥接更新日志](../CHANGELOG.zh.md#0618---2026-11-10) · [桥接发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.18)
+[完整桥接更新日志](../CHANGELOG.zh.md#0618---2026-11-10) · [桥接发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.18) · [Windows 与 TAB5 验收记录](development/WINDOWS-MAC-RELEASE-ALIGNMENT-20261110.md)
 
 ## TAB5 固件
 
@@ -18,7 +18,7 @@
 - **操作更顺手**：相机和麦克风按钮更大。取消排队的追加消息后，如果输入框仍为空，原来的文字和照片会恢复。Claude 回复完成时有专属语音提示。
 - **升级等什么，看得见**：设备还在读取数据或保存草稿时，会提示正在等什么，准备好后再开始。你也可以取消准备。
 
-[完整 TAB5 更新日志](development/TAB5-CHANGELOG.zh.md#02318-ui---2026-11-10) · [TAB5 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.318-ui)
+[完整 TAB5 更新日志](development/TAB5-CHANGELOG.zh.md#02318-ui---2026-11-10) · [TAB5 发布页](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.318-ui) · [正式固件真机补验](development/TAB5-318-R13-DEFAULT-SESSION-20261110.md)
 
 要使用完整的对话改进，建议先更新电脑桥接，再更新 TAB5。已安装 AI-bot 的 TAB5 选升级包，仍在出厂系统的 TAB5 选首刷包。ESP8266 保持 0.5.8，可选图库也无需更新。
 
@@ -34,7 +34,7 @@ This release has two parts: the desktop bridge lets TAB5 continue supported Clau
 - **Windows:** Granting microphone permission continues the same recording. The bridge installer needs one administrator confirmation, and the running bridge can provide TAB5 firmware directly.
 - **Mac:** Connect to supported Claude Code conversations already open in Apple Terminal by following the macOS permission prompts. The quota history chart labels each day’s recorded usage as a percentage of the weekly allowance. With the new TAB5 firmware, the Mac keyboard or trackpad can dismiss the companion screensaver preview.
 
-[Full bridge changelog](../CHANGELOG.md#0618---2026-11-10) · [Bridge release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.18)
+[Full bridge changelog](../CHANGELOG.md#0618---2026-11-10) · [Bridge release](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.18) · [Windows and TAB5 validation (Chinese)](development/WINDOWS-MAC-RELEASE-ALIGNMENT-20261110.md)
 
 ### TAB5 firmware
 
@@ -42,6 +42,6 @@ This release has two parts: the desktop bridge lets TAB5 continue supported Clau
 - **Use Dialogue more comfortably:** Larger camera and microphone buttons are easier to tap. Cancelling a queued follow-up restores the original text and photos if the input box is still empty. Claude has its own spoken completion alert.
 - **See what is holding up an update:** TAB5 shows when it is waiting for a background read or draft save, then continues when ready. You can cancel preparation.
 
-[Full TAB5 changelog](development/TAB5-CHANGELOG.md#02318-ui---2026-11-10) · [TAB5 release](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.318-ui)
+[Full TAB5 changelog](development/TAB5-CHANGELOG.md#02318-ui---2026-11-10) · [TAB5 release](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.318-ui) · [Released firmware device checks (Chinese)](development/TAB5-318-R13-DEFAULT-SESSION-20261110.md)
 
 For all the Dialogue improvements, update the desktop bridge first, then TAB5. Use the upgrade package if TAB5 is already running AI-bot and the first-install package if it is still on factory firmware. ESP8266 stays at 0.5.8 and optional gallery packs do not need updating.

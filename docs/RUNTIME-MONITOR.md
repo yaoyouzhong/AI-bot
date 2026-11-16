@@ -8,7 +8,7 @@ Windows 桥接的真实采样、通知显示回执、正常退出与重启已经
 - 运行监控顶部显示当前状态与「检测详情」入口；左侧显示 VPN 响应、最近 10 次趋势和 PAC 状态，右侧显示 CPU / 内存、等待运行线程与磁盘响应。
 - 点 VPN / 电脑卡片查看相应检测结果；「检测详情」打开当前异常对应的网络或系统分组。详情突出异常原因，并分区显示检测数据和处理建议；正常、未确认、关闭及断连分别提示。原始诊断继续保留在电脑桥接详情中。本功能不展示 Codex 用量、任务计数或会话详情。
 - 首页没有正常状态说明或诊断长文；异常时使用「系统监控：内存紧张」「系统监控：系统繁忙」等短标题，前置原生感叹号警告图标：一般告警为黄色，严重错误为红色。Windows 通知使用相同前缀及对应的系统警告／错误图标，具体外观由 Windows 控制。点击进入运行监控。一次异常只响一次，恢复后自动清除；新的持续异常可再次提醒。任务完成、等待审批等原有短时提示保留优先级。
-- 监控数据过期或桥接断开时显示中断，取消绿色状态与趋势。不能用旧状态表示正常。
+- TAB5 使用「桥接连接已中断」提示桥接状态停止更新。桥接仍联通而监控采样过期时，显示「监控数据已过期」。两种情况都取消绿色状态和趋势，新鲜数据恢复后清除提示。两类提示已核对 [0.2.320-ui 正式源码](development/TAB5-320-R6-SOURCE-20261112.md)。
 - Windows：`设备中心 → 桥接设置 → 运行监控` 主窗口只显示 VPN / PAC 和电脑负载两组简短状态、数字及异常建议；完整说明在「网络详情」「电脑详情」中查看。检测设置为独立标签页，可配置间隔、阈值、预期代理路径和小流量测速；提醒管理提供运行异常开关、提醒音及勿扰时段。
 - 补充检查继续在后台运行，不增加概览卡片：异常时显示「Codex 连接不稳」「监控采样已停滞」「内存提交量偏高」等短标题和一条建议。点击异常打开对应原因／建议，仍不展示 Codex 用量或任务详情。没有加入磁盘剩余空间检测。
 
@@ -69,6 +69,8 @@ A session-scoped same-user child checks UI/collector heartbeats and failed worke
 This is a local development candidate. The Windows bridge has been installed locally and verified with 150 seconds of live sampling, a controlled threshold-based alarm, a native Windows notification display receipt, graceful shutdown/restart and restored USB connectivity. Temporary thresholds have been restored and TAB5 remains unflashed. Windows collects scheduler, memory and disk pressure every two seconds and checks the proxy exit and per-target PAC routing every 30 seconds. Sustained system pressure requires 30 seconds; network failures require three consecutive rounds. Two healthy observations clear an alert. A bounded 128 KiB transfer every five minutes measures small-transfer throughput rather than maximum bandwidth.
 
 System opens computer statistics and traffic by default. Runtime monitoring remains accessible beside the System page title. The top-left arrow returns through diagnostic details, monitor overview, computer statistics and the source page. The monitor shows status and a details entry above VPN latency and PAC on the left and CPU, memory, scheduler and disk values on the right. Details highlight the cause, measured data and advice. Full diagnostic text is available on the Windows bridge; stale data loses its healthy presentation. TAB5 0.2.282-ui has been installed and its alert, diagnostics, details and navigation confirmed on the device. Screenshots use isolated demonstration data.
+
+TAB5 reports a bridge interruption when bridge updates stop and reports expired monitoring data when the bridge is still connected but monitoring samples are stale. Both states suppress the green status and trends and clear when fresh data returns. Both messages were verified in the [released 0.2.320-ui source](development/TAB5-320-R6-SOURCE-20261112.md).
 
 PAC availability, actual Windows per-target selection and explicit exit probes are separate evidence. A working exit with broken PAC suggests restarting the VPN client; slow exits suggest inspecting or changing the node. No automatic proxy changes, node switching, client restarts, credential export or model requests occur. HTTP reachability cannot prove authenticated Codex service health. Native notification delivery is verified; physical acceptance of the new TAB5 pages and audible notification verification remain pending. Network failure branches were controlled tests; the live VPN configuration was not disrupted.
 
