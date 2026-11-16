@@ -2,9 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.6.23 - 2026-11-16
 
-- Mac: Recheck system permissions after an upgrade and guide users through missing permissions for enabled features. Skip permissions that are already granted.
+This release updates the Apple Silicon Mac bridge only. Windows stays at 0.6.21, TAB5 at 0.2.321-ui, and ESP8266 at 0.5.8. No firmware update is needed.
+
+- On the first launch after an upgrade, check actual permissions for enabled features. Show only missing permissions and skip permissions that still work.
+- Check System Events Automation in the background when computer control is enabled. Open Accessibility (Device Control and Data Access) directly in System Settings when access is missing.
+- macOS may ask you to confirm access again after replacing the app. Existing pairings and settings are kept; you can finish reviewing permissions later under Device Center → Bridge Settings → System Permissions.
 
 ## 0.6.22 - 2026-11-16
 
