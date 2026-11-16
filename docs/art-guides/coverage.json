@@ -1,25 +1,24 @@
 {
   "schemaVersion": 1,
   "checkedOn": "2026-10-12",
-  "originalTextsRevision": "2026-10-12",
+  "originalTextsRevision": "2026-11-12",
   "catalogSha256": "5eca04546475135ff865ed132e510e905794d3534bcb7e6db1722b4591b70f44",
-  "verifiedEvidenceRecords": 6100,
+  "verifiedEvidenceRecords": 7486,
   "totalWorks": 2632,
   "categories": {
-    "painting": 1765,
-    "calligraphy": 867
+    "calligraphy": 867,
+    "painting": 1765
   },
   "coverage": {
-    "source_based_context": 748,
-    "verified_metadata": 1884
+    "source_based_context": 1660,
+    "verified_metadata": 972
   },
-  "authoritativeLooking": 1769,
-  "omittedLooking": 863,
+  "authoritativeLooking": 2632,
+  "omittedLooking": 0,
   "transcriptions": {
-    "source_verified": 239,
-    "reference_verified": 209,
-    "not_available": 407,
-    "withheld_pending_review": 12
+    "source_verified": 508,
+    "reference_verified": 259,
+    "not_available": 100
   },
   "sourcesByKind": {
     "artic": 9,
@@ -32,16 +31,11 @@
     "colbase": 403
   },
   "missingFields": {
-    "context": 1884,
-    "date": 103,
-    "transcription": 419
+    "context": 972,
+    "date": 71,
+    "transcription": 100
   },
   "gaps": [
-    {
-      "id": "cma-1967.145",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
     {
       "id": "cma-1946.83",
       "field": "context",
@@ -173,11 +167,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1955.44",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1936.496",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -228,11 +217,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1983.88",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1957.141",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -249,11 +233,6 @@
     },
     {
       "id": "cma-1936.18",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1970.77",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -283,17 +262,7 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1978.7",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-2017.4",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1983.75",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -319,11 +288,6 @@
     },
     {
       "id": "cma-2019.224",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1987.35",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -418,17 +382,7 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1997.111",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1941.68",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1998.178",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -458,11 +412,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1952.286",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-2020.259",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -474,11 +423,6 @@
     },
     {
       "id": "cma-1997.148",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1958.289",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -563,11 +507,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1972.41",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1962.169",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -588,11 +527,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1953.16",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1962.36",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -604,11 +538,6 @@
     },
     {
       "id": "cma-1967.18",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1961.89",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -639,11 +568,6 @@
     },
     {
       "id": "cma-1961.90",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1941.279",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -698,17 +622,7 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1985.268",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1965.19",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.422",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -2793,11 +2707,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1915.685",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1916.1057",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -3093,11 +3002,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1921.2552",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1960.45",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -3198,11 +3102,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1982.37",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1990.13",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -3214,11 +3113,6 @@
     },
     {
       "id": "cma-1988.16",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1034",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -3273,22 +3167,12 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1960.54",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1916.1039",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "cma-1975.76",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1975.92",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -3353,22 +3237,12 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1916.789",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1920.3919",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "cma-1916.785",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1968.209",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -3438,16 +3312,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1923.1118",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1946.255",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-2015.474",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -3479,11 +3343,6 @@
     },
     {
       "id": "cma-1993.5",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1923.1340",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -3593,11 +3452,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1975.77",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1927.394",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -3688,17 +3542,7 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1960.283",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1980.289",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1927.198",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -3803,16 +3647,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1927.392",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1940.542",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1958.38",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -3849,21 +3683,6 @@
     },
     {
       "id": "cma-2015.518",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1927.387",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1946.494",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1927.396",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -3988,11 +3807,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1983.70",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1977.121",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -4029,21 +3843,6 @@
     },
     {
       "id": "cma-2015.592",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.997",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.230",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.621",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -4124,21 +3923,6 @@
     },
     {
       "id": "cma-2015.476",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.241",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.812",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1960.116",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -4238,11 +4022,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-2003.149",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-2003.154",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -4303,49 +4082,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1916.1048",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1964.289",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1970.6",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1927.397",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1927.397",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "cma-1963.573",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.791",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1054",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1964.452",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "cma-1995.66",
@@ -4354,51 +4093,6 @@
     },
     {
       "id": "cma-2012.5",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1955.43",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1927.398",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1932.117",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1950.91",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1042",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1925.632",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1947.71",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.683",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1919.974",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -4433,71 +4127,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1929.465",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.41",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1921.83",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.786",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1925.801",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1927.390",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1928.581",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1929.464",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.129",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.130",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.792",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1928.579",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1931.440",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1915.116",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -4519,11 +4148,6 @@
     },
     {
       "id": "cma-1916.932",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1917.104",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -4603,2164 +4227,14 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1980.290",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.826",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1925.78",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1960.162",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1969.19",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1052",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1053",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.903",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1928.258",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.40",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1953.649",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1963.501",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1040",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1966.115",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1051",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1972.15",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1974.28",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1966.12",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1971.26",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.694",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1964.361",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1970.75",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.280",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1988.120",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1992.84",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1049",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1958.174",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1979.51",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.259",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.695",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1956.9",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.64",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.697",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1970.159",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.600",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.132",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1965.234",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1971.87",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1972.157",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1997.90",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1031",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.777",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.782",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1917.67",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1918.569",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1919.240",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1920.277",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1924.1240",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1946.238",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1955.45",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1986.1",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1988.103",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1924.682",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1926.1546",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1928.1856",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1957.423",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1958.40",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1960.50",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1964.284",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1967.21",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1968.239",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.688",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1971.80",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1918.173",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.39",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1947.4",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1978.127",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1989.338",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1924.972",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1946.359",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1965.32",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1982.162",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1986.174",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1924.198",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1955.296",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1964.291",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1966.208",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1978.5",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1979.137",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.231",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.42",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1954.832",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1960.46",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1961.259",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1983.186",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1983.9",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1964.288",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.87",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1930.2083",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1961.43",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1966.384",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1972.162",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1982.65",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.773",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.781",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1927.1323",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1936.682",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1974.25",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.267",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.283",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.29",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.291",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1981.64",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1986.61",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1989.68",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1991.61",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.601",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1950.346",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1955.670",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1968.107",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1977.66",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1979.140",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1987.161",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1989.335",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1989.341",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.717",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.2063",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.778",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.957",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1920.1970",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1929.1974",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1941.597",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1945.170",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1951.328",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1974.30",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1976.151",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1984.13",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.259",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.263",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.281",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.283",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1991.10",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1991.122",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1996.300",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2010.22",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2010.25",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2013.346",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1918.865",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1919.1017",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1921.925",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1973.184",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.187",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1993.42",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.686",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1920.1968",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1925.631",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1934.219",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1934.220",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1947.206",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1957.422",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1966.740",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1971.303",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1972.280",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1984.76",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.27",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.90",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.91",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1988.104",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1989.340",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1989.342",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1989.343",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1990.38",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2013.353",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1024",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1035",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.930",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1920.724",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1922.328",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1923.223",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1926.238",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1944.84",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1946.280",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1964.282",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1972.281",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1977.60",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.217",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.227",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.229",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.246",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.252",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.253",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.256",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.277",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.279",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1980.286",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1982.145",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.265",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.270",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1988.35",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1995.46",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2018.102",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.691",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1059",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.2062",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.965",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1917.279",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1920.150",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1927.5",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1929.1975",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1933.407",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1934.216",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.2958",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.302",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1939.163",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1946.70",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1964.290",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1968.365",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1973.236",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1978.74",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1981.54",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1982.164",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1982.54",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.245",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.282",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1988.18",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1991.123",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1991.56",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1994.285",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1995.45",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1995.47",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1995.48",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1997.112",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1997.114",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2018.100",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2018.82",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1947.266",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.6",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.692",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.693",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1917.103",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1917.1067",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1920.262",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1925.126",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1927.144",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1944.497",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1947.503",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1957.506",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1958.128",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1961.171",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1964.389",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1966.375",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1968.43",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1971.92",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1982.33",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1983.113",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1985.372",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1987.75",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1988.121",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1989.385",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1992.383",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2011.214",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2013.291",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1917.95",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1918.175",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1918.570",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1936.683",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1997.306",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2026.27",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.728",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1917.1001",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1918.404",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1919.914",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1919.973",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1920.751",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1920.752",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1924.803",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1930.702",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1930.703",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1933.405",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1933.406",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1933.452",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.38",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.49",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1949.381",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1971.282",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1990.129",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1992.80",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1992.83",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1993.237",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1996.273",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2001.172",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.167",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2010.21",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2010.23",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2013.288",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2014.651",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.461",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.477",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.112",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.690",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.696",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.709",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1917.100",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1917.1065",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1924.963",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1989.476",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1992.381",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1994.119",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1997.110",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1998.293",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.119",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.125",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.99",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2005.83",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2005.85",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2009.317",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2010.18",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2010.20",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.459",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.466",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.469",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.507",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.105",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.106",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.107",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.108",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.111",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.114",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.316",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1915.711",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1916.1103",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1917.889",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1917.99",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1918.547",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1919.1021",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1919.32",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1920.274",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1921.103",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1921.571",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1922.358",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1926.165",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1934.217",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1934.218",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1938.47",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1946.432",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1949.382",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1950.345",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1951.332",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1955.544",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1955.669",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1961.228",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1964.159",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1965.547",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1971.304",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1977.202",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1977.204",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1991.156",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1992.371",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1992.382",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1992.384",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1992.387",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1992.388",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1994.116",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1994.118",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1994.286",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1995.24",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1997.239",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1998.425",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1998.95",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1999.210",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.102",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.106",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.121",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.122",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.124",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.126",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.138",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.141",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.142",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.143",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.155",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.158",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.159",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.161",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.163",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.164",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.165",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2003.357",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2005.68",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2005.77",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2005.78",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2005.79",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2005.80",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2005.81",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2005.82",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2005.84",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2005.87",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2008.288",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2009.315",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2009.316",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2009.318",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2009.319",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2010.24",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2011.138",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2011.71",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2013.256",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2013.258",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2013.260",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2013.262",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.456",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.465",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.473",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.489",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.490",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.497",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2015.499",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-2024.13",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "cma-1982.68",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-1975.64",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1986.49",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1967.193",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1975.11",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1952.284",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1978.69",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-35995",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-35995",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-35999",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-35999",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-36003",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "met-36003",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-45747",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-45747",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-45748",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-45764",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-45775",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-45783",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-45786",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-45786",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-45804",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-45812",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48874",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48875",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-48876",
@@ -6768,144 +4242,9 @@
       "status": "not_available"
     },
     {
-      "id": "met-48876",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48877",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48877",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48879",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48897",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48897",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48904",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48904",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-48905",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "met-48905",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48909",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48909",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48915",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48915",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48917",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48917",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48926",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48930",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48930",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48935",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48935",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48943",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48944",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48944",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48956",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48956",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48959",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48962",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-48963",
@@ -6913,37 +4252,7 @@
       "status": "not_available"
     },
     {
-      "id": "met-48963",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48964",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48964",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-48965",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48965",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49006",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-49009",
       "field": "transcription",
       "status": "not_available"
     },
@@ -6951,11 +4260,6 @@
       "id": "met-49015",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "met-49015",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-49025",
@@ -6963,22 +4267,7 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "met-49033",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "met-49043",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-49043",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49044",
       "field": "transcription",
       "status": "not_available"
     },
@@ -6988,167 +4277,7 @@
       "status": "not_available"
     },
     {
-      "id": "met-49097",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49103",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-49103",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49174",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-49219",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-49219",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49473",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-51379",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-51379",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-51383",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-51383",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-51784",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-53796",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-737804",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-737804",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-75814",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-35978",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-35978",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-35987",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-35987",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-35997",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48928",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49778",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-49778",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49779",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-49779",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-28940",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-30353",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-30354",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-30354",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-30357",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-30357",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-4886",
       "field": "transcription",
       "status": "not_available"
     },
@@ -7156,11 +4285,6 @@
       "id": "colbase-tnm-TB-1248",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1248",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1248",
@@ -7171,11 +4295,6 @@
       "id": "colbase-tnm-TB-1249",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1249",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1249",
@@ -7184,71 +4303,11 @@
     },
     {
       "id": "colbase-tnm-TB-1252",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1252",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1262",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1262",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1309",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1309",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1322",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1331",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1335",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1335",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1338",
-      "field": "transcription",
-      "status": "not_available"
     },
     {
       "id": "colbase-tnm-TB-1339",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1341",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1341",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -7273,21 +4332,6 @@
       "status": "not_available"
     },
     {
-      "id": "colbase-tnm-TB-1594",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1594",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1596",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "colbase-tnm-TB-1597",
       "field": "transcription",
       "status": "not_available"
@@ -7303,29 +4347,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1704",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1707",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "colbase-tnm-TB-1708",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1199",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-12",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1274",
@@ -7333,34 +4357,9 @@
       "status": "not_recorded"
     },
     {
-      "id": "colbase-tnm-TB-1275",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1275",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1284",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1284",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1439",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1450",
-      "field": "transcription",
-      "status": "not_available"
     },
     {
       "id": "colbase-tnm-TB-1508",
@@ -7368,29 +4367,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1508",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1518",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1518",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1587",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1587",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1590",
@@ -7398,32 +4377,7 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-16",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-16",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1614",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "colbase-tnm-TB-1731",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-21",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-22",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -7431,66 +4385,6 @@
       "id": "colbase-tnm-TB-22",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-23",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-23",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-29",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-29",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-45",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-45",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-36132",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49773",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1640",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-19",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1638",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1638",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1638",
@@ -7513,69 +4407,14 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-37",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1173",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1170",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1600",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "colbase-tnm-TB-1616",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1616",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1208",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1208",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1208",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-864",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-864",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-5050",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-129798",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-129798",
@@ -7583,44 +4422,9 @@
       "status": "not_recorded"
     },
     {
-      "id": "mia-129795",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-130089",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129792",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129796",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129786",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-124761",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-124761",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-29434",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-29434",
@@ -7628,59 +4432,9 @@
       "status": "not_recorded"
     },
     {
-      "id": "mia-130095",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-130094",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-131178",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-131178",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129915",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-129915",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129979",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129913",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-130033",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129902",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-130029",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-35976",
@@ -7688,19 +4442,9 @@
       "status": "not_available"
     },
     {
-      "id": "met-35976",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-35980",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "met-35980",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-35982",
@@ -7708,29 +4452,9 @@
       "status": "not_available"
     },
     {
-      "id": "met-35982",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-35983",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-35983",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-35991",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "met-35991",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-45784",
@@ -7738,87 +4462,12 @@
       "status": "not_available"
     },
     {
-      "id": "met-45784",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-45814",
       "field": "transcription",
       "status": "not_available"
     },
     {
-      "id": "met-45814",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-48906",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48906",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48912",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48912",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48931",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48931",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-51663",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-51898",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49771",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-49771",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49786",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-49786",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49792",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1595",
       "field": "transcription",
       "status": "not_available"
     },
@@ -7826,11 +4475,6 @@
       "id": "colbase-tnm-TB-1595",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-43",
-      "field": "transcription",
-      "status": "not_available"
     },
     {
       "id": "colbase-tnm-TB-348",
@@ -7838,54 +4482,19 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-507",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-507",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-673",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-673",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
       "id": "colbase-tnm-TB-671",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-671",
-      "field": "date",
-      "status": "not_recorded"
     },
     {
       "id": "colbase-tnm-TB-1545",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-49",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-506",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-506",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-506",
@@ -7899,16 +4508,6 @@
     },
     {
       "id": "colbase-tnm-TB-676",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-676",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-676",
       "field": "date",
       "status": "not_recorded"
     },
@@ -7918,54 +4517,14 @@
       "status": "not_available"
     },
     {
-      "id": "colbase-tnm-TB-1542",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-223",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-228",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-228",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-228",
       "field": "date",
       "status": "not_recorded"
     },
     {
       "id": "colbase-tnm-TB-684",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-684",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-684",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-681",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-681",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-681",
@@ -7979,21 +4538,6 @@
     },
     {
       "id": "colbase-tnm-TB-1585",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-358",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-302",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-302",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -8013,19 +4557,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-666",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
       "id": "colbase-tnm-TB-667",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-667",
-      "field": "date",
-      "status": "not_recorded"
     },
     {
       "id": "colbase-tnm-TB-1699",
@@ -8034,16 +4568,6 @@
     },
     {
       "id": "colbase-tnm-TB-334",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-240",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-240",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -8059,16 +4583,6 @@
     },
     {
       "id": "colbase-tnm-TB-292",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-292",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-292",
       "field": "date",
       "status": "not_recorded"
     },
@@ -8078,52 +4592,12 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-665",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
       "id": "colbase-tnm-TB-672",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-672",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-668",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-668",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-674",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-674",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1172",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1529",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1539",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -8133,47 +4607,12 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "met-54779",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-60465",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "met-60467",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-60467",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-60468",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-60468",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-60470",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-60472",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-60472",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -8188,11 +4627,6 @@
       "status": "not_available"
     },
     {
-      "id": "met-62882",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-671036",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -8203,44 +4637,9 @@
       "status": "not_available"
     },
     {
-      "id": "met-671037",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-671039",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "met-671039",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-711871",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-711871",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-727181",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-744932",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-744932",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-77197",
@@ -8254,23 +4653,8 @@
     },
     {
       "id": "met-78052",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-78052",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "met-78053",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-78053",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-78053",
@@ -8279,23 +4663,8 @@
     },
     {
       "id": "met-78054",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-78054",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-78054",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "met-78165",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-78167",
@@ -8303,32 +4672,12 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "met-816197",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-816198",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "met-816198",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-816207",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-816208",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-816208",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -8343,132 +4692,12 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "met-829384",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-829384",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-829404",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "met-829404",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-830711",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-830711",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-897118",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-897118",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-902220",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-929159",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-929159",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "cma-1992.138",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "cma-1992.138",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117214",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117214",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117241",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-122370",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117303",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117303",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117347",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117255",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117255",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117349",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117349",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117269",
-      "field": "transcription",
-      "status": "withheld_pending_review"
-    },
-    {
-      "id": "mia-117269",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -8503,94 +4732,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-122359",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117245",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117245",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117243",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117249",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117249",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117286",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117302",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117230",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117246",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117246",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117254",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117254",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117250",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117250",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117319",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117319",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117390",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-117743",
@@ -8598,109 +4742,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-118174",
-      "field": "transcription",
-      "status": "withheld_pending_review"
-    },
-    {
-      "id": "mia-118174",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117307",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117307",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117296",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117296",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117229",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117229",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117271",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117271",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118177",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118177",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117252",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117252",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117279",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117279",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117291",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117264",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117264",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117304",
-      "field": "transcription",
-      "status": "withheld_pending_review"
-    },
-    {
-      "id": "mia-117304",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-117236",
@@ -8708,19 +4752,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-117236",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117268",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117268",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-117275",
@@ -8728,62 +4762,12 @@
       "status": "not_available"
     },
     {
-      "id": "mia-117275",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117267",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117267",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117314",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117314",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-117383",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117380",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117380",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117395",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117395",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117406",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117406",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -8793,54 +4777,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-117737",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117737",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117789",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117789",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117992",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117992",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118158",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118158",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118175",
-      "field": "transcription",
-      "status": "withheld_pending_review"
-    },
-    {
-      "id": "mia-118175",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-118695",
@@ -8848,89 +4787,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-118776",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118776",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-122363",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-122363",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117210",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117256",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117256",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117288",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117288",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117310",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117310",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117315",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117315",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117336",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117336",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117340",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117340",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-117332",
@@ -8938,49 +4797,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-117332",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117745",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117745",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117994",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117994",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117999",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117999",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118125",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118125",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-118180",
@@ -8993,34 +4812,14 @@
       "status": "not_available"
     },
     {
-      "id": "mia-118159",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-118723",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-118722",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118722",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-116758",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-116758",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-117226",
@@ -9028,49 +4827,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-117226",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117290",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117331",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117331",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117287",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117411",
-      "field": "transcription",
-      "status": "withheld_pending_review"
-    },
-    {
-      "id": "mia-117411",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117445",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117445",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-117416",
@@ -9078,34 +4837,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-117416",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117341",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117341",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117313",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117313",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117824",
-      "field": "transcription",
-      "status": "withheld_pending_review"
     },
     {
       "id": "mia-117988",
@@ -9113,34 +4847,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-117988",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-118190",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-118190",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-122366",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-122366",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-116744",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-116755",
@@ -9148,19 +4857,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-116755",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-116739",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-116739",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-117244",
@@ -9168,134 +4867,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-117244",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117261",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117261",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117263",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117263",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117292",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117292",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117294",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117294",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117744",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118178",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118714",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118714",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-118909",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-118909",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-122365",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-116754",
-      "field": "transcription",
-      "status": "withheld_pending_review"
-    },
-    {
-      "id": "mia-116754",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-116757",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-116746",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-116746",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117278",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117278",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117300",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117300",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117782",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-118000",
@@ -9303,77 +4877,12 @@
       "status": "not_available"
     },
     {
-      "id": "mia-118000",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117989",
       "field": "transcription",
       "status": "not_available"
     },
     {
-      "id": "mia-117989",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-118006",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118006",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117234",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117234",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117265",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117265",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117951",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117951",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118778",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118778",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-122369",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-122360",
       "field": "transcription",
       "status": "not_available"
     },
@@ -9383,29 +4892,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-118726",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1215",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "colbase-tnm-TB-1215",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1563",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1563",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1563",
@@ -9423,54 +4912,14 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-495",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-455",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-455",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-455",
       "field": "date",
       "status": "not_recorded"
     },
     {
       "id": "colbase-tnm-TB-429",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-429",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-429",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "mia-130000",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-130000",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1654",
-      "field": "transcription",
-      "status": "not_available"
     },
     {
       "id": "colbase-tnm-TB-1612",
@@ -9478,24 +4927,9 @@
       "status": "not_available"
     },
     {
-      "id": "colbase-tnm-TB-773",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-773",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-111",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-111",
-      "field": "date",
-      "status": "not_recorded"
     },
     {
       "id": "colbase-tnm-TB-1625",
@@ -9503,87 +4937,7 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1629",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1629",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "calligraphy-met-48955",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-36122",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-36124",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-39766",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "met-45384",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48903",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48970",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48970",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49169",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-51900",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-51901",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-51901",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-28148",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-28148",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "paris-420015216",
       "field": "transcription",
       "status": "not_available"
     },
@@ -9593,27 +4947,7 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1402",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1402",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1516",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1517",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1517",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -9623,44 +4957,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1613",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-48",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-48",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-871",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-871",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-872",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1279",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1279",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1300",
@@ -9669,33 +4968,8 @@
     },
     {
       "id": "colbase-tnm-TB-1390",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1390",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1390",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1411",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1413",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1414",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1414",
@@ -9708,114 +4982,19 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1419",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1435",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1435",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1454",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1454",
       "field": "date",
       "status": "not_recorded"
     },
     {
       "id": "colbase-tnm-TB-1519",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1519",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1608",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1610",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1727",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1729",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-6",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-6",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-873",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-873",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-18",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1601",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1601",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1641",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-11",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-11",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1561",
-      "field": "transcription",
-      "status": "not_available"
     },
     {
       "id": "colbase-tnm-TB-1561",
@@ -9828,72 +5007,12 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-360",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "mia-130045",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-130045",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129912",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-129912",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-150228",
       "field": "transcription",
       "status": "not_available"
     },
     {
-      "id": "mia-129986",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129983",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129908",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1617",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "colbase-tnm-TB-1619",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1619",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-35",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-35",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -9908,24 +5027,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-129794",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-453",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1544",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1176",
-      "field": "transcription",
-      "status": "not_available"
     },
     {
       "id": "colbase-tnm-TB-315",
@@ -9948,22 +5052,7 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-670",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
       "id": "met-45780",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-48958",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-816189",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -9978,24 +5067,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "met-826408",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-826408",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-829386",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "met-829386",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "met-829386",
@@ -10004,21 +5078,6 @@
     },
     {
       "id": "met-829410",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-829410",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "met-845128",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-845128",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -10048,22 +5107,7 @@
       "status": "not_available"
     },
     {
-      "id": "mia-118123",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-118724",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118749",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118749",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -10078,54 +5122,19 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-117270",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117270",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117350",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-116376",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-116735",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117343",
       "field": "transcription",
       "status": "not_available"
     },
     {
-      "id": "mia-117343",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117997",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117997",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118131",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-118168",
@@ -10133,49 +5142,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-118166",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118166",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118752",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118752",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117338",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117338",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117408",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117444",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117444",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-118002",
@@ -10183,94 +5152,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-118002",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118774",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118774",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-116764",
-      "field": "transcription",
-      "status": "withheld_pending_review"
-    },
-    {
-      "id": "mia-116764",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117285",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117285",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117308",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117308",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118023",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118023",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-116762",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-116762",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117339",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117822",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117822",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118196",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118196",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-105095",
@@ -10278,94 +5162,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-105095",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117298",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117298",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117438",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117434",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117434",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117991",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117991",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118005",
-      "field": "transcription",
-      "status": "withheld_pending_review"
-    },
-    {
-      "id": "mia-118005",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117400",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117400",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117963",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117963",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118195",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118195",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118696",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118696",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-117237",
@@ -10373,39 +5172,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-117237",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-130017",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "princeton-23232",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "princeton-23232",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-13295",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1548",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1548",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1548",
@@ -10423,79 +5192,14 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1206",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1206",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1207",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "colbase-tnm-TB-1207",
       "field": "date",
       "status": "not_recorded"
     },
     {
       "id": "colbase-tnm-TB-1273",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1273",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1314",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1314",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1605",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1605",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1738",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1738",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1312",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-306",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-306",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-687",
@@ -10511,21 +5215,6 @@
       "id": "colbase-tnm-TB-10",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1196",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1236",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1256",
-      "field": "transcription",
-      "status": "not_available"
     },
     {
       "id": "colbase-tnm-TB-1266",
@@ -10544,63 +5233,13 @@
     },
     {
       "id": "colbase-tnm-TB-1281",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1281",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1281",
       "field": "date",
       "status": "not_recorded"
     },
     {
       "id": "colbase-tnm-TB-1295",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1295",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1295",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1307",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1307",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1386",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1386",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1388",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1388",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1388",
@@ -10639,23 +5278,8 @@
     },
     {
       "id": "colbase-tnm-TB-1410",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1410",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1433",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1433",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1452",
@@ -10668,34 +5292,9 @@
       "status": "not_recorded"
     },
     {
-      "id": "colbase-tnm-TB-1463",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-15",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1505",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1505",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1505",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1514",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1514",
@@ -10709,11 +5308,6 @@
     },
     {
       "id": "colbase-tnm-TB-1569",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1569",
       "field": "date",
       "status": "not_recorded"
     },
@@ -10723,27 +5317,7 @@
       "status": "not_available"
     },
     {
-      "id": "colbase-tnm-TB-1604",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1611",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "colbase-tnm-TB-1650",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1650",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1653",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -10751,11 +5325,6 @@
       "id": "colbase-tnm-TB-1723",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1726",
-      "field": "transcription",
-      "status": "not_available"
     },
     {
       "id": "colbase-tnm-TB-1728",
@@ -10768,27 +5337,12 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1730",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
       "id": "colbase-tnm-TB-1747",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-20",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-24",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-24",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -10803,92 +5357,7 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-55",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-56",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "mia-124725",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-124762",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-124762",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129625",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129626",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-129626",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129645",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129646",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-129646",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-129799",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-130056",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49129",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-49129",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "met-60473",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-73330",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-73330",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -10903,19 +5372,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "cma-2015.468",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-118179",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-118179",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-117813",
@@ -10923,49 +5382,14 @@
       "status": "not_available"
     },
     {
-      "id": "mia-117813",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117346",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117828",
       "field": "transcription",
       "status": "not_available"
     },
     {
-      "id": "mia-117828",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118157",
-      "field": "transcription",
-      "status": "withheld_pending_review"
-    },
-    {
-      "id": "mia-118157",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-116346",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117420",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117420",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-118146",
@@ -10978,64 +5402,14 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-117280",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117280",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117297",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117297",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117422",
       "field": "transcription",
       "status": "not_available"
     },
     {
-      "id": "mia-117422",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117964",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117964",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118172",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118172",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118740",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118740",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-118093",
@@ -11043,29 +5417,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-118169",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117439",
-      "field": "transcription",
-      "status": "withheld_pending_review"
-    },
-    {
-      "id": "mia-117439",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117403",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117403",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-118009",
@@ -11073,39 +5427,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-118009",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117233",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117233",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117398",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117398",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117749",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-130064",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1299",
@@ -11113,49 +5437,14 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1214",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "colbase-tnm-TB-1232",
       "field": "transcription",
       "status": "not_available"
     },
     {
-      "id": "colbase-tnm-TB-1405",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1502",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1502",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1502",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1268",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1287",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1553",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1509",
@@ -11174,31 +5463,6 @@
     },
     {
       "id": "colbase-tnm-TB-1732",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-28",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-910",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1313",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1510",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1510",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -11223,11 +5487,6 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-118427",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-116870",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
@@ -11243,49 +5502,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-117783",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118022",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118022",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118021",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "mia-117740",
       "field": "transcription",
       "status": "not_available"
-    },
-    {
-      "id": "mia-117740",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118690",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118690",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118092",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "mia-117788",
@@ -11298,37 +5517,7 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-118182",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118182",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1263",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "colbase-tnm-TB-1240",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1240",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-44",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-44",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -11343,37 +5532,12 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-366",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
       "id": "colbase-tnm-TB-1375",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1250",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1250",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1421",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-733689",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-733689",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -11388,64 +5552,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "mia-117272",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117272",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-117293",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-117293",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1211",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1211",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1211",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1462",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1258",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1277",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1559",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1559",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1559",
@@ -11454,48 +5563,8 @@
     },
     {
       "id": "colbase-tnm-TB-459",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-459",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-459",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-369",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-369",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-307",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-307",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-856",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-856",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1635",
@@ -11513,49 +5582,14 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "met-48961",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-48961",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "rijks-AK-MAK-1422",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1618",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1618",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1417",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1417",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1417",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1397",
-      "field": "transcription",
-      "status": "not_available"
     },
     {
       "id": "colbase-tnm-TB-1647",
@@ -11563,19 +5597,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1647",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
       "id": "colbase-tnm-TB-711",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-711",
-      "field": "date",
-      "status": "not_recorded"
     },
     {
       "id": "colbase-tnm-TB-1368",
@@ -11584,48 +5608,13 @@
     },
     {
       "id": "colbase-tnm-TB-1282",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1282",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1282",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1264",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1285",
-      "field": "transcription",
-      "status": "not_available"
     },
     {
       "id": "colbase-tnm-TB-1285",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1257",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1238",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1238",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1238",
@@ -11638,39 +5627,9 @@
       "status": "not_available"
     },
     {
-      "id": "mia-117821",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-49147",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1231",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
       "id": "colbase-tnm-TB-1231",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1221",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1302",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1302",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1302",
@@ -11679,48 +5638,8 @@
     },
     {
       "id": "colbase-tnm-TB-1230",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1230",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1278",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1278",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "mia-118185",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "mia-118185",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1293",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1239",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1239",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1460",
@@ -11728,89 +5647,14 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1460",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-742",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-742",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "princeton-37136",
-      "field": "transcription",
-      "status": "withheld_pending_review"
-    },
-    {
-      "id": "colbase-tnm-TB-1290",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1290",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1290",
       "field": "date",
       "status": "not_recorded"
     },
     {
-      "id": "colbase-tnm-TB-1702",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1702",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1235",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1235",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1235",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1294",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1294",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1407",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1311",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1311",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1311",
@@ -11823,44 +5667,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-1321",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1321",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1406",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1406",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-878",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-878",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-75",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-75",
-      "field": "date",
-      "status": "not_recorded"
     },
     {
       "id": "colbase-tnm-TB-626",
@@ -11869,83 +5678,18 @@
     },
     {
       "id": "colbase-tnm-TB-1430",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1430",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1430",
       "field": "date",
       "status": "not_recorded"
     },
     {
       "id": "colbase-tnm-TB-1210",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1210",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1210",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "met-670905",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-670905",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "met-701293",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "met-701293",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-120",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-120",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1412",
-      "field": "transcription",
-      "status": "not_available"
     },
     {
       "id": "colbase-tnm-TB-1412",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1557",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1557",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1557",
@@ -11958,34 +5702,9 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-890",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1449",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1449",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
       "id": "colbase-tnm-TB-1449",
       "field": "date",
       "status": "not_recorded"
-    },
-    {
-      "id": "colbase-tnm-TB-1418",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1418",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
     },
     {
       "id": "colbase-tnm-TB-1418",
@@ -11994,16 +5713,6 @@
     },
     {
       "id": "colbase-tnm-TB-880",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1213",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1213",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     },
@@ -12024,16 +5733,6 @@
     },
     {
       "id": "colbase-tnm-TB-1242",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-1242",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-1242",
       "field": "date",
       "status": "not_recorded"
     },
@@ -12048,26 +5747,40 @@
       "status": "no_reviewed_work_specific_context"
     },
     {
-      "id": "colbase-tnm-TB-108",
-      "field": "date",
-      "status": "not_recorded"
-    },
-    {
       "id": "colbase-tnm-TB-233",
-      "field": "context",
-      "status": "no_reviewed_work_specific_context"
-    },
-    {
-      "id": "colbase-tnm-TB-896",
-      "field": "transcription",
-      "status": "not_available"
-    },
-    {
-      "id": "colbase-tnm-TB-896",
       "field": "context",
       "status": "no_reviewed_work_specific_context"
     }
   ],
   "runtimeIntegrated": false,
-  "hardwareVerified": false
+  "hardwareVerified": false,
+  "verifiedReadingImages": 331,
+  "reconciledReadingScopes": {
+    "artwork_main_body_excerpt": 232,
+    "artwork_main_body_transcription": 38,
+    "literary_reference_excerpt_not_object_transcription": 15,
+    "literary_reference_not_object_transcription": 1,
+    "museum_translation_paraphrase_not_object_transcription": 34
+  },
+  "readableCalligraphy": 767,
+  "missingCalligraphyReading": 100,
+  "fullLibraryEditorialRevision": "2026-11-12",
+  "fullLibraryEditorialWorks": 1056,
+  "libraryIncludingAnnualOnly": {
+    "annualOnlyWorks": 62,
+    "totalWorks": 2694,
+    "categories": {
+      "calligraphy": 929,
+      "painting": 1765
+    },
+    "authoritativeLooking": 2694,
+    "omittedLooking": 0,
+    "transcriptions": {
+      "source_verified": 508,
+      "reference_verified": 321,
+      "not_available": 100
+    },
+    "readableCalligraphy": 829,
+    "missingCalligraphyReading": 100
+  }
 }

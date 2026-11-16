@@ -1,0 +1,620 @@
+{
+  "cma-2010.22": {
+    "url": "https://www.clevelandart.org/art/2010.22",
+    "snapshot": "sources/full-20261111-r5-cma-2010.22.json",
+    "evidenceSha256": "df0f96872930890175712d9010f27327d772ebaf3aae422beac612750163a73e",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/CMAMM2011-02",
+        "title": "克利夫兰艺术博物馆馆刊，2011年3—4月",
+        "locator": "2011年3—4月号，第13页，Albert Wolff in His Study",
+        "snapshot": "sources/full-20261111-r5-CMAMM2011-02.txt",
+        "evidenceSha256": "28617c091aa047fca2be8f61f7809bb5eee0771734368e22851515db51bf5715"
+      }
+    ]
+  },
+  "cma-2010.23": {
+    "url": "https://www.clevelandart.org/art/2010.23",
+    "snapshot": "sources/full-20261111-r5-cma-2010.23.json",
+    "evidenceSha256": "81eb4c11cd9cdf33bd35e117e3f8fc29a0fc115c6c6feac29e37a211834017ea",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/CMAMM2011-02",
+        "title": "克利夫兰艺术博物馆馆刊，2011年3—4月",
+        "locator": "2011年3—4月号，第17页，View of the Port of Saint-Valéry-sur-Somme",
+        "snapshot": "sources/full-20261111-r5-CMAMM2011-02.txt",
+        "evidenceSha256": "28617c091aa047fca2be8f61f7809bb5eee0771734368e22851515db51bf5715"
+      }
+    ]
+  },
+  "cma-1985.187": {
+    "url": "https://www.clevelandart.org/art/1985.187",
+    "snapshot": "sources/full-20261111-r5-cma-1985.187.json",
+    "evidenceSha256": "10f6916a93c2b5a851a5f03cf91c69902e2b850093bf023920a97e4654354e0c",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/CMAMM2006-05",
+        "title": "克利夫兰艺术博物馆馆刊，2006年9—10月",
+        "locator": "2006年9—10月号，Bickford 收藏专题同名作品图注",
+        "snapshot": "sources/full-20261111-r5-CMAMM2006-05.txt",
+        "evidenceSha256": "abf75032bd9d3e894ce73dc045e40f6852552a8a0ca6c1b661550700f55bb7cb"
+      }
+    ]
+  },
+  "cma-2003.6": {
+    "url": "https://www.clevelandart.org/art/2003.6",
+    "snapshot": "sources/full-20261111-r5-cma-2003.6.json",
+    "evidenceSha256": "b992b9ca4d6a9175af09a3a9883532f1a66ab29963e205c729531258b7267515",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/CMAMM2004-01",
+        "title": "克利夫兰艺术博物馆馆刊，2004年1月",
+        "locator": "2004年1月号，第4—7页，Muses 委托与图版",
+        "snapshot": "sources/full-20261111-r5-CMAMM2004-01.txt",
+        "evidenceSha256": "c2400922de02b3d95f8d9a5146de468000b6b6ac54272f81dcb75f4463926615"
+      }
+    ]
+  },
+  "cma-1944.84": {
+    "url": "https://www.clevelandart.org/art/1944.84",
+    "snapshot": "sources/full-20261111-r5-cma-1944.84.json",
+    "evidenceSha256": "13995e6559ebaa79eb71ea66eacf9fb00e6f4e4cde0fd7fdcb169b0eee39bee9",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/Prentiss",
+        "title": "克利夫兰艺术博物馆《普伦蒂斯收藏图录》",
+        "locator": "第22页，第6号及馆录所引画家1915年信",
+        "snapshot": "sources/full-20261111-r5-Prentiss.txt",
+        "evidenceSha256": "f3d18007e50e4bbead3c351b52f3ae69e6db3625bb1df5642794fd60347d34df"
+      }
+    ]
+  },
+  "cma-1921.83": {
+    "url": "https://www.clevelandart.org/art/1921.83",
+    "snapshot": "sources/full-20261111-r5-cma-1921.83.json",
+    "evidenceSha256": "51b8bfd43d42333844203649cca361a573e4efc28841b6c9193a0d5e076e7e4c",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/CMAHandbook1928",
+        "title": "克利夫兰艺术博物馆1928年馆藏手册",
+        "locator": "绘画部分，Les Bergers 条",
+        "snapshot": "sources/full-20261111-r5-CMAHandbook1928.txt",
+        "evidenceSha256": "b0b61279f2a60b92ca7a50a2eef5aed47b972570db38672f305972035aac85ec"
+      }
+    ]
+  },
+  "cma-1925.78": {
+    "url": "https://www.clevelandart.org/art/1925.78",
+    "snapshot": "sources/full-20261111-r5-cma-1925.78.json",
+    "evidenceSha256": "8cd97ff0deac320e75ccf8dccca7946a0ab3c35181d53f68ef3724fcc7c9b413",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/CMAHandbook1928",
+        "title": "克利夫兰艺术博物馆1928年馆藏手册",
+        "locator": "绘画部分，Head of a Boy 条",
+        "snapshot": "sources/full-20261111-r5-CMAHandbook1928.txt",
+        "evidenceSha256": "b0b61279f2a60b92ca7a50a2eef5aed47b972570db38672f305972035aac85ec"
+      }
+    ]
+  },
+  "cma-1916.1040": {
+    "url": "https://www.clevelandart.org/art/1916.1040",
+    "snapshot": "sources/full-20261111-r5-cma-1916.1040.json",
+    "evidenceSha256": "a73f941766ca3da7868f4045ed81fd6514894ad3d25543d7994c11d83a863232",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/CMAHandbook1928",
+        "title": "克利夫兰艺术博物馆1928年馆藏手册",
+        "locator": "绘画部分，Carthage 条；旧署名仅用于辨析",
+        "snapshot": "sources/full-20261111-r5-CMAHandbook1928.txt",
+        "evidenceSha256": "b0b61279f2a60b92ca7a50a2eef5aed47b972570db38672f305972035aac85ec"
+      }
+    ]
+  },
+  "cma-1916.773": {
+    "url": "https://www.clevelandart.org/art/1916.773",
+    "snapshot": "sources/full-20261111-r5-cma-1916.773.json",
+    "evidenceSha256": "ebc1781d211a3e1ce8e0ca6371f06485e619a4a96d1e40faa66b2dd8f1cb53f5",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/HenryGKeller",
+        "title": "克利夫兰艺术博物馆《亨利·凯勒纪念展图录》",
+        "locator": "第21页，第7号 In the Sand Pit",
+        "snapshot": "sources/full-20261111-r5-HenryGKeller.txt",
+        "evidenceSha256": "04023fd84a7a855737d23af9a3f95a65e8df50b37649a715df73278f0372ee82"
+      }
+    ]
+  },
+  "cma-1921.925": {
+    "url": "https://www.clevelandart.org/art/1921.925",
+    "snapshot": "sources/full-20261111-r5-cma-1921.925.json",
+    "evidenceSha256": "0cfbb8e612eaaa46d4d9a6cf93b3511105b2853b25d27dff0e3547ab63a89628",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/HenryGKeller",
+        "title": "克利夫兰艺术博物馆《亨利·凯勒纪念展图录》",
+        "locator": "第22页，第10号 Disturbed",
+        "snapshot": "sources/full-20261111-r5-HenryGKeller.txt",
+        "evidenceSha256": "04023fd84a7a855737d23af9a3f95a65e8df50b37649a715df73278f0372ee82"
+      }
+    ]
+  },
+  "cma-1961.43": {
+    "url": "https://www.clevelandart.org/art/1961.43",
+    "snapshot": "sources/full-20261111-r5-cma-1961.43.json",
+    "evidenceSha256": "2fab1d37cdaf9eb2842d09e81808dc4485ee84a3895402b410574e89e7f422aa",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/cmapr0917",
+        "title": "克利夫兰艺术博物馆入藏新闻稿：玛尔瓦乐调画",
+        "locator": "馆方入藏新闻稿，印度乐调画正文（亭中人物、文字与边饰）",
+        "snapshot": "sources/full-20261111-r5-cmapr0917.txt",
+        "evidenceSha256": "ea948d1f6aab47053b56d04ce31f2b445f670576b17f49221915c206c223c610"
+      }
+    ]
+  },
+  "cma-1960.81": {
+    "url": "https://www.clevelandart.org/art/1960.81",
+    "snapshot": "sources/cma-1960.81.json",
+    "evidenceSha256": "5e5d9dee8e6e9ff2a79c1bba92f8373413e00fbc724c31140d93894a9e5bfe0d",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/articles/agapanthus-exposed",
+        "title": "Dean Yoder，克利夫兰艺术博物馆《“Agapanthus” Exposed》",
+        "locator": "原载馆刊2011年7—8月号，84张X光底片、左下百子莲、1921年画室照片",
+        "snapshot": "sources/full-20261111-r5-agapanthus-web-capture.json",
+        "evidenceSha256": "fff6d972bd0e79d9755be329efad37e7deedfd2e52972c564af0260b460538a5"
+      }
+    ]
+  },
+  "cma-1997.306": {
+    "url": "https://www.clevelandart.org/art/1997.306",
+    "snapshot": "sources/full-20261111-r5-cma-1997.306.json",
+    "evidenceSha256": "5d18ca27e376cbc6b635b27a392744149ca81bbb2f4c7f45e6ab09a6f6da7e27",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://archive.org/details/cmapr4108",
+        "title": "克利夫兰艺术博物馆五月展档案",
+        "locator": "1998年3月24日，克恩遗赠的西藏绘画等藏品",
+        "snapshot": "sources/full-20261111-r5-cmapr4108.txt",
+        "evidenceSha256": "5e8ac056f4327eff4149288e22a5c5f43ed1a3fc0ff0962b7e946de148696887"
+      }
+    ]
+  },
+  "cma-1966.208": {
+    "url": "https://www.clevelandart.org/art/1966.208",
+    "snapshot": "sources/full-20261111-r5-cma-1966.208.json",
+    "evidenceSha256": "7454462706218a41e0a2c8212fd6bdacf86b90e9984f25c3512a653d6b41025b",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1966.208",
+        "title": "克利夫兰艺术博物馆《The Coast at Trouville》打印页",
+        "locator": "Artist、Inscriptions、Citations",
+        "snapshot": "sources/full-20261111-r5-trouville-web-capture.json",
+        "evidenceSha256": "d0781d623f90dfce33ba4d14a1899c4808f10b95a814c21940f1b0fdf59aab54"
+      }
+    ]
+  },
+  "cma-1970.75": {
+    "url": "https://www.clevelandart.org/art/1970.75",
+    "snapshot": "sources/full-20261111-r5-cma-1970.75.json",
+    "evidenceSha256": "7bd1a68d1884fa77eecaf3a46d1f0bfc036ae2007b84ee09e6cf7705bd84b88b",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1970.75",
+        "title": "克利夫兰艺术博物馆《Plum Blossoms》打印页",
+        "locator": "Provenance、Exhibition History",
+        "snapshot": "sources/full-20261111-r5-plum-web-capture.json",
+        "evidenceSha256": "c98c0fef4c82a38d57cc4ade2c1250f96f4d4a192f4b0ba2d307fd4ff8651b05"
+      }
+    ]
+  },
+  "cma-1971.80": {
+    "url": "https://www.clevelandart.org/art/1971.80",
+    "snapshot": "sources/full-20261111-r5-cma-1971.80.json",
+    "evidenceSha256": "e5ed6f175ddea9f4dcd4bd2c553fbf914d7a60c6a0da030d5294403e585b6fc0",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1971.80",
+        "title": "克利夫兰艺术博物馆《Krishna reaching for the moon》打印页",
+        "locator": "Provenance、Citations、馆藏图",
+        "snapshot": "sources/full-20261111-r5-krishna-web-capture.json",
+        "evidenceSha256": "67ef9c265a38158472c3f889979ba9185391245be33569f48a8ddd616d8e36c5"
+      }
+    ]
+  },
+  "cma-1966.12": {
+    "url": "https://www.clevelandart.org/art/1966.12",
+    "snapshot": "sources/full-20261111-r5-cma-1966.12.json",
+    "evidenceSha256": "57ddbbcc0d2c0a663c6ad35164ed57d4acb14f9b1d77cdb19701608111228547",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.jstor.org/stable/25152140",
+        "title": "Wolfgang Stechow，《A Painting and a Drawing by Adriaen van de Velde》",
+        "locator": "克利夫兰艺术博物馆馆刊54卷2期，1967，第30—35页，公开题录与引注",
+        "snapshot": "sources/full-20261111-r5-shepherds-web-capture.json",
+        "evidenceSha256": "4424f6ec1c86ccd2f4a6cfcdfd4d16614eaf97f8c7421e61093852905e973d5e"
+      }
+    ]
+  },
+  "cma-1956.9": {
+    "url": "https://www.clevelandart.org/art/1956.9",
+    "snapshot": "sources/full-20261111-r5-cma-1956.9.json",
+    "evidenceSha256": "8bb7e04e867adf2f7e5f6d575214a44c83238310835fdde6ce2186f982ed1525",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1956.9",
+        "title": "克利夫兰艺术博物馆《Bangala Ragini》打印页",
+        "locator": "馆藏原图、年代、画派、题识",
+        "snapshot": "sources/full-20261111-r5-bangala-web-capture.json",
+        "evidenceSha256": "c67aa31257c24c75ccf683425871ad68f4b73b27e8b834deed0b472e46335152"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1704": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1704?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1704.json",
+    "evidenceSha256": "0fecdd8d9df4de81c6fd7e02ebfef35f0f7b79b68656fc8eb667744f062243a1",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://ctext.org/wiki.pl?chapter=1268247&if=en",
+        "title": "中国哲学书电子化计划《法言·学行卷第一》",
+        "locator": "ColBase TB-1704，扇面全图；《法言·学行》相应段落",
+        "snapshot": "sources/parallel-20261010-9a8055e1b8750c6a.json",
+        "evidenceSha256": "9a8055e1b8750c6ae3623aa3a0c15c62404adb3ccd8e41a742054183913f42e7"
+      }
+    ]
+  },
+  "colbase-tnm-TB-12": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-12?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-12.json",
+    "evidenceSha256": "62ff6547ad29ca4035d7fb90080eec1d10e0d155a1f4131cd73ac1c76384092b",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://ctext.org/wiki.pl?chapter=859268&if=gb&remap=gb",
+        "title": "《御定全唐诗》卷二四五古籍电子版",
+        "locator": "韩翃名下《宿石邑山中》",
+        "snapshot": "sources/full-20261111-r5-shi-yi-web-capture.json",
+        "evidenceSha256": "6a506d21be14edfadda1d3c2aa02a7dad0e28be91e7b425fe6ea75db7cb16ade"
+      }
+    ]
+  },
+  "colbase-tnm-TB-22": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-22?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-22.json",
+    "evidenceSha256": "3f0a21cffcddbf7c172d3ce9e3d8dd565a1630683d32edc2916d2347ff1c4b25",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://ctext.org/text.pl?if=gb&node=249956",
+        "title": "中国哲学书电子化计划（《全唐诗》卷723）",
+        "locator": "ColBase TB-22；李洞诗参考出处及本轴异文",
+        "snapshot": "sources/parallel-20261010-a3d9022cc7fc4316.json",
+        "evidenceSha256": "a3d9022cc7fc4316362bc4dd362a1cd3b5344eb54ee81cee15ca3f74064b1888"
+      }
+    ]
+  },
+  "colbase-tnm-TB-37": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-37?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-37.json",
+    "evidenceSha256": "3dd985e7d3bb07c859410f603a3a14329bc166959741b5709a44a68e1e7b00b1",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/media/tnm/TB-37/image/TB-37_E0121839.jpg",
+        "title": "东京国立博物馆（ColBase）",
+        "locator": "ColBase TB-37；馆藏图 E0121839，七言八句",
+        "snapshot": "sources/parallel-20261010-dac1c28b2aa371bd.jpg",
+        "evidenceSha256": "dac1c28b2aa371bd2ca18ab1e3a65215db71f0c2c245479bf34ef04bcbe975de"
+      }
+    ]
+  },
+  "colbase-tnm-TB-49": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-49?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-49.json",
+    "evidenceSha256": "6deb07d8e7e680fa813a2637067f5589fbd3a603b5a7a67325270e604ca9e9aa",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/media/tnm/TB-49/image/TB-49_E0121759.jpg",
+        "title": "东京国立博物馆（ColBase）",
+        "locator": "ColBase TB-49；馆藏两幅原图，完整联文",
+        "snapshot": "sources/parallel-20261010-6e5bee7a7e2719a6.jpg",
+        "evidenceSha256": "6e5bee7a7e2719a6c2e77cd46a2d5198e861b8b75cbefc0924677951a9d9a60b"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1529": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1529?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1529.json",
+    "evidenceSha256": "28d85a8edab65e35415ac06c045bca268efe4465a9c45a21dc5fe1ef47bd246a",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/media/tnm/TB-1529/image/TB-1529_E0106268.jpg",
+        "title": "东京国立博物馆（ColBase）",
+        "locator": "ColBase TB-1529；馆藏图 E0106268、E0106270",
+        "snapshot": "sources/parallel-20261010-6c71e8096fb19b9c.jpg",
+        "evidenceSha256": "6c71e8096fb19b9c4efb013c6c6b3687cdfbe0b3af42090b3754737fa17218e8"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1539": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1539?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1539.json",
+    "evidenceSha256": "e71aa4b2f485fba1096d0cd0e438481f0087245d0b3ea96f063ed169b5a050e5",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1539?locale=zh",
+        "title": "东京国立博物馆（ColBase）",
+        "locator": "ColBase TB-1539，两幅隶书八言主文",
+        "snapshot": "sources/parallel-20261010-905ec030e45519d1.json",
+        "evidenceSha256": "905ec030e45519d1f0fea9b8228f3f9de5be8d0c14b3d924c288ad0ff635f6e0"
+      }
+    ]
+  },
+  "colbase-tnm-TB-871": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-871?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-871.json",
+    "evidenceSha256": "17ad8eb0d45c05da925d18739a29d6fc03025346dda4f153723d5b169a41d5d8",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://www.shidianguji.com/mid-page/7439098725068193830",
+        "title": "识典古籍（古籍正文）",
+        "locator": "ColBase TB-871；御制《虎丘》诗参考文本",
+        "snapshot": "sources/round10-literary-web-evidence.txt",
+        "evidenceSha256": "92401557ea5b8013b97a12d4d1e8eea803cd917dd34acbbc962c1f05290369c3"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1411": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1411?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1411.json",
+    "evidenceSha256": "0164f4ed2457fb36a9feba05633d6bab6f50aad8f7dec250c9451c617de0f2ff",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://www.shidianguji.com/zh/book/HY0648/chapter/1kuzsj2eeieiy",
+        "title": "识典古籍《东坡先生全集·与毛维瞻一首》",
+        "locator": "ColBase TB-1411，馆藏原图；苏轼文献参考",
+        "snapshot": "sources/parallel-20261010-f813a6593a9808b6.txt",
+        "evidenceSha256": "f813a6593a9808b65f4277cb5c1e947d91c322dc8c4984ca25f5de8771865216"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1414": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1414?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1414.json",
+    "evidenceSha256": "626eb3f8ff2430eb432282c8f7f1887b82fabc7d6b50c60895960601a4b8b418",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/media/tnm/TB-1414/image/TB-1414_E0117029.jpg",
+        "title": "东京国立博物馆（ColBase）",
+        "locator": "ColBase TB-1414，馆藏图 E0117029，十八字主文",
+        "snapshot": "sources/parallel-20261010-762bcd929c7cf0e9.jpg",
+        "evidenceSha256": "762bcd929c7cf0e9515d62fd53b7031845868b9401262be3e45935dd771ada76"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1454": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1454?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1454.json",
+    "evidenceSha256": "0a388bd292bc13c41638002b8310b760a8d51a1799b4519b936e61cff421f5e1",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://www.shidianguji.com/book/NLG312001076319/chapter/1ljvt2fiimrr4",
+        "title": "识典古籍（古籍正文）",
+        "locator": "ColBase TB-1454；御制《清涼山》诗参考文本",
+        "snapshot": "sources/round10-literary-web-evidence.txt",
+        "evidenceSha256": "92401557ea5b8013b97a12d4d1e8eea803cd917dd34acbbc962c1f05290369c3"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1519": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1519?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1519.json",
+    "evidenceSha256": "ed4d11b65944795004c58038d8b5c0f3f8143fb71c2b19490e5ada1a8d2195f9",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/media/tnm/TB-1519/image/TB-1519_E0106993.jpg",
+        "title": "东京国立博物馆（ColBase）",
+        "locator": "ColBase TB-1519，馆藏图 E0106993；窦臮《述书赋》",
+        "snapshot": "sources/parallel-20261010-62f9cceb0e8799fb.jpg",
+        "evidenceSha256": "62f9cceb0e8799fbbe89f7fe4a0b1b014d7e0e6dd5230ed51256e09bbf75ad6c"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1729": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1729?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1729.json",
+    "evidenceSha256": "14db5bbe1ab74597a64a4736a3f64e5580dcc909dc6b7d506e9063e4d6db4bad",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://waseda.repo.nii.ac.jp/record/29800/files/ChugokuShibunRonso_30_Marui.pdf",
+        "title": "早稻田大学机构库·丸井《近體と古體のあいだ》中国诗文论丛30集第18页",
+        "locator": "ColBase TB-1729；早稻田大学所藏韦应物诗本相应篇",
+        "snapshot": "sources/parallel-20261010-0aab542ffda0eb23.pdf",
+        "evidenceSha256": "0aab542ffda0eb23360d5d6d7833630140f5d6337c6b34a08fc5f0e9edff53ca"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1544": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1544?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1544.json",
+    "evidenceSha256": "08f14c3b9fa8365dafb22911d24746453483b991a79c9558936aa41a486d5dce",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1544?locale=zh",
+        "title": "东京国立博物馆（ColBase）",
+        "locator": "ColBase TB-1544，馆藏两幅与完整八言联文",
+        "snapshot": "sources/parallel-20261010-12b1a93f1a100430.json",
+        "evidenceSha256": "12b1a93f1a10043097880ad5dc1f149a406cf2bfcd7ff5cc80d3e5787586466c"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1312": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1312?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1312.json",
+    "evidenceSha256": "ccc28a83fd7fca76fc0703d6c1d444d57e89f894e63a335a9ad9caaf4ad82705",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://www.dpm.org.cn/vr/stone-moat/wyd_22.html",
+        "title": "故宫博物院《后赤壁赋图卷》专题说明",
+        "locator": "元丰五年七月及十月的两次夜游",
+        "snapshot": "sources/full-20261111-r5-red-cliff-web-capture.json",
+        "evidenceSha256": "4c96b2abdc6c2cf62f6331f74f3462e455780c6d6124a5610165c5e4bea8da81"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1196": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1196?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1196.json",
+    "evidenceSha256": "f473e0da85146239e4aafd1493ed1a769ddc88e739bc261b1cd15564fdfc3875",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://ctext.org/wiki.pl?chapter=855255&if=en",
+        "title": "《李群玉诗后集》卷五古籍电子版",
+        "locator": "第18—19条《题龙潭西斋》",
+        "snapshot": "sources/full-20261111-r5-li-qunyu-web-capture.json",
+        "evidenceSha256": "bfb304042d94fc07f3b593a475ec906c968a07d3681376a2df642762124464c3"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1514": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1514?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1514.json",
+    "evidenceSha256": "366959181a8f24c7718bfa7426b3495f83c416cf465d252b5ccd7804a17231ee",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/media/tnm/TB-1514/image/TB-1514_E0121776.jpg",
+        "title": "东京国立博物馆（ColBase）",
+        "locator": "ColBase TB-1514，馆藏图 E0121776；本幅完整六言主文",
+        "snapshot": "sources/parallel-20261010-9dd8f316862819dd.jpg",
+        "evidenceSha256": "9dd8f316862819dd0867c7058c05f495e6d21407e3e447d060a6c4773294d6ff"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1653": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1653?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1653.json",
+    "evidenceSha256": "d301604044dc3456857dc8de19f02d38e9ec1ecea1060a5ab39ec5fa7dd9260f",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/media/tnm/TB-1653/image/TB-1653_E0025176.jpg",
+        "title": "東京国立博物館／ColBase",
+        "locator": "ColBase TB-1653，馆藏原图及本幅七绝主文",
+        "snapshot": "sources/parallel-20261010-47732ce4059bacb4.jpg",
+        "evidenceSha256": "47732ce4059bacb4f7553540f94ecbdc6c9f199518c783e9d60dc01c1c671592"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1709": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1709?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1709.json",
+    "evidenceSha256": "ddadbe4587907a5e0d7069b3f1fd6da932c33a2eaae273a884dac550825b6c4a",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "colbase-tnm-TB-1338": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1338?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1338.json",
+    "evidenceSha256": "1f54b735742ca5810f2c6408cdf69e555579d1b6c11e60f0ef3c227dfe0ff9be",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "colbase-tnm-TB-1510": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1510?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1510.json",
+    "evidenceSha256": "0bb0021fab7f0cd60492bb2fbcedeeaf2f81a6a0934f4315499d0a8960bf4e85",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-48970": {
+    "url": "https://www.metmuseum.org/art/collection/search/48970",
+    "snapshot": "sources/met-48970.json",
+    "evidenceSha256": "0cd10b18ebd6bfc285c82cccadf531573a37eccc517df100be4a686aff7b544e",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "mia-129915": {
+    "url": "https://collections.artsmia.org/art/129915",
+    "snapshot": "sources/mia-129915.json",
+    "evidenceSha256": "803d34363e011652f36c8da6311b5ab2270ae026edf46180f81b659851e8fcf9",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "mia-13295": {
+    "url": "https://collections.artsmia.org/art/13295",
+    "snapshot": "sources/mia-13295.json",
+    "evidenceSha256": "18ef8e807eb406e3db3eaf5a0a0719a586f27d22a3b8e0ee58f5297686cc78d6",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "mia-116754": {
+    "url": "https://collections.artsmia.org/art/116754",
+    "snapshot": "sources/mia-116754.json",
+    "evidenceSha256": "d221dfc02ba975c88a9b5c255dbecb6a5fc891a9a7dcdd9ee60fc5efd67411a5",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "colbase-tnm-TB-1262": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1262?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1262.json",
+    "evidenceSha256": "a78ac647574ed09942f1e7354dd55692fb87d8b5337543bbfa2665d9a3d363ca",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "colbase-tnm-TB-1430": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1430?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1430.json",
+    "evidenceSha256": "76fc3faf8a56c91722cd64252d12f3606293bdbad331992c79f43143d6117dfb",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://cbetaonline.dila.edu.tw/zh/T25n1509_025",
+        "title": "中华电子佛典协会 CBETA",
+        "locator": "ColBase TB-1430，首纸、尾纸；CBETA T25n1509，0243a12—0247b02",
+        "snapshot": "sources/full-20261111-cbeta-T25n1509.xml",
+        "evidenceSha256": "f1f8be755336c8745f6a92d8a8a749998fc331d1f50d631ca1e88f5c0e153619"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1449": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1449?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1449.json",
+    "evidenceSha256": "8b360cd130f0a7b312b214a677fdbdf870beee98ce6a2be26004f9d66593631e",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://cbetaonline.dila.edu.tw/zh/T08n0223_024",
+        "title": "中华电子佛典协会 CBETA",
+        "locator": "ColBase TB-1449，首尾原图；CBETA T08n0223，0398b24—0404b01",
+        "snapshot": "sources/full-20261111-cbeta-T08n0223.xml",
+        "evidenceSha256": "d248be9f01d1494a2d096fcf51fb1ba81402e04ebb963cdbb2ec8824601ef5ca"
+      }
+    ]
+  }
+}

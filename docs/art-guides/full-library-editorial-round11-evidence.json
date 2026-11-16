@@ -1,0 +1,223 @@
+{
+  "colbase-tnm-TB-1208": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1208?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1208.json",
+    "evidenceSha256": "c521720ab274b4b082269f8f1ccd95a26b5d4b62a58972dc7dda6bf79d3b611b",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1208-2.jpg",
+        "evidenceSha256": "6938ee80ab32e588d1e4bc788c7a087ef0f7be0d6a10f6f90a21d03861f00d8d"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/534599",
+        "title": "日本文化遗产在线 · 张栻《行书文语卷》",
+        "locator": "TB-1208，公开正文整幅及卷后题跋图",
+        "snapshot": "sources/full-20261112-r11-zhang-object-web-capture.json",
+        "evidenceSha256": "e46d6117af5e7c90065928cfca74e04b16855952afbcff1ca8e6ea03c1537b05"
+      },
+      {
+        "url": "https://www.shidianguji.com/book/SK0899/chapter/1lxu19b3gq3gq",
+        "title": "《四库全书》本《宋名臣言行录》续集卷一",
+        "locator": "江公望条，南轩张栻序公奏稿",
+        "snapshot": "sources/full-20261112-r11-jiang-book-web-capture.json",
+        "evidenceSha256": "2fe81a2445219d2e1e817c9315d29ec7dff316f118f245fd5f771d723c46f2cb"
+      }
+    ]
+  },
+  "colbase-tnm-TB-910": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-910?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-910.json",
+    "evidenceSha256": "2830d4dde1bd1a3eb70ca9b8c02c55ebfedc2ff0c5bd8c0ba0de0599282672f0",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-910-0.jpg",
+        "evidenceSha256": "52cf825a25419400a6f8288ca50cfb94da9a963fcb36a090ca24605b7e850248"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/479002",
+        "title": "日本文化遗产在线 · 王铎《临大令帖轴》",
+        "locator": "东京国立博物馆藏，馆藏图与说明",
+        "snapshot": "sources/full-20261112-r11-wang-object-web-capture.json",
+        "evidenceSha256": "4ad04df79ad6ae7db6d689b8503927294a9e1ec020a8fa4b15962c18e61bccde"
+      },
+      {
+        "url": "https://digitalarchive.npm.gov.tw/Collection/Detail/16212?dep=P",
+        "title": "国立故宫博物院《淳化祖帖》",
+        "locator": "卷九，王献之《节过帖》",
+        "snapshot": "sources/full-20261112-r11-jie-web-capture.json",
+        "evidenceSha256": "a1f185e140fe288fe45a80c1829c151548ad3f4cc6eda3eec05c9649378d2231"
+      },
+      {
+        "url": "https://digitalarchive.npm.gov.tw/Collection/Detail/16213?dep=P",
+        "title": "国立故宫博物院《淳化祖帖》",
+        "locator": "卷九，王献之《愿余帖》《适奉帖》",
+        "snapshot": "sources/full-20261112-r11-yuan-web-capture.json",
+        "evidenceSha256": "1baed3f1226d564f30ea33f71531ef36104ce60efa841190924fd1dbe5037c7c"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1596": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1596?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1596.json",
+    "evidenceSha256": "f0f4c6da6a6ef81971b0d2028c7089436984fa60be4250c1a9ed13d4b1770bf6",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1596-0.jpg",
+        "evidenceSha256": "df285f5c991710249f391471d2c466f9752624ffed8ba43f06ed6d0beed460f1"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/504812",
+        "title": "日本文化遗产在线 · 包世臣《临王羲之尺牍帖扇面》",
+        "locator": "馆藏说明",
+        "snapshot": "sources/full-20261112-r11-bao-object-web-capture.json",
+        "evidenceSha256": "6d700963783edfef03bef0423273ad42001943aa698a5f2bc9070082ee10b5fc"
+      },
+      {
+        "url": "https://digitalarchive.npm.gov.tw/Collection/Detail/2543?dep=P",
+        "title": "国立故宫博物院 · 董其昌临《十七帖》",
+        "locator": "内容释文",
+        "snapshot": "sources/full-20261112-r11-dong17-web-capture.json",
+        "evidenceSha256": "eeb6028e1996ce51419cb992dcb96b3331373ecd3205a35e95bf95cba272d0a9"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1287": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1287?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1287.json",
+    "evidenceSha256": "df304989b08fef37c29c0d5a2e80dc56e6cb8bad042ba7741c9a5805b87d80a1",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1287-4.jpg",
+        "evidenceSha256": "c3d471bf5e3652935bbffe232fa7044443cf7dfd2a5502d2b7c63d5601f7e167"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/473130",
+        "title": "日本文化遗产在线 · 刘墉《楷行草杂临古帖卷》",
+        "locator": "馆藏说明及同卷图像",
+        "snapshot": "sources/full-20261112-r11-liu-object-web-capture.json",
+        "evidenceSha256": "3a35ca17a545f76947139ccb756437e592ed857d0926a7140bcedab7d28f7d68"
+      },
+      {
+        "url": "https://digitalarchive.npm.gov.tw/Collection/Detail/21715?dep=P",
+        "title": "国立故宫博物院《三希堂法帖》",
+        "locator": "杨凝式《韭花帖》图及释文",
+        "snapshot": "sources/full-20261112-r11-jiuhua-web-capture.json",
+        "evidenceSha256": "371f36ef8c758bed552419f30288d7eff8392d16b0ae6d511b19e26ca4ea966b"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1397": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1397?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1397.json",
+    "evidenceSha256": "7b46a2d1e76e515b31d9c25af0db2bc3d67443099bfb1530d1978cf6d301cd54",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1397-0.jpg",
+        "evidenceSha256": "13acbc40e6fd258ff38ccc5712ea84832ac14e19e72e5e098fc055638952bccc"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://api.online.bunka.go.jp/heritages/detail/463965",
+        "title": "日本文化遗产在线 · 董其昌《行草书罗汉赞等书卷》",
+        "locator": "馆藏说明及卷首图",
+        "snapshot": "sources/full-20261112-r11-dong-object-web-capture.json",
+        "evidenceSha256": "55f32753af533882996f4d3a3dadc8792bc64c2acf1919bef1a7a1261cd39b72"
+      },
+      {
+        "url": "https://cart.ntua.edu.tw/uploads/root/%E6%88%90%E6%9E%9C%E7%99%BC%E8%A1%A8/%E5%87%BA%E7%89%88%E5%88%8A%E7%89%A9/%E6%9B%B8%E7%95%AB%E8%97%9D%E8%A1%93%E5%AD%B8%E5%88%8A/%E7%AC%AC%E4%BA%8C%E5%8D%81%E4%B9%9D%E8%BC%AF/01%E6%9D%BE%E5%AE%AE%E5%85%88%E7%94%9F%E5%9C%A8%E8%91%A3%E5%85%B6%E6%98%8C%E3%80%8C%E7%95%AB%E7%A6%AA%E5%AE%A4%E9%9A%A8%E7%AD%86%E3%80%8D%E9%87%8C%E7%9C%8B%E8%A6%8B%E7%9A%84%E7%A6%AA%E6%80%9D%E6%83%B3%E5%92%8C%E5%90%91%E6%97%A5%E6%9C%AC%E7%9A%84%E5%82%B3%E6%92%AD2020.0915.pdf",
+        "title": "国立台湾艺术大学《书画艺术学刊》第二十九期，松宫贵之",
+        "locator": "第10页，图1",
+        "snapshot": "sources/full-20261112-r11-dong-paper-web-capture.json",
+        "evidenceSha256": "51798d0325a0624dd641d7c8cbf035321d846382d05ab97220d9a4d5aa1e5e17"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1311": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1311?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1311.json",
+    "evidenceSha256": "23c879c3da6b8a6f31a99ce082b6ea76be11be801d11bb4029cb2c0871f2dcbe",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1311-4.jpg",
+        "evidenceSha256": "bc5691bafdc9b70076b378ab7e7ffcf093ebf923030c6063acc7713bf51eba95"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/435025",
+        "title": "日本文化遗产在线 · 王芑孙《楷书临池心诀等书卷》",
+        "locator": "馆藏年代、卷内公开图像",
+        "snapshot": "sources/full-20261112-r11-wangqi-web-capture.json",
+        "evidenceSha256": "dc4a0cfa677b349b6daa152a0afc60d70399d3977d1304424e68c3fde364dc22"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1285": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1285?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1285.json",
+    "evidenceSha256": "61fefbe5d291daffa4ed771220c8ae007b1663c5f5c07540cd5523d529e8f671",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1285-2.jpg",
+        "evidenceSha256": "9e178014e338ede8280cb024f3f8cdfc944a7068192e20b22ed1b8cc77dd0c27"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=5875&lang=ja",
+        "title": "东京国立博物馆展览作品清单",
+        "locator": "郑燮《行书扬州竹枝词册》，TB-1285",
+        "snapshot": "sources/full-20261112-r11-zheng-web-capture.json",
+        "evidenceSha256": "0752a3b56f4230cf057c87678aaa5126f4ab37620bf2d72e42c5c1be9acdc58e"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1654": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1654?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1654.json",
+    "evidenceSha256": "34f2569853f71ef1c3f446263cfd195bd5fd7050b28be2edf9ac50d62c436f4e",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1654-0.jpg",
+        "evidenceSha256": "2831259af12f453d5d3416334ef6a2607cabe3b73746602588b5cf7dbf64750e"
+      },
+      {
+        "asset": "colbase-tnm-TB-1654-3.jpg",
+        "evidenceSha256": "90ed7eb82d7933a903be20921fd6643b43f7b40616085ede9a9b383a746e073f"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/470413",
+        "title": "日本文化遗产在线 · 罗振玉《临金文四屏》",
+        "locator": "馆藏说明及四屏图",
+        "snapshot": "sources/full-20261112-r11-luo-web-capture.json",
+        "evidenceSha256": "93ec353e2c809f73a9fca97b111bc4c09345f61451c70e29ac58f8dcac6077ce"
+      },
+      {
+        "url": "https://www.chnmuseum.cn/yj/xscg/xslw/201812/t20181224_36456.shtml",
+        "title": "中国国家博物馆《由“颂”器铭文考察西周时期“册命”之仪节》",
+        "locator": "大盂鼎铭一节",
+        "snapshot": "sources/full-20261112-r11-ding-web-capture.json",
+        "evidenceSha256": "379f9906e0aa858aa4488698c73c2074965715c69c408ae5ae1f0c791e21818e"
+      }
+    ]
+  }
+}

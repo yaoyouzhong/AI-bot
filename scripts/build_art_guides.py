@@ -21,20 +21,25 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def verify_sources(works, evidence):
+def verify_sources(works, evidence, *, source_id=None):
+    from apply_full_art_editorial import file_digest
+
     pilot = ROOT/'artifacts/development/art-guides-pilot/sources'
-    pilot_hashes = {sha(p) for p in pilot.iterdir() if p.is_file()}
+    pilot_hashes = {file_digest(p) for p in pilot.iterdir() if p.is_file()}
     checked = 0
     for work in works:
         for source in work['sources']:
-            fingerprint = source.get('evidenceSha256')
-            snapshot = source.get('snapshot')
-            if snapshot:
-                path = (evidence/snapshot).resolve()
-                if evidence not in path.parents or not path.is_file() or sha(path) != fingerprint:
-                    raise ValueError(f'Missing or changed source evidence: {work["id"]}')
-            elif not fingerprint or fingerprint not in pilot_hashes:
-                raise ValueError(f'Missing reviewed pilot evidence: {work["id"]}')
+            if source_id is not None and source['id'] != source_id:
+                continue
+            for proof in [source, *source.get('supportingReferences', [])]:
+                fingerprint = proof.get('evidenceSha256')
+                snapshot = proof.get('snapshot')
+                if snapshot:
+                    path = (evidence/snapshot.replace('\\', '/')).resolve()
+                    if evidence not in path.parents or not path.is_file() or file_digest(path) != fingerprint:
+                        raise ValueError(f'Missing or changed source evidence: {work["id"]} ({snapshot})')
+                elif not fingerprint or fingerprint not in pilot_hashes:
+                    raise ValueError(f'Missing reviewed pilot evidence: {work["id"]}')
             checked += 1
     return checked
 
@@ -116,6 +121,8 @@ def dimensions_zh(value):
 
 
 def build(evidence, output):
+    from apply_full_art_editorial import REVIEW_FIELDS, apply_edits, load_edits, refresh_coverage
+
     catalog = read(CATALOG)
     catalog_before = sha(CATALOG)
     records = {r['id']: r for r in read(evidence/'museum-records.json')}
@@ -257,7 +264,7 @@ def build(evidence, output):
         # written on the object, and are preserved separately from its museum.
         if c['id'] in transcriptions:
             reviewed = transcriptions[c['id']]
-            w['transcription'] = {k:v for k,v in reviewed.items() if k not in ('sources', 'readerTitle')}
+            w['transcription'] = {k:v for k,v in reviewed.items() if k not in REVIEW_FIELDS}
             if reviewed.get('readerTitle'):
                 w['title'] = reviewed['readerTitle']
             w['sources'].extend(reviewed.get('sources', []))
@@ -317,14 +324,18 @@ def build(evidence, output):
     identities = [(w['category'], w['workId']) for w in works]
     if len(identities) != len(set(identities)) or len(works) != len(catalog):
         raise ValueError('Catalogue coverage or independent identity mismatch')
+    edits = load_edits()
+    applied = apply_edits(works, edits, full=True)
     for w in works:
         if not all(w.get(k) for k in ['brief', 'overview', 'sources']):
             raise ValueError('Empty content')
         if re.search(r'资料有限|本轮|尚未核对|待复核', w['overview']+w['brief']+w['looking']):
             raise ValueError('Research note leaked into reading content')
     checked_sources = verify_sources(works, evidence)
+    original_revision = max((review.get('checkedOn', original_review['checkedOn']) for review in transcriptions.values()),
+                            default=original_review['checkedOn'])
     report = {'schemaVersion': 1, 'checkedOn': original_review['checkedOn'],
-              'originalTextsRevision': original_review['checkedOn'], 'catalogSha256': catalog_before,
+              'originalTextsRevision': original_revision, 'catalogSha256': catalog_before,
               'verifiedEvidenceRecords': checked_sources,
               'totalWorks': len(works), 'categories': dict(Counter(w['category'] for w in works)),
               'coverage': dict(Counter(w['coverage']['level'] for w in works)),
@@ -334,9 +345,12 @@ def build(evidence, output):
               'sourcesByKind': dict(Counter(r['sourceKind'] for r in records.values())),
               'missingFields': dict(Counter(g['field'] for g in gaps)), 'gaps': gaps,
               'runtimeIntegrated': False, 'hardwareVerified': False}
+    if applied:
+        annual = read(GUIDES/'annual-materials-2026-10-12.zh.json')['works']
+        refresh_coverage(report, works, annual, applied)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps({'schemaVersion':1, 'language':'zh-CN', 'edition':'full-2026-10-08',
-                                 'originalTextsRevision':original_review['checkedOn'],
+                                 'originalTextsRevision':original_revision,
                                  'status':'preview_only', 'works':works},ensure_ascii=False,indent=2)+'\n','utf-8')
     (output.parent/'coverage.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n','utf-8')
     if sha(CATALOG) != catalog_before:

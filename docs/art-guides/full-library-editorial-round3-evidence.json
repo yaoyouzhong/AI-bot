@@ -1,0 +1,565 @@
+{
+  "cma-1978.65": {
+    "url": "https://www.clevelandart.org/art/1978.65",
+    "snapshot": "sources/full-20261111-r3-cma-1978.65.json",
+    "evidenceSha256": "ee3478a7643adf19dd7495cc31895d742ce92ee2030ceccdbdb7098656b67858",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://news.nsysu.edu.tw/p/16-1120-368162.php?Lang=zh-tw",
+        "title": "国立中山大学：石守谦讲座",
+        "locator": "〈筠石喬柯〉与离家后的情怀",
+        "snapshot": "sources/full-20261111-r3-ni.html",
+        "evidenceSha256": "6557781385ecb9e111347e0bb9f52a1335eb499f375e6670f0812b438b68e442"
+      },
+      {
+        "url": "https://www.shidianguji.com/zh/book/SK1686/chapter/1m1qx7ysiekab",
+        "title": "《式古堂书画汇考》数字本",
+        "locator": "〈倪迂筠石喬柯圖并題〉",
+        "snapshot": "sources/full-20261111-r3-niold-web-capture.json",
+        "evidenceSha256": "d4baa916431d928f3092f52be7d2fe4f189cd1399ad1034d6ba1222c96ab5662"
+      }
+    ]
+  },
+  "cma-1966.31": {
+    "url": "https://www.clevelandart.org/art/1966.31",
+    "snapshot": "sources/full-20261111-r3-cma-1966.31.json",
+    "evidenceSha256": "70e03abb06f683a0f81755e10ec4cbeee5e922830286d5bab312650114312078",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.npm.gov.tw/NewChineseArtDownload.ashx?bid=3849",
+        "title": "国立故宫博物院《故宫学术季刊》",
+        "locator": "《石濤自寫種松圖小照研究》，图 52 和相关正文",
+        "snapshot": "sources/full-20261111-r3-shitao-web-capture.json",
+        "evidenceSha256": "1acd3f35704eafc4f5865fb6a2963b2f15cbabc130323d310ad944ff9c2bc929"
+      }
+    ]
+  },
+  "cma-1999.14": {
+    "url": "https://www.clevelandart.org/art/1999.14",
+    "snapshot": "sources/full-20261111-r3-cma-1999.14.json",
+    "evidenceSha256": "e43ad1383c25c50f4596558692a0aacddab08e4fdda40deff8654b20f67339df",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1955.45": {
+    "url": "https://www.clevelandart.org/art/1955.45",
+    "snapshot": "sources/full-20261111-r3-cma-1955.45.json",
+    "evidenceSha256": "d5822352db6f943300332dd467cbc83655c41921892bfc59f8a00700dbe89098",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1955.43": {
+    "url": "https://www.clevelandart.org/art/1955.43",
+    "snapshot": "sources/full-20261111-r3-cma-1955.43.json",
+    "evidenceSha256": "fe8ea3f96b41606c5a9a0ad9e9332dccff7f5c8dab8f2e36b942df66c3637069",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.metmuseum.org/art/collection/search/53228",
+        "title": "大都会艺术博物馆：牧松周省《破墨山水图》",
+        "locator": "技法解说；比较件，非克利夫兰本轴",
+        "snapshot": "sources/full-20261111-r3-haboku-web-capture.json",
+        "evidenceSha256": "661aa46b688ac605784a8bc005b3a65aadbde4ae1573a59f9be74397f583a455"
+      }
+    ]
+  },
+  "cma-1964.452": {
+    "url": "https://www.clevelandart.org/art/1964.452",
+    "snapshot": "sources/full-20261111-r3-cma-1964.452.json",
+    "evidenceSha256": "52dbb102eae4252e20b9d9cfe72cac255c2ac8025f9a8d5e08a00c7faf73cdb6",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://resources.metmuseum.org/resources/metpublications/pdf/Divine_Pleasures.pdf",
+        "title": "大都会艺术博物馆展览图录《Divine Pleasures》",
+        "locator": "Ragamala 及 Kedari Ragini 条（图录 7–10），为比较件",
+        "snapshot": "sources/full-20261111-r3-ragamala-web-capture.json",
+        "evidenceSha256": "e73c7d7767fc44801ad54ad55e9a3d9034891328a6a32570701faaa5b1ad047d"
+      }
+    ]
+  },
+  "cma-2018.82": {
+    "url": "https://www.clevelandart.org/art/2018.82",
+    "snapshot": "sources/full-20261111-r3-cma-2018.82.json",
+    "evidenceSha256": "a180bd1e9865f8ed8c856880ac4d7deaf4d948a724cd1a4bcadd3a9b73f26c41",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://resources.metmuseum.org/resources/metpublications/pdf/Divine_Pleasures.pdf",
+        "title": "大都会艺术博物馆展览图录《Divine Pleasures》",
+        "locator": "Ragamala 及 Kedari Ragini 条（图录 7–10），为比较件",
+        "snapshot": "sources/full-20261111-r3-ragamala-web-capture.json",
+        "evidenceSha256": "e73c7d7767fc44801ad54ad55e9a3d9034891328a6a32570701faaa5b1ad047d"
+      }
+    ]
+  },
+  "cma-1983.70": {
+    "url": "https://www.clevelandart.org/art/1983.70",
+    "snapshot": "sources/full-20261111-r3-cma-1983.70.json",
+    "evidenceSha256": "cf6658ee3a20d76c201d711c8aa1a096ba78df56c72582485d7906aae9899b38",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.cincinnatiartmuseum.org/vangogh",
+        "title": "辛辛那提艺术博物馆展览《Van Gogh: Into the Undergrowth》",
+        "locator": "展览说明；本件展出由克利夫兰馆展史确认",
+        "snapshot": "sources/full-20261111-r3-forest.html",
+        "evidenceSha256": "8ba316b8bf92688216ca71f42dcae7a0e73aa7336daae82cd2f172770c37ce00"
+      }
+    ]
+  },
+  "cma-1927.396": {
+    "url": "https://www.clevelandart.org/art/1927.396",
+    "snapshot": "sources/full-20261111-r3-cma-1927.396.json",
+    "evidenceSha256": "0d53f27c1c61080cee71e20639bcb46b521693b87ce3e21ee256ad7393e582fe",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1921.2552": {
+    "url": "https://www.clevelandart.org/art/1921.2552",
+    "snapshot": "sources/full-20261111-r3-cma-1921.2552.json",
+    "evidenceSha256": "e9158a4585dd0f0767c1f4a26e793056c141d786e401f3a265c90ce3f3342643",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1950.91": {
+    "url": "https://www.clevelandart.org/art/1950.91",
+    "snapshot": "sources/full-20261111-r3-cma-1950.91.json",
+    "evidenceSha256": "fde17724a65215a37ea7c44b20bc662ee33cb08d8ac083a591e5a2282a183ee0",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1940.542": {
+    "url": "https://www.clevelandart.org/art/1940.542",
+    "snapshot": "sources/full-20261111-r3-cma-1940.542.json",
+    "evidenceSha256": "93346823568ec893f88a6b637a4ff6f287536fd4035ba730b97a4c62770e233c",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1917.1001": {
+    "url": "https://www.clevelandart.org/art/1917.1001",
+    "snapshot": "sources/full-20261111-r3-cma-1917.1001.json",
+    "evidenceSha256": "dfc6e0dd845830e0e400b92a116fd63d91c8453b1aae4505be284a92d7998426",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1982.150": {
+    "url": "https://www.clevelandart.org/art/1982.150",
+    "snapshot": "sources/full-20261111-r3-cma-1982.150.json",
+    "evidenceSha256": "fab26ff8eb5c4b47a21864f39e1beff5ffeec6e5b8b3cd5fe4fe1b5fb4cff424",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1975.92": {
+    "url": "https://www.clevelandart.org/art/1975.92",
+    "snapshot": "sources/cma-1975.92.json",
+    "evidenceSha256": "70ef9c3f0931523b6f57ccbae27650cdde9d25e77daa96a6bf40cb767b5df2b2",
+    "method": "retained_exact_museum_record_and_museum_image"
+  },
+  "cma-2003.149": {
+    "url": "https://www.clevelandart.org/art/2003.149",
+    "snapshot": "sources/cma-2003.149.json",
+    "evidenceSha256": "7d2145e78d6d6919872e12736abf23491fd0eb35068446b6b92b546a0364ff13",
+    "method": "retained_exact_museum_record_and_museum_image",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/exhibitions/indian-kalighat-paintings",
+        "title": "克利夫兰艺术博物馆 2011 年卡利加特绘画展",
+        "locator": "展览说明：十九世纪旅游市场及绘画风格",
+        "snapshot": "sources/full-20261111-r3-kalighat-web-capture.json",
+        "evidenceSha256": "02a475a4d3914094a756e637cd29fa787daeb370d34fe173fe203432206606bb"
+      }
+    ]
+  },
+  "cma-1972.41": {
+    "url": "https://www.clevelandart.org/art/1972.41",
+    "snapshot": "sources/cma-1972.41.json",
+    "evidenceSha256": "d711d35fa1f898d209288a4a0b2393665ec20694cc98f48d8647248f0f13c38b",
+    "method": "retained_exact_museum_record_and_museum_image"
+  },
+  "cma-1980.230": {
+    "url": "https://www.clevelandart.org/art/1980.230",
+    "snapshot": "sources/full-20261111-r3-cma-1980.230.json",
+    "evidenceSha256": "4fa8540c2fd67e9cab7b389c2229feb9dc5d4a35131bf5797e034d131c7b1f01",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://kunstmuseumbasel.ch/en/exhibitions/2026/the-first-homosexuals",
+        "title": "巴塞尔艺术博物馆展览",
+        "locator": "第 2 单元 From Concept to Image，布朗什与奥乔亚双人肖像",
+        "snapshot": "sources/full-20261111-r3-basel-web-capture.json",
+        "evidenceSha256": "42a6b1ae37251b8e15c9947965e4b434b1d8347dfe95e0cf3e849290d284f1dd"
+      }
+    ]
+  },
+  "cma-1923.1118": {
+    "url": "https://www.clevelandart.org/art/1923.1118",
+    "snapshot": "sources/full-20261111-r3-cma-1923.1118.json",
+    "evidenceSha256": "a35e1681e673726935bcb9b015693c69c43e309e8bed0b5c5c0b5fe4714a6774",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://americanart.si.edu/artwork/wild-coast-newport-16376",
+        "title": "史密森尼美国艺术博物馆：同名《纽波特荒岸》",
+        "locator": "1929.6.72，同名异本",
+        "snapshot": "sources/full-20261111-r3-smithsonianmartin-web-capture.json",
+        "evidenceSha256": "687db024ee211c8b8133af01ae96302302e5ca261a0fe1f7417b727ebd10bf47"
+      }
+    ]
+  },
+  "cma-1927.387": {
+    "url": "https://www.clevelandart.org/art/1927.387",
+    "snapshot": "sources/full-20261111-r3-cma-1927.387.json",
+    "evidenceSha256": "f5bf7df84e60ca0b9bb5486d7630629dbf3a728f79afc1bf56b1fae83e6cde27",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1929.464": {
+    "url": "https://www.clevelandart.org/art/1929.464",
+    "snapshot": "sources/full-20261111-r3-cma-1929.464.json",
+    "evidenceSha256": "e41cdab6a5b4214c4b6cc4d5ad5079ab11505f1af954266a56bdb8c3e4eae958",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1972.157": {
+    "url": "https://www.clevelandart.org/art/1972.157",
+    "snapshot": "sources/full-20261111-r3-cma-1972.157.json",
+    "evidenceSha256": "190ccc5e3c3383cbd0d7457994c78fec63dfb0c06d5f1358cda017ef583c7eec",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1971.26": {
+    "url": "https://www.clevelandart.org/art/1971.26",
+    "snapshot": "sources/full-20261111-r3-cma-1971.26.json",
+    "evidenceSha256": "e39ad78b6408dce36b01f927d2698eb8af350eac2fcefde33b46757232b62374",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1946.238": {
+    "url": "https://www.clevelandart.org/art/1946.238",
+    "snapshot": "sources/full-20261111-r3-cma-1946.238.json",
+    "evidenceSha256": "ff8a05e7605d831c1291556a61fcf26dd2d77d0705ca793d3940e5476f95ee0f",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://img.dpm.org.cn/Uploads/File/2021/11/08/u6188ef6a8ea5d.pdf",
+        "title": "《故宫博物院院刊》〈孔子图像的构建与流变〉",
+        "locator": "图十一与情节性画像讨论；洛阳烧沟汉墓同题异物",
+        "snapshot": "sources/full-20261111-r3-twop-web-capture.json",
+        "evidenceSha256": "e66514ebb32d872824e5d4f93546600b3117e199ac9225aeae803fb2840e4142"
+      }
+    ]
+  },
+  "cma-1967.193": {
+    "url": "https://www.clevelandart.org/art/1967.193",
+    "snapshot": "sources/full-20261111-r3-cma-1967.193.json",
+    "evidenceSha256": "2cc1978d66a965d639bdf8d0651e6785f5c4126755a2ddcf6c1629d7ac3614ec",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/articles/china-through-magnifying-glass",
+        "title": "克利夫兰艺术博物馆馆刊《China through the Magnifying Glass》",
+        "locator": "策展文章；关于缩小尺度与近距离观看",
+        "snapshot": "sources/full-20261111-r3-magnify-web-capture.json",
+        "evidenceSha256": "60dd930919672031e5a0d6194623ab3ffed9f0d4e0c47e0bd5db194dafe95b6e"
+      },
+      {
+        "url": "https://www.clevelandart.org/print/art/1967.193.i",
+        "title": "克利夫兰艺术博物馆：张若霭花鸟册 i 开",
+        "locator": "两只麻雀和跨页构图",
+        "snapshot": "sources/full-20261111-r3-leafsparrows-web-capture.json",
+        "evidenceSha256": "5a11a3e7b96e0b83a8312fe95255268e4f01351bd0449ab9a201014f4bec1716"
+      },
+      {
+        "url": "https://www.clevelandart.org/print/art/1967.193.j",
+        "title": "克利夫兰艺术博物馆：张若霭花鸟册 j 开",
+        "locator": "梅枝与单鸟",
+        "snapshot": "sources/full-20261111-r3-leafplum-web-capture.json",
+        "evidenceSha256": "86a207aa14e119cd8ae8d22a9280e6aab1f63e58f0e0818d9714438c1593ddc5"
+      }
+    ]
+  },
+  "cma-1975.11": {
+    "url": "https://www.clevelandart.org/art/1975.11",
+    "snapshot": "sources/full-20261111-r3-cma-1975.11.json",
+    "evidenceSha256": "e7f7194f8359b506571c12fdd96ba9a96ffb2cbcb2b2714db7d137eccc7f14c0",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/articles/china-through-magnifying-glass",
+        "title": "克利夫兰艺术博物馆馆刊《China through the Magnifying Glass》",
+        "locator": "策展文章；关于缩小尺度与近距离观看",
+        "snapshot": "sources/full-20261111-r3-magnify-web-capture.json",
+        "evidenceSha256": "60dd930919672031e5a0d6194623ab3ffed9f0d4e0c47e0bd5db194dafe95b6e"
+      },
+      {
+        "url": "https://www.clevelandart.org/print/art/1975.11.e",
+        "title": "曾衍东册 e 开：瀑布山水",
+        "locator": "左页瀑布和跨页树枝",
+        "snapshot": "sources/full-20261111-r3-miniwater-web-capture.json",
+        "evidenceSha256": "4856405d0d5df844e738d91fc97fafbc9811a82dc62381fca5b0c0788567d61c"
+      },
+      {
+        "url": "https://www.clevelandart.org/print/art/1975.11.j",
+        "title": "曾衍东册 j 开：人骑鲤鱼",
+        "locator": "左侧题字和斜向鱼身",
+        "snapshot": "sources/full-20261111-r3-minicarp-web-capture.json",
+        "evidenceSha256": "9712a801d679e0e08a489ec0bcf4f0d29191e958386f0640e6b36a4a57111c12"
+      }
+    ]
+  },
+  "cma-1946.494": {
+    "url": "https://www.clevelandart.org/art/1946.494",
+    "snapshot": "sources/full-20261111-r3-cma-1946.494.json",
+    "evidenceSha256": "d74de0acfa8067be1420e043af25ceabc9819082666910d381e661a179080e9c",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1916.1034": {
+    "url": "https://www.clevelandart.org/art/1916.1034",
+    "snapshot": "sources/full-20261111-r3-cma-1916.1034.json",
+    "evidenceSha256": "b0a98d47c69423a32f0003a81b00523730e9151dd311264f40f77f93fc49d946",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "cma-1968.365": {
+    "url": "https://www.clevelandart.org/art/1968.365",
+    "snapshot": "sources/full-20261111-r3-cma-1968.365.json",
+    "evidenceSha256": "821d9db5fb1aa5d6fe0b340f0329f2da2d60458f287d70a12f8e6982d2a20556",
+    "method": "verified_accession_catalogue_record_and_live_museum_print_page"
+  },
+  "colbase-tnm-TB-29": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-29?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-29.json",
+    "evidenceSha256": "0b4f9aa599318f5e12b7107842a186d766eb2998448cb41babcf728147052824",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading",
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/common/fckeditor/editor/filemanager/connectors/php/transfer.php?file=%2Fexhibition%2FSpecial%2F20220503_Ryukyu%2Fuid000318_5279756B79755F6C6973745F6A705F32303232303531362E706466",
+        "title": "东京国立博物馆 2022 年《琉球》特展作品目录",
+        "locator": "册封书迹展品，第 159–166 号",
+        "snapshot": "sources/full-20261111-r3-ryukyu.pdf",
+        "evidenceSha256": "31c0054d65f36ca93c0961bbcab42a3be1f4681c3c1447f7c137b8d4e37007fa"
+      },
+      {
+        "url": "https://okimu.jp/userfiles/files/page/museum/issue/kanpou/nenpo_17.pdf",
+        "title": "冲绳县立博物馆・美术馆第 17 号年报",
+        "locator": "第 106 页，全魁赴琉球册封尚穆；同一使行所书的另一件作品",
+        "snapshot": "sources/full-20261111-r3-okinawa.pdf",
+        "evidenceSha256": "684f190cacd63fcc483bfd205d8fd588b04cf1c4d17f1a2115972391f37f7fde"
+      }
+    ]
+  },
+  "colbase-tnm-TB-45": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-45?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-45.json",
+    "evidenceSha256": "6fd31adf06e27be3e22618dde6c077459636ca1c3ef679286ea4be0416a0d991",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading",
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/common/fckeditor/editor/filemanager/connectors/php/transfer.php?file=%2Fexhibition%2FSpecial%2F20220503_Ryukyu%2Fuid000318_5279756B79755F6C6973745F6A705F32303232303531362E706466",
+        "title": "东京国立博物馆 2022 年《琉球》特展作品目录",
+        "locator": "册封书迹展品，第 159–166 号",
+        "snapshot": "sources/full-20261111-r3-ryukyu.pdf",
+        "evidenceSha256": "31c0054d65f36ca93c0961bbcab42a3be1f4681c3c1447f7c137b8d4e37007fa"
+      },
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=8153&lang=ja",
+        "title": "东京国立博物馆《市河米庵收藏》展",
+        "locator": "展品表，按 TB-18、TB-21、TB-24、TB-29、TB-45 查找",
+        "snapshot": "sources/full-20261111-r3-beian.html",
+        "evidenceSha256": "5133b7a73c1b683d8967f681c6a3d089491879a4a96697913d6c087d0e84bf88"
+      }
+    ]
+  },
+  "colbase-tnm-TB-24": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-24?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-24.json",
+    "evidenceSha256": "ac7e9a3966c0f0d9951d320d155e4dff25b85d8b4f92aecc4ae1b66da123b80d",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading",
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/common/fckeditor/editor/filemanager/connectors/php/transfer.php?file=%2Fexhibition%2FSpecial%2F20220503_Ryukyu%2Fuid000318_5279756B79755F6C6973745F6A705F32303232303531362E706466",
+        "title": "东京国立博物馆 2022 年《琉球》特展作品目录",
+        "locator": "册封书迹展品，第 159–166 号",
+        "snapshot": "sources/full-20261111-r3-ryukyu.pdf",
+        "evidenceSha256": "31c0054d65f36ca93c0961bbcab42a3be1f4681c3c1447f7c137b8d4e37007fa"
+      },
+      {
+        "url": "https://www.npm.gov.tw/NewChineseArtDownload.ashx?bid=5185",
+        "title": "《故宫文物月刊》第 499 期",
+        "locator": "〈「任務編組」視角下的琉球冊封使團〉，册封使团制度和全魁等人",
+        "snapshot": "sources/full-20261111-r3-envoys-web-capture.json",
+        "evidenceSha256": "31e09c8751be1e2326e1e546fea656f32b6507d10a89af1841449a748ac1424d"
+      }
+    ]
+  },
+  "colbase-tnm-TB-18": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-18?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-18.json",
+    "evidenceSha256": "b7856403904705268911041b9d8e49e8e1e1e7bf432821dbb79403ede4cdc1bd",
+    "method": "retained_exact_museum_record_and_museum_image",
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=8153&lang=ja",
+        "title": "东京国立博物馆《市河米庵收藏》展",
+        "locator": "展品表，按 TB-18、TB-21、TB-24、TB-29、TB-45 查找",
+        "snapshot": "sources/full-20261111-r3-beian.html",
+        "evidenceSha256": "5133b7a73c1b683d8967f681c6a3d089491879a4a96697913d6c087d0e84bf88"
+      },
+      {
+        "url": "https://www.nihon-shuji.or.jp/assets/pdf/about/furtherance/2016ns_athesis_2_3.pdf",
+        "title": "日本习字教育财团公开的册封使书迹研究",
+        "locator": "表 2：汪楫、徐葆光等人的相关书迹与使行年份；非本轴释文",
+        "snapshot": "sources/full-20261111-r3-missions.pdf",
+        "evidenceSha256": "4ef20fafe6dc52e9ee4ef0e04655966464bc93578607c382c6fdc36e32ba3b31"
+      }
+    ]
+  },
+  "colbase-tnm-TB-21": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-21?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-21.json",
+    "evidenceSha256": "efb845cf6e4e2c82997d1632fd844664d9bc718c9b88171e830a0d4ce6ce2615",
+    "method": "retained_exact_museum_record_and_museum_image",
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/common/fckeditor/editor/filemanager/connectors/php/transfer.php?file=%2Fexhibition%2FSpecial%2F20220503_Ryukyu%2Fuid000318_5279756B79755F6C6973745F6A705F32303232303531362E706466",
+        "title": "东京国立博物馆 2022 年《琉球》特展作品目录",
+        "locator": "册封书迹展品，第 159–166 号",
+        "snapshot": "sources/full-20261111-r3-ryukyu.pdf",
+        "evidenceSha256": "31c0054d65f36ca93c0961bbcab42a3be1f4681c3c1447f7c137b8d4e37007fa"
+      },
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=8153&lang=ja",
+        "title": "东京国立博物馆《市河米庵收藏》展",
+        "locator": "展品表，按 TB-18、TB-21、TB-24、TB-29、TB-45 查找",
+        "snapshot": "sources/full-20261111-r3-beian.html",
+        "evidenceSha256": "5133b7a73c1b683d8967f681c6a3d089491879a4a96697913d6c087d0e84bf88"
+      },
+      {
+        "url": "https://www.nihon-shuji.or.jp/assets/pdf/about/furtherance/2016ns_athesis_2_3.pdf",
+        "title": "日本习字教育财团公开的册封使书迹研究",
+        "locator": "表 2：汪楫、徐葆光等人的相关书迹与使行年份；非本轴释文",
+        "snapshot": "sources/full-20261111-r3-missions.pdf",
+        "evidenceSha256": "4ef20fafe6dc52e9ee4ef0e04655966464bc93578607c382c6fdc36e32ba3b31"
+      }
+    ]
+  },
+  "colbase-tnm-TB-23": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-23?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-23.json",
+    "evidenceSha256": "7b12863317baf63fea7b0ef9503f3edf06bd8155a0cf12a9b39fbfda246f5155",
+    "method": "retained_exact_museum_record_and_museum_image"
+  },
+  "colbase-tnm-TB-1275": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1275?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1275.json",
+    "evidenceSha256": "3960fc6e3601423d01ca878697877b32675eb223e3b287f56824b3dfae806863",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading"
+  },
+  "colbase-tnm-TB-1648": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1648?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1648.json",
+    "evidenceSha256": "91c9925f7ba3305b10db175349c38cf5cf624df76f1e9f281465a951178a9bbb",
+    "method": "retained_exact_museum_record_and_museum_image",
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=2440",
+        "title": "东京国立博物馆《中国书画精华》展",
+        "locator": "TB-1648 展品条",
+        "snapshot": "sources/full-20261111-r3-shukai.html",
+        "evidenceSha256": "6b7a8c787c9f6ac7e932ccad37acead3564c6205f29c7483dc632bbf26637ee8"
+      }
+    ]
+  },
+  "mia-116346": {
+    "url": "https://collections.artsmia.org/art/116346",
+    "snapshot": "sources/mia-116346.json",
+    "evidenceSha256": "d0f3e4c5031cfa627053251914ba473460d8a20761b8afceb144b9759049cc38",
+    "method": "retained_exact_museum_record_and_museum_image",
+    "supportingReferences": [
+      {
+        "url": "https://new.artsmia.org/stories/finding-kodojin-andreas-marks-on-his-15-year-quest-to-rediscover-a-forgotten-master",
+        "title": "明尼阿波利斯艺术博物馆：策展人 Andreas Marks 访谈",
+        "locator": "2023 年展览、随展图录及福田古道人的诗画背景",
+        "snapshot": "sources/full-20261111-r3-kodojin-web-capture.json",
+        "evidenceSha256": "b967b8754ea4125b0e46814041ecc523200ea0c4805f3d0ad94147478d436d17"
+      }
+    ]
+  },
+  "mia-116754": {
+    "url": "https://collections.artsmia.org/art/116754",
+    "snapshot": "sources/mia-116754.json",
+    "evidenceSha256": "d221dfc02ba975c88a9b5c255dbecb6a5fc891a9a7dcdd9ee60fc5efd67411a5",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading",
+    "supportingReferences": [
+      {
+        "url": "https://new.artsmia.org/stories/finding-kodojin-andreas-marks-on-his-15-year-quest-to-rediscover-a-forgotten-master",
+        "title": "明尼阿波利斯艺术博物馆：策展人 Andreas Marks 访谈",
+        "locator": "2023 年展览、随展图录及福田古道人的诗画背景",
+        "snapshot": "sources/full-20261111-r3-kodojin-web-capture.json",
+        "evidenceSha256": "b967b8754ea4125b0e46814041ecc523200ea0c4805f3d0ad94147478d436d17"
+      }
+    ]
+  },
+  "mia-118172": {
+    "url": "https://collections.artsmia.org/art/118172",
+    "snapshot": "sources/mia-118172.json",
+    "evidenceSha256": "e99ec079abc008fd50fa497a2be9112862b0a1fc11f54f5b57c5892aa5e5424d",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading"
+  },
+  "mia-118182": {
+    "url": "https://collections.artsmia.org/art/118182",
+    "snapshot": "sources/mia-118182.json",
+    "evidenceSha256": "8a747c16fa9ce69f27de8fcfd84863a1a2867422b085b7f7746f4fa5df9a1c7f",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading"
+  },
+  "mia-118023": {
+    "url": "https://collections.artsmia.org/art/118023",
+    "snapshot": "sources/mia-118023.json",
+    "evidenceSha256": "d983d05f7ab0e2d27b638b52e37d26a27c24e4b2bfa1c07f8b27a98e8afc28b7",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading"
+  },
+  "mia-118169": {
+    "url": "https://collections.artsmia.org/art/118169",
+    "snapshot": "sources/mia-118169.json",
+    "evidenceSha256": "ad428117d9852c5a9abc072d771f073610866d3aa665dcc2f23eb98d48706eda",
+    "method": "retained_exact_museum_record_and_museum_image"
+  },
+  "mia-122370": {
+    "url": "https://collections.artsmia.org/art/122370",
+    "snapshot": "sources/mia-122370.json",
+    "evidenceSha256": "bf1a0aeff131574f29bbfbb80b84d12af9d7f779cebdd723fe078eced1ae2bf6",
+    "method": "retained_exact_museum_record_and_museum_image"
+  },
+  "cma-1978.69": {
+    "url": "https://www.clevelandart.org/art/1978.69",
+    "snapshot": "sources/cma-1978.69.json",
+    "evidenceSha256": "d300456dccc0c7a218eee6b33ef62066e983af78d6b0ff9f4966800fede0ef09",
+    "method": "retained_exact_museum_record_and_museum_image"
+  },
+  "mia-117411": {
+    "url": "https://collections.artsmia.org/art/117411",
+    "snapshot": "sources/mia-117411.json",
+    "evidenceSha256": "0c9ac9b5d8d9d3c55e366bf52cc89b4b74a522548d105a0623e3b2d391b29772",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading"
+  },
+  "mia-118157": {
+    "url": "https://collections.artsmia.org/art/118157",
+    "snapshot": "sources/mia-118157.json",
+    "evidenceSha256": "7e72eb6becace751dc24dbd7ad7258ad31c75c7e07b7022e7b74bcb94bfb1f90",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading"
+  },
+  "mia-117272": {
+    "url": "https://collections.artsmia.org/art/117272",
+    "snapshot": "sources/mia-117272.json",
+    "evidenceSha256": "3e53cd0df3d3d862bbbd583df0b6d0c9f6bcb41f3b30514d71abecc72f1c1b2c",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading"
+  },
+  "mia-117395": {
+    "url": "https://collections.artsmia.org/art/117395",
+    "snapshot": "sources/mia-117395.json",
+    "evidenceSha256": "7ea8ab7b497ae3c6b7a92cd8feaeab20fa8c5da3eb27393610b2875551e17e9c",
+    "method": "retained_exact_museum_record_and_museum_image"
+  },
+  "mia-117439": {
+    "url": "https://collections.artsmia.org/art/117439",
+    "snapshot": "sources/mia-117439.json",
+    "evidenceSha256": "159818c220106e91a871ad1ead2469119adf5e53d304d94233514ad2b87e2609",
+    "method": "retained_exact_museum_record_and_verified_original_image_reading"
+  },
+  "mia-116744": {
+    "url": "https://collections.artsmia.org/art/116744",
+    "snapshot": "sources/mia-116744.json",
+    "evidenceSha256": "0ebb9ce47cbf60f4615bd434b8e5ac066977cede1944eb644162b2bdce655758",
+    "method": "retained_exact_museum_record_and_museum_image"
+  }
+}

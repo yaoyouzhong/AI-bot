@@ -1,5 +1,33 @@
 # 作品导读 / Artwork guides
 
+## 2026-11 全量图库资料 / November 2026 library review
+
+从备份基线 `9a22137`、备份内容和主线 `f5c8a08` 按作品 ID 三方比对。1,057 件全量记录有改动，其中 1,056 件涉及导读、320 件涉及录文或参考，两类记录有重合。年度资料和年度阅读页同步了 37 件导读。各目录的作品 ID、顺序和年度录文与原基线一致。
+
+在 320 条变更中，原作主文录文 38 条、原作节录 232 条、馆方译文释意参考 34 条、同文节选参考 15 条、同文参考 1 条。核对了 331 条原图引用的 SHA-256，以及全量目录 7,486 条来源记录和所列的补充快照。两处馆方直接提供的节录已补上定位，分别为明尼阿波利斯馆藏 `117824` 的题记和大都会馆藏 `2020.396.7` 策展说明引录的「千厓」。10 条轮次间的旧出处继续随当前录文保留，原文的替换或订正摘要保存在审定索引中。
+
+[覆盖率](coverage.json)按两个口径计算。全量目录 2,632 件均有赏析，其中 867 件书法里有 767 件可读正文、节录或参考。计入年度独有的 62 件书法后，共 2,694 件，929 件书法里有 829 件可读，另 100 件继续留空。年代缺项实算为 71 件。第 19、20 轮检索与未补项见[第十九轮](FULL-LIBRARY-SUPPLEMENT-2026-11-12-ROUND19.md)和[第二十轮](FULL-LIBRARY-SUPPLEMENT-2026-11-12-ROUND20.md)。第 1 至 18 轮的逐件导读与索引见本目录的 `full-library-editorial*.zh.tsv`、`full-library-editorial*-evidence.json` 和 `FULL-LIBRARY-SUPPLEMENT-*.md`。
+
+The three-way comparison used the backup's base (`9a22137`), the saved edits, and main (`f5c8a08`). It reconciled 1,057 catalogue entries, including 1,056 guide edits and 320 reading changes. The annual JSON and reader HTML share 37 guide updates. Work identities, ordering and annual readings were preserved.
+
+The 320 reading changes include 38 object main-text transcriptions, 232 object excerpts, 34 museum translation references, 15 literary excerpt references and one literary reference. The rebuild checked 7,486 catalogue source records, their cited supporting snapshots and 331 reading-image references. Two museum-supplied excerpts have explicit locators. The coverage report distinguishes the 2,632-entry catalogue (767 of 867 calligraphy works readable) from the 2,694-entry union including annual-only entries (829 of 929 readable). One hundred calligraphy readings remain open. The results cover guide data and local software validation.
+
+### 从已提交的图录重生成 / Rebuild from the committed guide data
+
+```powershell
+python scripts/apply_full_art_editorial.py --base-ref f5c8a08b656fe322732d9c939d176f7f73087a61 --output artifacts/full-gallery-editorial-reconcile/generated
+```
+
+此入口使用 Git 中的基线图录、审定录文、导读 TSV 和本地来源快照，重生成全量图录、覆盖率、年度 JSON 及年度 HTML 内嵌数据。用 `--evidence` 指定资料快照目录，或用可重复的 `--image-root` 指定原图目录。报告中的 `verifiedEvidenceRecords` 只统计全量图录顶层来源记录，补充快照同样通过校验。
+
+This rebuild uses the committed base guides, reviewed reading and editorial inputs, and local evidence. It writes the catalogue, coverage, annual JSON, and annual HTML dataset to the output directory. Use `--evidence` for the snapshot directory and repeat `--image-root` for additional image directories. The evidence counter counts top-level catalogue sources. Supporting snapshots are also checked.
+
+用两份基线独立生成，四个产物 SHA-256 一致。打包器预检通过 2,632 件图录、37 件年度改动和按既有打包口径组合的 2,694 件记录。年度独有的 62 件沿用打包端的证据字段格式，年度阅读资料保留档案格式。图库打包与 7 件长文分页回归通过。
+
+The two base revisions produced byte-identical outputs. The packaging preflight passed for 2,632 catalogue guides, 37 annual edits and the 2,694-entry combined packaging input. The 62 annual-only entries use their established evidence format in packaging. The packaging and seven-work long-text regression checks passed.
+
+以下为既有历史记录。 / Earlier work is recorded below.
+
 2026-10-15 横屏书法修正：统一将作品名、作者和年代排在图片左侧、设备底栏上方；已对年度 366 件、1,901 张横屏图逐页核验。32 件漏填年代依据馆方记录补齐，证据保存在 `reviewed-periods.zh.json`。打包器拒绝缺项、旧排版和图文不一致的书法包。竖屏、年度顺序与原文保持不变；正式导入和实机验收状态见[本次报告](../development/CALLIGRAPHY-LANDSCAPE-CAPTIONS-20261015.md)。
 
 The October 15 landscape correction places the complete title, author and period above the device footer for all 366 annual works and 1,901 landscape pages. Thirty-two missing period fields are supported by museum records in `reviewed-periods.zh.json`. Packaging rejects missing, stale or unsafe calligraphy captions. Portrait images, annual order and original texts are preserved. See the report above for installation and hardware acceptance status.
@@ -150,11 +178,11 @@ The local curated edition selects 366 paintings (144 Chinese and 222 European/Am
 
 - [catalog.zh.json](catalog.zh.json) 是全量中文导读，身份、作品顺序、作者名称与扩充后的目录对应；原有3804张图库图片保持原字节。[coverage.json](coverage.json) 保存准确覆盖率与逐件缺漏。
 - [editorial.zh.tsv](editorial.zh.tsv)、[colbase-editorial.zh.tsv](colbase-editorial.zh.tsv)、[met-editorial.zh.tsv](met-editorial.zh.tsv)、[expansion-editorial.zh.tsv](expansion-editorial.zh.tsv)、[chinese-painting-expansion.zh.tsv](chinese-painting-expansion.zh.tsv)、[calligraphy-expansion.zh.tsv](calligraphy-expansion.zh.tsv) 保存经核对的中文改写。[supplemental.zh.json](supplemental.zh.json) 补入台北故宫的官方资料；[reviewed-transcriptions.zh.json](reviewed-transcriptions.zh.json) 保存核实正文与单独标注的文学参考全文，附核对范围和出处。
-- `source_based_context` 表示已有作品专属背景，共732件；`verified_metadata` 表示按馆方公布的年代、材质、尺寸、馆藏编号等编写基础简介，共1900件。通用欣赏提示不计作作品背景，分页不增加作品数量。
-- 当前867件书法中，230件作品正文可核对，147件为明确标注版本的参考全文或馆方参考释文；477件未取得完整可靠正文，13件早期候选仍有款印、局部或读字问题。后两类原文页只显示“这幅作品的原文尚未核实。”。其中3件按逐件审定决定移出必补清单，剩余487件继续研究；略过不计为补齐。正文范围明确区分主文、题款、印章和信封；参考原文按篇章或联句的核实范围提供，不能冒称原作逐字释文。
+- `source_based_context` 表示已有作品专属背景，共 1,660 件。`verified_metadata` 表示按馆方公布的年代、材质、尺寸、馆藏编号等编写基础简介，共 972 件。
+- 全量目录 867 件书法中，508 件有原作录文或节录，259 件有单独标注的参考，100 件继续留空。正文范围明确区分主文、题款、印章和信封。参考文本标注所依据的版本和核实范围。
 - 全量短导读30～75字；早期20件样本保留原审定文字。所有横竖屏标题、作者与短导读完整排入画面，长标题按整块文字空间调整字号，不截断文本。
-- 官方资料快照位于 `artifacts/development/art-guides-full/sources/`，早期审定材料保留在 `artifacts/development/art-guides-pilot/sources/`。最新生成检查4492条来源记录的SHA-256。使用已有研究快照、直接HTTP、网页读取和馆方搜索结果的方式分别登记，核对日期不冒称为每个旧快照的新下载日期。导入包携带来源网址与证据校验值，不携带工作区快照路径。
-- [research-status.zh.json](research-status.zh.json)逐件登记当前书法原文和名画提示缺口、已检查证据、原因及下一步。已有可用馆方说明尚未整理不属于收集不到；只有本件内容足够、无需长篇原文或经实际调查仍有证据障碍时结束或暂缓，全库尚未达到收集结束条件。
+- 官方资料快照位于 `artifacts/development/art-guides-full/sources/`，早期审定材料保留在 `artifacts/development/art-guides-pilot/sources/`。来源记录区分已有研究快照、直接 HTTP、网页读取和馆方搜索结果。
+- [research-status.zh.json](research-status.zh.json)保存早期逐件研究状态。当前缺项见[覆盖率](coverage.json)及[第二十轮复查](FULL-LIBRARY-SUPPLEMENT-2026-11-12-ROUND20.md)。
 - 尚未审定的作品背景只在后台列入继续研究，页面不显示“资料有限”“待补齐”等提示。
 - Rijksmuseum现有作品按一件对联保留；官方链接指向其中编号 `AK-MAK-1422-B` 的一幅。资料仅采用可确认的年代和纸墨材质，不把木盒或装裱尺寸写成整件对联尺寸。
 
@@ -175,7 +203,7 @@ python scripts/preview_art_guides.py `
 
 The full preview contains 5,264 native-size compositions, 9,744 byte-identical gallery pages, 83 contact sheets, offline HTML and a validation report. Rebuilding requires local museum evidence and reviewed inputs. Collection failures remain explicit.
 
-原813件预览的历史验证检查了36个横竖屏布局、全部14个释文入口及返回、翻页、退出行为；证据已冻结保存于扩充前备份，不冒作新目录的浏览器验证。本批静态验证、浏览器复核与整库一致性分别记录在当前预览目录。103件没有馆方明确年代；已公布朝代但未记具体年份的作品保留宽泛时代，不用作者生卒年替代创作年代。
+原 813 件预览的历史验证检查了 36 个横竖屏布局、全部 14 个释文入口及返回、翻页、退出行为。证据保存于扩充前备份。已公布朝代但未记具体年份的作品保留宽泛时代。
 
 The earlier 813-work browser evidence is preserved as a historical baseline. Current static, browser and consistency reports are recorded separately. One hundred and three works lack a documented date; documented dynastic periods remain broad rather than inferred creation years. These checks cover the dataset and browser prototype only.
 

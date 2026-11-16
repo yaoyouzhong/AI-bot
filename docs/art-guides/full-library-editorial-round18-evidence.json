@@ -1,0 +1,338 @@
+{
+  "met-737804": {
+    "url": "https://www.metmuseum.org/art/collection/search/737804",
+    "snapshot": "sources/met-737804.json",
+    "evidenceSha256": "65c37abfd63e5f6dcc6d4351c7a2afd886a1ba087d22c64bcb5a781ee90130bd",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-737804-r9-official.jpg",
+        "evidenceSha256": "08de30e5f86404e092faf6f6d3ffcc488d6bf5ecc0041e0f7e61932fed43a48a"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.metmuseum.org/art/collection/search/737804",
+        "title": "大都会艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 2024.549.61，金笺扇面右端至左侧署款前",
+        "snapshot": "sources/full-20261112-r18-met-737804-image-web-capture.json",
+        "evidenceSha256": "dc7cbb7fa424802a97c3e7a535042a6d0a08617593706021e9a168f91df7f16a"
+      },
+      {
+        "url": "https://tcmb.culture.tw/zh-tw/detail?id=19000005170&indexCode=MOCCOLLECTIONS",
+        "title": "台湾文化部典藏网《節錄董其昌畫禪室隨筆八屏》",
+        "locator": "馆方释文，“吾松書自陸機陸雲”一段",
+        "snapshot": "sources/full-20261112-r18-dong-huachan-web-capture.json",
+        "evidenceSha256": "738028f87c67c5ecefe5933346b76dd0a462454258ad64eb52266ae344921045"
+      }
+    ]
+  },
+  "met-49786": {
+    "url": "https://www.metmuseum.org/art/collection/search/49786",
+    "snapshot": "sources/met-49786.json",
+    "evidenceSha256": "3c9d0b2328597c639b8516222f097e592d15ee51a6475d9af686c32eb0b8d7a2",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-49786-r9-official.jpg",
+        "evidenceSha256": "95d6934d918ab9058b75054de944229d8ced7f27c2588eb275aed33ba338fb6e"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.metmuseum.org/art/collection/search/49786",
+        "title": "大都会艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 1995.289.17，纸本扇面全部正文，左端题款前",
+        "snapshot": "sources/full-20261112-r18-met-49786-image-web-capture.json",
+        "evidenceSha256": "6586503af5d6de2b63f34ac6f668cff8748f5f1968908f4e476e936444c4e97f"
+      },
+      {
+        "url": "https://digitalarchive.npm.gov.tw/Collection/Detail?dep=P&id=14900",
+        "title": "国立故宫博物院《唐孫過庭書譜　卷》",
+        "locator": "馆录释文中“然君子立身”至“去之滋永”",
+        "snapshot": "sources/full-20261112-r18-sun-shupu-web-capture.json",
+        "evidenceSha256": "49a0895699b299b52226afd0bbfba3c6eae26e6cdbad3941e7fe0e060e4337ea"
+      },
+      {
+        "url": "https://digitalarchive.npm.gov.tw/Collection/Detail/32071?dep=P",
+        "title": "国立故宫博物院《唐孫過庭書譜宋刻墨拓本　冊》",
+        "locator": "同一段的刻本对照",
+        "snapshot": "sources/full-20261112-r18-sun-song-web-capture.json",
+        "evidenceSha256": "0f76ff599af4054396e73871b4a2a1bda42256dcff0dd7069a1bd2db89cd7917"
+      }
+    ]
+  },
+  "mia-118177": {
+    "url": "https://collections.artsmia.org/art/118177",
+    "snapshot": "sources/mia-118177.json",
+    "evidenceSha256": "36938efd80b60e5f10177548645ac606bf37ede6e089753d64e020ac5b5d93d7",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-118177-r9-full.jpg",
+        "evidenceSha256": "ffc7d89cc04a823b11c1d7cccde408df7f1459845d33e28e1bc1644804a1790d"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://collections.artsmia.org/art/118177",
+        "title": "明尼阿波利斯艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 2013.29.973，扇面右起“秋溪水縮”至左侧“處聞魚躍”，共十句",
+        "snapshot": "sources/full-20261112-r18-mia-118177-image-web-capture.json",
+        "evidenceSha256": "350a2a441cad1e7b5ae1f407a10c5c6e02fb9feb0b6441a7a0b75deafd81a678"
+      },
+      {
+        "url": "https://www.wul.waseda.ac.jp/kotenseki/html/bunko01/bunko01_01684/index.html",
+        "title": "早稻田大学图书馆《山陽詩鈔》",
+        "locator": "文庫01 01684，卷六书目",
+        "snapshot": "sources/full-20261112-r18-rai-poems-web-capture.json",
+        "evidenceSha256": "55101fa5f27d78fe3f52daa1d97ee9b4e34cf4256df5964020d2fe8d7e547c1f"
+      }
+    ]
+  },
+  "mia-117315": {
+    "url": "https://collections.artsmia.org/art/117315",
+    "snapshot": "sources/mia-117315.json",
+    "evidenceSha256": "658c35b9e07f7d4f4e1fdca6643006c96242539fffc09c39a1092990f1118ae6",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117315-r9-full.jpg",
+        "evidenceSha256": "168a1072e4e86cf53e22866c5c7389105a0c3f7bc52f369775c2317746beb4f8"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://collections.artsmia.org/art/117315",
+        "title": "明尼阿波利斯艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 2013.29.268，扇面右端起句、右中段黄幼玄、居中展观及近左端刻石诸列",
+        "snapshot": "sources/full-20261112-r18-mia-117315-image-web-capture.json",
+        "evidenceSha256": "f43275aa188bd75d68e0792a57dc82dd38480f3459326550e6b9ca059c6cea70"
+      },
+      {
+        "url": "https://da.dl.itc.u-tokyo.ac.jp/portal/en/assets/d8725db3-358d-83c7-32a4-505fb16ba508",
+        "title": "东京大学附属图书馆《小竹齋詩鈔》",
+        "locator": "別集影印入口",
+        "snapshot": "sources/full-20261112-r18-shochiku-book-web-capture.json",
+        "evidenceSha256": "9f832b77664a1d6d13a89f11b9baa2f13d9f19ccff87ab51787eafd5bfe0a56c"
+      },
+      {
+        "url": "https://www.dpm.org.cn/lemmas/243522.html",
+        "title": "故宫博物院《黄道周》",
+        "locator": "字幼玄，别号石斋",
+        "snapshot": "sources/full-20261112-r18-huang-bio-web-capture.json",
+        "evidenceSha256": "b96ea5d422c68cb963b3bd056e9ad80def535d525764b276e233327fe4953379"
+      }
+    ]
+  },
+  "mia-117285": {
+    "url": "https://collections.artsmia.org/art/117285",
+    "snapshot": "sources/mia-117285.json",
+    "evidenceSha256": "8d7135a2a6aaa68aadd95e2f233fe56b902c2239375169057158b65403d4d569",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117285-r10-cache.jpg",
+        "evidenceSha256": "f6be9398bc3c679f01306f396170ebb0bebf2b253254a62b9c6bbb6875f0a020"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://collections.artsmia.org/art/117285",
+        "title": "明尼阿波利斯艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 2013.29.240，尺牍右起两列及中段，署款在左",
+        "snapshot": "sources/full-20261112-r18-mia-117285-image-web-capture.json",
+        "evidenceSha256": "e2ff7a80ef9f457f5f0c3913a01a1c818d6184efbaa87cef8b6d9c497488e501"
+      }
+    ]
+  },
+  "mia-117270": {
+    "url": "https://collections.artsmia.org/art/117270",
+    "snapshot": "sources/mia-117270.json",
+    "evidenceSha256": "3fa3fb9ea467ea2a720a9a0c233e6442b405e91bcb394b02cdf56dd9eb09e408",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117270-r9-full.jpg",
+        "evidenceSha256": "6cc67b92d8dc162af089757933ad5d8b5e5c7be55fcefa75212c9e046317c0d5"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://collections.artsmia.org/art/117270",
+        "title": "明尼阿波利斯艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 2013.29.227，正文居中数列及左侧诗题题记",
+        "snapshot": "sources/full-20261112-r18-mia-117270-image-web-capture.json",
+        "evidenceSha256": "166dbeb400220a2ed18dd76d2857d0e733f7532f5c0b912062c92601cc3afff1"
+      },
+      {
+        "url": "https://lapis.nichibun.ac.jp/jinbutsu/6326/info.html",
+        "title": "国际日本文化研究中心《龍公美》",
+        "locator": "人物著录及著作《草廬詩集》",
+        "snapshot": "sources/full-20261112-r18-ryu-nichibun-web-capture.json",
+        "evidenceSha256": "3ac7a3ea0485ee74555528d81da00fef430b505ecbdc04287483c130947a650c"
+      }
+    ]
+  },
+  "mia-117229": {
+    "url": "https://collections.artsmia.org/art/117229",
+    "snapshot": "sources/mia-117229.json",
+    "evidenceSha256": "3138c8fc47b389c9b1feb90d4c4b8f337e966957a03bdd573523c38be99ccc91",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117229-r9-full.jpg",
+        "evidenceSha256": "d9dd34a16e43222fb3b0e2c583602db68fe23ff667ecdd0331695d086fd3e29c"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://collections.artsmia.org/art/117229",
+        "title": "明尼阿波利斯艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 2013.29.191，画心右起第三列",
+        "snapshot": "sources/full-20261112-r18-mia-117229-image-web-capture.json",
+        "evidenceSha256": "ba67f581bf549744a1f265b4992b84d5c3761d2885745912df9a75ed202dcd9d"
+      },
+      {
+        "url": "https://ndlsearch.ndl.go.jp/rnavi/oldmaterials/onuma_chinzan",
+        "title": "日本国立国会图书馆《大沼枕山関係資料》",
+        "locator": "作者资料目录",
+        "snapshot": "sources/full-20261112-r18-onuma-ndl-web-capture.json",
+        "evidenceSha256": "f94677e2bf774c9c12b86f3c5e751aca2a571baeaa3122bbaaab6a9a9a994777"
+      }
+    ]
+  },
+  "mia-117252": {
+    "url": "https://collections.artsmia.org/art/117252",
+    "snapshot": "sources/mia-117252.json",
+    "evidenceSha256": "e2482c1691458e253e8dfac9b4ac46dd9435f706036e117c27c8b45d1451498c",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117252-r9-full.jpg",
+        "evidenceSha256": "b4c9970a21325fc90ad6cc8c4d973251808ab4d893dd51f8f6e2f44d8624e722"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://collections.artsmia.org/art/117252",
+        "title": "明尼阿波利斯艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 2013.29.210，近左侧三列大字，含第三句结尾及末句",
+        "snapshot": "sources/full-20261112-r18-mia-117252-image-web-capture.json",
+        "evidenceSha256": "eebb427b8c140608adba35d1658ec87eb43e80cfb198bd8c5189ac86b16e31b1"
+      }
+    ]
+  },
+  "mia-118175": {
+    "url": "https://collections.artsmia.org/art/118175",
+    "snapshot": "sources/mia-118175.json",
+    "evidenceSha256": "a1fb42d3d0dce32553bf02b33de534c23e6ef627d7769ad6d4abb87e6ee55fea",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-118175-r9-full.jpg",
+        "evidenceSha256": "43af5de8f83952841cbc236ff7e11a61c0021459750212d807d658911c42dd79"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://collections.artsmia.org/art/118175",
+        "title": "明尼阿波利斯艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 2013.29.971，右起第五列中下部，信尾日期在最左",
+        "snapshot": "sources/full-20261112-r18-mia-118175-image-web-capture.json",
+        "evidenceSha256": "3538823b8859f86143760363b47ea72b6b0afbe7e44151aad737650935c2ae2c"
+      },
+      {
+        "url": "https://ndlsearch.ndl.go.jp/books/R100000039-I14362320",
+        "title": "日本国立国会图书馆《南郭先生文集》",
+        "locator": "作者文集书目",
+        "snapshot": "sources/full-20261112-r18-nankaku-book-web-capture.json",
+        "evidenceSha256": "195d3bebe50f5911a17bfbbdd140095868f4142db00e0c231a7a3322da371d91"
+      }
+    ]
+  },
+  "mia-118196": {
+    "url": "https://collections.artsmia.org/art/118196",
+    "snapshot": "sources/mia-118196.json",
+    "evidenceSha256": "e308c34547bc077a2b59c6b256232cc8445b159320828e269c859ad5b8d27a2e",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-118196-r9-full.jpg",
+        "evidenceSha256": "f1902488433912b94c147abefd2453b83ab76f6ce8209f2ea44484993d3ab0c7"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://collections.artsmia.org/art/118196",
+        "title": "明尼阿波利斯艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 2013.29.989，卷右首题下第一长列及卷中央梅雨诗数列",
+        "snapshot": "sources/full-20261112-r18-mia-118196-image-web-capture.json",
+        "evidenceSha256": "5dd304da774dffa40e7a3127c673f5ad74570ab0321acccefccae70692a9f778"
+      },
+      {
+        "url": "https://zh.wikisource.org/wiki/後漢書/卷83#梁鴻",
+        "title": "《后汉书》卷八十三《逸民列传·梁鸿》",
+        "locator": "梁鸿出关与《五噫歌》记载",
+        "snapshot": "sources/full-20261112-r18-liang-hong-web-capture.json",
+        "evidenceSha256": "d6334d4525e9930030846e4e189266ac1efcaf4617f94eb317914e976c0c3c1b"
+      },
+      {
+        "url": "https://www.loc.gov/aba/publications/Archived-LCC02/PL-PM-text.pdf",
+        "title": "美国国会图书馆《Library of Congress Classification》",
+        "locator": "印刷页 192，PL2733.A48 → PL795.Y357",
+        "snapshot": "sources/full-20261112-r18-zeigan-loc-web-capture.json",
+        "evidenceSha256": "5a70b097bfce5c32bb8242cef1467067c1a44bef429c36d74d7cffb5ebcf5910"
+      },
+      {
+        "url": "https://ci.nii.ac.jp/author/DA02045520",
+        "title": "日本国立信息学研究所 CiNii《梁田蛻巌》",
+        "locator": "作者记录 DA02045520，列 Yanada, Zeigan 及《蛻巖集》",
+        "snapshot": "sources/full-20261112-r18-zeigan-books-web-capture.json",
+        "evidenceSha256": "6376a3575ce6e98f93b755789b4000af045458b4e257ea9dceff3baef91bf0b5"
+      }
+    ]
+  },
+  "mia-117380": {
+    "url": "https://collections.artsmia.org/art/117380",
+    "snapshot": "sources/mia-117380.json",
+    "evidenceSha256": "d49b484dadbcaa91216163c78a0617b5af432e00d162e5dbf95a336cbca47e20",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117380-r9-full.jpg",
+        "evidenceSha256": "d64d5b13177e2fbda5ce6b4a39a80326ac70e198ba99d38cd8cbdff60e69975d"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://collections.artsmia.org/art/117380",
+        "title": "明尼阿波利斯艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 2013.29.315，尺牍最右列的开头祝词",
+        "snapshot": "sources/full-20261112-r18-mia-117380-image-web-capture.json",
+        "evidenceSha256": "157866fa32f8301728f15a65b49cb7790354d0d691b2660c36f8f891ae64aaa8"
+      }
+    ]
+  },
+  "met-49779": {
+    "url": "https://www.metmuseum.org/art/collection/search/49779",
+    "snapshot": "sources/met-49779.json",
+    "evidenceSha256": "901f789a8a15f7a52309136e7323ca1bcaf91d859c011f6dcf675a6bae95fa9f",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-49779-r9-official.jpg",
+        "evidenceSha256": "767e4f1798a1103cfcd0e2813495e38deb19aec81551495d0e309fa5b5821e4a"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.metmuseum.org/art/collection/search/49779",
+        "title": "大都会艺术博物馆本件馆藏原图",
+        "locator": "馆藏号 1995.289.11，纸本扇面自右起第五列，正文中部",
+        "snapshot": "sources/full-20261112-r18-met-49779-image-web-capture.json",
+        "evidenceSha256": "0e552ed8eda4c0faa8bda7e14243bd2bc944c9803f5976f0f6866fe1b71fbe0a"
+      }
+    ]
+  }
+}

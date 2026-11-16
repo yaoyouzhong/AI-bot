@@ -11,9 +11,9 @@
       "author": "陳洪綬",
       "museum": "克利夫兰艺术博物馆",
       "period": "1638",
-      "brief": "先看整体，再沿光线与形体进入细节；结合年代和材质，体会这件作品的绘画语言。",
-      "overview": "年代：1638\n材质与形制：立轴；水墨设色，材质：绢\n尺寸：图面：172.8 × 55.7厘米\n收藏：克利夫兰艺术博物馆\n馆藏编号：1961.89",
-      "looking": "克利夫兰艺术博物馆指出，陈洪绶以细轮廓和鲜明矿物色营造古意，人物用细而均匀的铁线描谨慎勾勒，面容则被拉长并夸张。画中的礼器铜器进一步强化了场景的古雅气息。",
+      "brief": "陈洪绶借宣文君授经为姑母祝寿，画顶长题把两位相隔千年的女性连在一起。",
+      "overview": "馆方说明，陈洪绶在 1638 年为姑母六十寿辰画下此轴。画中年高的宣文君向年轻学子讲授儒家经典；顶部长题又把这位古代女性与姑母相比。授经故事因此也承载了画家对家中长辈的敬意。\n\n年代：1638\n材质与形制：立轴；水墨设色，材质：绢\n尺寸：图面：172.8 × 55.7厘米\n馆藏编号：1961.89",
+      "looking": "台上宣文君端坐，台下两列学子俯身相向，礼仪秩序由人物的位置先交代出来。再看修长夸张的面孔、均细而收束的铁线描，以及明丽的矿物色；礼器和古拙造型一道把场面推向古意。",
       "facts": {
         "date": "1638",
         "medium": "立轴；水墨设色，材质：绢",
@@ -54,21 +54,32 @@
             "museumTitle": "Lady Xuanwen Giving Instruction on the Rites of Zhou",
             "accession": "1961.89"
           }
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/1961.89",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know；馆藏号 1961.89",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-1961.89.json",
+          "evidenceSha256": "d7c7e516dccc6880f4ac82b70103a106f7efa2bd2d7942e7ff79a0f0d2c9973f",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
-        "level": "verified_metadata"
+        "level": "source_based_context"
       },
       "contentKinds": {
-        "overview": "verified_metadata",
+        "overview": "source_based_context",
         "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -84,7 +95,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1961.89-00-portrait.jpg"
       ],
-      "annualValueReason": "中国传统绘画：人物与佛道；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "中国传统绘画：人物与佛道；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1955.36",
@@ -260,9 +275,9 @@
       "author": "文森特·梵高",
       "museum": "芝加哥艺术博物馆",
       "period": "1889年，布面油画",
-      "brief": "鲜明色彩与倾斜线条让卧室显得活跃，但梵高想表达的是休息与安宁；这是他画的第二个版本。",
-      "overview": "画中是梵高在法国阿尔勒“黄房子”的卧室。他曾三次描绘这一场景，芝加哥馆藏为1889年9月绘制的第二版。床、椅子与墙上的画像，把生活空间压缩成一组醒目的形与色。强烈的色彩、厚重笔触和向深处汇聚的线条，可能让观者感到紧张；馆方根据画家的书信指出，梵高希望这幅画传达的却是平静与休息。",
-      "looking": "芝加哥艺术博物馆指出，鲜明色彩、厚重而断续的笔触、急剧退向深处的线条，可能使画面显得紧张。但梵高本人把它理解为宁静、可休息的图像。画面产生的活跃感与作者希望表达的安歇，构成理解这间卧室的一组张力。",
+      "brief": "芝加哥的《卧室》画于圣雷米。梵高为在阿尔勒受损的第一版重画了这间旧居。",
+      "overview": "梵高 1888 年刚搬进阿尔勒黄房子不久就画了第一版。第一版后来受潮，1889 年身在圣雷米的他又画了芝加哥藏的这一版；另有一幅较小的版本送给母亲与妹妹。三件作品的床和椅子很相近，墙上的画像却有变化。\n\n年代：1889年，布面油画\n材质与形制：油彩，材质：画布\n尺寸：73.6 × 92.3厘米\n馆藏编号：1926.417",
+      "looking": "床框仍有粗实的轮廓，但比第一版少了对比强烈的勾边，较厚的笔触更像木纹。地板现在看起来偏绿，砖缝却留着红棕色；馆方发现地板原有多种红色颜料，它们随时间发生了不同程度的变化。",
       "facts": {
         "date": "1889年，布面油画",
         "medium": "油彩，材质：画布",
@@ -312,22 +327,33 @@
           "snapshot": "sources/authoritative-looking-68cad51e58687f30.json",
           "checkedOn": "2026-10-11",
           "retrievedOn": "2026-10-08"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://archive.artic.edu/van-gogh-bedrooms/about-paintings",
+          "publisher": "芝加哥艺术博物馆",
+          "locator": "芝加哥艺术博物馆《梵高的卧室》展览档案；三版比较，Chicago",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/full-20261111-aic-28560.txt",
+          "evidenceSha256": "a878b03473d9547973b47be604e399ad767bf56dfc79b83d8cf930ff8cd6dd78",
+          "method": "official_page_web_reader"
         }
       ],
       "coverage": {
         "level": "source_based_context"
       },
       "contentKinds": {
-        "overview": "source_based_paraphrase",
+        "overview": "source_based_context",
         "brief": "source_based_editorial_summary",
         "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -343,7 +369,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/painting-02-00-portrait.jpg"
       ],
-      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "painting-10",
@@ -775,9 +805,9 @@
       "author": "克洛德·莫奈",
       "museum": "芝加哥艺术博物馆",
       "period": "1906年，布面油画",
-      "brief": "莫奈把天空藏进水面的倒影中，让睡莲与云影交织；不妨沿两簇花之间的水路慢慢看。",
-      "overview": "这幅《睡莲》作于1906年，属于莫奈1903至1908年间创作的一组池塘绘画。灵感来自他在法国吉维尼营建的水园。画家逐渐放下传统风景画中陆地、天空与水面的分层，把注意力集中在水面本身。左下与右上的睡莲形成呼应，树木和云的倒影融入其间。馆方的技术研究还发现，莫奈在作画过程中曾多次调整画面。",
-      "looking": "芝加哥艺术博物馆指出，莫奈不再按陆地、天空、水面分区，而把视线收拢到水面。左下与右上的睡莲围出水上通道，树木与云的倒影进入同一水面；花簇、空隙和倒影共同呈现他的空间实验。",
+      "brief": "两簇睡莲斜向分布，水面留下天空与树影；看似转瞬即逝的光，其实由多次覆画得来。",
+      "overview": "1906 年这幅《睡莲》属于莫奈在吉维尼水园的第二阶段探索。早期画里尚有池岸和日式桥，这幅几乎只留下水面。芝加哥艺术博物馆的技术检查发现，右上局部叠了八至九层颜料；前景原有更多睡莲，莫奈后来盖掉了其中几簇。\n\n年代：1906年，布面油画\n材质与形制：油彩，材质：画布\n尺寸：89.9 × 94.1厘米\n馆藏编号：1933.1157",
+      "looking": "右上与左下的莲叶被一带斜向水面分开。莲叶横贴在水上，纵向的树影却把视线带入水下的虚空间。画面的浮光来自层层颜料；近看笔触，能找到看似一瞬的景象如何慢慢画成。",
       "facts": {
         "date": "1906年，布面油画",
         "medium": "油彩，材质：画布",
@@ -827,22 +857,33 @@
           "snapshot": "sources/authoritative-looking-7853cade3ae935a8.json",
           "checkedOn": "2026-10-11",
           "retrievedOn": "2026-10-08"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://publications.artic.edu/node/135621",
+          "publisher": "芝加哥艺术博物馆",
+          "locator": "芝加哥艺术博物馆学术图录 Cat. 44，作品号 1933.1157；创作与技术报告",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/full-20261111-aic-16568.txt",
+          "evidenceSha256": "e926f7ee813b0751cfab385f04ee63746fb24f869463539c01d52a13747cd023",
+          "method": "official_page_web_reader"
         }
       ],
       "coverage": {
         "level": "source_based_context"
       },
       "contentKinds": {
-        "overview": "source_based_paraphrase",
+        "overview": "source_based_context",
         "brief": "source_based_editorial_summary",
         "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -858,7 +899,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/painting-01-00-portrait.jpg"
       ],
-      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1959.185",
@@ -1112,9 +1157,9 @@
       "author": "约翰内斯·维米尔",
       "museum": "大都会艺术博物馆",
       "period": "约 1662",
-      "brief": "维米尔画女子在敞开的窗前，准备用镀金银壶和水盆梳洗，亚麻布保护衣裙与头发。",
-      "overview": "维米尔画女子在敞开的窗前，准备用镀金银壶和水盆梳洗，亚麻布保护衣裙与头发。作品把公开露面之前的私人时刻转成安静的家庭图像。\n\n年代：约 1662\n材质与形制：油彩，材质：画布\n尺寸：45.7 × 40.6厘米",
-      "looking": "馆方把水罐女子置于晨起盥洗的私人生活中：亚麻布保护头发与衣裙，银鎏金水罐、盆和敞窗构成室内场景。这是首件进入美国收藏的维米尔作品，也体现他对居家题材的兴趣。",
+      "brief": "开窗、盥洗原是寻常事；维米尔让光沿着白头巾和金属水器，一次只照亮一点。",
+      "overview": "约 1662 年，维米尔画下一位站在开窗前准备盥洗的女子。亚麻布护住头发与衣领，桌上是鎏金银壶和水盆。这是第一件进入美国收藏的维米尔作品，1889 年由亨利·马昆德赠给大都会艺术博物馆。\n\n年代：约 1662\n材质与形制：油彩，材质：画布\n尺寸：45.7 × 40.6厘米\n馆藏编号：89.15.21",
+      "looking": "左窗的光把头巾和领巾照得近乎透亮，也勾出壶与盆的金边；左下仍沉在暗处。窗、桌和人物几乎都静止，目光却随着亮处一点点移过房间。这种局部显露，使私密的日常动作成为画面的中心。",
       "facts": {
         "date": "约 1662",
         "medium": "油彩，材质：画布",
@@ -1157,6 +1202,17 @@
           "evidenceSha256": "6651597b5ebaf67ba119e8440af79c2f0fd50d3c5a0dd3a7cf7bd14bd6c56e8d",
           "scope": "work_specific_authoritative_analysis",
           "locator": "Object 437881; introductory curatorial text"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.metmuseum.org/art/collection/search/437881",
+          "publisher": "大都会艺术博物馆",
+          "locator": "大都会艺术博物馆 89.15.21；Overview 与馆方音频 5238",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/full-20261111-met-437881.txt",
+          "evidenceSha256": "c5a91aa13f7eca702c718365ee7a0663997a00b168192cf06c25e7df305e9616",
+          "method": "official_page_web_reader"
         }
       ],
       "coverage": {
@@ -1169,9 +1225,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_web_reselection"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -1187,7 +1243,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/painting-met-437881-00-portrait.jpg"
       ],
-      "annualValueReason": "维米尔居家生活的代表题材；晨光、盥洗物件与服饰有本件研究，补充另一幅有细节依据的室内画。"
+      "annualValueReason": "维米尔居家生活的代表题材；晨光、盥洗物件与服饰有本件研究，补充另一幅有细节依据的室内画。",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1974.26",
@@ -1197,9 +1257,9 @@
       "author": "王冕",
       "museum": "克利夫兰艺术博物馆",
       "period": "14世纪，元代",
-      "brief": "月亮与染色背景交代夜色，墨梅在其中展开；王冕让花枝成为画面与诗意的共同主角。",
-      "overview": "王冕的《月下梅花图》以墨梅为主体。馆方指出，背景的染色与月亮说明这是夜间场景，并将此作放在成熟的墨梅传统中介绍。王冕选择以卖梅画为生，传世作品数量不多。此画也保留了画家的题诗和署名，诗与画共同塑造夜色中的梅花意象。阅读题诗有助于扩展联想，但观看时仍可以先从枝干、花朵与背景的实际关系出发。",
-      "looking": "看月与暗底如何把梅花放在夜间。王冕返乡卖梅画谋生，墨梅已形成成熟画类；不仕的选择是生平背景，花枝不自动指向某个政治事件。",
+      "brief": "淡月几乎融入绢地，最重的墨集中在右下盘曲的梅干。",
+      "overview": "馆方记载，王冕在元代谢绝任命，回乡卖画，墨梅是他的代表题材。这一轴留下了乾隆鉴藏印，后来经董诰与日本浅野家等收藏，1974年进入克利夫兰艺术博物馆。\n\n年代：14世纪，元代\n材质与形制：立轴；墨，材质：绢\n尺寸：164.6 × 94.6厘米\n馆藏编号：1974.26",
+      "looking": "先沿浓墨老干看枝条向上折转，再在左上寻找薄薄一层灰墨托出的月轮。浅花在月下若隐若现，题字和红印落在左侧，平衡了右边的浓墨。",
       "facts": {
         "date": "14世纪，元代",
         "medium": "立轴；墨，材质：绢",
@@ -1238,22 +1298,42 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.clevelandart.org/art/1974.26",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "馆藏号1974.26，馆藏图与著录、递藏记录；1980年《八代中国绘画》第88号及2023年图录第89号题录",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/cma-1974.26.json",
+          "evidenceSha256": "f49d9701024d79519119245d442e9e05b12a0fafbfc853a2a632f9240c4f61d4",
+          "method": "exact_museum_record_and_reviewed_object_evidence",
+          "supportingReferences": [
+            {
+              "url": "https://www.clevelandart.org/print/art/1974.26",
+              "title": "克利夫兰艺术博物馆馆藏打印页 1974.26",
+              "locator": "馆藏号1974.26，馆藏图与著录、递藏记录；1980年《八代中国绘画》第88号及2023年图录第89号题录",
+              "snapshot": "sources/full-20261111-r6-cma-1974.26-web-capture.json",
+              "evidenceSha256": "e3db9880d78967e7b49011634c3b8f3d4dfe6f50f9430ae9fd58f44d3ec79672"
+            }
+          ]
         }
       ],
       "coverage": {
         "level": "source_based_context"
       },
       "contentKinds": {
-        "overview": "source_based_paraphrase",
+        "overview": "source_based_context",
         "brief": "source_based_editorial_summary",
         "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -1269,7 +1349,12 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1974.26-00-portrait.jpg"
       ],
-      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 6
+      }
     },
     {
       "id": "painting-03",
@@ -1279,9 +1364,9 @@
       "author": "乔治·修拉",
       "museum": "芝加哥艺术博物馆",
       "period": "1884至1886年；画框边缘绘于1888至1889年，布面油画",
-      "brief": "远看是塞纳河畔安静的星期日，近看却是细密色点；修拉让这些颜色在观看中汇合。",
-      "overview": "修拉描绘巴黎人在大碗岛公园散步、休息、钓鱼与泛舟的场景。作品从1884年开始，经过多次草图准备和反复调整。画家把互相呼应的颜色拆成细小点画，让观者在一定距离之外形成整体印象。人物轮廓经过严密安排，馆方将其构图目标与古希腊浮雕的秩序感联系起来：现代生活的片刻，被组织成庄重而稳定的群像。",
-      "looking": "芝加哥艺术博物馆指出，近看时人物和形体化为并置的互补色点与短线，这是修拉点彩技法的特点。他后来强化部分轮廓、增添人物，每处决定都服务于把现代生活画成如古希腊浮雕般庄严的场景。",
+      "brief": "修拉用两年反复推敲河边的人群，在细小的色点下保留了早期较宽的笔触。",
+      "overview": "修拉为这幅大型画布画了许多素描和油画习作。他把巴黎附近塞纳河岛上的休闲场面带到 1886 年第八届、也是最后一届印象派展览。作品后来又加上彩色画边；这圈边缘是画布的一部分。\n\n年代：1884至1886年；画框边缘绘于1888至1889年，布面油画\n材质与形制：油彩，材质：画布\n尺寸：207.5 × 308.1厘米\n馆藏编号：1926.224",
+      "looking": "远看，人群的侧影和直立树干排出近似浮雕的节奏；近看，人物和草地由并置的小色点、短笔触组成。修拉还用接近相邻画面补色的笔触画边，让画内色调与边缘相互牵引。",
       "facts": {
         "date": "1884至1886年；画框边缘绘于1888至1889年，布面油画",
         "medium": "油彩，材质：画布",
@@ -1325,22 +1410,33 @@
             "museumTitle": "A Sunday on La Grande Jatte — 1884",
             "accession": "1926.224"
           }
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://archive.artic.edu/seurat/seurat_themes.html",
+          "publisher": "芝加哥艺术博物馆",
+          "locator": "芝加哥艺术博物馆《修拉与大碗岛的创作》展览档案；The Grande Jatte",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/full-20261111-aic-27992.txt",
+          "evidenceSha256": "9b22db01339bda30e1124bc69f81d15574cf1690b9a67b666082e7ea3a8365b1",
+          "method": "official_page_web_reader"
         }
       ],
       "coverage": {
         "level": "source_based_context"
       },
       "contentKinds": {
-        "overview": "source_based_paraphrase",
+        "overview": "source_based_context",
         "brief": "source_based_editorial_summary",
         "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -1356,7 +1452,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/painting-03-00-portrait.jpg"
       ],
-      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1926.247",
@@ -2022,9 +2122,9 @@
       "author": "惲壽平",
       "museum": "克利夫兰艺术博物馆",
       "period": "1685",
-      "brief": "恽寿平出身常州花卉绘画传统，经历明清更替的动荡。花卉和自然题材成为他的表达途径，作品也联系到其个人经历与文人交游。",
-      "overview": "恽寿平出身常州花卉绘画传统，经历明清更替的动荡。花卉和自然题材成为他的表达途径，作品也联系到其个人经历与文人交游。\n\n年代：1685\n材质与形制：立轴；水墨设色，材质：绢\n尺寸：118.7 × 71.8厘米",
-      "looking": "克利夫兰艺术博物馆结合题识，把芍药解读为辉煌往昔的象征。花朵略显枯萎苍白，折枝中隐约的红色纹理，馆方也认为可能带有隐意。",
+      "brief": "左上白花和右下渐萎的粉灰花，把同一幅画里的盛衰分开。",
+      "overview": "惲寿平在1685年题跋中回忆一件北宋佚名没骨花卉，称赞旧作的颜料历久如新，也推崇它的敷色和布置。克利夫兰馆提出，画中略显枯淡的芍药与断枝上的红痕，可能寄托对故明的怀念。\n\n年代：1685\n材质与形制：立轴；水墨设色，材质：绢\n尺寸：118.7 × 71.8厘米\n馆藏编号：1967.192",
+      "looking": "从左上白花的清淡边缘看向右下几朵颜色不同的花，再找折断的枝条。花瓣的浅色晕染与枝叶的细线可以对照题跋里的用色议论。",
       "facts": {
         "date": "1685",
         "medium": "立轴；水墨设色，材质：绢",
@@ -2065,6 +2165,26 @@
             "museumTitle": "Herbaceous Peony",
             "accession": "1967.192"
           }
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.clevelandart.org/art/1967.192",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "馆藏号1967.192，作者题跋的馆方译文、原图及策展说明；2017年论文图8和2023年展览图录第136号题录",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/cma-1967.192.json",
+          "evidenceSha256": "22f6401b99f52b007e36955738889d777d6b778163f4c2871649a6bbd1dd3287",
+          "method": "exact_museum_record_and_reviewed_object_evidence",
+          "supportingReferences": [
+            {
+              "url": "https://www.clevelandart.org/print/art/1967.192",
+              "title": "克利夫兰艺术博物馆馆藏打印页 1967.192",
+              "locator": "馆藏号1967.192，作者题跋的馆方译文、原图及策展说明；2017年论文图8和2023年展览图录第136号题录",
+              "snapshot": "sources/full-20261111-r6-cma-1967.192-web-capture.json",
+              "evidenceSha256": "8e32513457703bc7e9944d43686b732d595d15832a257d19f84455c669a4f902"
+            }
+          ]
         }
       ],
       "coverage": {
@@ -2077,9 +2197,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -2095,7 +2215,12 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1967.192-00-portrait.jpg"
       ],
-      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 6
+      }
     },
     {
       "id": "painting-05",
@@ -3055,9 +3180,9 @@
       "author": "古斯塔夫·卡耶博特",
       "museum": "芝加哥艺术博物馆",
       "period": "1877年，布面油画",
-      "brief": "雨没有被逐滴画出，却藏在伞与湿润街石的反光里；近处行人仿佛就要走进我们的空间。",
-      "overview": "卡耶博特描绘的是他住处附近的巴黎街口。作品关注现代城市生活，处理方式却比许多印象派画作更精细。馆方认为，画面边缘对人物的截取可能受到摄影的启发；近处两位行人迎面而来，远处人物则被仔细安排以形成街道的繁忙感。画家没有依靠清晰的雨滴交代天气，而是借助雨伞与湿润石路上的微弱反光，让观者感受到雨天。",
-      "looking": "芝加哥艺术博物馆指出，画中大胆裁切可能受到摄影启发。画家并未靠明确画出雨滴交代天气，而以雨伞和湿鹅卵石上的微妙倒影表现雨天；背景人物经过仔细安排，营造街道繁忙的感觉。",
+      "brief": "伞面原有浅紫，修复让它重新显露；街道的严密安排中仍留着雨后微光。",
+      "overview": "卡耶博特以巴黎改造后的大道为题，将大幅画布带到 1877 年第三届印象派展览，并参与了展览的筹备。芝加哥艺术博物馆的修复揭开了被变色清漆掩盖的紫蓝色调，为理解画面原先的雨后光线提供了证据。\n\n年代：1877年，布面油画\n材质与形制：油彩，材质：画布\n尺寸：212.2 × 276.2厘米\n馆藏编号：1964.336",
+      "looking": "街道透视把视线送向很远，前景的行人和伞却突然贴近画边。人物彼此少有交流，街道虽宽阔，仍让人感到都市的疏离。伞面的浅紫与路面细微的光色，又使严整空间保留了天气的变化。",
       "facts": {
         "date": "1877年，布面油画",
         "medium": "油彩，材质：画布",
@@ -3101,22 +3226,33 @@
             "museumTitle": "Paris Street; Rainy Day",
             "accession": "1964.336"
           }
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://publications.artic.edu/caillebotte/reader/paintingsanddrawings/section/574/p-574-31",
+          "publisher": "芝加哥艺术博物馆",
+          "locator": "芝加哥艺术博物馆学术图录 Cat. 2，作品号 1964.336；创作与修复研究",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/full-20261111-aic-20684.txt",
+          "evidenceSha256": "c56b0eac5d3a96ea19207be10fb362611c1fa0579dc8c31ce4beb15b5b3b55f0",
+          "method": "official_page_web_reader"
         }
       ],
       "coverage": {
         "level": "source_based_context"
       },
       "contentKinds": {
-        "overview": "source_based_paraphrase",
+        "overview": "source_based_context",
         "brief": "source_based_editorial_summary",
         "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -3132,7 +3268,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/painting-06-00-portrait.jpg"
       ],
-      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "核心名作或传统题材代表，完整保留原有分页；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1962.37",
@@ -3878,9 +4018,9 @@
       "author": "Caravaggio",
       "museum": "克利夫兰艺术博物馆",
       "period": "1606—7",
-      "brief": "圣安德烈在希腊传播基督教并被处以十字架刑，临终仍向人群布道。",
-      "overview": "圣安德烈在希腊传播基督教并被处以十字架刑，临终仍向人群布道。作品通过殉道场面表现信仰与世俗权力的冲突。\n\n年代：1606—7\n材质与形制：油彩，材质：画布\n尺寸：未装框：202.5 × 152.7厘米",
-      "looking": "克利夫兰艺术博物馆指出，卡拉瓦乔把受刑场面处理得亲近而私密，使观众更贴近事件。强烈明暗对照暗示神的在场。",
+      "brief": "斜光和 X 射线让肉眼难辨的刻划显现，受刑者与围观者的轮廓有了作画过程的证据。",
+      "overview": "克利夫兰馆修复研究用斜光、X 射线与颜料分析检查本件。图像显示某些衣褶与人体部位先以含铅白颜料铺出亮部，画层上还有辅助定位的刻痕。馆刊记录暗背景的棕土和右下衣服的红赭。\n\n年代：1606—7\n材质与形制：油彩，材质：画布\n尺寸：未装框：202.5 × 152.7厘米\n馆藏编号：1976.2",
+      "looking": "看光如何集中在安德烈的胸肩和身旁人物的手上，衣褶和暗背景各有层次。技术影像中的刻划说明这束光的位置经过安排。再回到画面时，可以循着少数亮部辨认挤在十字架下的人。",
       "facts": {
         "date": "1606—7",
         "medium": "油彩，材质：画布",
@@ -3933,6 +4073,33 @@
             "accession": "1976.2",
             "galleryWorkId": "cma:1976.2"
           }
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.clevelandart.org/art/1976.2",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "克利夫兰馆技术说明、馆刊颜料分析及同件原图",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/cma-1976.2.json",
+          "evidenceSha256": "e9f6ad1d135f4dd60d58a0a778b13fb1d418a8b01814738993f25bf0230a17ed",
+          "method": "exact_museum_record_and_reviewed_object_evidence",
+          "supportingReferences": [
+            {
+              "url": "https://www.clevelandart.org/print/art/1976.2",
+              "title": "克利夫兰艺术博物馆技术说明",
+              "locator": "Technical Findings，斜光、X 射线与画层刻划",
+              "snapshot": "sources/full-20261111-r4-caravaggio-web-capture.json",
+              "evidenceSha256": "c31869f76c257112bc0043744f09c7ba59572e2da7528e74eac2a46756fde3a7"
+            },
+            {
+              "url": "https://www.clevelandart.org/articles/earth-without-art-just-eh",
+              "title": "克利夫兰艺术博物馆馆刊",
+              "locator": "本画 XRF 颜料分析，棕土与红赭",
+              "snapshot": "sources/full-20261111-r4-pigment-web-capture.json",
+              "evidenceSha256": "077df19577da23b80038f31e944a38c09b8d129b06dab50f55c84faf235fca58"
+            }
+          ]
         }
       ],
       "coverage": {
@@ -3945,9 +4112,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -3963,7 +4130,12 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1976.2-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：宗教与神话；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：宗教与神话；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 4
+      }
     },
     {
       "id": "cma-1971.47",
@@ -3973,9 +4145,9 @@
       "author": "Anne Vallayer-Coster",
       "museum": "克利夫兰艺术博物馆",
       "period": "1769",
-      "brief": "十八世纪后期的果物静物中，李子篮是常见题材。这里果实与编篮从深暗背景中浮现，红紫色调与苔藓等细节，让日常物品具有鲜明的触感和近在眼前的气息。",
-      "overview": "十八世纪后期的果物静物中，李子篮是常见题材。这里果实与编篮从深暗背景中浮现，红紫色调与苔藓等细节，让日常物品具有鲜明的触感和近在眼前的气息。\n\n年代：1769\n材质与形制：油彩，材质：画布\n尺寸：未装框：38 × 46.2厘米",
-      "looking": "馆方强调李子与篮子从深影中显现，红、紫色鲜明，水杯亮点和反光增添临场感。可循水果、糕点纸包与水杯的光泽，比较不同质地的表现。",
+      "brief": "深影托起红紫色李子，一杯水和几张糕点包纸让静物有了不同的光泽。",
+      "overview": "十八世纪后期，水果静物在法国颇受欢迎，篮装李子也是常用题材。瓦莱耶-科斯特还为这幅画配画了桃子和樱桃枝，两幅可以放在一起理解她如何安排水果的形状与颜色。\n\n年代：1769\n材质与形制：油彩，材质：画布\n尺寸：未装框：38 × 46.2厘米\n馆藏编号：1971.47",
+      "looking": "深色背景里，李子的红紫比篮子的编纹更先跳出来。再把目光移到糕点包纸的硬折边、水杯边缘的亮点和苔藓：这幅画的变化来自几种材质各有一套受光方式。",
       "facts": {
         "date": "1769",
         "medium": "油彩，材质：画布",
@@ -4011,6 +4183,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/1971.47",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-1971.47.json",
+          "evidenceSha256": "025fdc1ec8741c291eb7e33b46a00b1181bc47d27ecc10923cad479f4cedeb01",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -4023,9 +4206,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -4041,7 +4224,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1971.47-00-portrait.jpg"
       ],
-      "annualValueReason": "瓦莱耶·科斯特的李子静物以深影、果皮与玻璃反光见长，补充女性画家的独立静物成就。"
+      "annualValueReason": "瓦莱耶·科斯特的李子静物以深影、果皮与玻璃反光见长，补充女性画家的独立静物成就。",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1951.358",
@@ -4537,9 +4724,9 @@
       "author": "Andrea del Sarto",
       "museum": "克利夫兰艺术博物馆",
       "period": "约 1527",
-      "brief": "题材来自《创世记》：亚伯拉罕准备献祭儿子以撒时，天使突然制止。",
-      "overview": "题材来自《创世记》：亚伯拉罕准备献祭儿子以撒时，天使突然制止。这幅画的力量集中在父子不同的表情，悲痛、恐惧、顺从与被拯救的转折同时出现。\n\n年代：约 1527\n材质与形制：油彩，材质：木\n尺寸：未装框：178 × 138厘米",
-      "looking": "这件未完成作品让萨尔托的作画过程显露出来。馆方指出右侧驴子可见转写设计的线条，薄色层和天使、人物的修改痕迹，可从这些细节理解创作过程。",
+      "brief": "天使有两套可见的腿，右边的驴还留着转稿线；未完成的画保住了修改过程。",
+      "overview": "亚伯拉罕举刀之际，天使赶来阻止他献祭以撒。萨尔托没有完成这幅画，因而部分转稿线、薄色层和位置改动留在画面上。馆方也指出，父子的身体造型受到古代雕塑和米开朗琪罗的启发。\n\n年代：约 1527\n材质与形制：油彩，材质：木\n尺寸：未装框：178 × 138厘米\n馆藏编号：1937.577",
+      "looking": "人物的恐惧、克制与突然醒悟集中在举刀和阻止的交接处。再向右看驴身的转稿痕迹，回到天使两套可见的腿，可以同时读到故事的紧张和画家解决动作时的取舍。",
       "facts": {
         "date": "约 1527",
         "medium": "油彩，材质：木",
@@ -4575,6 +4762,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/1937.577",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-1937.577.json",
+          "evidenceSha256": "977c647e89b37aace9e5ba71493d021bdd159af91b0f0002be091418c3e8de2e",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -4587,9 +4785,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -4605,7 +4803,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1937.577-00-portrait.jpg"
       ],
-      "annualValueReason": "萨尔托未完成画显露转稿、薄色与修改，作品自身具有表现力，也为观察创作过程提供实物证据。"
+      "annualValueReason": "萨尔托未完成画显露转稿、薄色与修改，作品自身具有表现力，也为观察创作过程提供实物证据。",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1974.31",
@@ -5005,9 +5207,9 @@
       "author": "James Tissot",
       "museum": "克利夫兰艺术博物馆",
       "period": "1872",
-      "brief": "蒂索初到伦敦时已擅长描绘时髦人物。这幅衣着考究的情侣图以室内相遇暗示故事，让观者从动作、距离和陈设中揣摩人物关系，符合维多利亚时代的叙事趣味。",
-      "overview": "蒂索初到伦敦时已擅长描绘时髦人物。这幅衣着考究的情侣图以室内相遇暗示故事，让观者从动作、距离和陈设中揣摩人物关系，符合维多利亚时代的叙事趣味。\n\n年代：1872\n材质与形制：油彩，材质：画布\n尺寸：未装框：101 × 61.5厘米",
-      "looking": "馆方将此画置于蒂索初到伦敦的创作阶段。情侣从阳光花园走入室内，女子姿态可能暗示考虑求婚，但交流内容仍不确定；可保留故事的开放性。",
+      "brief": "蒂索把情侣画在从花园进入室内的一瞬，女子的姿态留下了求婚与否的悬念。",
+      "overview": "这幅画作于蒂索初到伦敦的时期。他在那里以时髦场景中的女性形象成名，维多利亚时代的观众也喜欢带一点故事线索的画。馆方提出女方或许在考虑求婚，但画面没有给出答案。\n\n年代：1872\n材质与形制：油彩，材质：画布\n尺寸：未装框：101 × 61.5厘米\n馆藏编号：2022.140",
+      "looking": "阳光中的花园与有软垫陈设的室内，把两人放在由外向内的过渡处。女方像是在考虑什么，男子跟得很近；动作给出了彼此的关系，却把交谈的内容留在画外。",
       "facts": {
         "date": "1872",
         "medium": "油彩，材质：画布",
@@ -5043,6 +5245,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/2022.140",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-2022.140.json",
+          "evidenceSha256": "c8db434e88cdef79c57d83d4d6c2d2fe42b6b79e2e8abc660e74d29c91350bb7",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -5055,9 +5268,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -5073,7 +5286,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-2022.140-00-portrait.jpg"
       ],
-      "annualValueReason": "蒂索早期伦敦室内叙事，以明暗空间与人物手势留下开放情节；保留本件创作阶段说明。"
+      "annualValueReason": "蒂索早期伦敦室内叙事，以明暗空间与人物手势留下开放情节；保留本件创作阶段说明。",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1936.19",
@@ -5512,9 +5729,9 @@
       "author": "Henri Rousseau",
       "museum": "克利夫兰艺术博物馆",
       "period": "约 1897—1905",
-      "brief": "卢梭也画巴黎近郊的小幅风景。这件河道景色保留了清楚的物体轮廓，同时采用较自由的笔触与色调塑造，展示出与其早期平涂方式不同的探索。",
-      "overview": "卢梭也画巴黎近郊的小幅风景。这件河道景色保留了清楚的物体轮廓，同时采用较自由的笔触与色调塑造，展示出与其早期平涂方式不同的探索。\n\n年代：约 1897—1905\n材质与形制：油彩，材质：织物\n尺寸：未装框：37.8 × 45.8厘米",
-      "looking": "馆方指出，这幅巴黎郊外风景既保留清晰物象，又比卢梭早期作品有更自由的笔触和柔和塑形。云、树、房屋占据明确空间，可看这种秩序带来的宁静。",
+      "brief": "卢梭仍把郊外的云、树、房屋分得清楚，却用比早期更自由的笔触画出它们的体积。",
+      "overview": "卢梭常因大型丛林画为人熟知，也曾画下巴黎近郊的河道或运河。他没有受过正规的绘画训练，四十一岁辞去巴黎的税务工作后才专力绘画；这类小幅风景可与他的丛林题材并看。\n\n年代：约 1897—1905\n材质与形制：油彩，材质：织物\n尺寸：未装框：37.8 × 45.8厘米\n馆藏编号：1929.951",
+      "looking": "云、树、房屋各占一块清楚的空间，整体依然井然有序。馆方指出，与卢梭较早的平涂相比，这里在清晰物象里加入了较柔和的塑形和更自由的笔触，秩序中也有了厚薄变化。",
       "facts": {
         "date": "约 1897—1905",
         "medium": "油彩，材质：织物",
@@ -5550,6 +5767,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/1929.951",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-1929.951.json",
+          "evidenceSha256": "15ef6378efd0006ca132b9164f6f43bdc68e0738996d09ffd2f273ee515cbd52",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -5562,9 +5790,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -5580,7 +5808,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1929.951-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-2020.115",
@@ -5590,9 +5822,9 @@
       "author": "Félix Vallotton",
       "museum": "克利夫兰艺术博物馆",
       "period": "1900",
-      "brief": "世纪之交，瓦洛东逐步从版画转向油画。这件田野风景没有只停留于精确摹写：连成一片的绿色与简化的地平线，给熟悉的自然景色增添了含混和陌生感。",
-      "overview": "世纪之交，瓦洛东逐步从版画转向油画。这件田野风景没有只停留于精确摹写：连成一片的绿色与简化的地平线，给熟悉的自然景色增添了含混和陌生感。\n\n年代：1900\n材质与形制：油彩，材质：板\n尺寸：未装框：26.2 × 46.2厘米",
-      "looking": "馆方指出，瓦洛东在世纪之交从版画转向油画，此画已出现含混意味：绿色植物融成一片，远方山丘或云层的曲线渐入天空。可先看边界如何消退。",
+      "brief": "远处的轮廓既像山丘，也像云；瓦洛东让本应明确的地平线渐渐失去边界。",
+      "overview": "世纪之交，瓦洛东的创作重心由版画移向油画。馆方在这件风景里看到画法上的变化：他早年着意精确再现物象，这里却开始容许远景含混，与他在纳比派接触的平面化观念可相互参照。\n\n年代：1900\n材质与形制：油彩，材质：板\n尺寸：未装框：26.2 × 46.2厘米\n馆藏编号：2020.115",
+      "looking": "绿意在前方连成一片，远处几条简单曲线缓缓并入天空。山丘与云的界线无法一眼判定，画面也由可以点数的景物，转成由色带与曲线维持的整体。",
       "facts": {
         "date": "1900",
         "medium": "油彩，材质：板",
@@ -5628,6 +5860,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/2020.115",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-2020.115.json",
+          "evidenceSha256": "2fd7e8718425435ad6aa6f93adfe951ad0e46baffadc62576c4df9013a829edf",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -5640,9 +5883,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -5658,7 +5901,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-2020.115-00-portrait.jpg"
       ],
-      "annualValueReason": "瓦洛东从版画转向油画时期的风景，植被与远景边界的消退构成明确而独特的观看重点。"
+      "annualValueReason": "瓦洛东从版画转向油画时期的风景，植被与远景边界的消退构成明确而独特的观看重点。",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1952.222",
@@ -6777,9 +7024,9 @@
       "author": "普明（雪窗）",
       "museum": "克利夫兰艺术博物馆",
       "period": "14世纪，元代",
-      "brief": "竹枝随风轻弯，枝叶却仍有骨力；雪窗的墨竹把植物的姿态与文人、禅门的品格联想相连。",
-      "overview": "《风竹图》由僧人普明、号雪窗所绘，馆方年代为14世纪。竹子在文人画和禅宗语境中，常被联系到抵御外界诱惑、不轻易屈服的品格。此作并不画猛烈风暴，而是表现微风中轻轻弯曲的竹枝。馆方介绍，普明的绘画也受到日本与韩国观者重视。欣赏时可以把这一文化背景与眼前的枝叶姿态相对照，不把象征意义当作唯一读法。",
-      "looking": "克利夫兰艺术博物馆指出，普明把竹子画成在微风中轻轻弯曲的姿态。馆方将竹不屈于风雪的传统寓意，与文人画和禅宗中不受世俗诱惑的品德联系起来。",
+      "brief": "普明只让竹枝轻轻弯折，把风画在竹子的姿态里。",
+      "overview": "普明亦称雪窗，是在苏州活动的僧人。他的画后来在日本和朝鲜受到珍重。竹在文人画和禅画中可寄寓操守：风雪能使枝干弯曲，却不易将它折断。\n\n年代：14世纪，元代\n材质与形制：立轴；墨，材质：绢\n尺寸：77.6 × 45.7厘米\n馆藏编号：1953.246",
+      "looking": "这幅画把题意落实到极轻的动作。枝干稍弯，竹叶也随之偏移，观者从植物的变化感到风；弯而未折的状态，使传统的品格寓意有了可见的形态。",
       "facts": {
         "date": "14世纪，元代",
         "medium": "立轴；墨，材质：绢",
@@ -6823,22 +7070,33 @@
             "museumTitle": "Bamboo in the Wind",
             "accession": "1953.246"
           }
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.clevelandart.org/art/1953.246",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/authoritative-looking-f29131d78104feb4.json",
+          "evidenceSha256": "f29131d78104feb4d15fb65191db859fb08d9ca9200e406a17a08efb9e4d6712",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
         "level": "source_based_context"
       },
       "contentKinds": {
-        "overview": "source_based_paraphrase",
+        "overview": "source_based_context",
         "brief": "source_based_editorial_summary",
         "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -6854,7 +7112,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1953.246-00-portrait.jpg"
       ],
-      "annualValueReason": "中国传统绘画：花鸟与走兽；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "中国传统绘画：花鸟与走兽；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1944.524",
@@ -7020,9 +7282,9 @@
       "author": "Édouard Manet",
       "museum": "克利夫兰艺术博物馆",
       "period": "约 1871—72",
-      "brief": "莫里索穿着冬季外套、羽饰帽并手持暖手筒。马奈用宽阔笔触和交叉排线刻画阴影，画法的速写感也呼应了莫里索自己的绘画语言。",
-      "overview": "莫里索穿着冬季外套、羽饰帽并手持暖手筒。马奈用宽阔笔触和交叉排线刻画阴影，画法的速写感也呼应了莫里索自己的绘画语言。\n\n年代：约 1871—72\n材质与形制：油彩，材质：画布\n尺寸：未装框：74 × 60厘米",
-      "looking": "馆方指出，莫里索身穿冬装，马奈以宽笔触和交叉线表现阴影；这种草写感可能是对她作为画家的回应。可观察衣帽的笔法，并保留这一解释的推测性质。",
+      "brief": "马奈用宽笔与交叉排线画莫里索的冬装，馆方认为这也可能是在回应她自己的画法。",
+      "overview": "马奈至少画过两幅莫里索穿厚衣、戴羽饰帽的冬装像，这幅一直由他保存，身后列入画室清单。莫里索本身也是画家；馆方推测，作品的速写感或许是在向她的用笔致意。\n\n年代：约 1871—72\n材质与形制：油彩，材质：画布\n尺寸：未装框：74 × 60厘米\n馆藏编号：1958.34",
+      "looking": "看看深色衣帽如何成形：马奈把宽笔痕和交叉排线留在阴影里，面部与服装之间的反差随之显出。那些没有抹平的笔痕，也让这件肖像保留着正在作画的速度感。",
       "facts": {
         "date": "约 1871—72",
         "medium": "油彩，材质：画布",
@@ -7058,6 +7320,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/1958.34",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-1958.34.json",
+          "evidenceSha256": "a8c2b0e4529a79c295acc97918ba776f12538919fdf9c8418411e345bfcef5a7",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -7070,9 +7343,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -7088,7 +7361,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1958.34-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1960.108",
@@ -10883,9 +11160,9 @@
       "author": "Claude Lorrain",
       "museum": "克利夫兰艺术博物馆",
       "period": "早期 1640s",
-      "brief": "洛兰以理想化风景著称，常把繁茂植物、宁静气氛与古代或宗教故事相结合。",
-      "overview": "洛兰以理想化风景著称，常把繁茂植物、宁静气氛与古代或宗教故事相结合。这件作品将逃往埃及途中的休息安排在景色之中，让人物叙事与自然秩序互相呼应。\n\n年代：早期 1640s\n材质与形制：油彩，材质：画布\n尺寸：未装框：208 × 152.5厘米",
-      "looking": "馆方称洛兰创造了比真实自然更和谐的理想风景。前景圣家与献果天使置于繁茂、宁静的环境中，可先看宗教人物怎样融入广阔景观。",
+      "brief": "洛兰把发生在中东的圣家故事，安放在罗马乡间式的理想风景中。",
+      "overview": "《逃往埃及途中休息》原是圣经故事，洛兰让它发生在带有罗马乡间气息的想象地景中。这样的理想风景把树木、阴凉和静谧气氛组织成比真实环境更和谐的空间，深受当时欧洲富裕收藏者欢迎。\n\n年代：早期 1640s\n材质与形制：油彩，材质：画布\n尺寸：未装框：208 × 152.5厘米\n馆藏编号：1962.151",
+      "looking": "圣家与跪着献果的天使居于阴凉的前景，上方和远处则交给树木与开阔地景。故事仍有明确的动作，却只占辽阔风景的一角；景物的宁静决定了观者读这段故事的速度。",
       "facts": {
         "date": "早期 1640s",
         "medium": "油彩，材质：画布",
@@ -10921,6 +11198,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/1962.151",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-1962.151.json",
+          "evidenceSha256": "fb95a4610a3673ea38e13aa168530d2e12dfc499c0a30e8e7c8db60be5e8e841",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -10933,9 +11221,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -10951,7 +11239,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1962.151-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-2012.30",
@@ -11507,9 +11799,9 @@
       "author": "Jean-Auguste-Dominique Ingres",
       "museum": "克利夫兰艺术博物馆",
       "period": "约 1838",
-      "brief": "病榻上的安条克爱上了父亲的新妻斯特拉托尼刻。医生从他见到女子时加快的脉搏发现病因；这幅画将诊断、父亲的悲伤与人物间难言的关系编织成历史故事。",
-      "overview": "病榻上的安条克爱上了父亲的新妻斯特拉托尼刻。医生从他见到女子时加快的脉搏发现病因；这幅画将诊断、父亲的悲伤与人物间难言的关系编织成历史故事。\n\n年代：约 1838\n材质与形制：油彩，材质：linen\n尺寸：未装框：48.1 × 63.9厘米",
-      "looking": "馆方解释，医生从安提奥库斯见到继母时脉搏加快，识破他的病因。可先读父亲、青年、医生之间的关系，再观察人物反应怎样交代这段故事。",
+      "brief": "医生搭着病人的脉，发现真正令这位王子病倒的是难以说出的感情。",
+      "overview": "安提奥库斯病重，他的父亲新娶了斯特拉托妮刻。医生留意到王子一见她就脉搏加快，向父亲解释了病因；故事中的父亲最终把她让给儿子。这个兼具爱情与父爱的题材延续到十九世纪仍很受欢迎。\n\n年代：约 1838\n材质与形制：油彩，材质：linen\n尺寸：未装框：48.1 × 63.9厘米\n馆藏编号：1966.13",
+      "looking": "这场戏靠医生的诊察揭示人物关系：床上的青年、走近的继母和忧心的父亲都被同一个隐情牵动。理解搭脉这一细节，便能读懂画家为何选择尚未宣布结果的一刻。",
       "facts": {
         "date": "约 1838",
         "medium": "油彩，材质：linen",
@@ -11545,6 +11837,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/1966.13",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-1966.13.json",
+          "evidenceSha256": "d2b0f098214506c4c36d62a2187136229473e519045efade1ee1515e75af790d",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -11557,9 +11860,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -11575,7 +11878,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1966.13-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1939.269",
@@ -12503,9 +12810,9 @@
       "author": "Paul Gauguin",
       "museum": "克利夫兰艺术博物馆",
       "period": "1891",
-      "brief": "这件作品属于高更1891年到塔希提后最早的一批绘画。鲜明色彩和风格化人物不只是写实记录，也承载画家的象征性构想。",
-      "overview": "这件作品属于高更1891年到塔希提后最早的一批绘画。鲜明色彩和风格化人物不只是写实记录，也承载画家的象征性构想。\n\n年代：1891\n材质与形制：油彩，材质：画布\n尺寸：未装框：74 × 92.8厘米",
-      "looking": "看大树阴下四女性排成饰带，暗叶与粉屋顶形成热冷对照。高更初到塔希提即以浓色、简形追象征和谜意，自述色彩和声并非绝对写实。",
+      "brief": "树荫下的人物横向排开，粉色茅屋与深绿叶影相接。",
+      "overview": "这是高更1891年到塔希提后最早完成的一批作品之一。澳大利亚国家美术馆展览资料指出，约1894年高更又把这幅画的部分图案用在一面赠给雕塑家弗朗西斯科·杜里奥的装饰扇上。\n\n年代：1891\n材质与形制：油彩，材质：画布\n尺寸：未装框：74 × 92.8厘米\n馆藏编号：1975.263",
+      "looking": "从树下坐者看到画心红衣人物，再看粉顶蓝墙的屋子如何截住深绿。芝加哥艺术博物馆的研究图录并列了克利夫兰与芝加哥两幅同名油画的题字，可凭图版和馆藏号分辨。",
       "facts": {
         "date": "1891",
         "medium": "油彩，材质：画布",
@@ -12541,6 +12848,40 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.clevelandart.org/art/1975.263",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "馆藏号1975.263，馆藏原图；澳大利亚国家美术馆2024年展览资料第9页；芝加哥艺术博物馆图录第27.7、27.8图",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/cma-1975.263.json",
+          "evidenceSha256": "fd4e390a1fa57d62739881e56ed8945ee117be8a5c9cd313fda98a18de6c2c17",
+          "method": "exact_museum_record_and_reviewed_object_evidence",
+          "supportingReferences": [
+            {
+              "url": "https://www.clevelandart.org/print/art/1975.263",
+              "title": "克利夫兰艺术博物馆馆藏打印页 1975.263",
+              "locator": "馆藏号1975.263，馆藏原图；澳大利亚国家美术馆2024年展览资料第9页；芝加哥艺术博物馆图录第27.7、27.8图",
+              "snapshot": "sources/full-20261111-r7-cma-1975.263-web-capture.json",
+              "evidenceSha256": "f481b394caa6ca163a55346945e0c6362efa1965ec1c06d54c0f0b4946ec568d"
+            },
+            {
+              "url": "https://nga.gov.au/media/dd/documents/Gauguins_World_Media_Kit.pdf",
+              "title": "澳大利亚国家美术馆《高更的世界》展览资料",
+              "locator": "第9页，Fan decorated with motifs from Te raau rahi (The large tree)",
+              "snapshot": "sources/full-20261111-r7-nga-gauguin-fan-web-capture.json",
+              "evidenceSha256": "e9abd0b423631b53744e75d828d10fe5ea273eb8aeb28144fefe300e1b85ed8b"
+            },
+            {
+              "url": "https://publications.artic.edu/gauguin/reader/gauguinart/section/140264",
+              "title": "芝加哥艺术博物馆高更研究图录",
+              "locator": "第27.7、27.8图，克利夫兰馆藏1975.263及芝加哥馆藏1949.513",
+              "snapshot": "sources/full-20261111-r7-aic-gauguin-inscription-web-capture.json",
+              "evidenceSha256": "46457f91696f9f79cec3037b1092a979eb70396ccdb5be7d71867b6bf429ab85"
+            }
+          ]
         }
       ],
       "coverage": {
@@ -12553,9 +12894,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -12571,7 +12912,12 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1975.263-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 7
+      }
     },
     {
       "id": "cma-1989.67",
@@ -14080,9 +14426,9 @@
       "author": "謝時臣",
       "museum": "克利夫兰艺术博物馆",
       "period": "约1547至1567年，明代",
-      "brief": "高处俯看的巫峡中，云涛与峭壁包围小船；谢时臣以强劲笔墨拉开山水的尺度。",
-      "overview": "馆方认为，这幅山水可能作于谢时臣1547年旅行归来之后，创作时间约在1547至1567年。画面从较高视点深入巫峡，山势与翻滚水流共同构成壮阔景象，小船置身其中，显出航行的险势。馆方特别指出其尺度、构图与有力笔墨的独特性。这里呈现的是画家对山川的组织与感受；不宜把画面当作可以逐一定位的地理写实图。",
-      "looking": "克利夫兰艺术博物馆指出，此作以高视点深入巫峡，翻滚波浪使船只处于险境。宏大的尺度与构图、四川壮阔山景的启发，以及谢时臣强健的笔法，共同构成作品突出的表现力。",
+      "brief": "谢时臣把观者置于巫峡高处，让险涛中的船在巨大的山势下显得格外小。",
+      "overview": "谢时臣在 1547 年出游，曾行经四川并泛舟长江。馆方推测，此画可能作于他旅行归来后；大幅画作也可能是为富贵人家的厅堂所作。两点都属于馆方根据行旅与作品尺度提出的解释。\n\n年代：约1547至1567年，明代\n材质与形制：立轴；水墨淡设色，材质：纸\n尺寸：243.1 × 90厘米\n馆藏编号：1968.213",
+      "looking": "视线由高处直探深峡，船只在翻卷的浪里几乎被山水吞没。高视点、巨幅和刚健的笔触共同放大了航行的危险；舟在画里很小，却是丈量峡谷尺度的关键。",
       "facts": {
         "date": "约1547至1567年，明代",
         "medium": "立轴；水墨淡设色，材质：纸",
@@ -14126,22 +14472,33 @@
             "museumTitle": "Clouds and Waves at the Wu Gorge",
             "accession": "1968.213"
           }
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.clevelandart.org/art/1968.213",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/authoritative-looking-0b47071882f39fc2.json",
+          "evidenceSha256": "0b47071882f39fc221bf03b87c0efb0c76c97c7e4b2b15d6c6e535b6e3a49385",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
         "level": "source_based_context"
       },
       "contentKinds": {
-        "overview": "source_based_paraphrase",
+        "overview": "source_based_context",
         "brief": "source_based_editorial_summary",
         "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -14157,7 +14514,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1968.213-00-portrait.jpg"
       ],
-      "annualValueReason": "中国传统绘画：山水与文人画；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "中国传统绘画：山水与文人画；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1984.42",
@@ -14652,9 +15013,9 @@
       "author": "佚名",
       "museum": "克利夫兰艺术博物馆",
       "period": "约 900",
-      "brief": "先看整体，再沿光线与形体进入细节；结合年代和材质，体会这件作品的绘画语言。",
-      "overview": "年代：约 900\n材质与形制：立轴；水墨设色，材质：绢\n尺寸：94 × 61厘米\n收藏：克利夫兰艺术博物馆\n馆藏编号：1975.92",
-      "looking": "馆方补充辨认普贤骑六牙白象、文殊坐于狮上。可借这些坐骑区分释迦两侧的菩萨，理解三尊图的人物组合。",
+      "brief": "三尊图用三轮圆光把人物连成一组；中央高座和两侧坐骑又将他们区分开。",
+      "overview": "馆方定为约公元 900 年的绢本设色，画释迦与文殊、普贤。馆方书目列《Eight Dynasties of Chinese Painting》图录第 7 号，并在《Silent Poetry》第 198 页收入图版。\n\n年代：约 900\n材质与形制：立轴；水墨设色，材质：绢\n尺寸：94 × 61厘米\n馆藏编号：1975.92",
+      "looking": "先看释迦的高座和抬起的手，再沿两侧圆光往下找坐骑：左边白象承普贤，右边狮子承文殊。褪去的红金仍在衣纹和座具留下层次，使左右相称而不重复。",
       "facts": {
         "date": "约 900",
         "medium": "立轴；水墨设色，材质：绢",
@@ -14690,21 +15051,32 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.clevelandart.org/art/1975.92",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "馆藏形象说明、同件图像与图录页码",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/cma-1975.92.json",
+          "evidenceSha256": "70ef9c3f0931523b6f57ccbae27650cdde9d25e77daa96a6bf40cb767b5df2b2",
+          "method": "retained_exact_museum_record_and_museum_image"
         }
       ],
       "coverage": {
-        "level": "verified_metadata"
+        "level": "source_based_context"
       },
       "contentKinds": {
-        "overview": "verified_metadata",
+        "overview": "source_based_context",
         "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": false,
@@ -14720,7 +15092,12 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1975.92-00-portrait.jpg"
       ],
-      "annualValueReason": "中国传统绘画：人物与佛道；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "中国传统绘画：人物与佛道；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 3
+      }
     },
     {
       "id": "cma-1970.128",
@@ -14886,9 +15263,9 @@
       "author": "Camille Pissarro",
       "museum": "克利夫兰艺术博物馆",
       "period": "1902",
-      "brief": "这件作品属于毕沙罗1902年夏天描绘迪耶普港口的系列。他从较高位置俯看热闹鱼市，以跳动的碎笔触和鲜明色彩，把市场的繁忙活动组织成城市风景。",
-      "overview": "这件作品属于毕沙罗1902年夏天描绘迪耶普港口的系列。他从较高位置俯看热闹鱼市，以跳动的碎笔触和鲜明色彩，把市场的繁忙活动组织成城市风景。\n\n年代：1902\n材质与形制：油彩，材质：画布\n尺寸：未装框：66 × 81.3厘米",
-      "looking": "这是毕沙罗1902年夏描绘迪耶普港的一组作品之一。馆方指出高视点、鲜亮色彩与断续笔触，并特别提到工业蒸汽融入云层，可沿这些线索观看。",
+      "brief": "毕沙罗因眼疾从迪耶普旅馆楼上作画，高视点把鱼市和港口的蒸汽纳入同一幅画。",
+      "overview": "这是毕沙罗 1902 年夏天描绘法国迪耶普港的一组画之一。他的眼疾复发，一时无法在户外作画，便从旅馆楼上的房间俯看鱼市。这一现实限制也决定了画的视点。\n\n年代：1902\n材质与形制：油彩，材质：画布\n尺寸：未装框：66 × 81.3厘米\n馆藏编号：2020.113",
+      "looking": "鱼市的繁忙由鲜色和短促、断续的笔触带动。目光从摊位和港口抬到天空时，工业蒸汽渐渐混入云层；现代港口的活动与印象派关注的光和空气在这一处交会。",
       "facts": {
         "date": "1902",
         "medium": "油彩，材质：画布",
@@ -14924,6 +15301,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/2020.113",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-2020.113.json",
+          "evidenceSha256": "d7c4189952e4a2f4db23fb846976afcd5d1cbd89df005ac6b92a4238351f54cf",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -14936,9 +15324,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -14954,7 +15342,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-2020.113-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：人物与生活；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1961.219",
@@ -15120,9 +15512,9 @@
       "author": "Édouard Manet",
       "museum": "克利夫兰艺术博物馆",
       "period": "1873",
-      "brief": "马奈从少年时期起就与海洋有密切接触，曾随训练船远航。这件贝尔克海滨的船景属于他的海景探索，把海岸观察带入现代绘画的笔触语言。",
-      "overview": "马奈从少年时期起就与海洋有密切接触，曾随训练船远航。这件贝尔克海滨的船景属于他的海景探索，把海岸观察带入现代绘画的笔触语言。\n\n年代：1873\n材质与形制：油彩，材质：织物\n尺寸：未装框：34 × 55.8厘米",
-      "looking": "看帆船在蓝绿白浪上随风移动，再找略弯的地平线。马奈长期亲近海岸、少年曾航海，此小画用快速描绘和空间曲线追求开阔印象。",
+      "brief": "高地平线下满是横向浪笔，两艘大船在青灰波面上前后错开。",
+      "overview": "马奈1873年在布洛涅附近的贝尔克作此画。芝加哥艺术博物馆研究图录另引1880年马奈向欧仁·莫斯提供贝尔克和布洛涅水疗信息的信，可见两处海滨还出现在画家的私人通信里。\n\n年代：1873\n材质与形制：油彩，材质：织物\n尺寸：未装框：34 × 55.8厘米\n馆藏编号：1940.534",
+      "looking": "看近浪的厚白和远船几笔暗色如何交错。地平线有一点弧度，远船沿着它渐小，画布虽窄，海面仍有开阔感。",
       "facts": {
         "date": "1873",
         "medium": "油彩，材质：织物",
@@ -15158,6 +15550,33 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.clevelandart.org/art/1940.534",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "馆藏号1940.534，馆藏原图与1873年创作说明；芝加哥艺术博物馆研究图录第3条注20",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/cma-1940.534.json",
+          "evidenceSha256": "1a73acd1cdb2ebfca5476d0c2e9b54c5f0222a5fd45acdb412f83be22ea41292",
+          "method": "exact_museum_record_and_reviewed_object_evidence",
+          "supportingReferences": [
+            {
+              "url": "https://www.clevelandart.org/print/art/1940.534",
+              "title": "克利夫兰艺术博物馆馆藏打印页 1940.534",
+              "locator": "馆藏号1940.534，馆藏原图与1873年创作说明；芝加哥艺术博物馆研究图录第3条注20",
+              "snapshot": "sources/full-20261111-r8-cma-1940.534-web-capture.json",
+              "evidenceSha256": "1970f8c7aed99a4593bc64cc0007f060be5a015e3afeaa977da8caabd969a36a"
+            },
+            {
+              "url": "https://publications.artic.edu/manet/reader/manetart/section/140029",
+              "title": "芝加哥艺术博物馆马奈研究图录",
+              "locator": "第3号注20",
+              "snapshot": "sources/full-20261111-r8-artic-manet-web-capture.json",
+              "evidenceSha256": "b8dcbd972a70088d27a2416d7268decaa4cc5a6979b149dcba88c37c68df4c17"
+            }
+          ]
         }
       ],
       "coverage": {
@@ -15170,9 +15589,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -15188,7 +15607,12 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1940.534-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：风景与海景；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：风景与海景；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 8
+      }
     },
     {
       "id": "cma-1976.91",
@@ -16575,9 +16999,9 @@
       "author": "Claude Monet",
       "museum": "克利夫兰艺术博物馆",
       "period": "约 1915—26",
-      "brief": "莫奈晚年长期描绘自己设计、参与培植的吉维尼花园。园艺经验与绘画观察相互依托，同一环境不断产生不同构图和光色。",
-      "overview": "莫奈晚年长期描绘自己设计、参与培植的吉维尼花园。园艺经验与绘画观察相互依托，同一环境不断产生不同构图和光色。\n\n年代：约 1915—26\n材质与形制：油彩，材质：画布\n尺寸：未装框：201.3 × 425.6厘米",
-      "looking": "看水面阳光的穿透与反射，注意莫奈排除地平线及岸线。大横幅使池水似无边，吉维尼自造园艺环境与晚年长期作画共同促成这种视域。",
+      "brief": "克利夫兰这幅《睡莲》的左下角，曾画有一丛后来被莫奈覆盖的百子莲。",
+      "overview": "此画是三联画左幅。修复师迪恩·约德用84张X光底片拼出全幅影像，在左下找到了百子莲长叶的旧笔触。1921年吉维尼画室的照片也留下了改画前的状态，百子莲因此既是旧构图的线索，也是三联画名称的来历。\n\n年代：约 1915—26\n材质与形制：油彩，材质：画布\n尺寸：未装框：201.3 × 425.6厘米\n馆藏编号：1960.81",
+      "looking": "先看今天的左下角，再对照修复报告的X光图。旧画的岸边植物退出后，整幅只剩花叶、倒影和水面，宽逾四米的画布也没有地平线可以定位。",
       "facts": {
         "date": "约 1915—26",
         "medium": "油彩，材质：画布",
@@ -16613,6 +17037,26 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.clevelandart.org/art/1960.81",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "馆藏号1960.81；修复师 Dean Yoder《“Agapanthus” Exposed》，X光与1921年照片",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/cma-1960.81.json",
+          "evidenceSha256": "5e5d9dee8e6e9ff2a79c1bba92f8373413e00fbc724c31140d93894a9e5bfe0d",
+          "method": "exact_museum_record_and_reviewed_object_evidence",
+          "supportingReferences": [
+            {
+              "url": "https://www.clevelandart.org/articles/agapanthus-exposed",
+              "title": "Dean Yoder，克利夫兰艺术博物馆《“Agapanthus” Exposed》",
+              "locator": "原载馆刊2011年7—8月号，84张X光底片、左下百子莲、1921年画室照片",
+              "snapshot": "sources/full-20261111-r5-agapanthus-web-capture.json",
+              "evidenceSha256": "fff6d972bd0e79d9755be329efad37e7deedfd2e52972c564af0260b460538a5"
+            }
+          ]
         }
       ],
       "coverage": {
@@ -16625,9 +17069,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -16643,7 +17087,12 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1960.81-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：风景与海景；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：风景与海景；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 5
+      }
     },
     {
       "id": "cma-1982.35",
@@ -18046,9 +18495,9 @@
       "author": "Johann Liss",
       "museum": "克利夫兰艺术博物馆",
       "period": "约 1630",
-      "brief": "利斯辗转荷兰、安特卫普、罗马与威尼斯，吸收不同绘画传统。丘比特的丰厚色彩和流动笔触带有威尼斯绘画的影响，明暗对比又加强了人物的立体感。",
-      "overview": "利斯辗转荷兰、安特卫普、罗马与威尼斯，吸收不同绘画传统。丘比特的丰厚色彩和流动笔触带有威尼斯绘画的影响，明暗对比又加强了人物的立体感。\n\n年代：约 1630\n材质与形制：油彩，材质：画布\n尺寸：未装框：87.7 × 65.7厘米",
-      "looking": "馆方将利斯的丰富色彩、流动笔触联系到威尼斯大师，强烈明暗则联系到卡拉瓦乔。丘比特直视观众、姿态凝聚力量，可据此理解观看关系。",
+      "brief": "丘比特直视画外，威尼斯式色彩与强烈明暗让他的姿态显得格外有力。",
+      "overview": "利斯先在荷兰、安特卫普学习，约 1620 年到罗马和威尼斯。这件爱神像把他旅途中接触的画法放在一起：馆方将丰富的色彩和流动笔触追溯至威尼斯画家，将深明暗联系到卡拉瓦乔。\n\n年代：约 1630\n材质与形制：油彩，材质：画布\n尺寸：未装框：87.7 × 65.7厘米\n馆藏编号：1971.100",
+      "looking": "深暗衬出丘比特身上的亮部，也把注意力集中到他直接的眼神。画中的爱神并未退到神话场景深处；他凝住身姿、望向画外，使观看者也成为这场对视的一方。",
       "facts": {
         "date": "约 1630",
         "medium": "油彩，材质：画布",
@@ -18084,6 +18533,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/1971.100",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-1971.100.json",
+          "evidenceSha256": "3b22f325ce33f82db5231c09399f1a7a448e4bb38f2a0f4fd8d9bf19cf445f67",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -18096,9 +18556,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -18114,7 +18574,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1971.100-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：宗教与神话；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：宗教与神话；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-2019.18",
@@ -18921,9 +19385,9 @@
       "author": "龔賢",
       "museum": "克利夫兰艺术博物馆",
       "period": "约 1650",
-      "brief": "龚贤以层层叠加的笔墨构成高峰与重岭，浓密、深暗的山势形成沉郁气氛。",
-      "overview": "龚贤以层层叠加的笔墨构成高峰与重岭，浓密、深暗的山势形成沉郁气氛。画题虽指向董源、巨然，馆方仍强调这件作品所体现的个人风格。题识讨论传统与天分的关系，画面本身也呈现学习前人和发展自身语言之间的张力。\n\n年代：约 1650\n材质与形制：立轴, 墨 with white pigment，材质：绢\n尺寸：图面：216.6 × 57.3厘米",
-      "looking": "克利夫兰艺术博物馆指出，龚贤把高峰与绵延山岭层叠起来，再逐层积累笔墨，形成稠密、深暗甚至忧郁的效果。虽以董源、巨然为参照，这幅山水仍展现出与范本显著不同的个人风格。",
+      "brief": "龚贤在仿董巨山水里用积墨和白粉造云气",
+      "overview": "馆方定为约1650年的绢本，曾参加《墨之色》和《八代中国绘画》展。画上题款还谈到遵循传统与发挥天分之间的关系。\n\n年代：约 1650\n材质与形制：立轴, 墨 with white pigment，材质：绢\n尺寸：图面：216.6 × 57.3厘米\n馆藏编号：1969.123",
+      "looking": "从下方过水小桥抬眼，近树有白粉亮处，山体随叠墨变深，山腰的云气在沉墨间打开距离。",
       "facts": {
         "date": "约 1650",
         "medium": "立轴, 墨 with white pigment，材质：绢",
@@ -18976,6 +19440,26 @@
             "accession": "1969.123",
             "galleryWorkId": "cma:1969.123"
           }
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.clevelandart.org/art/1969.123",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "馆藏号 1969.123，官方馆藏著录、画面图像与图像描述",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/cma-1969.123.json",
+          "evidenceSha256": "1e131cfd16a3ba94f6e3140d95cde5dc153f01e583ec501fbcd28d595e9f9dfc",
+          "method": "exact_museum_record_and_reviewed_object_evidence",
+          "supportingReferences": [
+            {
+              "url": "https://www.clevelandart.org/print/art/1969.123",
+              "title": "克利夫兰艺术博物馆 · 龚贤仿董巨山水馆藏打印页",
+              "locator": "1969.123，馆方说明、款识译释与展览史",
+              "snapshot": "sources/full-20261111-r9-cma-live-1969.123-web-capture.json",
+              "evidenceSha256": "7504af2a3c46659445900fbc649bd735cc07197b2a2cec2fdb27e61affc5558a"
+            }
+          ]
         }
       ],
       "coverage": {
@@ -18988,9 +19472,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -19006,7 +19490,12 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1969.123-00-portrait.jpg"
       ],
-      "annualValueReason": "中国传统绘画：山水与文人画；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "中国传统绘画：山水与文人画；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 9
+      }
     },
     {
       "id": "cma-1982.53",
@@ -20203,9 +20692,9 @@
       "author": "Simon Vouet",
       "museum": "克利夫兰艺术博物馆",
       "period": "约 1630",
-      "brief": "武埃在意大利生活多年后回法国任宫廷画家。这幅圣女像作于归国后的阶段，以靠近观者的单个人物、强烈明暗和厚重体积，将意大利绘画经验融入法国的审美。",
-      "overview": "武埃在意大利生活多年后回法国任宫廷画家。这幅圣女像作于归国后的阶段，以靠近观者的单个人物、强烈明暗和厚重体积，将意大利绘画经验融入法国的审美。\n\n年代：约 1630\n材质与形制：油彩，材质：板\n尺寸：未装框：130.8 × 103.5厘米",
-      "looking": "馆方将此画与武埃1627年从罗马返法后的经历联系起来。人物靠近画面，体现卡拉瓦乔的影响，明亮淡彩则适应法国趣味；可将两种来源并看。",
+      "brief": "武埃将罗马绘画里逼近观者的人物，画进了更明亮的法国色调。",
+      "overview": "武埃在罗马工作多年，1627 年应召回法国，成为路易十三的宫廷画家。此作完成于返法不久，描绘隐修中的抹大拉的玛利亚；旁边的骷髅提醒观者生命短暂、尘世财物终会消逝。\n\n年代：约 1630\n材质与形制：油彩，材质：板\n尺寸：未装框：130.8 × 103.5厘米\n馆藏编号：1988.108",
+      "looking": "单个人物被推到画面前方，形体几乎占满视野，是馆方指出的卡拉瓦乔式处理。淡而鲜明的颜色又把形象从浓重阴影里提出来；两种画法在同一位沉思的人物身上相遇。",
       "facts": {
         "date": "约 1630",
         "medium": "油彩，材质：板",
@@ -20241,6 +20730,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/1988.108",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-1988.108.json",
+          "evidenceSha256": "a4916bb7595f05f2f552fc33ecd19e77906e3aac6eccfb888531fc642e7b5a36",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -20253,9 +20753,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -20271,7 +20771,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1988.108-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：宗教与神话；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：宗教与神话；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1916.1044",
@@ -21641,9 +22145,9 @@
       "author": "Maurice Denis",
       "museum": "克利夫兰艺术博物馆",
       "period": "1889",
-      "brief": "德尼希望以绘画唤起宗教情感。他用强烈而平面的色块表现橙色的十字架基督，周围深色女眷和带红的天空共同营造出哀悼气氛。",
-      "overview": "德尼希望以绘画唤起宗教情感。他用强烈而平面的色块表现橙色的十字架基督，周围深色女眷和带红的天空共同营造出哀悼气氛。\n\n年代：1889\n材质与形制：油彩，材质：板\n尺寸：未装框：23.8 × 18.9厘米",
-      "looking": "馆方把德尼的虔诚信仰与形式实验并置：橙色基督、黑色人群、粉红天使和黄光环由强烈平面色组织。可先看色块如何承载宗教题意。",
+      "brief": "橙色基督、黑色妇女、粉红天使：德尼用整片强烈颜色来组织宗教情感。",
+      "overview": "德尼是虔诚的天主教徒，也在尝试一种强调平面与色彩排列的绘画。《橙色基督》将两种追求放进一幅小画：场面来自宗教传统，情绪却由大胆的颜色组合直接传达。\n\n年代：1889\n材质与形制：油彩，材质：板\n尺寸：未装框：23.8 × 18.9厘米\n馆藏编号：2020.107",
+      "looking": "黑衣妇女近乎一组无定形的剪影，橙色身体和黄色光环立刻从中跳出；上方的红紫天空、绿云与粉红天使又把亮色分散开来。这里的大色块本身就在组织肃穆与激越。",
       "facts": {
         "date": "1889",
         "medium": "油彩，材质：板",
@@ -21679,6 +22183,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/2020.107",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description；did_you_know",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-2020.107.json",
+          "evidenceSha256": "dc9a9cdc30c200ed6cdd21bf14dceeea04f8b99f1c100aed247a58c990419c3c",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -21691,9 +22206,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -21709,7 +22224,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-2020.107-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：宗教与神话；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：宗教与神话；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1970.17",
@@ -24500,9 +25019,9 @@
       "author": "Leon Kroll",
       "museum": "克利夫兰艺术博物馆",
       "period": "1923",
-      "brief": "冬日中央公园的池面聚集着滑冰者，远处是曼哈顿高层住宅。克罗尔把城市生活的轻快活动与林木、积雪和建筑组合在一起，呈现纽约冬季的日常场景。",
-      "overview": "冬日中央公园的池面聚集着滑冰者，远处是曼哈顿高层住宅。克罗尔把城市生活的轻快活动与林木、积雪和建筑组合在一起，呈现纽约冬季的日常场景。\n\n年代：1923\n材质与形制：油彩，材质：画布\n尺寸：未装框：91.5 × 122厘米",
-      "looking": "馆方指出，克罗尔在1920年代以都市日常题材获得成功。画中中央公园溜冰者与远处曼哈顿公寓相对，可从雪地活动与城市轮廓理解这幅冬景。",
+      "brief": "中央公园里有人在冰上滑行，远处公寓楼让这场雪后游乐带上纽约的尺度。",
+      "overview": "克罗尔在二十世纪二十年代凭城市日常题材受到关注。他画的这一幕发生在纽约中央公园：积雪中的池塘供人溜冰，背景则是曼哈顿的公寓楼群。\n\n年代：1923\n材质与形制：油彩，材质：画布\n尺寸：未装框：91.5 × 122厘米\n馆藏编号：1923.1339",
+      "looking": "冰面上的人群小而疏散，公寓楼却在远处连成沉重的天际线。两者同时入画，让中央公园既像一块暂离街道的空地，也始终处于大城市的包围之中。",
       "facts": {
         "date": "1923",
         "medium": "油彩，材质：画布",
@@ -24538,6 +25057,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/1923.1339",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-1923.1339.json",
+          "evidenceSha256": "c9b676929aa00fedaf9348b84463eac46bc99aed7a9cf94eebbd459106b366e6",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -24550,9 +25080,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -24568,7 +25098,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1923.1339-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：风景与海景；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：风景与海景；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-1971.166",
@@ -25364,9 +25898,9 @@
       "author": "传劉度",
       "museum": "克利夫兰艺术博物馆",
       "period": "1368—1644",
-      "brief": "先看整体，再沿光线与形体进入细节；结合年代和材质，体会这件作品的绘画语言。",
-      "overview": "年代：1368—1644\n材质与形制：立轴 mounted as a 板；墨与slight color，材质：绢\n尺寸：169.5 × 105.1厘米\n收藏：克利夫兰艺术博物馆\n馆藏编号：1915.621",
-      "looking": "馆方指出左下悬岩下藏有一处很小的伪托署名。可留意署名位置，但不能把这段文字直接当作真实作者签名，作品归属仍保留馆方限定。",
+      "brief": "密点皴与小亭把仿巨然山水的尺度拉开",
+      "overview": "克利夫兰把这件绢本归为传刘度，馆方指出左下悬岩之下有很小的疑款。1982年，此画入选馆方东西方山水展。\n\n年代：1368—1644\n材质与形制：立轴 mounted as a 板；墨与slight color，材质：绢\n尺寸：169.5 × 105.1厘米\n馆藏编号：1915.621",
+      "looking": "从右侧河流进入远山，再看左下林木间露出的小亭。山体以纵向皴线与墨点累成，亭舍的低小让几层圆峰显得更高。",
       "facts": {
         "date": "1368—1644",
         "medium": "立轴 mounted as a 板；墨与slight color，材质：绢",
@@ -25402,21 +25936,41 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.clevelandart.org/art/1915.621",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "馆藏号 1915.621，官方馆藏著录、画面图像与图像描述",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/cma-1915.621.json",
+          "evidenceSha256": "232825a54b215bac2ef663110d89b62c023419bf41b6d8ede38dd687b2d55d11",
+          "method": "exact_museum_record_and_reviewed_object_evidence",
+          "supportingReferences": [
+            {
+              "url": "https://www.clevelandart.org/print/art/1915.621",
+              "title": "克利夫兰艺术博物馆 · 仿巨然山水馆藏打印页",
+              "locator": "1915.621，馆藏归属、图像描述和展览史",
+              "snapshot": "sources/full-20261111-r9-cma-live-1915.621-web-capture.json",
+              "evidenceSha256": "34bdfaf737cf260e09f01aa009ccdc1209161111d9b9c424ffb4d42d5fd23c7a"
+            }
+          ]
         }
       ],
       "coverage": {
-        "level": "verified_metadata"
+        "level": "source_based_context"
       },
       "contentKinds": {
-        "overview": "verified_metadata",
+        "overview": "source_based_context",
         "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": false,
@@ -25432,7 +25986,12 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1915.621-00-portrait.jpg"
       ],
-      "annualValueReason": "中国传统绘画：山水与文人画；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "中国传统绘画：山水与文人画；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 9
+      }
     },
     {
       "id": "cma-1987.136",
@@ -26066,9 +26625,9 @@
       "author": "George Inness",
       "museum": "克利夫兰艺术博物馆",
       "period": "1892",
-      "brief": "作品属于英尼斯生命最后阶段的风景画。柔化的形体与层叠的半透明色彩，使秋日景色带有若隐若现的气氛，风景逐渐成为画家表达精神感受的媒介。",
-      "overview": "作品属于英尼斯生命最后阶段的风景画。柔化的形体与层叠的半透明色彩，使秋日景色带有若隐若现的气氛，风景逐渐成为画家表达精神感受的媒介。\n\n年代：1892\n材质与形制：油彩，材质：画布\n尺寸：未装框：81 × 106厘米",
-      "looking": "馆方将此画视为英尼斯晚年风格的代表，作于去世前两年。模糊形体与透明色形成的大气效果，使实际风景带有精神性意味；可先观察边界与色层。",
+      "brief": "英尼斯把秋景画得边界模糊、色光相融，这种画法来自他晚年对自然的精神理解。",
+      "overview": "这幅秋景作于英尼斯去世前两年。克利夫兰艺术博物馆把它视为画家晚年风格的代表：眼前的自然景象经由色层与空气感，带出他赋予风景的精神意味。\n\n年代：1892\n材质与形制：油彩，材质：画布\n尺寸：未装框：81 × 106厘米\n馆藏编号：1956.578",
+      "looking": "可以比较形体边缘和周围空气的关系。透明色叠出的光雾让边界在相邻色域里渐渐散开；树木和远景因此像从光中显现，难以被清楚的轮廓一一隔开。",
       "facts": {
         "date": "1892",
         "medium": "油彩，材质：画布",
@@ -26104,6 +26663,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://clevelandart.org/art/1956.578",
+          "publisher": "克利夫兰艺术博物馆",
+          "locator": "description",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\cma-1956.578.json",
+          "evidenceSha256": "a4fb68ce3cb6d37086972fc9f937e30a9077aed1c9b0fd1ea1e38eebffaac171",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -26116,9 +26686,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -26134,7 +26704,11 @@
       "portraitPreviewImages": [
         "/windows-app/AIBotBridge/Assets/DailyArt/cma-1956.578-00-portrait.jpg"
       ],
-      "annualValueReason": "欧美经典绘画：风景与海景；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核"
+      "annualValueReason": "欧美经典绘画：风景与海景；以清晰图像、作者或名作代表性、馆藏资料完整性综合复核",
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111"
+      }
     },
     {
       "id": "cma-2018.1",
@@ -34680,9 +35254,9 @@
       "author": "康熙帝",
       "museum": "东京国立博物馆",
       "period": "清代 1686年",
-      "brief": "康熙三十三岁时书写龙飞凤舞四字。短语集中在少量大字中，字形的展开与整体气势可作对照观看。",
-      "overview": "康熙三十三岁时书写龙飞凤舞四字。短语集中在少量大字中，字形的展开与整体气势可作对照观看。\n\n年代：清代 1686年",
-      "looking": "东京国立博物馆指出，康熙33岁时写的四字与词义相应，具有雄健的气势。可先整体观看大字的分量与动势，再细看各字结构。",
+      "brief": "康熙所书四字在一列中从繁到简再转密，单字的伸缩就能带出龙飞凤舞的动势。",
+      "overview": "东京国立博物馆将本轴定为康熙二十五年（1686），高岛菊次郎捐赠。2024 年东博以龙为主题的新春特展收录本件，提供了吉语在展览中的阅读语境。\n\n年代：清代 1686年\n馆藏编号：TB-1272",
+      "looking": "「龍」「鳳」部件繁多，与相邻「飛」「舞」的舒展笔势交错。逐字看外缘和字间空隙，就能体会同一竖轴怎样维持大字的分量，又让每个字的轮廓各有变化。",
       "facts": {
         "date": "清代 1686年",
         "accession": "TB-1272"
@@ -34721,6 +35295,26 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1272?locale=zh",
+          "publisher": "日本国立文化财机构 ColBase／东京国立博物馆",
+          "locator": "东博馆图和 2024 年龙年特展 TB-1272",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/colbase-tnm-TB-1272.json",
+          "evidenceSha256": "3ae693cd1f8a4f3a02b9bbb350cc03b031b367be1cf1662d4503b086facf5fad",
+          "method": "exact_museum_record_and_reviewed_object_evidence",
+          "supportingReferences": [
+            {
+              "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=7532&lang=ja",
+              "title": "东京国立博物馆 2024 年龙年特展",
+              "locator": "本件 TB-1272、年代及捐赠",
+              "snapshot": "sources/full-20261111-r4-dragon-web-capture.json",
+              "evidenceSha256": "d8cede1b424a1c42141d037be35016d2afd3ca3cbce2494e8579282ad661815e"
+            }
+          ]
         }
       ],
       "coverage": {
@@ -34733,9 +35327,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -34764,7 +35358,12 @@
       "objectCollationComplete": null,
       "fullTextAvailableInLocalReader": true,
       "deviceFullTextReady": true,
-      "annualDay": 39
+      "annualDay": 39,
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 4
+      }
     },
     {
       "id": "colbase-tnm-TB-1284",
@@ -44716,9 +45315,9 @@
       "author": "Musō Soseki",
       "museum": "大都会艺术博物馆",
       "period": "早期 to 中期14世纪",
-      "brief": "先读整幅，再看笔画与留白的呼应；从文字、形制和用笔进入这件书法。",
-      "overview": "年代：早期 to 中期14世纪\n材质与形制：立轴；墨，材质：纸\n尺寸：图面：99.2 × 57.4厘米\n收藏：大都会艺术博物馆\n馆藏编号：2018.853.2",
-      "looking": "馆方说明，梦窗以醒目的草书写《金刚经》偈语，表达超越物质与无常世界的觉悟。他虽未赴中国，曾师从来日中国僧及赴华日本僧；作品可放在这一传法经历中理解。",
+      "brief": "八个字里的飞白",
+      "overview": "梦窗疏石抄《金刚经》八字偈。馆刊结合墨迹指出，草书笔画里露出的白丝是飞白。\n\n年代：早期 to 中期14世纪\n材质与形制：立轴；墨，材质：纸\n尺寸：图面：99.2 × 57.4厘米\n馆藏编号：2018.853.2",
+      "looking": "跟着露出纸色的粗笔读，既能看字与字的连接，也能看同一笔中墨与白的断续。",
       "facts": {
         "date": "早期 to 中期14世纪",
         "medium": "立轴；墨，材质：纸",
@@ -44807,21 +45406,48 @@
           "evidenceSha256": "ea884a9bd42ba2b773f3c131d2320675cfcde980d529a998e396cd7d47c3889a",
           "scope": "work_specific_authoritative_analysis",
           "locator": "Object 816189; introductory curatorial text"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://www.metmuseum.org/art/collection/search/816189",
+          "publisher": "大都会艺术博物馆",
+          "locator": "馆藏编号对应作品的馆方策展说明与图像",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/met-816189.json",
+          "evidenceSha256": "644b52ef2e035881db705362245bb30151a346ae97e233a86fecdc11e933eb8d",
+          "method": "exact_museum_record_and_reviewed_object_evidence",
+          "supportingReferences": [
+            {
+              "url": "https://www.metmuseum.org/art/collection/search/816189",
+              "title": "大都会艺术博物馆馆藏页 · ”Abiding nowhere, the awakened mind arises”",
+              "locator": "馆藏编号对应作品的馆方策展说明与图像",
+              "snapshot": "sources/full-20261111-r9-met-816189-web-capture.json",
+              "evidenceSha256": "daa028d28044f42255153f4fddfbf458427532d944dc500ea3dd4f57ff8ba5a4"
+            },
+            {
+              "url": "https://resources.metmuseum.org/resources/metpublications/pdf/Recent_Acquisitions_A_Selection_2018_2020_Part_I_Antiquity_to_the_Late_Eighteenth_Century.pdf#page=14",
+              "title": "大都会艺术博物馆馆刊《Recent Acquisitions, 2018–2020》，第 78 卷第 2 期",
+              "locator": "第14页，2018.853.2，飞白技法及墨迹背景",
+              "snapshot": "sources/full-20261111-r9-met-bulletin-muso-web-capture.json",
+              "evidenceSha256": "4c2017cfc5586c2f8849a2d581f76560842ed4f0b18140578478b80f5aa868a9"
+            }
+          ]
         }
       ],
       "coverage": {
-        "level": "verified_metadata"
+        "level": "source_based_context"
       },
       "contentKinds": {
-        "overview": "verified_metadata",
+        "overview": "source_based_context",
         "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_web_reselection"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": false,
@@ -44854,7 +45480,12 @@
       "objectCollationComplete": null,
       "fullTextAvailableInLocalReader": true,
       "deviceFullTextReady": true,
-      "annualDay": 111
+      "annualDay": 111,
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 9
+      }
     },
     {
       "id": "met-816190",
@@ -53490,9 +54121,9 @@
       "author": "翁方纲 摹",
       "museum": "东京国立博物馆",
       "period": "清代 1798年",
-      "brief": "翁方纲以双钩勾出《兰亭序》字形轮廓，再填墨完成摹写。这件册页与直接运笔的临书不同，细部经过逐笔分析；可从笔画边缘和相邻字的关系理解这一研究方式。",
-      "overview": "翁方纲以双钩勾出《兰亭序》字形轮廓，再填墨完成摹写。这件册页与直接运笔的临书不同，细部经过逐笔分析；可从笔画边缘和相邻字的关系理解这一研究方式。\n\n年代：清代 1798年",
-      "looking": "东京国立博物馆指出，此册通过勾出文字轮廓的双钩与填墨作精巧临摹，连笔画细部都进行了分析。",
+      "brief": "翁方纲先用细线取出笔画边界，再填墨摹写；《兰亭序》的笔画外形在这里成了考证对象。",
+      "overview": "翁方纲以考证见长，长期研究金石拓本和法帖。东博指出，这册《兰亭序》采用双钩填墨：先取点画轮廓，再填实墨色。这种方法把临习重点落到逐笔的轮廓上。\n\n年代：清代 1798年\n馆藏编号：TB-1355",
+      "looking": "看连接处和收笔边缘时，可留意双钩所保存的细微曲折。双钩记录的是摹本采用的形状；其形状有助于理解清代学人怎样研究法帖，仍不能据此把此册直接认作王羲之的笔迹。",
       "facts": {
         "date": "清代 1798年",
         "accession": "TB-1355"
@@ -53543,6 +54174,17 @@
           "checkedOn": "2026-10-11",
           "retrievedOn": "2026-10-08",
           "locator": "descriptions[0].text"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1355?locale=zh",
+          "publisher": "日本国立文化财机构 ColBase／东京国立博物馆",
+          "locator": "东京国立博物馆 TB-1355，双钩与填墨解说",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\colbase-tnm-TB-1355.json",
+          "evidenceSha256": "973960ee948c3b29a008d45636bb62ab425cc62948df572b62ee22b9e4d10bba",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -53555,9 +54197,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "looking-colbase-1355"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -53642,7 +54284,12 @@
       "objectCollationComplete": false,
       "fullTextAvailableInLocalReader": true,
       "deviceFullTextReady": true,
-      "annualDay": 162
+      "annualDay": 162,
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 2
+      }
     },
     {
       "id": "colbase-tnm-TB-1460",
@@ -67637,9 +68284,9 @@
       "author": "八大山人",
       "museum": "东京国立博物馆",
       "period": "清代 17-18世纪",
-      "brief": "朱耷经历明亡后出家，晚年专心书画。此作清透墨色与简洁笔法相配，呈现八大山人晚期的淡雅表达。",
-      "overview": "朱耷经历明亡后出家，晚年专心书画。此作清透墨色与简洁笔法相配，呈现八大山人晚期的淡雅表达。\n\n年代：清代 17-18世纪\n\n作者与作品背景（百科参考）：\n八大山人晚年在南昌从事诗书画，以售画维持生活，约六十岁后使用八大山人署名。张潮《虞初新志》保存了其出家、还俗及名号变化的历史记述。",
-      "looking": "东京国立博物馆指出，此轴墨色清透，体现朱耷晚年用笔简洁、淡雅的风格。",
+      "brief": "八大山人用「種桃」「種竹」开篇，连续问到何处、何山；字的疏朗与语气相合。",
+      "overview": "东博把清透墨色和简净用笔联系到八大山人晚年。此件所写为题画七绝，诗以种桃、种竹相对；阅读正文时也可区分诗句与「題畫詩之一」款语。\n\n年代：清代 17-18世纪\n馆藏编号：TB-1648",
+      "looking": "开头两句看相同的「種」如何变化：起笔的浓淡、下笔的转向各有区别。诗末「東往一西來」来回一摆，和竖行中疏密相间、没有字字对齐的写法相映。",
       "facts": {
         "date": "清代 17-18世纪",
         "accession": "TB-1648"
@@ -67715,6 +68362,26 @@
           "checkedOn": "2026-10-11",
           "retrievedOn": "2026-10-08",
           "locator": "descriptions[0].text"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1648?locale=zh",
+          "publisher": "日本国立文化财机构 ColBase／东京国立博物馆",
+          "locator": "ColBase 馆方解说、同件原图及已核正文",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/colbase-tnm-TB-1648.json",
+          "evidenceSha256": "91c9925f7ba3305b10db175349c38cf5cf624df76f1e9f281465a951178a9bbb",
+          "method": "retained_exact_museum_record_and_museum_image",
+          "supportingReferences": [
+            {
+              "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=2440",
+              "title": "东京国立博物馆《中国书画精华》展",
+              "locator": "TB-1648 展品条",
+              "snapshot": "sources/full-20261111-r3-shukai.html",
+              "evidenceSha256": "6b7a8c787c9f6ac7e932ccad37acead3564c6205f29c7483dc632bbf26637ee8"
+            }
+          ]
         }
       ],
       "coverage": {
@@ -67722,28 +68389,20 @@
       },
       "contentKinds": {
         "overview": "source_based_context",
-        "looking": "work_specific_authoritative_analysis",
-        "background": "secondary_encyclopedic_background_reference"
+        "looking": "work_specific_authoritative_analysis"
       },
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "looking-colbase-1648"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
         "transcriptionCandidateRecords": 0,
         "originalDate": "清代  17-18世纪",
         "originalMedium": null
-      },
-      "backgroundBasis": {
-        "scope": "secondary_encyclopedic_background_reference",
-        "sourceIds": [
-          "round4_background_badashanren_wiki"
-        ],
-        "checkedOn": "2026-10-12"
       },
       "source": "https://colbase.nich.go.jp/collection_items/tnm/TB-1648?locale=zh",
       "license": "CC BY 4.0",
@@ -67770,7 +68429,12 @@
       "objectCollationComplete": null,
       "fullTextAvailableInLocalReader": true,
       "deviceFullTextReady": true,
-      "annualDay": 212
+      "annualDay": 212,
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 3
+      }
     },
     {
       "id": "colbase-tnm-TB-1582",
@@ -69293,9 +69957,9 @@
       "author": "吴昌硕",
       "museum": "东京国立博物馆",
       "period": "清代 1900年",
-      "brief": "吴昌硕五十七岁时临写第三石鼓的片段。对石鼓文的长期研究也融入其书画与篆刻，这件扇面呈现个人风格形成的过程。",
-      "overview": "吴昌硕五十七岁时临写第三石鼓的片段。对石鼓文的长期研究也融入其书画与篆刻，这件扇面呈现个人风格形成的过程。\n\n年代：清代 1900年",
-      "looking": "这是吴昌硕57岁时临写石鼓文第三鼓《田车》的一节。馆方认为可见其个人书风逐渐确立，适合结合他长期研究石鼓文的经历来观看。",
+      "brief": "吴昌硕把《田车》刻在石鼓上的古文字，重新排进可以开合的金笺扇面。",
+      "overview": "东京国立博物馆定为吴昌硕57岁时所临。石鼓原文涉及车、马、弓与射猎；金笺上文字随折痕放射，短列交替，保留了他对石鼓字形的取舍。\n\n年代：清代 1900年\n馆藏编号：TB-1709",
+      "looking": "从右端「田車」入手，找中段的「宮車」和「弓」。同样的「車」在斜列和近直列里保持可辨，两个「車」周围的空隙却随扇形而变。",
       "facts": {
         "date": "清代 1900年",
         "accession": "TB-1709"
@@ -69377,6 +70041,17 @@
           "method": "retained_official_snapshot_full_description_review",
           "originalAcquiredOn": null,
           "dateEvidence": "使用已保存的馆方快照；本轮日期为核验日，不冒称首次获取日。"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1709?locale=zh",
+          "publisher": "日本国立文化财机构 ColBase／东京国立博物馆",
+          "locator": "ColBase TB-1709，馆藏释文与金笺扇面原图",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources/colbase-tnm-TB-1709.json",
+          "evidenceSha256": "ddadbe4587907a5e0d7069b3f1fd6da932c33a2eaae273a884dac550825b6c4a",
+          "method": "exact_museum_record_and_reviewed_object_evidence"
         }
       ],
       "coverage": {
@@ -69389,9 +70064,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "museum_looking"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -69420,7 +70095,12 @@
       "objectCollationComplete": false,
       "fullTextAvailableInLocalReader": true,
       "deviceFullTextReady": true,
-      "annualDay": 223
+      "annualDay": 223,
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 5
+      }
     },
     {
       "id": "colbase-tnm-TB-1699",
@@ -72571,9 +73251,9 @@
       "author": "王铎",
       "museum": "东京国立博物馆",
       "period": "清代 1647年",
-      "brief": "王铎临写的是《淳化阁帖》第四卷所收柳公权《奉荣帖》，书写并不拘泥于原帖字形。",
-      "overview": "王铎临写的是《淳化阁帖》第四卷所收柳公权《奉荣帖》，书写并不拘泥于原帖字形。馆方强调其结构仍保持端正，而运笔具有自由奔放的特点。\n\n年代：清代 1647年",
-      "looking": "东京国立博物馆指出，王铎临写柳公权奉荣帖时不拘原帖字形，在自由奔放中仍保持结构端正。",
+      "brief": "柳公权写信问候并求寄赤箭；王铎把这段私人通信临成了可以悬挂观看的立轴。",
+      "overview": "东京国立博物馆明确指出，王铎所临是《淳化阁帖》第四卷所收柳公权《奉荣帖》。文字本来用于传递问候，也请求对方若方便寄来少量赤箭以扶病；现件为王铎临本。\n\n年代：清代 1647年\n馆藏编号：TB-1404",
+      "looking": "帖文的用途原是近读，立轴却要隔开一定距离看。东博指出，王铎没有拘守原帖字形，奔放的笔势里仍保持结体端正。可把原文的郑重语气和临本的自由笔势并读，区分写信人与临写者。",
       "facts": {
         "date": "清代 1647年",
         "accession": "TB-1404"
@@ -72685,6 +73365,17 @@
           "checkedOn": "2026-10-11",
           "retrievedOn": "2026-10-08",
           "locator": "descriptions[0].text"
+        },
+        {
+          "id": "full_library_editorial_20261111",
+          "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1404?locale=zh",
+          "publisher": "日本国立文化财机构 ColBase／东京国立博物馆",
+          "locator": "东京国立博物馆 TB-1404 解说；《奉荣帖》既有同篇参考",
+          "checkedOn": "2026-11-11",
+          "scope": "work_specific_context_and_analysis",
+          "snapshot": "sources\\colbase-tnm-TB-1404.json",
+          "evidenceSha256": "c17318891a8a8f6c86f2250f2444fb11d576c5594ca985384db3994c24d4170a",
+          "method": "retained_museum_record"
         }
       ],
       "coverage": {
@@ -72697,9 +73388,9 @@
       "lookingBasis": {
         "scope": "work_specific_authoritative_analysis",
         "sourceIds": [
-          "looking-colbase-1404"
+          "full_library_editorial_20261111"
         ],
-        "checkedOn": "2026-10-11"
+        "checkedOn": "2026-11-11"
       },
       "research": {
         "sourceHasContext": true,
@@ -72734,7 +73425,12 @@
       "objectCollationComplete": false,
       "fullTextAvailableInLocalReader": true,
       "deviceFullTextReady": true,
-      "annualDay": 245
+      "annualDay": 245,
+      "fullLibraryReview": {
+        "checkedOn": "2026-11-11",
+        "sourceId": "full_library_editorial_20261111",
+        "round": 2
+      }
     },
     {
       "id": "colbase-tnm-TB-1747",

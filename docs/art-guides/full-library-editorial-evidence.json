@@ -1,0 +1,134 @@
+{
+  "painting-01": {
+    "url": "https://publications.artic.edu/node/135621",
+    "snapshot": "sources/full-20261111-aic-16568.txt",
+    "evidenceSha256": "e926f7ee813b0751cfab385f04ee63746fb24f869463539c01d52a13747cd023",
+    "method": "official_page_web_reader"
+  },
+  "painting-02": {
+    "url": "https://archive.artic.edu/van-gogh-bedrooms/about-paintings",
+    "snapshot": "sources/full-20261111-aic-28560.txt",
+    "evidenceSha256": "a878b03473d9547973b47be604e399ad767bf56dfc79b83d8cf930ff8cd6dd78",
+    "method": "official_page_web_reader"
+  },
+  "painting-03": {
+    "url": "https://archive.artic.edu/seurat/seurat_themes.html",
+    "snapshot": "sources/full-20261111-aic-27992.txt",
+    "evidenceSha256": "9b22db01339bda30e1124bc69f81d15574cf1690b9a67b666082e7ea3a8365b1",
+    "method": "official_page_web_reader"
+  },
+  "painting-met-437881": {
+    "url": "https://www.metmuseum.org/art/collection/search/437881",
+    "snapshot": "sources/full-20261111-met-437881.txt",
+    "evidenceSha256": "c5a91aa13f7eca702c718365ee7a0663997a00b168192cf06c25e7df305e9616",
+    "method": "official_page_web_reader"
+  },
+  "cma-1915.685": {
+    "url": "https://www.clevelandart.org/art/1915.685",
+    "snapshot": "sources/full-20261111-cma-1915.685.json",
+    "evidenceSha256": "a9bb05ccdf2d6a4035233c4e060a454dbd8507077dc12a1f17b566e368de40b4",
+    "method": "pinned_official_open_access_dataset"
+  },
+  "cma-1915.694": {
+    "url": "https://www.clevelandart.org/art/1915.694",
+    "snapshot": "sources/full-20261111-cma-1915.694.json",
+    "evidenceSha256": "b92c885f0e9a56bb4ca48c9b1bd44fef89f08d131b15327326c6195eea2cbe90",
+    "method": "pinned_official_open_access_dataset"
+  },
+  "cma-1920.277": {
+    "url": "https://www.clevelandart.org/art/1920.277",
+    "snapshot": "sources/full-20261111-cma-1920.277.json",
+    "evidenceSha256": "52269a62f9665963c58c5467bb84f3a786e3e816ba380f8823f0a59d6cf00788",
+    "method": "pinned_official_open_access_dataset"
+  },
+  "cma-1957.423": {
+    "url": "https://www.clevelandart.org/art/1957.423",
+    "snapshot": "sources/full-20261111-cma-1957.423.json",
+    "evidenceSha256": "894b4696f8f16a859c64055242542ceacb9a853d37a3e7f1396304eb86ba9b7c",
+    "method": "pinned_official_open_access_dataset"
+  },
+  "cma-1915.688": {
+    "url": "https://www.clevelandart.org/art/1915.688",
+    "snapshot": "sources/full-20261111-cma-1915.688.json",
+    "evidenceSha256": "e7ecc6a243e6d4c38e93043b72c85bd52b15ffdf04f54af78fafb5f012b20eb1",
+    "method": "pinned_official_open_access_dataset"
+  },
+  "cma-1924.198": {
+    "url": "https://www.clevelandart.org/art/1924.198",
+    "snapshot": "sources/full-20261111-cma-1924.198.json",
+    "evidenceSha256": "258d8b4f492a49d750125961341d163061367baa87bde0fd7769e17bfcfae7aa",
+    "method": "pinned_official_open_access_dataset"
+  },
+  "cma-1957.422": {
+    "url": "https://www.clevelandart.org/art/1957.422",
+    "snapshot": "sources/full-20261111-cma-1957.422.json",
+    "evidenceSha256": "f75657f18c6dc52de06bc2f1549778e4f1a0abb1e9780cf9c76f4e50384c78f3",
+    "method": "pinned_official_open_access_dataset"
+  },
+  "cma-1915.693": {
+    "url": "https://www.clevelandart.org/art/1915.693",
+    "snapshot": "sources/full-20261111-cma-1915.693.json",
+    "evidenceSha256": "5654ecd243c74230ca9850cda1e91ad17fdac30a1415650fe0ab52d05fb190e8",
+    "method": "pinned_official_open_access_dataset"
+  },
+  "cma-1961.171": {
+    "url": "https://www.clevelandart.org/art/1961.171",
+    "snapshot": "sources/full-20261111-cma-1961.171.json",
+    "evidenceSha256": "8dd5667d8b2999600bb1fc10b1f630979efea37691efd64a9669c7ba4f418de4",
+    "method": "pinned_official_open_access_dataset"
+  },
+  "cma-1915.316": {
+    "url": "https://www.clevelandart.org/art/1915.316",
+    "snapshot": "sources/full-20261111-cma-1915.316.json",
+    "evidenceSha256": "24b441e945afc217a98ebae2943e0dc61d643435ccb7ca7eb89b07e35def65f6",
+    "method": "pinned_official_open_access_dataset"
+  },
+  "painting-06": {
+    "url": "https://publications.artic.edu/caillebotte/reader/paintingsanddrawings/section/574/p-574-31",
+    "snapshot": "sources/full-20261111-aic-20684.txt",
+    "evidenceSha256": "c56b0eac5d3a96ea19207be10fb362611c1fa0579dc8c31ce4beb15b5b3b55f0",
+    "method": "official_page_web_reader"
+  },
+  "colbase-tnm-TB-1638": {
+    "url": "https://online.bunka.go.jp/heritages/detail/212219",
+    "snapshot": "sources/full-20261111-bunka-212219.html",
+    "evidenceSha256": "453c8a79b167d81b608c95221615cc1c2d02641f6ed70ba92aa214fc47a48fd9",
+    "method": "official_cultural_agency_direct_http"
+  },
+  "colbase-tnm-TB-1170": {
+    "url": "https://emuseum.nich.go.jp/detail?content_base_id=100850&content_part_id=0&content_pict_id=0&langId=zh",
+    "snapshot": "sources/full-20261111-emuseum-100850.html",
+    "evidenceSha256": "72fbb02ee3fc3b99a804e3b045b43389aea5cb6f57c8118dce51d56fafccc3a0",
+    "method": "official_museum_direct_http"
+  },
+  "colbase-tnm-TB-1600": {
+    "url": "https://emuseum.nich.go.jp/detail?content_base_id=100858&content_part_id=0&content_pict_id=0&langId=zh",
+    "snapshot": "sources/full-20261111-emuseum-100858.html",
+    "evidenceSha256": "147c7555917be3b7981a2d246af606cb27f9239155a74b93cc98d644c2753d49",
+    "method": "official_museum_direct_http"
+  },
+  "colbase-tnm-TB-1172": {
+    "url": "https://emuseum.nich.go.jp/detail?content_base_id=100851&content_part_id=0&content_pict_id=0&langId=zh",
+    "snapshot": "sources/full-20261111-emuseum-100851.html",
+    "evidenceSha256": "8c6db8fc3e69f3f53fcdacf2ab397caace6c208ecf98eb4b490b355f4661c7b1",
+    "method": "official_museum_direct_http"
+  },
+  "colbase-tnm-TB-1594": {
+    "url": "https://online.bunka.go.jp/heritages/detail/544846",
+    "snapshot": "sources/full-20261111-bunka-544846.html",
+    "evidenceSha256": "0b1f99ad058f43959b0bf735a40cf8c7e97e20a04c1378a3df21593c9fceb969",
+    "method": "official_cultural_agency_direct_http"
+  },
+  "colbase-tnm-TB-1430": {
+    "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=7650",
+    "snapshot": "sources/full-20261111-tnm-7650.html",
+    "evidenceSha256": "ac5066190a5239c5d8f8b793bf9a773ce3cb75d7dcaed06f9bfcaa9add067223",
+    "method": "official_exhibition_direct_http"
+  },
+  "colbase-tnm-TB-1449": {
+    "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=7650",
+    "snapshot": "sources/full-20261111-tnm-7650.html",
+    "evidenceSha256": "ac5066190a5239c5d8f8b793bf9a773ce3cb75d7dcaed06f9bfcaa9add067223",
+    "method": "official_exhibition_direct_http"
+  }
+}

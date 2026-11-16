@@ -1,0 +1,143 @@
+{
+  "colbase-tnm-TB-1235": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1235?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1235.json",
+    "evidenceSha256": "6df340e023b4b0630bf9f415587da1d7e6dadca7ba7927d2ca491631d8723d8d",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1235-4.jpg",
+        "evidenceSha256": "abf25399b38b1745370bce24a69d3bceebbad1cdf36b723d21a66521d1c70d7a"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1235?locale=zh",
+        "title": "东京国立博物馆《行草書尺牘冊》",
+        "locator": "馆藏图档 colbase-tnm-TB-1235-4.jpg，右起第四至第六列及左侧信尾",
+        "snapshot": "sources/full-20261112-r17-mo-1235-web-capture.json",
+        "evidenceSha256": "ddcf9bf6e72a7905616d70372d0b6fdd2160f05d6d656d34a5acefbf4e62525d"
+      },
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=5874&lang=ja",
+        "title": "东京国立博物馆展品清单",
+        "locator": "《中国书迹：尺牍与临尺牍》展品表，馆藏号 TB-1235",
+        "snapshot": "sources/full-20261112-r17-mo-exhibit-web-capture.json",
+        "evidenceSha256": "2376eb40feeba585802cb65ba6225c41103221f171c5057815b1534a82616957"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1231": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1231?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1231.json",
+    "evidenceSha256": "df6e190cb730c8371ad00caa9b8cb607274cdc4390778d74bca2384f182a7283",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1231-6.jpg",
+        "evidenceSha256": "1f815274f877123868fa63e7fe285995b0b37659bfce13e51568c6106ef1ff03"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1231?locale=zh",
+        "title": "东京国立博物馆《草書尺牘合冊》",
+        "locator": "馆藏图档 colbase-tnm-TB-1231-6.jpg，右起第一列中段",
+        "snapshot": "sources/full-20261112-r17-zhou-wang-1231-web-capture.json",
+        "evidenceSha256": "d2bc6761252b0a7457af48970a70b42aa8427a9f46cfe8f45ed4791bec4037b3"
+      },
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=3134&lang=ja",
+        "title": "东京国立博物馆展品清单",
+        "locator": "《中国书画》展品表，馆藏号 TB-1231",
+        "snapshot": "sources/full-20261112-r17-zhou-wang-exhibit-web-capture.json",
+        "evidenceSha256": "2d8cbab87a1098a3f1322036469b0884c397b39ce194f9fd2628eb6dbb78810a"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1557": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1557?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1557.json",
+    "evidenceSha256": "f7aa874505ae5e1394907669b0cfa9e08506c72a11480c4dfda0ab60d3a5ddcc",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1557-6.jpg",
+        "evidenceSha256": "34e38f35dd78fbb7d67fb2d0b0b2bd6668a72e612568e15ba9d35e0f287b93b5"
+      },
+      {
+        "asset": "colbase-tnm-TB-1557-7.jpg",
+        "evidenceSha256": "8c740835b3dfaa5b34a79f066973370a1ff9c8921753d1261700e5042c100c6e"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1557?locale=zh",
+        "title": "东京国立博物馆《行草書尺牘巻》",
+        "locator": "馆藏图档 colbase-tnm-TB-1557-6.jpg、colbase-tnm-TB-1557-7.jpg",
+        "snapshot": "sources/full-20261112-r17-tang-1557-web-capture.json",
+        "evidenceSha256": "5ebe8021fe94e2be3f1946d032f839fb5d8618d26ddaaafee3874ead51539565"
+      },
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=702&lang=ja",
+        "title": "东京国立博物馆展品清单",
+        "locator": "展览档案 702，馆藏号 TB-1557",
+        "snapshot": "sources/full-20261112-r17-tang-exhibit-web-capture.json",
+        "evidenceSha256": "eb43cdbdc29105f2eb238808cf626968350cc2057c197640271cbcf319331a55"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1407": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1407?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1407.json",
+    "evidenceSha256": "92f45be175c84eeaaf9f2165da54115ee280bade76354307a8d885019bdad9b1",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1407-3.jpg",
+        "evidenceSha256": "fbddd3721157b134bb7f693d40c5ed123d43110c045fa8ddf6ec40e1d78920de"
+      },
+      {
+        "asset": "colbase-tnm-TB-1407-4.jpg",
+        "evidenceSha256": "fd9b2a989b0e9b41ce4f86bb36d530e994fd26cfff45c97dae440cbddca9fab2"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1407?locale=zh",
+        "title": "东京国立博物馆《草書尺牘冊》",
+        "locator": "馆藏图档 colbase-tnm-TB-1407-3.jpg、colbase-tnm-TB-1407-4.jpg",
+        "snapshot": "sources/full-20261112-r17-shao-1407-web-capture.json",
+        "evidenceSha256": "b325220e78155305ddef9fcfb92b5170258e7fbb94ecd53b4fb841d248eae765"
+      },
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=8240&lang=ja",
+        "title": "东京国立博物馆展品清单",
+        "locator": "展览档案 8240，馆藏号 TB-1407",
+        "snapshot": "sources/full-20261112-r17-shao-exhibit-web-capture.json",
+        "evidenceSha256": "0061409bd2dc18075301d9c1801b4a01a48a851bb1af8938053a6fad914e3c6e"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1252": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1252?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1252.json",
+    "evidenceSha256": "9560669e92558805bd86482a2f23fe7f91f3dac8a2f0ab3b2828f760adfbf345",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1252-0.jpg",
+        "evidenceSha256": "e1c6dfe2f20a0d6b13c368db4e94790dea924e2013ca9813f1aaa23baf78f1ae"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1252?locale=zh",
+        "title": "东京国立博物馆《草書題画七言絶句扇面》",
+        "locator": "馆藏图档 colbase-tnm-TB-1252-0.jpg，扇面右端三列",
+        "snapshot": "sources/full-20261112-r17-mi-1252-web-capture.json",
+        "evidenceSha256": "297e35073144e895742dda5e93bcacf3a064083ba4fbf96e82745a046481adf2"
+      }
+    ]
+  }
+}

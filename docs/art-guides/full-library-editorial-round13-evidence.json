@@ -1,0 +1,538 @@
+{
+  "colbase-tnm-TB-35": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-35?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-35.json",
+    "evidenceSha256": "acac12a2f41a4087a4068d4cdbf6678b597b266aece6276973a12b9ce333b4bb",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-35-1.jpg",
+        "evidenceSha256": "b9742c2f52263d2985e7e5291b1afc8ad2562e3f6ac55fe02eef2146165054dc"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.kurokawa-institute.or.jp/files/libs/641/201904281025205207.pdf",
+        "title": "黑川古文化研究所 · 中国书画旧藏品调查表",
+        "locator": "明本条，绢本《観世音賛》",
+        "snapshot": "sources/full-20261112-r13-mingben-web-capture.json",
+        "evidenceSha256": "0246246384de2d038ecd474661374b884bd6c68086b913a2c42dc0bc3b57b65c"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1587": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1587?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1587.json",
+    "evidenceSha256": "2b8a3d7b837be43b6ec55c5db6e24c14236a04d9af0be508854dff4a66925bce",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1587-1.jpg",
+        "evidenceSha256": "af3757969ab20fb2fd47751bd6e52fbf63b43a6888d0e19dfb81c8ed21abefc7"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/478751",
+        "title": "日本文化遗产在线 · 陈子龙《行草书尺牍轴》",
+        "locator": "馆方著录与同件图像",
+        "snapshot": "sources/full-20261112-r13-zilong-web-capture.json",
+        "evidenceSha256": "a1df788a51906e7544393d2b85c807cb4189ff7af1be2bdaaa7375de75dcde12"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1618": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1618?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1618.json",
+    "evidenceSha256": "6e981c187fba1aa8b4f4af702c9a78f0e90084d7386610840657df69418db90e",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1618-1.jpg",
+        "evidenceSha256": "1a8e387bb2c3a8dc51ab1c8b7d1a7792817fbc962fa7a6bb0e4c89d2c7090dbb"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1433": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1433?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1433.json",
+    "evidenceSha256": "167ebb05f24d85924ca7ad3350c8003c1317fc512cb95aedba007d28c8ff729d",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1433-1.jpg",
+        "evidenceSha256": "cca632e2417218ded87f9a5e6b9b1392482630b2980940ad14ecd5cc4ce794fe"
+      }
+    ]
+  },
+  "colbase-tnm-TB-43": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-43?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-43.json",
+    "evidenceSha256": "0129f841de877214d4b9f369d99d47154effdd2fe72bb7ebd70b4481bb30a252",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-43-1.jpg",
+        "evidenceSha256": "cc14252c6534720c03e5fbfb64b4e02ff6a86afed7c62d937b7b229d7e36b2de"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1242": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1242?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1242.json",
+    "evidenceSha256": "c03bce2f0ac905778c2586abd01170caab530396e70df66ee67abae1c90bcc76",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1242-4.jpg",
+        "evidenceSha256": "b5f83732745c799ee7fb2c076c7db2e5d6280b7be9edcba9ed49d7179c22db05"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1707": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1707?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1707.json",
+    "evidenceSha256": "d090939d06076f795cfbae9847d0514ea96189632c8e2ea8481b3ff4329e965f",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1707-0.jpg",
+        "evidenceSha256": "b08fc3eeba02054531d5db0657ae354474953a12e0a50b39fe51dc9e6fb5e990"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1417": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1417?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1417.json",
+    "evidenceSha256": "8fec9bb309a804f27e4807e347b114e6d8e4d16dcf67738b0421fc01739bbc93",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1417-3.jpg",
+        "evidenceSha256": "f35ccd827797a59b036669daeb7a4287fa29646e507efad0501ce86cc92f1009"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1418": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1418?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1418.json",
+    "evidenceSha256": "e16644ca9199be1675fd3d0e4f2cf138bf4d3025c6e3879c4838ddc7363ddafa",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1418-3.jpg",
+        "evidenceSha256": "f0b4c77530c367e7d134587a35331eb157a00213cbb9900b72e00a14c5109f4e"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://artplatform.go.jp/ja/collections/W203384",
+        "title": "日本艺术平台 · 赵之谦《草书尺牍册》",
+        "locator": "TB-1418，馆藏著录",
+        "snapshot": "sources/full-20261112-r13-zhao-web-capture.json",
+        "evidenceSha256": "e2ceac53213fc731ee9fc4874f129270bb616771ccc6bc23f9b745fb4466a2e4"
+      }
+    ]
+  },
+  "met-35995": {
+    "url": "https://www.metmuseum.org/art/collection/search/35995",
+    "snapshot": "sources/met-35995.json",
+    "evidenceSha256": "3dc764b81f31854696588782f3f9c8b92f16ba23e569400923c9b4c088bfa604",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-35995-r9-official.jpg",
+        "evidenceSha256": "67cd16108c13ceca870b2b7948939be0e05abd1408ca5d44208b3895131c0815"
+      }
+    ]
+  },
+  "met-48917": {
+    "url": "https://www.metmuseum.org/art/collection/search/48917",
+    "snapshot": "sources/met-48917.json",
+    "evidenceSha256": "a958b785542635588a88e0a5984343870a54a984f8f1336ffa0c861d4975315a",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-48917-r9-official.jpg",
+        "evidenceSha256": "e7d3e4e8afe3e3df3f23cc18fd89a1c073ad124295d7f6666ddd84919975ecf7"
+      }
+    ]
+  },
+  "met-49219": {
+    "url": "https://www.metmuseum.org/art/collection/search/49219",
+    "snapshot": "sources/met-49219.json",
+    "evidenceSha256": "aad0845a06cb3f3f24e0a8b3549571c8c61198f2612f290c0bd9d723df099002",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-49219-r9-official.jpg",
+        "evidenceSha256": "a8dbf733d5c14b63f2be6a9d29d38f49897afb89dd6389c7045db649d704be2f"
+      }
+    ]
+  },
+  "met-49103": {
+    "url": "https://www.metmuseum.org/art/collection/search/49103",
+    "snapshot": "sources/met-49103.json",
+    "evidenceSha256": "63ebc4e40621219eded566b9f9b7128d640273b8d98995feb59684cd336a5183",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-49103-r9-official.jpg",
+        "evidenceSha256": "2794bd3cffa2e2dedd90252c31cfe7938e930c635fca455031b67f3471e5316f"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://ctext.org/wiki.pl?chapter=132690&if=en",
+        "title": "《藤阴杂记》 · 梁清标秋碧堂与汪懋麟宴集诗",
+        "locator": "梁蕉林清标任司农时条，“秋碧堂中夜如水”以下",
+        "snapshot": "sources/full-20261112-r13-tengyin-web-capture.json",
+        "evidenceSha256": "230b543fd8a9675c0e6f8eab4afada467a0e5c3e32ead5330c3cf482758ccaed"
+      }
+    ]
+  },
+  "met-35983": {
+    "url": "https://www.metmuseum.org/art/collection/search/35983",
+    "snapshot": "sources/met-35983.json",
+    "evidenceSha256": "9656253122cb516e5b0962bc5ecbdb9b40e06f79ab335b35af799dc9fb811e61",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-35983-r9-official.jpg",
+        "evidenceSha256": "7df9da876fa2ac71ff84dbf3a5ecca7dd620ea45bcbe09399227376c6ef0546c"
+      }
+    ]
+  },
+  "met-49778": {
+    "url": "https://www.metmuseum.org/art/collection/search/49778",
+    "snapshot": "sources/met-49778.json",
+    "evidenceSha256": "6a9ee6b1398acfff811ff46363721b69efb52615ed6348320f1dd2ed35b52211",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-49778-r9-official.jpg",
+        "evidenceSha256": "35ae54f8ab1ed6d25bf279715eb3d7591ac1163f134d6f29f3df9596488e5d33"
+      }
+    ]
+  },
+  "mia-117265": {
+    "url": "https://collections.artsmia.org/art/117265",
+    "snapshot": "sources/mia-117265.json",
+    "evidenceSha256": "92d2bc3028b06a00629ab59578483a7dfd9001d3e99255be4b221d45f524a231",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117265-calligraphy-expansion.jpg",
+        "evidenceSha256": "1ead2be91c0808ac1cc9f40b1468d240bf077eac0fb6feff781cd696fba56cd9"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.shidianguji.com/zh/book/SK2704/chapter/1llxl4pwpcy0k",
+        "title": "《仁山文集》卷二 · 金履祥《题汪功父所藏画卷》",
+        "locator": "七言绝句，《题汪功父所藏画卷》",
+        "snapshot": "sources/full-20261112-r13-jinluxiang-web-capture.json",
+        "evidenceSha256": "5c16cba87b425a7809fd2182b23b1d206bf5db0670615ce096b85e422e12d1be"
+      }
+    ]
+  },
+  "mia-117256": {
+    "url": "https://collections.artsmia.org/art/117256",
+    "snapshot": "sources/mia-117256.json",
+    "evidenceSha256": "fa76f19ab17e95f18a5278a7dc8d0ce92b1a3efa7fc2caa9e9abd27e12e92dbe",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117256-r9-full.jpg",
+        "evidenceSha256": "a58e254b875ee93ea6919211732d4f3f8d585efa83ac169747d1303ad0f88b0c"
+      }
+    ]
+  },
+  "mia-117994": {
+    "url": "https://collections.artsmia.org/art/117994",
+    "snapshot": "sources/mia-117994.json",
+    "evidenceSha256": "713ad6b3beeb6fd326820257a0f7e990f8e4fe904cbe579c5cbdeea35e7b7d7b",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117994-r9-full.jpg",
+        "evidenceSha256": "222ea8b9af19e20630a025918946d1f5ffd2df1a0aa32c273000af9e00a3b491"
+      }
+    ]
+  },
+  "mia-117255": {
+    "url": "https://collections.artsmia.org/art/117255",
+    "snapshot": "sources/mia-117255.json",
+    "evidenceSha256": "ab8ec4fad5616a3e783cd41392fb8862ce2b0da47a17117f46c98136af341b16",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117255-r9-full.jpg",
+        "evidenceSha256": "2b293c1a653396debe6fc087f1a3c1ce784b3da5bc76a58573643e60aa19b311"
+      }
+    ]
+  },
+  "mia-117349": {
+    "url": "https://collections.artsmia.org/art/117349",
+    "snapshot": "sources/mia-117349.json",
+    "evidenceSha256": "7dcf0397087209a703687271c54f6a9fc95a59244891c4bde085e973b0baeec9",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117349-r9-full.jpg",
+        "evidenceSha256": "05c6eb35a943614c09ee13865bad6d2d424be88a26111071b8c2f32f76d5b298"
+      }
+    ]
+  },
+  "mia-117310": {
+    "url": "https://collections.artsmia.org/art/117310",
+    "snapshot": "sources/mia-117310.json",
+    "evidenceSha256": "3524e6ee4819863aa14488d8b4e67ffd7c41b19a2c284cbe8bbd0ab94286aa55",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117310-r9-full.jpg",
+        "evidenceSha256": "8abdad3be0e9ecb70e3dffc8f5035501de6f0975def8a370851e8f23a2402c01"
+      }
+    ]
+  },
+  "mia-117319": {
+    "url": "https://collections.artsmia.org/art/117319",
+    "snapshot": "sources/mia-117319.json",
+    "evidenceSha256": "1f28958c55f981c799a0269ad5b229911a1ce2692b7df7677d25a7aef956e0bf",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117319-calligraphy-expansion.jpg",
+        "evidenceSha256": "e2f9acd127afc7fab7e4a0111a15a3283d3e842e6f65d082a803d75716e6fa35"
+      }
+    ]
+  },
+  "mia-117341": {
+    "url": "https://collections.artsmia.org/art/117341",
+    "snapshot": "sources/mia-117341.json",
+    "evidenceSha256": "f4ba08b3e33dedf178b1a4dbbea5738d5ba088438783de560248d6415e552818",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117341-calligraphy-expansion.jpg",
+        "evidenceSha256": "39ee947d7b14f73c8cd3a3ef7e4e0dc005c9a4fd4513c1b42c07a2057e8171c8"
+      }
+    ]
+  },
+  "mia-116762": {
+    "url": "https://collections.artsmia.org/art/116762",
+    "snapshot": "sources/mia-116762.json",
+    "evidenceSha256": "be08317fe4f84bf7ca077487d855d0fb9eeb437d13e21bf8e8694e741493f0e8",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-116762-calligraphy-expansion.jpg",
+        "evidenceSha256": "aaa4d772818bcd86ac9632fb09bf1eae10779eaa485d0e37096163ec7faa4e0a"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1215": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1215?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1215.json",
+    "evidenceSha256": "12c1475e1a8cf8aace51cf3e569b17d64fcb962f26e31d7f7ee152d061768b30",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1215-6.jpg",
+        "evidenceSha256": "2e62f9e655867bc8ddaa33c257b74c4a8db228d22e7d4d16c3a37b50ccc1c12d"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/common/fckeditor/editor/filemanager/connectors/php/transfer.php?file=%2FPublications%2Fuid000276_E4BBA4E5928C33E5B9B4E5BAA6E38080E69DB1E4BAACE59BBDE7AB8BE58D9AE789A9E9A4A8E69687E58C96E8B2A1E4BFAEE79086E5A0B1E5918AE69BB8E3808032332E706466",
+        "title": "东京国立博物馆 · 令和三年度文化财修理报告",
+        "locator": "TB-1215，文信致士能学士尺牍",
+        "snapshot": "sources/full-20261112-r13-wenxin-web-capture.json",
+        "evidenceSha256": "0fa5b004468f6a21eccff379571052044ddf170978cc166dcbdb376e26ee0bd5"
+      }
+    ]
+  },
+  "colbase-tnm-TB-11": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-11?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-11.json",
+    "evidenceSha256": "bc631a1162d2112ce2b864dc657564fce4c6119320ea88e533efa67511543f70",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-11-4.jpg",
+        "evidenceSha256": "e8b324a408f01581b913ea19f4a265c6cd376439cdda26d7d615ae593c238cde"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1273": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1273?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1273.json",
+    "evidenceSha256": "ce21f18c90e88714b5eec45829f96c1b7337ad66add1a5e4ddb2780f3c5cc632",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1273-2.jpg",
+        "evidenceSha256": "60cf036eddf2796bad41a091d427754379b8dac8111ef06f18083b2c263c7387"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1277": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1277?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1277.json",
+    "evidenceSha256": "19fc646ec1e21f6ce2494c2966bbef3332ee775dae0d502f3e0622d1d541ab88",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1277-7.jpg",
+        "evidenceSha256": "a5000cb68f702d8b035bfc9c3a2f647095c29864e8c8ef74dff269ad16f1a6bc"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=3090&lang=ja",
+        "title": "东京国立博物馆 · 中国书画展品目录",
+        "locator": "TB-1277，姜宸英诗书、临古帖、尺牍卷",
+        "snapshot": "sources/full-20261112-r13-jiang-web-capture.json",
+        "evidenceSha256": "a0eda775fad09e5619e900da7f1929b2075cb00d75a4e7cf830a58a0bcb0e147"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1282": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1282?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1282.json",
+    "evidenceSha256": "9054e44d8bbb800e7e39ed9f0edfbbeb5227bcfb8d27338c5ae89fae2d3523d4",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1282-5.jpg",
+        "evidenceSha256": "346e2f8af331ae48f8154f9d50e1acef45ea6c4d95af65503189767f12540fd4"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1221": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1221?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1221.json",
+    "evidenceSha256": "ac06156c4175683ebb9107c1c4bed52e8714db6343bdacc8c93605934cb62a76",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1221-2.jpg",
+        "evidenceSha256": "a96e4a73f2edffb66e651990fece94de5c38d71f010539ee66bb516725aa2b33"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1321": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1321?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1321.json",
+    "evidenceSha256": "72f609eaa57ece4ce32fa5f4056de6891215c2e7a1a6b3e76a96eb98916f3877",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1321-4.jpg",
+        "evidenceSha256": "71bdada5742be803e97dfb993bcf4bf6f10ee282ae3aa6a7e713bf20c696a54c"
+      }
+    ]
+  },
+  "mia-118022": {
+    "url": "https://collections.artsmia.org/art/118022",
+    "snapshot": "sources/mia-118022.json",
+    "evidenceSha256": "f79bb8d5bbe29645be9e72032eec395c42370abec45a106034b1dba40fdccb68",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-118022-calligraphy-expansion.jpg",
+        "evidenceSha256": "c35b026bb4a4c03adb86705e2e95ab2d71fc1b443fed60f23acb00280b9a943f"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://taiwanebook.ncl.edu.tw/zh-tw/book/NCL-000797788",
+        "title": "国家图书馆台湾华文电子书库 · 《小窗幽记》",
+        "locator": "陈眉公编录、沈亚公校，1935 年中央书店版，藏品 000797788",
+        "snapshot": "sources/full-20261112-r13-xiaochuang-web-capture.json",
+        "evidenceSha256": "e6479e90cf3d0dfdd8fc5e1ee16fd7adf1a13163306db11dbeb313e865e5334c"
+      },
+      {
+        "url": "https://www.digital.archives.go.jp/file/3610572.html",
+        "title": "日本国立公文书馆内阁文库 · 《醉古堂剑扫》",
+        "locator": "陆绍珩选，卷六集景，“茅簷外”条",
+        "snapshot": "sources/full-20261112-r13-jiansao-web-capture.json",
+        "evidenceSha256": "8513749f7259ffab5db9431029194d227d17d1ee5bf0e2f351938ff89001b39c"
+      }
+    ]
+  },
+  "mia-117297": {
+    "url": "https://collections.artsmia.org/art/117297",
+    "snapshot": "sources/mia-117297.json",
+    "evidenceSha256": "97c8b78d13ff2fb70bd9dce34167da72d9da9997ec5c2176df53fbb4fd55c7f0",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117297-calligraphy-expansion.jpg",
+        "evidenceSha256": "b58f04b21bfd30d118f08dd3be61d69c3512c41e881c11d5a8197f1ad85b3879"
+      }
+    ]
+  },
+  "mia-117822": {
+    "url": "https://collections.artsmia.org/art/117822",
+    "snapshot": "sources/mia-117822.json",
+    "evidenceSha256": "37e394d45773979232a91781c1fa77cc8c2d77eea400d8c945de42650ab7a1b0",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117822-calligraphy-expansion.jpg",
+        "evidenceSha256": "fb0788222e96345495ebf12b422851ba0d76cc8f5266b23f455888440b4a35eb"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1264": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1264?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1264.json",
+    "evidenceSha256": "cb59aa1e6516bc9200f506e9b0f97f1513cdd94d402a68bd4510ed07c7822788",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1264-2.jpg",
+        "evidenceSha256": "72c75e15a9809d40fc97aefd37f5f736552e075422af50e57f779db2548fab06"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/527761",
+        "title": "日本文化遗产在线 · 傅山《行书小楷册》",
+        "locator": "TB-1264，原图右页论游侠",
+        "snapshot": "sources/full-20261112-r13-fushan-web-capture.json",
+        "evidenceSha256": "24bbc79a65068c9782bf3659b2932e085f6a602418f8e4a1e9333390b3e89f10"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1290": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1290?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1290.json",
+    "evidenceSha256": "74810080ac3ae58e7354ef96d0810522f54ea9432f06fc162f7aaf121097752e",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1290-5.jpg",
+        "evidenceSha256": "99dc1269a4bcc46f5d562b0fc62dae3dd686629230c3e095ebd3c1f7aa26ce9e"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=5224",
+        "title": "东京国立博物馆 · 帖学派书法展品目录",
+        "locator": "TB-1290，梁同书《行书文语册》",
+        "snapshot": "sources/full-20261112-r13-liang-web-capture.json",
+        "evidenceSha256": "fbe84361edcf49196e6c1e9231635cb128a72866ff1e0fa8a0ab283520c93cb3"
+      },
+      {
+        "url": "https://theme.npm.edu.tw/Academic/ResearchDownload.ashx?bid=8246&eid=0",
+        "title": "国立故宫博物院《故宫学术季刊》第37卷第4期",
+        "locator": "《略谈乾隆后期民间藏帖与碑学发展之关系》，注61",
+        "snapshot": "sources/full-20261112-r13-liang-review-web-capture.json",
+        "evidenceSha256": "259244ae19d1a4b07214ab7a79b60caa61934b9e4688b9d89733763af312b94b"
+      }
+    ]
+  }
+}

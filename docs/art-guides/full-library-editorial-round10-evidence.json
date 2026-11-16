@@ -1,0 +1,489 @@
+{
+  "mia-124762": {
+    "url": "https://collections.artsmia.org/art/124762",
+    "snapshot": "sources/mia-124762.json",
+    "evidenceSha256": "4271571020656fe7855820de2d4f9ca256d5b4b324faba95a7758fdf92f0ad2e",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-124762-r10-cache.jpg",
+        "evidenceSha256": "86d1de279585916979e7b5dfc98b631b9d0a77284fd09121c8e186c86fb90796"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://search.artsmia.org/id/124762",
+        "title": "明尼阿波利斯艺术博物馆开放馆藏数据 · Dong Qichang",
+        "locator": "2022.76.4，馆藏记录与原始图档入口",
+        "snapshot": "sources/full-20261112-r10-mia-live-124762-web-capture.json",
+        "evidenceSha256": "86e1b08510f9443a398d2e7f6036fbd2240cccfb9258afd76ec23170b0de463c"
+      }
+    ]
+  },
+  "mia-130045": {
+    "url": "https://collections.artsmia.org/art/130045",
+    "snapshot": "sources/mia-130045.json",
+    "evidenceSha256": "2af664dd3a6ee0eb12359293ac56d3e60c6624dd43f55a2a3b1c3e207afce962",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-130045-r10-cache.jpg",
+        "evidenceSha256": "5fc2412cd742f1d0b3549e5b68e278338be633e789ab6322667248a00d274178"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://search.artsmia.org/id/130045",
+        "title": "明尼阿波利斯艺术博物馆开放馆藏数据 · Calligrapher: Wang Wenzhi",
+        "locator": "2022.76.37，馆藏记录与原始图档入口",
+        "snapshot": "sources/full-20261112-r10-mia-live-130045-web-capture.json",
+        "evidenceSha256": "4d4b7017bc6993b61d6dce20f86e33fee7fb49e4d9bf1cde7eba5c8151d24a1d"
+      }
+    ]
+  },
+  "mia-129912": {
+    "url": "https://collections.artsmia.org/art/129912",
+    "snapshot": "sources/mia-129912.json",
+    "evidenceSha256": "b49ba8d09231ba9e7bccc592491dec29b3555175d841add49e6f7004045ef15a",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-129912-r10-cache.jpg",
+        "evidenceSha256": "6889565c2fa7588fd0ef0e81a3abfc001f198bcc60854623ce6e6cbf091fab47"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://search.artsmia.org/id/129912",
+        "title": "明尼阿波利斯艺术博物馆开放馆藏数据 · Calligrapher: Wang Jingqi",
+        "locator": "2022.76.5，馆藏记录与原始图档入口",
+        "snapshot": "sources/full-20261112-r10-mia-live-129912-web-capture.json",
+        "evidenceSha256": "b8bca789eb5e0712857187dc1da8423bc2410903fdf0bcfa38d1a3e3ac5d2afb"
+      }
+    ]
+  },
+  "mia-129626": {
+    "url": "https://collections.artsmia.org/art/129626",
+    "snapshot": "sources/mia-129626.json",
+    "evidenceSha256": "c8bb38fbb562ebecc7aacdb6279518369dc6e70c2f28f0478a5bcda5994c5391",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-129626-r10-cache.jpg",
+        "evidenceSha256": "7a98f4314165ee3bf5bbaf44ab744883b76309675d525976d79092665b689d3b"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://search.artsmia.org/id/129626",
+        "title": "明尼阿波利斯艺术博物馆开放馆藏数据 · Calligrapher: Wang Ling",
+        "locator": "2022.76.33，馆藏记录与原始图档入口",
+        "snapshot": "sources/full-20261112-r10-mia-live-129626-web-capture.json",
+        "evidenceSha256": "9cab708f636b3fded65275593188f71108f0f6d341635b3af3213d1cd89b9909"
+      }
+    ]
+  },
+  "mia-129646": {
+    "url": "https://collections.artsmia.org/art/129646",
+    "snapshot": "sources/mia-129646.json",
+    "evidenceSha256": "b88be877dff7679db3af8d1cf9f1800ef5d96a5e4c074d9a653ecbfbc0e81d7b",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-129646-r10-cache.jpg",
+        "evidenceSha256": "eb2fd4f2e6991e2e895f06fc314e2b2e68988ab54442c0a8cd41732f05b2fd58"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://search.artsmia.org/id/129646",
+        "title": "明尼阿波利斯艺术博物馆开放馆藏数据 · Calligrapher: Chen Tingjing",
+        "locator": "2022.76.59，馆藏记录与原始图档入口",
+        "snapshot": "sources/full-20261112-r10-mia-live-129646-web-capture.json",
+        "evidenceSha256": "0d9c0925de13f9066f5fc6b7339d6ce1ff882d0dabf1c34cdcbd3eb2c918da8b"
+      }
+    ]
+  },
+  "colbase-tnm-TB-773": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-773?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-773.json",
+    "evidenceSha256": "642942f98248297e1c2356f4210bb7afd43a15ab41f865c229c7ad396a585434",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://w9.ihp.sinica.edu.tw/wenwu/posts/291",
+        "title": "中央研究院历史语言研究所《汉代石刻集成》",
+        "locator": "第一七二条，交阯都尉沈府君神道阙题字",
+        "snapshot": "sources/full-20261112-r10-sinica-shen-web-capture.json",
+        "evidenceSha256": "c9a70a7013e4c7f95239c71433e5b41ccc37c288dfa527dc072c679a21d071c3"
+      }
+    ]
+  },
+  "cma-1992.138": {
+    "url": "https://www.clevelandart.org/art/1992.138",
+    "snapshot": "sources/cma-1992.138.json",
+    "evidenceSha256": "2f582f8ed7e5d9c86cd4fb79b84dac58ae2334fe8d8ddccc8184e5b63a61e107",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/art/1992.138",
+        "title": "克利夫兰艺术博物馆 · 梅诗",
+        "locator": "1992.138，馆方说明与图版",
+        "snapshot": "sources/full-20261112-r10-cma-plum-web-capture.json",
+        "evidenceSha256": "745a3f135930e05426d01b09f2aa16d033ee73e003603f70fd53f5eef92735f3"
+      }
+    ]
+  },
+  "princeton-37136": {
+    "url": "https://artmuseum.princeton.edu/art/collections/objects/37136",
+    "snapshot": "sources/princeton-37136.json",
+    "evidenceSha256": "20299220a66afaa445206a7b62da870b3d6a02a6dde0ccfccb0091873dec8fa2",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://artmuseum.princeton.edu/art/collections/objects/37136",
+        "title": "普林斯顿大学艺术博物馆 · 孙安人诔",
+        "locator": "1998-778，著录、IIIF、第一开",
+        "snapshot": "sources/full-20261112-r10-princeton-eulogy-web-capture.json",
+        "evidenceSha256": "f0f596e82818b20a8bd7ee775332908769351d8b97303040c26c7b8607aeff28"
+      }
+    ]
+  },
+  "mia-118774": {
+    "url": "https://collections.artsmia.org/art/118774",
+    "snapshot": "sources/mia-118774.json",
+    "evidenceSha256": "a9862cb3671912535610726da7084bb4e9b2ae6fe76adb86885de804cc5aeec4",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-118774-r10-cache.jpg",
+        "evidenceSha256": "905acc115bd0eacd38bfe53b3b7373c5763afdd7966686b254e3f166659a0804"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://github.com/artsmia/collection/blob/main/objects/118/118774.json",
+        "title": "明尼阿波利斯艺术博物馆开放馆藏数据 · 远恋",
+        "locator": "2013.63.5，text 字段和馆方图版",
+        "snapshot": "sources/full-20261112-r10-mia-github-118774-web-capture.json",
+        "evidenceSha256": "ea2fd5de6e4772d45a49650b6bf172b118103a7bd306b5d74e658cb61ac6f54f"
+      }
+    ]
+  },
+  "colbase-tnm-TB-358": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-358?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-358.json",
+    "evidenceSha256": "9a6f9fb00c0561d23faccef4b6e2609d876b8e9440b2e5fec96d9e0faee60ea3",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://collections.si.edu/search/record/ark:/65665/ye39a5ed5eeb2e34c2a99c8339744d14177",
+        "title": "史密森尼国家亚洲艺术博物馆 · 兴福寺断碑",
+        "locator": "F1980.51，同碑拓本",
+        "snapshot": "sources/full-20261112-r10-si-xingfu-web-capture.json",
+        "evidenceSha256": "e4b5953b6ae5152a8d80c84842b4642cebc17175957973083e181a22a267f87b"
+      },
+      {
+        "url": "https://tcmb.culture.tw/zh-tw/detail?id=18000005661&indexCode=MOCCOLLECTIONS",
+        "title": "国家文化记忆库 · 袁达三节临兴福寺碑",
+        "locator": "18000005661，馆方说明所引原碑起首",
+        "snapshot": "sources/full-20261112-r10-moc-xingfu-web-capture.json",
+        "evidenceSha256": "58913a7f04323318a3651637724227b5e00d808c00af9e9055131066af44cf8b"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1206": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1206?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1206.json",
+    "evidenceSha256": "87ce6cde3847e2320632445642b02d78ebb745a167e1d502de9f68f68b78f5ca",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "colbase-tnm-TB-1207": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1207?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1207.json",
+    "evidenceSha256": "6e11d845c08ed8d0d790609dda73c2b3194f4f6e5efd45cd2d96a1509ba8807f",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/504759",
+        "title": "日本文化遗产在线 · 草书尺牍卷",
+        "locator": "朱熹，东京国立博物馆藏，图版",
+        "snapshot": "sources/full-20261112-r10-bunka-zhuxi-web-capture.json",
+        "evidenceSha256": "b77f87455574316296df94d8a5fe35bcf23469de2c37176a79422ad9ee69a9b8"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1601": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1601?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1601.json",
+    "evidenceSha256": "d6d3e6b968398286a25714c7dbb6a7b88469c902c2b08a863d94543b573fa78b",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://www.shidianguji.com/zh/book/HY4700/chapter/1ksla0w6rsca0",
+        "title": "乾隆《娄县志》卷十四 · 识典古籍影印和录文",
+        "locator": "祥泽张氏通波阡条，引杨维桢通波阡表",
+        "snapshot": "sources/full-20261112-r10-lou-xian-web-capture.json",
+        "evidenceSha256": "582f138b94ca104ff50ad648ba4a3e7c11481650ccb5f78e71871ad453d10e52"
+      },
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/476781",
+        "title": "日本文化遗产在线 · 张氏通波阡表卷",
+        "locator": "东京本，1365年，馆方说明及高清图",
+        "snapshot": "sources/full-20261112-r10-bunka-yang-web-capture.json",
+        "evidenceSha256": "4ce1ee52dd5cb86683eabeb76043377cd3975bd268a78e8f8fae47ef00fb1671"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1641": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1641?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1641.json",
+    "evidenceSha256": "1aa7928037af12e5b8ca4d11f0d8399c075e7c6019d6b88869abaa001a785ad1",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/db/heritages/detail/500658/2",
+        "title": "日本文化遗产数据库 · 行草书邠风图诗卷",
+        "locator": "东京本，1621年，馆方说明与三张图",
+        "snapshot": "sources/full-20261112-r10-bunka-binfeng-web-capture.json",
+        "evidenceSha256": "742ddce801161e0a41283648ff8155e1176659b957c83eb8ca3a6a6492caa2b2"
+      }
+    ]
+  },
+  "mia-130000": {
+    "url": "https://collections.artsmia.org/art/130000",
+    "snapshot": "sources/mia-130000.json",
+    "evidenceSha256": "9feefd0c1779c09cb5052309d49d50afbbc76218708835cb1c7d2965bebe2ae4",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-130000-r10-cache.jpg",
+        "evidenceSha256": "dd9b055191c01b6d9f1dcd7ad65bc23fad84d08b99d8b8409530c7e0ba44ed91"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://journal.kci.go.kr/clsyn/archive/articlePdf?artiId=ART002020795",
+        "title": "《中国语文学》第69辑 · 黄庭坚书论相关研究",
+        "locator": "2015年，第59–83页，论书引文",
+        "snapshot": "sources/full-20261112-r10-kci-li-web-capture.json",
+        "evidenceSha256": "3a7e3e8bac05396352d794f3c604cc435c29c50882d7ba3061379ce754d03335"
+      }
+    ]
+  },
+  "mia-117250": {
+    "url": "https://collections.artsmia.org/art/117250",
+    "snapshot": "sources/mia-117250.json",
+    "evidenceSha256": "5b86558ef7e3fede397d09f67a7e28939d501df62b5d7cdb8d630917924d41c8",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117250-r9-full.jpg",
+        "evidenceSha256": "0d58aa643a452a6b8e2bb3a4f3c028d6f4916ed930e162864c5af7f75123d786"
+      }
+    ]
+  },
+  "mia-117292": {
+    "url": "https://collections.artsmia.org/art/117292",
+    "snapshot": "sources/mia-117292.json",
+    "evidenceSha256": "676116021014e14a8c9824638007fbc26598a3ad88c0baff72a5cc04a4f487df",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117292-r9-full.jpg",
+        "evidenceSha256": "1637cdbf07cbc6b71f6c29f998a712e45bc34ab120441c28464525f8602ae9ee"
+      }
+    ]
+  },
+  "mia-117249": {
+    "url": "https://collections.artsmia.org/art/117249",
+    "snapshot": "sources/mia-117249.json",
+    "evidenceSha256": "16a2c3545d50d84e88be3532c973839fbb317c8d92d444ab5bfa40567a8e7aff",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117249-r9-full.jpg",
+        "evidenceSha256": "a390820609212f035d366613c54c0c1a1e034ac59ad5f3c1b818d70b907f4b3a"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1278": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1278?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1278.json",
+    "evidenceSha256": "3903aed0b39b686b03ff3e94870133c9e6aa93a6fd1f16ed34fed50f09dd537c",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://digitalarchive.npm.gov.tw/Collection/Detail/34648?dep=P",
+        "title": "国立故宫博物院 · 汉礼器碑墨拓本",
+        "locator": "碑阳释文末，题名与捐资金额，CC BY 4.0",
+        "snapshot": "sources/full-20261112-r10-npm-liqi-web-capture.json",
+        "evidenceSha256": "c3504b4ef2deca2883d59ea8158743cd67a89e7654de1b32d9ac8ba6e38e3dc0"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1611": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1611?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1611.json",
+    "evidenceSha256": "4e6b5c174790563ff852f552bdc28844918e79379c3c45a1f57efd1489ff33d4",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/454354",
+        "title": "日本文化遗产在线 · 临素师帖二则轴",
+        "locator": "TB-1611，馆方说明",
+        "snapshot": "sources/full-20261112-r10-bunka-huaisu-web-capture.json",
+        "evidenceSha256": "6539bb1a5c1b7cc08ae37b3291bf1637d010658680a7e495666a6774376cede8"
+      },
+      {
+        "url": "https://digitalarchive.npm.gov.tw/Collection/Detail/30710?dep=P",
+        "title": "国立故宫博物院 · 宝贤堂集古法帖过钟帖",
+        "locator": "购帖00000500056，同帖明拓及释文，CC BY 4.0",
+        "snapshot": "sources/full-20261112-r10-npm-guozhong-web-capture.json",
+        "evidenceSha256": "afef602af72f1f378e525bf86ca7e1039e9cd41a7292044a308a6364efd9e628"
+      }
+    ]
+  },
+  "mia-117951": {
+    "url": "https://collections.artsmia.org/art/117951",
+    "snapshot": "sources/mia-117951.json",
+    "evidenceSha256": "9e4bf0400e7e4ca55db2c7a4ead2e7b32bbc948842767218240b78e24f8c1994",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117951-r9-full.jpg",
+        "evidenceSha256": "efeee39be683672153a908e7a6a5a9f9539ce5c675543afceb270eb6aede712e"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.si.edu/object/77-dances-japanese-calligraphy-poets-monks-and-scholars-1568-1868-stephen-addiss-foreword-richard%3Asiris_sil_894192",
+        "title": "Stephen Addiss《77 Dances》，Weatherhill，2006",
+        "locator": "第1件，第17–19页，On the Oi River",
+        "snapshot": "sources/full-20261112-r10-addiss-oi-web-capture.json",
+        "evidenceSha256": "7187413bcb03ffe1847ebc4d6cf4e550f474663b1d03d5ae940482e039fe751c"
+      }
+    ]
+  },
+  "mia-118776": {
+    "url": "https://collections.artsmia.org/art/118776",
+    "snapshot": "sources/mia-118776.json",
+    "evidenceSha256": "735f48b71d198bdd99a89188d240f6a1cc46a00013f56caac7c1a0d2bffef6e8",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-118776-r9-full.jpg",
+        "evidenceSha256": "de9c2a2ed674ef1cc9b89f588d0c2f26553b45e7b0df6d259b9b76c45b81937c"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.si.edu/object/77-dances-japanese-calligraphy-poets-monks-and-scholars-1568-1868-stephen-addiss-foreword-richard%3Asiris_sil_894192",
+        "title": "Stephen Addiss《77 Dances》，Weatherhill，2006",
+        "locator": "第47件，第163–165页，Six Spring Haiku",
+        "snapshot": "sources/full-20261112-r10-addiss-chiyo-web-capture.json",
+        "evidenceSha256": "6ebf89aafb346186284185998ba1a7828544ac7d92f17194b19a1bdea1a8e49c"
+      }
+    ]
+  },
+  "met-49147": {
+    "url": "https://www.metmuseum.org/art/collection/search/49147",
+    "snapshot": "sources/met-49147.json",
+    "evidenceSha256": "ef5ab815c288f90bef27bb21ccc76cb43ae9d49cecd2a8120263b12ec02adc29",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-49147-view3.jpg",
+        "evidenceSha256": "e0efec9c107cb38f4e2fed893932b8ada91a8e30449360cf17ca4b6a83c18a8a"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://artouch.com/gumeishu/gumeishu-viewpoint/content-223551.html",
+        "title": "《典藏》古美术 · 王孙心事──八大山人的吉光片羽",
+        "locator": "1699年农历七月九日致方士琯信札引文",
+        "snapshot": "sources/full-20261112-r10-bada-letter-web-capture.json",
+        "evidenceSha256": "7fd623189bfc5a1b1baa3f9e250b24151bb4a50dd9dd780db8dee569590b174b"
+      }
+    ]
+  },
+  "met-48961": {
+    "url": "https://www.metmuseum.org/art/collection/search/48961",
+    "snapshot": "sources/met-48961.json",
+    "evidenceSha256": "f16c4fcfced96423358715204c560339bab83c4fd1be8faf84ad9277a5a0b4c6",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-48961-view0.jpg",
+        "evidenceSha256": "030389f9855267a2d78fccbb0b1e72d6a1653ff332cfc48269c9aa222a3ad704"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1293": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1293?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1293.json",
+    "evidenceSha256": "00fa6af16aba4b3ddd796367470b8df6fa181fc441d9b882e3cf522937875604",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://digitalarchive.npm.gov.tw/Collection/Detail/26454?dep=P",
+        "title": "国立故宫博物院 · 快雪堂帖（二）晋王羲之乐毅论",
+        "locator": "贈帖00000200001，乐毅论释文，CC BY 4.0",
+        "snapshot": "sources/full-20261112-r10-npm-yueyi-web-capture.json",
+        "evidenceSha256": "0cdf40d9f943f6681ce4efad436d6d639a019e44a1750a7ccbc96cca271976fe"
+      }
+    ]
+  },
+  "met-733689": {
+    "url": "https://www.metmuseum.org/art/collection/search/733689",
+    "snapshot": "sources/met-733689.json",
+    "evidenceSha256": "eb694367172d27f76c9e2f0f478a2c8547338f7e89ea21fd1d9f882301d18d8b",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-733689-calligraphy-expansion-10.jpg",
+        "evidenceSha256": "d8e3a58cb1e6d5c51d0337a1683d06c4a5dddd80ff33f72ace2cd892c0bed595"
+      },
+      {
+        "asset": "met-733689-calligraphy-expansion-11.jpg",
+        "evidenceSha256": "695e9c7afeba6c881de8aa032345576ccecab76789af031e67179db7e402878a"
+      }
+    ]
+  },
+  "met-48915": {
+    "url": "https://www.metmuseum.org/art/collection/search/48915",
+    "snapshot": "sources/met-48915.json",
+    "evidenceSha256": "397650acebeec3e365cea9764402544cc065f5560a03a9b932175a26cecfe91d",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-48915-r9-official.jpg",
+        "evidenceSha256": "dedb88e2bd162d549f05a85d592e326a320b12e8aeb95f4a8bc44b307146e4d1"
+      }
+    ]
+  },
+  "met-48909": {
+    "url": "https://www.metmuseum.org/art/collection/search/48909",
+    "snapshot": "sources/met-48909.json",
+    "evidenceSha256": "2573355748877994787dbd6cb4ede81a002bec334bed6fff70a188c8168794d8",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-48909-r9-official.jpg",
+        "evidenceSha256": "b584f5a69a738587a6974d0612879294bfdf7443193ebaca036ed8845e6d73fe"
+      }
+    ]
+  },
+  "met-39766": {
+    "url": "https://www.metmuseum.org/art/collection/search/39766",
+    "snapshot": "sources/met-39766.json",
+    "evidenceSha256": "690e208d8801409be243bfc9187ed984546defa1eed8498809b0555c2ddbc180",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "met-39766-r9-official.jpg",
+        "evidenceSha256": "c3547d9c192a5481f4e68a130a46be98224b1563a7c15423b536a7c6a37dea03"
+      }
+    ]
+  }
+}

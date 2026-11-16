@@ -1,0 +1,727 @@
+{
+  "cma-1947.4": {
+    "url": "https://www.clevelandart.org/art/1947.4",
+    "snapshot": "sources/full-20261111-r8-cma-1947.4.json",
+    "evidenceSha256": "73dcfa387ea087904821d323e750a64230fe0b94396235c21613f024a2c2e034",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1947.4",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1947.4",
+        "locator": "馆藏号1947.4，馆藏原图与归属；盖蒂2018年展览清单第5页",
+        "snapshot": "sources/full-20261111-r8-cma-1947.4-web-capture.json",
+        "evidenceSha256": "8478085ee071f03d8a351a4824dc9ba5e8db01d4e70656a37e395fac1fdb0dec"
+      },
+      {
+        "url": "https://www.getty.edu/art/exhibitions/rembrandt_india/downloads/rembrandt_india_checklist.pdf",
+        "title": "盖蒂博物馆《伦勃朗与印度的启发》展览清单",
+        "locator": "第5页，作品11和12",
+        "snapshot": "sources/full-20261111-r8-getty-mughal-web-capture.json",
+        "evidenceSha256": "66d97ec4f3765d6f3ba4fedc137ac057030bb2e98d96eabe5aaec4afb094f4b0"
+      }
+    ]
+  },
+  "cma-1986.1": {
+    "url": "https://www.clevelandart.org/art/1986.1",
+    "snapshot": "sources/full-20261111-r8-cma-1986.1.json",
+    "evidenceSha256": "f4d418455a8ec53dc1419cd2d3749f57666e1db5717b6fb434df265cf9d88f79",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1986.1",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1986.1",
+        "locator": "馆藏号1986.1，馆藏原图及递藏；东京国立博物馆2014年展品第2号",
+        "snapshot": "sources/full-20261111-r8-cma-1986.1-web-capture.json",
+        "evidenceSha256": "a8e2524e142c4d21edf04271045e072dedaf950e1360275e7cd9484ac41a78d8"
+      },
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=3874",
+        "title": "东京国立博物馆2014年克利夫兰绘画展展品表",
+        "locator": "第1章「神・仏・人」第2号",
+        "snapshot": "sources/full-20261111-r8-tnm-monju-web-capture.json",
+        "evidenceSha256": "516055bdc3419ccd06b0113e24c77f95f282b7c1c1618240312bf6566c4c5a48"
+      }
+    ]
+  },
+  "cma-1988.103": {
+    "url": "https://www.clevelandart.org/art/1988.103",
+    "snapshot": "sources/full-20261111-r8-cma-1988.103.json",
+    "evidenceSha256": "c50c572991d908777ec5e6d8b96b80ec6118a07d1160d6b0cf0f1f9257abb30c",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1988.103",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1988.103",
+        "locator": "馆藏号1988.103，馆藏原图；2010年大都会展图155及2016年鲁宾馆图9.29题录",
+        "snapshot": "sources/full-20261111-r8-cma-1988.103-web-capture.json",
+        "evidenceSha256": "fcf41b83d5ac68b8b58d8b371fe601d3a5f45d6c58231fb5f71b277e65ad44bf"
+      }
+    ]
+  },
+  "cma-1958.40": {
+    "url": "https://www.clevelandart.org/art/1958.40",
+    "snapshot": "sources/full-20261111-r8-cma-1958.40.json",
+    "evidenceSha256": "c50a5941800e547f632e870580562ec45df7afca769b16a2d2091420c899970a",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1958.40",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1958.40",
+        "locator": "馆藏号1958.40，馆藏原图与汉纳递藏；1978至1979年巡展记录",
+        "snapshot": "sources/full-20261111-r8-cma-1958.40-web-capture.json",
+        "evidenceSha256": "e712d7820f117411364682cab38ed767c539d4e01c4e4fe46d524f97c0af8827"
+      }
+    ]
+  },
+  "cma-1916.1031": {
+    "url": "https://www.clevelandart.org/art/1916.1031",
+    "snapshot": "sources/full-20261111-r8-cma-1916.1031.json",
+    "evidenceSha256": "8d2c2a679383f4b798a13587cbef77c92f847af365315163e051a7979db2f9e6",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1916.1031",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1916.1031",
+        "locator": "馆藏号1916.1031，馆藏原图、1894年借展第110号与1973年展历",
+        "snapshot": "sources/full-20261111-r8-cma-1916.1031-web-capture.json",
+        "evidenceSha256": "e9d21d58243c52b3b9faa35fd24c045eb5a7150f075f0c5b79c5877dd6478ec7"
+      }
+    ]
+  },
+  "cma-1917.67": {
+    "url": "https://www.clevelandart.org/art/1917.67",
+    "snapshot": "sources/full-20261111-r8-cma-1917.67.json",
+    "evidenceSha256": "74b79f8413b2203a911389320a8152821a461d061cf593e4084e366d28d8c7f6",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1917.67",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1917.67",
+        "locator": "馆藏号1917.67，馆藏原图、现行归属及1947年馆刊第48页题录",
+        "snapshot": "sources/full-20261111-r8-cma-1917.67-web-capture.json",
+        "evidenceSha256": "3dfee99a1e7b539c4efd976131d54328c882b8b1c2f3bdfe0518b0d33a34f441"
+      }
+    ]
+  },
+  "cma-1918.569": {
+    "url": "https://www.clevelandart.org/art/1918.569",
+    "snapshot": "sources/full-20261111-r8-cma-1918.569.json",
+    "evidenceSha256": "0d70de55f98e46e3aaa46ccb57c586bb0af51a513de971149499292522abc445",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1918.569",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1918.569",
+        "locator": "馆藏号1918.569，馆藏原图、家族捐赠及1953年巡展记录",
+        "snapshot": "sources/full-20261111-r8-cma-1918.569-web-capture.json",
+        "evidenceSha256": "65d4891fd89e4249c905c012957cba621cb95bf7f5d6573f523ab7984dd02606"
+      }
+    ]
+  },
+  "cma-1915.600": {
+    "url": "https://www.clevelandart.org/art/1915.600",
+    "snapshot": "sources/full-20261111-r8-cma-1915.600.json",
+    "evidenceSha256": "369a37220b44650c3de63cd3db2563ac3ea68066c697afdb86deb8656e9880ac",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1915.600",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1915.600",
+        "locator": "馆藏号1915.600，馆藏原图与1916年、1956年展历",
+        "snapshot": "sources/full-20261111-r8-cma-1915.600-web-capture.json",
+        "evidenceSha256": "5ce8d81435b013257fe84fa2b9563878647a6c2e2b403e9e1dd9f3bdba1f34ed"
+      }
+    ]
+  },
+  "cma-1928.581": {
+    "url": "https://www.clevelandart.org/art/1928.581",
+    "snapshot": "sources/full-20261111-r8-cma-1928.581.json",
+    "evidenceSha256": "e6582109301edc9998df7fffeca3200d242d2494ed242e14ffbe2fb8b1b16528",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1928.581",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1928.581",
+        "locator": "馆藏号1928.581，馆藏原图、现行归属及1923年纽约交易记录",
+        "snapshot": "sources/full-20261111-r8-cma-1928.581-web-capture.json",
+        "evidenceSha256": "7c4b42b1469da9c2cbe67fdec62caf60117b78ef7f63ddd8be17fac2e8fc380c"
+      }
+    ]
+  },
+  "cma-1960.50": {
+    "url": "https://www.clevelandart.org/art/1960.50",
+    "snapshot": "sources/full-20261111-r8-cma-1960.50.json",
+    "evidenceSha256": "e9709ab18d68430adf2357b3d9d090f4a3539e3b40b1b358187b821167f800f7",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1960.50",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1960.50",
+        "locator": "馆藏号1960.50，馆藏原图；1960年展图版54题录及1996年展历",
+        "snapshot": "sources/full-20261111-r8-cma-1960.50-web-capture.json",
+        "evidenceSha256": "d67c27abf4125f0482ea549730902791d0ffd658a11d2fa7478990a1f9910562"
+      }
+    ]
+  },
+  "cma-1964.284": {
+    "url": "https://www.clevelandart.org/art/1964.284",
+    "snapshot": "sources/full-20261111-r8-cma-1964.284.json",
+    "evidenceSha256": "761e6012a6c090f74c90b45502b63d4899ea712777932589484d9821f1b1b622",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1964.284",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1964.284",
+        "locator": "馆藏号1964.284，馆藏原图及皮耶雷家族递藏；1974年馆藏图录第80号题录",
+        "snapshot": "sources/full-20261111-r8-cma-1964.284-web-capture.json",
+        "evidenceSha256": "e9ce8863e8694ea2626b4b7acedf1cc7c2ea4429542858adb17e748c036c8a31"
+      }
+    ]
+  },
+  "cma-1967.21": {
+    "url": "https://www.clevelandart.org/art/1967.21",
+    "snapshot": "sources/full-20261111-r8-cma-1967.21.json",
+    "evidenceSha256": "d1379225521d8cf547514e28004316c1114bc5bb8d5bb77430b5dc25766f5d19",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1967.21",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1967.21",
+        "locator": "馆藏号1967.21，馆藏原图；1967年馆刊及1999年回顾展第5号题录",
+        "snapshot": "sources/full-20261111-r8-cma-1967.21-web-capture.json",
+        "evidenceSha256": "cfab599c7ba67a5f64c3c8473add3466753b109a3ddd755fbd361a163aabc3a1"
+      }
+    ]
+  },
+  "cma-1968.239": {
+    "url": "https://www.clevelandart.org/art/1968.239",
+    "snapshot": "sources/full-20261111-r8-cma-1968.239.json",
+    "evidenceSha256": "0f98c6511359ec87ddb267d804ea255e2a459ad6034ad45e5d36c1a33b95e90d",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1968.239",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1968.239",
+        "locator": "馆藏号1968.239，馆藏原图、18世纪以来的递藏及1973年展历",
+        "snapshot": "sources/full-20261111-r8-cma-1968.239-web-capture.json",
+        "evidenceSha256": "cbff43575279766332368675e5ea9117f1700b9b02fbe9ba6e767c46dc9bcf52"
+      }
+    ]
+  },
+  "cma-1918.173": {
+    "url": "https://www.clevelandart.org/art/1918.173",
+    "snapshot": "sources/full-20261111-r8-cma-1918.173.json",
+    "evidenceSha256": "31c853cc63b6ded065d2b56824048761b829908e51f4aa9af4c56b844ceb0ece",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1918.173",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1918.173",
+        "locator": "馆藏号1918.173，馆藏原图、1918年馆刊专文题录及1936年展历",
+        "snapshot": "sources/full-20261111-r8-cma-1918.173-web-capture.json",
+        "evidenceSha256": "1741acf4c074d452320ed46e0612f3ff0c32da36fd972a74ac0481583a3f0e2f"
+      },
+      {
+        "url": "https://npg.si.edu/object/npg_1918.173_CMA",
+        "title": "史密森尼国家肖像馆《美国肖像档案》",
+        "locator": "1918.173 CMA，Thomas Abthorpe Cooper",
+        "snapshot": "sources/full-20261111-r8-npg-cooper-web-capture.json",
+        "evidenceSha256": "c6a94c4ed058d613394cf191bcbf19eda3b376b6e85e89d0eaae11d69d3d5d55"
+      }
+    ]
+  },
+  "cma-1978.127": {
+    "url": "https://www.clevelandart.org/art/1978.127",
+    "snapshot": "sources/full-20261111-r8-cma-1978.127.json",
+    "evidenceSha256": "1102bc1b9407592b7569323b8a78d7662e2fba1f04c8736980fd73f675f2c08a",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1978.127",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1978.127",
+        "locator": "馆藏号1978.127，馆藏原图；1840年沙龙第752号馆方展历",
+        "snapshot": "sources/full-20261111-r8-cma-1978.127-web-capture.json",
+        "evidenceSha256": "9408d34bc5b311b9d989ee0562be04dc3f50fc9573b15b60f8abfdd0750fb44e"
+      },
+      {
+        "url": "https://salons.musee-orsay.fr/Detail/objects/155546",
+        "title": "奥赛博物馆巴黎沙龙档案",
+        "locator": "巴黎皇家博物馆，1840年沙龙第752号",
+        "snapshot": "sources/full-20261111-r8-orsay-granet-web-capture.json",
+        "evidenceSha256": "7a9e493453b208d7e47224e2050686e07712db36d0d7a55c9944d833bc564ec7"
+      }
+    ]
+  },
+  "cma-1989.338": {
+    "url": "https://www.clevelandart.org/art/1989.338",
+    "snapshot": "sources/full-20261111-r8-cma-1989.338.json",
+    "evidenceSha256": "6aa7a710a9269e2460f3eee909df3ffb5054148c24a9af39311d29eb9a7fc638",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1989.338",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1989.338",
+        "locator": "馆藏号1989.338，馆藏原图与比拉斯普尔来源；1954年印度政府出版图版32题录",
+        "snapshot": "sources/full-20261111-r8-cma-1989.338-web-capture.json",
+        "evidenceSha256": "9ef9448b3401aa9c608f10dc420217628f9392764dba6c42e0aa9921060b733e"
+      }
+    ]
+  },
+  "cma-1986.174": {
+    "url": "https://www.clevelandart.org/art/1986.174",
+    "snapshot": "sources/full-20261111-r8-cma-1986.174.json",
+    "evidenceSha256": "6038a65d61a4a3fbe2acbfd0380ea6612a95210287ba432e8d476ad9749769f4",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1986.174",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1986.174",
+        "locator": "馆藏号1986.174，馆藏原图、马尔瓦归属与1987年馆刊第222号题录",
+        "snapshot": "sources/full-20261111-r8-cma-1986.174-web-capture.json",
+        "evidenceSha256": "ddf005322e404922f5e48726ea3b7c023270b1ed5ad5dbcb93e59e7a8013e3f4"
+      }
+    ]
+  },
+  "cma-1955.296": {
+    "url": "https://www.clevelandart.org/art/1955.296",
+    "snapshot": "sources/full-20261111-r8-cma-1955.296.json",
+    "evidenceSha256": "5d03a15b1f7655ea68c14b3f83c041ec798d5ad5116eb1029a6af3ad61ef0761",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1955.296",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1955.296",
+        "locator": "馆藏号1955.296，馆藏原图及题名；1956年馆刊和1981年费城展图录P-20题录",
+        "snapshot": "sources/full-20261111-r8-cma-1955.296-web-capture.json",
+        "evidenceSha256": "bbedb90d754e18ac21661f744c1c2388264f19971b977ee100b64c3f02665842"
+      }
+    ]
+  },
+  "cma-1982.162": {
+    "url": "https://www.clevelandart.org/art/1982.162",
+    "snapshot": "sources/full-20261111-r8-cma-1982.162.json",
+    "evidenceSha256": "7e775227c7549e2061f7f2c1c0a9da1a3ceaf64180fb19e2077fe887e4f4c4f3",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1982.162",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1982.162",
+        "locator": "馆藏号1982.162，馆藏原图；1961年展历与1990年惠特尼巡展第62号题录",
+        "snapshot": "sources/full-20261111-r8-cma-1982.162-web-capture.json",
+        "evidenceSha256": "e0d24348814447d8e7a33c96d1cf0930e3b7f5fcfba099a49e1aa30ea4ba231b"
+      }
+    ]
+  },
+  "cma-1964.291": {
+    "url": "https://www.clevelandart.org/art/1964.291",
+    "snapshot": "sources/full-20261111-r8-cma-1964.291.json",
+    "evidenceSha256": "952069f4bc0ff28a712acc19cca8cb3ade0314d93491aa3f699f68581dca6f1b",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1964.291",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1964.291",
+        "locator": "馆藏号1964.291，馆藏原图、1963年画廊文件题录及1974年图录第92号",
+        "snapshot": "sources/full-20261111-r8-cma-1964.291-web-capture.json",
+        "evidenceSha256": "422ae8ce7c81c695d1ad95ff22044cb80319303033a082278f0f95ad80e5126e"
+      }
+    ]
+  },
+  "cma-1978.5": {
+    "url": "https://www.clevelandart.org/art/1978.5",
+    "snapshot": "sources/full-20261111-r8-cma-1978.5.json",
+    "evidenceSha256": "c87ef036a9b36539d94630cdf0a9586390560a96f1bb210f85e9ce5332231d64",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1978.5",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1978.5",
+        "locator": "馆藏号1978.5，馆藏原图、1977年专著图版48题录及1985年展历",
+        "snapshot": "sources/full-20261111-r8-cma-1978.5-web-capture.json",
+        "evidenceSha256": "c084c8ff30d61aed7743176f3a76a84c6f695e62ce758078b7200da2fcf0d50c"
+      }
+    ]
+  },
+  "cma-1980.231": {
+    "url": "https://www.clevelandart.org/art/1980.231",
+    "snapshot": "sources/full-20261111-r8-cma-1980.231.json",
+    "evidenceSha256": "61e4e9d9b8b3055ff195e848309baa292f019a0ce441d10fa3f145ce99b21505",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1980.231",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1980.231",
+        "locator": "馆藏号1980.231，馆藏原图、1986年展历及2022年奥赛博物馆图录图232题录",
+        "snapshot": "sources/full-20261111-r8-cma-1980.231-web-capture.json",
+        "evidenceSha256": "e9e16a4610fe32a2818b7db6bcfa44d4b88414a141635da68d8788b84fa8af6b"
+      }
+    ]
+  },
+  "cma-1938.42": {
+    "url": "https://www.clevelandart.org/art/1938.42",
+    "snapshot": "sources/full-20261111-r8-cma-1938.42.json",
+    "evidenceSha256": "86a2c603e7c02224c1dc5ab652fc84d2b01dd4b250a3d20da1269fb4fd273f50",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1938.42",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1938.42",
+        "locator": "馆藏号1938.42，馆藏原图、1924至1927年借展、1938年馆刊及1963年展历",
+        "snapshot": "sources/full-20261111-r8-cma-1938.42-web-capture.json",
+        "evidenceSha256": "8ce03948e902517ae5772e4c810d83bc6cd6d2115ad6fb211413c8015033646e"
+      }
+    ]
+  },
+  "cma-1961.259": {
+    "url": "https://www.clevelandart.org/art/1961.259",
+    "snapshot": "sources/full-20261111-r8-cma-1961.259.json",
+    "evidenceSha256": "a2a688488ca663895539a2e1455d0319689ea1f814f3051ff4d489048836bfc2",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1961.259",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1961.259",
+        "locator": "馆藏号1961.259，馆藏原图；1992年扇面展、2001年屏风展与图录第86页题录",
+        "snapshot": "sources/full-20261111-r8-cma-1961.259-web-capture.json",
+        "evidenceSha256": "ed2d90d7870be373e42aa731e87e70953a93aefc804b8d50d98cddea7408ff3c"
+      }
+    ]
+  },
+  "cma-1983.186": {
+    "url": "https://www.clevelandart.org/art/1983.186",
+    "snapshot": "sources/full-20261111-r8-cma-1983.186.json",
+    "evidenceSha256": "969c213044f45cf5f3705bba07247a08984e94e7c1065a958fa0edafbc8c0150",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1983.186",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1983.186",
+        "locator": "馆藏号1983.186，馆藏双轴原图、1984年馆刊图版及1988年桃山艺术展",
+        "snapshot": "sources/full-20261111-r8-cma-1983.186-web-capture.json",
+        "evidenceSha256": "0fe7656265b8d397369b31f932b995e1ed4a3704dfecbf1d979dcc322c00176c"
+      }
+    ]
+  },
+  "cma-1983.9": {
+    "url": "https://www.clevelandart.org/art/1983.9",
+    "snapshot": "sources/full-20261111-r8-cma-1983.9.json",
+    "evidenceSha256": "f63407d2428ac1c5389ede7f75bcc096c0bbfd58aef6b6b70f4cb1c32c442007",
+    "method": "matched_museum_catalogue_and_print_page",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1983.9",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1983.9",
+        "locator": "馆藏号1983.9，馆藏原图与题名；1984年馆刊第66页图版题录",
+        "snapshot": "sources/full-20261111-r8-cma-1983.9-web-capture.json",
+        "evidenceSha256": "3b1d380090d53610c53ba5c33d0d45f0908eab2364a30e9649479b2d330a78df"
+      }
+    ]
+  },
+  "cma-1940.534": {
+    "url": "https://www.clevelandart.org/art/1940.534",
+    "snapshot": "sources/cma-1940.534.json",
+    "evidenceSha256": "1a73acd1cdb2ebfca5476d0c2e9b54c5f0222a5fd45acdb412f83be22ea41292",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://www.clevelandart.org/print/art/1940.534",
+        "title": "克利夫兰艺术博物馆馆藏打印页 1940.534",
+        "locator": "馆藏号1940.534，馆藏原图与1873年创作说明；芝加哥艺术博物馆研究图录第3条注20",
+        "snapshot": "sources/full-20261111-r8-cma-1940.534-web-capture.json",
+        "evidenceSha256": "1970f8c7aed99a4593bc64cc0007f060be5a015e3afeaa977da8caabd969a36a"
+      },
+      {
+        "url": "https://publications.artic.edu/manet/reader/manetart/section/140029",
+        "title": "芝加哥艺术博物馆马奈研究图录",
+        "locator": "第3号注20",
+        "snapshot": "sources/full-20261111-r8-artic-manet-web-capture.json",
+        "evidenceSha256": "b8dcbd972a70088d27a2416d7268decaa4cc5a6979b149dcba88c37c68df4c17"
+      }
+    ]
+  },
+  "colbase-tnm-TB-507": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-507?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-507.json",
+    "evidenceSha256": "5848ef5f287b9f187c7b94b9952b1366b0efbea4e4febb443e3ae547d250aea2",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://ctext.org/wiki.pl?chapter=390196&if=gb",
+        "title": "《无事为福斋随笔》卷下",
+        "locator": "第2条《吕宪墓表》",
+        "snapshot": "sources/full-20261111-r8-lu-jinshi-web-capture.json",
+        "evidenceSha256": "a489d69553354673ec2abd4a7f460ea81c7fea4e2fb58791b4d5b807240b47bd"
+      }
+    ]
+  },
+  "met-51663": {
+    "url": "https://www.metmuseum.org/art/collection/search/51663",
+    "snapshot": "sources/met-51663.json",
+    "evidenceSha256": "604ddc6a9d12467a820c2bd7802aecdaec632ebf4c7abbf864cc658a1974ca59",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://digitalarchive.npm.gov.tw/Collection/Detail/2999?dep=P",
+        "title": "国立故宫博物院《清汪由敦书苏诗》",
+        "locator": "第一则《湖桥》馆方释文",
+        "snapshot": "sources/full-20261111-r8-npm-su-web-capture.json",
+        "evidenceSha256": "a6d96d40c416b7a8615f30e984d1e46ea546ed3e4ca482f4aa763ebfbca55194"
+      },
+      {
+        "url": "https://images.metmuseum.org/CRDImages/as/original/DP153553.jpg",
+        "title": "大都会艺术博物馆",
+        "locator": "大都会 47.18.43b 团扇原图；国立故宫博物院《清汪由敦书苏诗》第一则",
+        "snapshot": "sources/parallel-20261010-dba9cd19f3d62d53.jpg",
+        "evidenceSha256": "dba9cd19f3d62d530122728377754e80a55ce859c8e69f3310fcfbf7e57f36f2"
+      }
+    ]
+  },
+  "met-51898": {
+    "url": "https://www.metmuseum.org/art/collection/search/51898",
+    "snapshot": "sources/met-51898.json",
+    "evidenceSha256": "81d073b2962c1d8d0b3308a2ada2d93fe8c8d273a721568cc737d174ef5b999e",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://ctext.org/quantangshi/541/zh",
+        "title": "《全唐诗》卷五百四十一",
+        "locator": "李商隐《柳》，以「江南江北雪初消」定位",
+        "snapshot": "sources/full-20261111-r8-li-qts-web-capture.json",
+        "evidenceSha256": "4ad3ae7f4182615c3073dbfd1c314d19e73317039d797c089591fc3421958ad7"
+      },
+      {
+        "url": "https://ir.lib.pccu.edu.tw/retrieve/63057/%E5%BC%B5%E7%BE%8E%E9%B3%B3.pdf",
+        "title": "中国文化大学中国文学研究所学位论文",
+        "locator": "印刷第86页，〈柳・之二〉",
+        "snapshot": "sources/full-20261111-r8-li-pccu-web-capture.json",
+        "evidenceSha256": "e3ec017ed431d38030943234ec9953ec906c75fc8776a5ca01e045ca28f11954"
+      },
+      {
+        "url": "https://images.metmuseum.org/CRDImages/as/original/DP-36228-002.jpg",
+        "title": "大都会艺术博物馆",
+        "locator": "大都会 1989.363.201 原图及署款；《全唐诗》卷541《柳》",
+        "snapshot": "sources/parallel-20261010-266e01791ae1f4de.jpg",
+        "evidenceSha256": "266e01791ae1f4de1374cf8c0f2f90a83d67d6a2972221853a3ed5613338b09f"
+      }
+    ]
+  },
+  "mia-130029": {
+    "url": "https://collections.artsmia.org/art/130029",
+    "snapshot": "sources/mia-130029.json",
+    "evidenceSha256": "02a5c9b31f54de8c4cd7464d8b02c37e793256acf7e424b290aaa7170a9abb91",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://collections.artsmia.org/art/130029",
+        "title": "明尼阿波利斯美术馆",
+        "locator": "Mia 2022.76.31.1，馆方题名及本纸原图",
+        "snapshot": "sources/parallel-20261010-6c6fab9a048fab4d.png",
+        "evidenceSha256": "6c6fab9a048fab4d0ff86470e358b87ae2ff3cabb3dabf9b004fd713761a1308"
+      }
+    ]
+  },
+  "mia-29434": {
+    "url": "https://collections.artsmia.org/art/29434",
+    "snapshot": "sources/mia-29434.json",
+    "evidenceSha256": "d5e251055ac3c62cfd42e0ebce5637f48dbe020b1db5c1daddec2c20f0ae36e4",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "mia-118174": {
+    "url": "https://collections.artsmia.org/art/118174",
+    "snapshot": "sources/mia-118174.json",
+    "evidenceSha256": "d50ef6b2b57e7a7513258f335fb54ba1175d1caea7ca59091c7eef4ae62ff82c",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "mia-130089": {
+    "url": "https://collections.artsmia.org/art/130089",
+    "snapshot": "sources/mia-130089.json",
+    "evidenceSha256": "2159a26455e7311335290bb02e43a70d28263750bc6311283f47b855e4dcd16a",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "mia-129795": {
+    "url": "https://collections.artsmia.org/art/129795",
+    "snapshot": "sources/mia-129795.json",
+    "evidenceSha256": "9398e12bbe864fed6ac40b5cec8fb98d090babcafd1223a732b3bc42f10a7f9b",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://www.dcqjw.gov.cn/ljcq/lsbl/201404/t20140416_477592.html",
+        "title": "北京市东城区纪委监委网站",
+        "locator": "Mia 2022.76.35，原图首列篇名及馆录楷书归属",
+        "snapshot": "sources/parallel-20261010-ab3ba12bfe80a47b.html",
+        "evidenceSha256": "ab3ba12bfe80a47ba84c49911e39d8a11e1e653bd00a48b570930bffde2a0a11"
+      }
+    ]
+  },
+  "mia-124761": {
+    "url": "https://collections.artsmia.org/art/124761",
+    "snapshot": "sources/mia-124761.json",
+    "evidenceSha256": "033a6df67526e318cc5e4be8d9f051e6dd04d38a63c62871166b8106b85cbc04",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "mia-131178": {
+    "url": "https://collections.artsmia.org/art/131178",
+    "snapshot": "sources/mia-131178.json",
+    "evidenceSha256": "450117fa56194f65ee56c26ec8fe866687f1f92ed9f7604587ddaa3e6c211773",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "mia-129979": {
+    "url": "https://collections.artsmia.org/art/129979",
+    "snapshot": "sources/mia-129979.json",
+    "evidenceSha256": "05d22ca84f906b9402b79b7f1ff8e88cf27932ee78f54c240554b5cc8d37f5bd",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-36132": {
+    "url": "https://www.metmuseum.org/art/collection/search/36132",
+    "snapshot": "sources/met-36132.json",
+    "evidenceSha256": "c9002735511b10ff1b1c3d1f570bafaa7bfdfbb663b514ff2f0cdf0d4cf8cd17",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-48912": {
+    "url": "https://www.metmuseum.org/art/collection/search/48912",
+    "snapshot": "sources/met-48912.json",
+    "evidenceSha256": "26ca1c9543413dabeb33d84623015a4f77f51f060e0a84532edaaf60e2bf4cc3",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-48931": {
+    "url": "https://www.metmuseum.org/art/collection/search/48931",
+    "snapshot": "sources/met-48931.json",
+    "evidenceSha256": "8bfafb7fb3c1d52e89a78c3606a8b8495a1205726436d5898d7d65fc7cd6f9ae",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-49771": {
+    "url": "https://www.metmuseum.org/art/collection/search/49771",
+    "snapshot": "sources/met-49771.json",
+    "evidenceSha256": "93c051cf4a4fbcc1b2286a2641e7f24fbe72b9aaf911d0a3918fd646a7d1bd97",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-49778": {
+    "url": "https://www.metmuseum.org/art/collection/search/49778",
+    "snapshot": "sources/met-49778.json",
+    "evidenceSha256": "6a9ee6b1398acfff811ff46363721b69efb52615ed6348320f1dd2ed35b52211",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-49779": {
+    "url": "https://www.metmuseum.org/art/collection/search/49779",
+    "snapshot": "sources/met-49779.json",
+    "evidenceSha256": "901f789a8a15f7a52309136e7323ca1bcaf91d859c011f6dcf675a6bae95fa9f",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-35995": {
+    "url": "https://www.metmuseum.org/art/collection/search/35995",
+    "snapshot": "sources/met-35995.json",
+    "evidenceSha256": "3dc764b81f31854696588782f3f9c8b92f16ba23e569400923c9b4c088bfa604",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-35999": {
+    "url": "https://www.metmuseum.org/art/collection/search/35999",
+    "snapshot": "sources/met-35999.json",
+    "evidenceSha256": "04c83359efd9a3ea2b7b8aa3628360b1c10db0f9bef1b3ab2ef7fe3f63515567",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-36003": {
+    "url": "https://www.metmuseum.org/art/collection/search/36003",
+    "snapshot": "sources/met-36003.json",
+    "evidenceSha256": "e91ba04b7657e1ff3346068992847c83c38008a872595d9a2f9dbd6662ebd29c",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-48964": {
+    "url": "https://www.metmuseum.org/art/collection/search/48964",
+    "snapshot": "sources/met-48964.json",
+    "evidenceSha256": "9ced9539d4d28f0e4484114a090ebd14393727e3ba5ff4e7da5e09c8f2c9a6bf",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-49015": {
+    "url": "https://www.metmuseum.org/art/collection/search/49015",
+    "snapshot": "sources/met-49015.json",
+    "evidenceSha256": "b405d363e628ac609ca7cf85c66767a6faaf7a59f11a3e430f08e6339b02d1f5",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "met-49792": {
+    "url": "https://www.metmuseum.org/art/collection/search/49792",
+    "snapshot": "sources/met-49792.json",
+    "evidenceSha256": "ed4119a74a1f71728e3d7d5f7d0794f6c8dc71c21c47ef94ca9bc5816fe8f4d9",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "colbase-tnm-TB-506": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-506?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-506.json",
+    "evidenceSha256": "00657e2d55de868db4a76263426af1070c9bb6b2a2402606ba8f2b1959c9a70f",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://digitalarchive.npm.gov.tw/Collection/Detail/33818?dep=P",
+        "title": "国立故宫博物院《房宣墓誌墨拓本》",
+        "locator": "贈拓00008300000，释文栏",
+        "snapshot": "sources/full-20261111-r8-npm-fang-web-capture.json",
+        "evidenceSha256": "90ab19cbb6ebc62bd00c655a16aff24ac14f3293b49ad21d92df1143180b1374"
+      }
+    ]
+  },
+  "colbase-tnm-TB-676": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-676?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-676.json",
+    "evidenceSha256": "35e002fb8c97b6e87fa9130c304cf3fef78e286975f0ace77e3e798527bd03ee",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://catalog.digitalarchives.tw/item/00/1b/fc/66.html",
+        "title": "国家图书馆金石拓片资料《比丘法生造像记》",
+        "locator": "联合目录1834086",
+        "snapshot": "sources/full-20261111-r8-ncl-fasheng-web-capture.json",
+        "evidenceSha256": "bff2098261efc7477712dfa1512a893c0b7f402a2b0a4eafc5b1bfe7301aa278"
+      }
+    ]
+  },
+  "colbase-tnm-TB-302": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-302?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-302.json",
+    "evidenceSha256": "9b6e8e7cad77231c49018e69eb6a5227ce064d0275395ffc78824ec134523239",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://catalog.digitalarchives.tw/item/00/14/fe/bf.html",
+        "title": "国家图书馆金石拓片资料《孟阿妃造像题记》",
+        "locator": "金3057",
+        "snapshot": "sources/full-20261111-r8-ncl-meng-web-capture.json",
+        "evidenceSha256": "0c620d9ce6eccc48ce5f91abae9256cda22bcf85bb652417910804fc914d63c1"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1614": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1614?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1614.json",
+    "evidenceSha256": "d9ee60580ac3f961ab17e62a2bc628be0bf370b0479b5f056084d07a23a01a90",
+    "method": "exact_museum_record_and_reviewed_object_evidence"
+  },
+  "colbase-tnm-TB-1172": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1172?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1172.json",
+    "evidenceSha256": "0e655cad3938f8b6f13d8f8d47c53500d478fc766e2ca99764bd4b1c01028790",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://emuseum.nich.go.jp/detail?content_base_id=100851&content_pict_id=0",
+        "title": "日本国立文化财机构 e国宝《大慧禅师墨迹》",
+        "locator": "TB-1172",
+        "snapshot": "sources/full-20261111-r8-emuseum-1172-web-capture.json",
+        "evidenceSha256": "e2e1669fbad2711eca626815dad0320d1cd475c438f5238a0be9313fefdf801f"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1176": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1176?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1176.json",
+    "evidenceSha256": "b09d0cfe8229a33486c61630cc0645b37bec4673fe74c0915ccd3fea44ff0352",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "supportingReferences": [
+      {
+        "url": "https://emuseum.nich.go.jp/detail?content_base_id=100227&content_pict_id=0",
+        "title": "日本国立文化财机构 e国宝《与无隐元晦法语》",
+        "locator": "TB-1176",
+        "snapshot": "sources/full-20261111-r8-emuseum-1176-web-capture.json",
+        "evidenceSha256": "0a3bdb32ff1461a2e0aa41c7564bea091a7a6313bb9b1f872eefd46f849cd399"
+      }
+    ]
+  }
+}

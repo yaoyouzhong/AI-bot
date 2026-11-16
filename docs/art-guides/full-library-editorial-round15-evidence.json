@@ -1,0 +1,147 @@
+{
+  "colbase-tnm-TB-1727": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1727?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1727.json",
+    "evidenceSha256": "aa8abe7a8e369e3d3b30bfd59e6f04e30bad22847a513de2381eb3705c21f8be",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1727-0.jpg",
+        "evidenceSha256": "6d7ef38f4f16d427f846834396973e87aa5da7f58c3090f31100ee9bf465b8fc"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/db/heritages/detail/606850",
+        "title": "日本文化遗产数据库 · 许友《社集蜃舫》",
+        "locator": "铭文栏，首句“官舎開橋頻送客”至“乗興還書上緑蕉”",
+        "snapshot": "sources/full-20261112-r15-xu-1727-web-capture.json",
+        "evidenceSha256": "4f0dc5bb21c7f99c89b0076a59a18f9085b2e8b0a5ec75e72d16af8f8b491477"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1738": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1738?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1738.json",
+    "evidenceSha256": "206c1cc92bc0a156bc8fc029c095935817453418af0f3ed85b7f0a130d0e625a",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1738-1.jpg",
+        "evidenceSha256": "5ef612becaf80fb0dadfef9eaaccc60186a552a2d8e6f50dcefcd8c519fb5d26"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://api.online.bunka.go.jp/heritages/detail/592476",
+        "title": "日本文化遗产在线 · 吴昌硕《草书家书横披》",
+        "locator": "1903年家书，原图首纸与铭文栏封套记录",
+        "snapshot": "sources/full-20261112-r15-wu-1738-web-capture.json",
+        "evidenceSha256": "862f4f73179dd23f84610103f99e55776bc3ca31bd0e0c84af2f517016ef3e9d"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1331": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1331?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1331.json",
+    "evidenceSha256": "b3ad19c7e7e681477d5f7db0f263d75aa692e9b8595d2aca765b45e33232461d",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1331-0.jpg",
+        "evidenceSha256": "fafd2fec5180ab0022042c81dc42b7cee97bb12aec2f20496a7caa57afb8a17f"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/494446",
+        "title": "日本文化遗产在线 · 冯桂芬《草书七言律诗扇面》",
+        "locator": "扇面右半原图及解说",
+        "snapshot": "sources/full-20261112-r15-feng-1331-web-capture.json",
+        "evidenceSha256": "3b1f4b9351afd09a01e50bf925c403c453ad1b274a37ac3dadd167c74ea7bf47"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1236": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1236?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1236.json",
+    "evidenceSha256": "86168760d74f038b4acb740387c74c45c0155e826df7ededa7b9547d0ef2a596",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1236-1.jpg",
+        "evidenceSha256": "79718650b5e3c104d62ec293014e4ebeed57671f8efa3c04615c83d1efc92930"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/401274",
+        "title": "日本文化遗产在线 · 莫是龙《草书七言绝句轴》",
+        "locator": "馆藏原图中列",
+        "snapshot": "sources/full-20261112-r15-mo-1236-web-capture.json",
+        "evidenceSha256": "45d104dae07db09b1722775c380f618684c971699e198170c0d6b98fdbc30b3b"
+      }
+    ]
+  },
+  "colbase-tnm-TB-15": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-15?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-15.json",
+    "evidenceSha256": "534626a9ac87fe9418e5cdf0832d98eb6c801a75fba4bca12a19b1c3ae8c819a",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-15-0.jpg",
+        "evidenceSha256": "5a197bff68f605a5bc92f8a4b922e4bdf1a9fad1cd1f7b17a9d06f7d4ef0f3c0"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/db/heritages/detail/490145",
+        "title": "日本文化遗产数据库 · 戴明说《行书五言律诗轴》",
+        "locator": "展签解说所述旧藏和《小山林堂书画文房图录》己册",
+        "snapshot": "sources/full-20261112-r15-dai-15-web-capture.json",
+        "evidenceSha256": "0f0c71f376e3e131a4df9a2c0e0a99689a6eb45e73b48cfdbc2179d0a1e08ec6"
+      }
+    ]
+  },
+  "mia-117737": {
+    "url": "https://collections.artsmia.org/art/117737",
+    "snapshot": "sources/mia-117737.json",
+    "evidenceSha256": "3a718cac9a155f68f630c4ec4a33cd7a575849cc09b1484f6a78ce6ecb570cd8",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-117737-calligraphy-expansion.jpg",
+        "evidenceSha256": "6b96a3dd870e7738714d8af142377f36b68bbe4da743b3c96856387abd876114"
+      }
+    ]
+  },
+  "mia-30357": {
+    "url": "https://collections.artsmia.org/art/30357",
+    "snapshot": "sources/mia-30357.json",
+    "evidenceSha256": "09e30968142c01969478f2b78600443052c1ddd95d67b4f06f18ab874adaa46b",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "mia-30357.jpg",
+        "evidenceSha256": "ba21ec90361000b6b187eedf02fc53f02aceac6b402542639faa8a0d6df36f15"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://cdn1.shenzhenmuseum.com/userfiles/uploadFile/20240428082527.pdf",
+        "title": "深圳博物馆、无锡博物院《文氏一门书画精品展》图录",
+        "locator": "展品“文徵明 绿荫草堂图轴”，题识及诗题“夏日睡起”",
+        "snapshot": "sources/full-20261112-r15-wen-wuxi-web-capture.json",
+        "evidenceSha256": "9604bbe7ec813b83b90903cfb434d5710a4ed62e12bfcfa5658f554416d4260a"
+      },
+      {
+        "url": "https://www.shidianguji.com/zh/book/SK3301/chapter/1kfy6m4agf56x",
+        "title": "《御选明诗》文徵明《夏日睡起》",
+        "locator": "文徵明七律，首句“綠陰如水夏堂涼”",
+        "snapshot": "sources/full-20261112-r15-wen-anthology-web-capture.json",
+        "evidenceSha256": "c496cad36bf26249d0062c73eb9c5416026e9dbbd2c30a2e0d25194e5fb8eb87"
+      }
+    ]
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "colbase-tnm-TB-1295": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1295?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1295.json",
+    "evidenceSha256": "33bc9a5416ad38812a2544041d55f843a1e2b2e0118f2ba4641b3849a9b6c8f1",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1295-1.jpg",
+        "evidenceSha256": "929aced4e51d395e222efa8d7644e715b5ef8574002a58c83a9b39920daba991"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://zh.wikisource.org/wiki/%E6%83%9C%E6%8A%B1%E8%BB%92%E8%A9%A9%E9%9B%86/09#雨夜",
+        "title": "姚鼐《惜抱軒詩集》卷九〈雨夜〉",
+        "locator": "卷九今体第15题，四句；该版作「燈」，录文按墨迹作「鐙」",
+        "snapshot": "sources/full-20261112-r16-yao-poem-web-capture.json",
+        "evidenceSha256": "3c50f1dcb1e23e63fb9b68388733727c2ea3bff3f9781b495366b2e29c2346ac"
+      },
+      {
+        "url": "https://www.shidianguji.com/zh/book/CADAL02120476/chapter/1lma6x7c63ax6",
+        "title": "识典古籍《惜抱軒詩集》卷九",
+        "locator": "〈題右軍帖〉之后、〈簡齋年七十五……〉之前的〈雨夜〉",
+        "snapshot": "sources/full-20261112-r16-yao-edition-web-capture.json",
+        "evidenceSha256": "6c6e2badfaa147c6938072921c5dd08551acdb22f2201aea9c7e68113d5e5563"
+      },
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=4222&lang=ja",
+        "title": "东京国立博物馆《中国书迹　法帖与帖学派》展品清单",
+        "locator": "姚鼐《草書七言絶句軸》，馆藏号 TB-1295",
+        "snapshot": "sources/full-20261112-r16-yao-exhibition-web-capture.json",
+        "evidenceSha256": "f6b770eff9c7f52f8eae4ba6ae64c9e4af839019b50f0da265c3f0a08bf62e46"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1450": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1450?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1450.json",
+    "evidenceSha256": "e91c21ff26bc9fd3ab9a13fb1b5d7b1b8c0ae81eabee659cff25d4a83ce9f69b",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1450-1.jpg",
+        "evidenceSha256": "305a3c2cc31d1ebcd7846372a4598589b62de71d2c09cc095d53ce2ba1569813"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://waseda.repo.nii.ac.jp/record/47397/files/ChugokuShibunRonso_35_03.pdf",
+        "title": "早稻田大学学术资料库《中国詩文論叢》第35集",
+        "locator": "印刷页57「草堂的見步方」②，首句「幽棲地僻經過少」",
+        "snapshot": "sources/full-20261112-r16-du-poem-web-capture.json",
+        "evidenceSha256": "71e1626be10735d5c35f7c97c846279d73d8d3dfa0ebc4d7d62dd83b7c928639"
+      },
+      {
+        "url": "https://ah.lib.nccu.edu.tw/bitstream/140.119/147191/1/100601.pdf",
+        "title": "政治大学学术典藏所收杜甫园林诗研究",
+        "locator": "印刷页56，〈窄室〉引文及注13",
+        "snapshot": "sources/full-20261112-r16-du-title-web-capture.json",
+        "evidenceSha256": "dbb2718e14c87edb127d31d4bb9bb33e1d8a5f404c8128262b9df050b4208387"
+      },
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=7128",
+        "title": "东京国立博物馆《中国书画精华——宋代书画及其影响》展品清单",
+        "locator": "陳淳《草書七言律詩軸》，馆藏号 TB-1450",
+        "snapshot": "sources/full-20261112-r16-chen-exhibition-web-capture.json",
+        "evidenceSha256": "1d623559acd4860f2c069fb906ce9ee02797756198a0da65357ab2f72435e1a4"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1341": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1341?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1341.json",
+    "evidenceSha256": "2af1f48cb9917e4058338661bf922c33a926274ca737c0eb1e80815b597faa10",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1341-0.jpg",
+        "evidenceSha256": "6c35e981c6b342edc4eb1585979a1896b14fa2c78277a1a41d214e398fc1ee6b"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://zh.wikisource.org/zh-hant/%E7%B2%BE%E8%8F%AF%E9%8C%84_(%E5%9B%9B%E5%BA%AB%E5%85%A8%E6%9B%B8%E6%9C%AC)/%E5%85%A8%E8%A6%BD#送米紫來令建昌",
+        "title": "王士禛《精華錄》四库全书本〈送米紫來令建昌〉",
+        "locator": "〈送楊鄂州職方奉使安南〉之后，〈晨起為錢宮聲題長橋煙雨圖〉之前",
+        "snapshot": "sources/full-20261112-r16-wang-poem-web-capture.json",
+        "evidenceSha256": "d0e63c7eb44d50ac3031e92d1649720d003108a8e6b6ecda1a978df21a50c189"
+      },
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=5876",
+        "title": "东京国立博物馆《中国书迹　扇面与对联》展品清单",
+        "locator": "王懿栄《行書七言律詩扇面》，馆藏号 TB-1341",
+        "snapshot": "sources/full-20261112-r16-wang-exhibition-web-capture.json",
+        "evidenceSha256": "c2a4c2087950bb78e4eea5b1df21e50ee693422e1af379ad5c76e6cb5c1feb5a"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1257": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1257?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1257.json",
+    "evidenceSha256": "c563f96d70cf48f44a259d18f02b988fac1193dd2ba83065bf02a319f6e59ed2",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1257-1.jpg",
+        "evidenceSha256": "ad869ad336b105dc1c5efbd2981c2bb0fcf232e1d2a56a4c9ecf6e203d097dae"
+      },
+      {
+        "asset": "colbase-tnm-TB-1257-2.jpg",
+        "evidenceSha256": "362e3053a961c99868955e755a885a2443003cb7a1fd466d5a3695abfdd238c1"
+      },
+      {
+        "asset": "colbase-tnm-TB-1257-3.jpg",
+        "evidenceSha256": "7b2399d3dc7bed1f2855fa8f553a4cadcc5f438d987380c33bee9c4a32fc1908"
+      },
+      {
+        "asset": "colbase-tnm-TB-1257-4.jpg",
+        "evidenceSha256": "0dc7d352aa5984ebd1e63ff91c94ef4fb4a9ae1fd0d79ca6689a87f9f371838e"
+      },
+      {
+        "asset": "colbase-tnm-TB-1257-5.jpg",
+        "evidenceSha256": "51b0d3cdb1375e43e623d4feecc1512231723c49bf80f648a6b4ef5c9c740595"
+      },
+      {
+        "asset": "colbase-tnm-TB-1257-6.jpg",
+        "evidenceSha256": "0d23a76763a31a75f978494b9b1a8dae5f6dbd03b6ab37c52cfc64e2953992ea"
+      },
+      {
+        "asset": "colbase-tnm-TB-1257-7.jpg",
+        "evidenceSha256": "eedc90352e4075ac70376717cc6e8d4167215ea9d534a3ed1991adc79be880a3"
+      },
+      {
+        "asset": "colbase-tnm-TB-1257-8.jpg",
+        "evidenceSha256": "6e9a8c7fe118da103f3cf207d6b540bcd1ff3ea00a850259779ddd5975fb9a0e"
+      },
+      {
+        "asset": "colbase-tnm-TB-1257-9.jpg",
+        "evidenceSha256": "f5d3f644f5bc92d1b471067b915c5719e93c0c0f64b750067ab53d6df329edf1"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://online.bunka.go.jp/heritages/detail/519383",
+        "title": "日本文化遗产在线 王铎《草書詩書巻》",
+        "locator": "东京国立博物馆 TB-1257，说明与馆藏分段原图",
+        "snapshot": "sources/full-20261112-r16-wangduo-1257-web-capture.json",
+        "evidenceSha256": "849b1c58903850692c26e66a0a3d79401e98794be2efa1788305ede2e04034a4"
+      },
+      {
+        "url": "https://ci.nii.ac.jp/ncid/BA7968049X?l=en",
+        "title": "CiNii Books 刘灿章主编《王鐸草書卷精典》",
+        "locator": "河南美术出版社，2004年7月，目录分列《行草書五律詩五首》和《贈張抱一草書詩卷》",
+        "snapshot": "sources/full-20261112-r16-wangduo-books-web-capture.json",
+        "evidenceSha256": "6fce6b8f581cff0c067f98c27df951d4b864beb083a92e40d8f30313afe02794"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1258": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1258?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1258.json",
+    "evidenceSha256": "fa3711eca6f370cf0c6516f4e9d2428a5f04112c3dcc6a49c1d014355f8b59a6",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1258-1.jpg",
+        "evidenceSha256": "7e555152d1b45abdad91b56a3e0b210d9fdf66c9a9a3860525b4e3e2c1bc2d51"
+      },
+      {
+        "asset": "colbase-tnm-TB-1258-2.jpg",
+        "evidenceSha256": "4420254b96a39be5fd5044aed5d6ce9c07f46573f948340769e8067beec75539"
+      },
+      {
+        "asset": "colbase-tnm-TB-1258-3.jpg",
+        "evidenceSha256": "b304b2217fdacfc511674f7be23ce601b5643353faa4f004a1347101710391bb"
+      },
+      {
+        "asset": "colbase-tnm-TB-1258-4.jpg",
+        "evidenceSha256": "900e28f96f02af6eab59ece811b5ee1214c9599b497f5801211c43788e1c33e4"
+      },
+      {
+        "asset": "colbase-tnm-TB-1258-5.jpg",
+        "evidenceSha256": "d0880897a534dfac1b41ae71caf4393b071bccd1bb38c0c11d37cbad6513c22c"
+      },
+      {
+        "asset": "colbase-tnm-TB-1258-6.jpg",
+        "evidenceSha256": "2ff9ec7844e1524fd5cd32269407b04f89e1193b4f5709f05b2d9bc9c55b51cf"
+      },
+      {
+        "asset": "colbase-tnm-TB-1258-7.jpg",
+        "evidenceSha256": "7aa8fc4b38e1de0b756895ec82bd8b3fd847dc74eab23cb82c13997c6fdb5f95"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=8240&lang=ja",
+        "title": "东京国立博物馆《明末清初的书画——乱世之梦》展品清单",
+        "locator": "王铎《草書詩書巻》，馆藏号 TB-1258，和 TB-1257 分别编号",
+        "snapshot": "sources/full-20261112-r16-wangduo-1258-web-capture.json",
+        "evidenceSha256": "0a4425a2e51a920c09a9e7c9cf5b1cc391991120471ba6f873a139b7813e1c73"
+      },
+      {
+        "url": "https://ci.nii.ac.jp/ncid/BA7968049X?l=en",
+        "title": "CiNii Books 刘灿章主编《王鐸草書卷精典》",
+        "locator": "河南美术出版社，2004年7月，目录分列《行草書五律詩五首》和《贈張抱一草書詩卷》",
+        "snapshot": "sources/full-20261112-r16-wangduo-books-web-capture.json",
+        "evidenceSha256": "6fce6b8f581cff0c067f98c27df951d4b864beb083a92e40d8f30313afe02794"
+      }
+    ]
+  },
+  "colbase-tnm-TB-1559": {
+    "url": "https://colbase.nich.go.jp/collection_items/tnm/TB-1559?locale=zh",
+    "snapshot": "sources/colbase-tnm-TB-1559.json",
+    "evidenceSha256": "f6a7cd10652fd72549da758857d10107356a8c281e920ca8119e9e3be45d38d4",
+    "method": "exact_museum_record_and_reviewed_object_evidence",
+    "imageEvidence": [
+      {
+        "asset": "colbase-tnm-TB-1559-7.jpg",
+        "evidenceSha256": "fd4efa1120cd088f48193077819bb6ba0c4426d2e52c45b18928f4c35fc936ff"
+      },
+      {
+        "asset": "colbase-tnm-TB-1559-8.jpg",
+        "evidenceSha256": "53b7652527d589ed323bc8aa583eb5f7e99877b8a5faa9387766a07779d063c3"
+      }
+    ],
+    "supportingReferences": [
+      {
+        "url": "https://www.tnm.jp/modules/r_exhibition/index.php?controller=item&id=702&lang=ja",
+        "title": "东京国立博物馆《定静堂中国书画收藏》展品清单",
+        "locator": "朱彝尊《行草書雑書巻》，馆藏号 TB-1559，林宗毅捐赠",
+        "snapshot": "sources/full-20261112-r16-zhu-1559-web-capture.json",
+        "evidenceSha256": "12402528af3019bc68b335b1ef07d07415cd07fff5edda1b97f4de0be1d87f2c"
+      },
+      {
+        "url": "https://www.taitogeibun.net/shodou/wp-content/uploads/sites/7/2026/01/hachidaisanjin-1.pdf",
+        "title": "台东区立书道博物馆与东京国立博物馆合作展展品表",
+        "locator": "第40项，朱彝尊《行草書雑書巻》，1703年，东京国立博物馆藏",
+        "snapshot": "sources/full-20261112-r16-zhu-exhibition-web-capture.json",
+        "evidenceSha256": "f613368ff5db1e6ae329dd3982c4b7cae1549462d4e7a42b23350fa92ff0a9ed"
+      }
+    ]
+  }
+}
