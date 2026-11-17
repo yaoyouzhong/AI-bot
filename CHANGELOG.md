@@ -10,18 +10,21 @@ This release ships bridge 0.6.24 for Windows x64 and Apple Silicon Mac, together
 
 ### Software, firmware, and artwork
 
-- Check for desktop, firmware, and screensaver artwork updates in Device Center → Bridge Settings → Software/Firmware. The artwork row counts as one update even when both collections have new versions. Manage Collections shows painting and calligraphy versions and reuses the last successful update check. A quit request during installation returns to the collection window.
-- Update notifications open the relevant item. If you cancel opening the downloaded Windows installer, the bridge confirms that it was downloaded but not installed. TAB5 connection, pairing, firmware upgrades, and speed tests now share Connection Settings.
+- Check for desktop, firmware, and screensaver artwork updates in Device Center → Bridge Settings → Software/Firmware. The available update count appears there and in the Mac menu bar. Click a notification to open the relevant item.
+- Use the device's Artwork Collections card to browse. To check versions, download, or import, go to Software/Firmware → Artwork Collections → Manage Collections. It uses the last successful check, and two new collections count as one update. Quitting during installation returns you to the collection window.
+- If you cancel opening the Windows installer, the bridge confirms that the installer was downloaded and installation has yet to start.
+
+### Device settings
+
+- TAB5's Connection and Upgrade card is now Connection Settings. Wi-Fi, USB pairing, firmware upgrades, and speed tests are still there.
+- For USB flashing on ESP8266, use Manage → Manual Flash. To clear saved Wi-Fi settings, use Connection Settings → Reset Network.
 
 ### Claude, Codex, and TAB5 connectivity
 
-- The companion can show Idle while an open Claude Code terminal is waiting for input. The bridge checks the session and available controls when resuming a Claude background session. The Codex overview and read status use recognized data fields, including newer versions that retain those fields.
-- When TAB5 requests authentication again, the bridge tries to recover on the same USB connection. Metrics and asset transfers yield to device controls while the control page is open. The bridge attempts to recover from Bluetooth status-acknowledgement and idle-poll timeouts separately to reduce interruptions to unrelated transfers.
-- When the Windows bridge runs with administrator privileges, Codex Direct opens the conversation on the interactive user's desktop and verifies that the intended conversation opened. One-click unlock improves focus handling on the secure desktop and adjusts the timing of the login helper.
-
-### Apple Silicon Mac
-
-- The menu bar opens the relevant update in Software/Firmware. Update and maintenance actions return you to an active artwork operation. Bluetooth status and mailbox timeouts can recover independently, and newer Claude clients and Codex snapshots are checked by their available capabilities and fields.
+- The companion can show Idle while a Claude Code terminal waits for input. The bridge checks which actions a background session supports before resuming it. The Codex overview and read status work with newer clients that keep the same data format.
+- TAB5 tries the existing USB connection first when it needs to authenticate again. Device controls take priority while the control page is open. If a Bluetooth request times out, the bridge tries to recover that request on its own.
+- When the Windows bridge runs as administrator, Codex Direct opens on the current desktop and verifies the selected conversation. One-click unlock also improves detection and timing of the PIN or password field.
+- On Mac, affected update and maintenance actions return you to the artwork window when a collection task is active. The bridge detects what newer Claude clients support.
 
 ## 0.6.23 - 2026-11-16
 

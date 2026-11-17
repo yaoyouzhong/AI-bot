@@ -210,7 +210,7 @@ def promote_product(entries, repository, *, execute=False, publish=False, commit
         args = dict(entry)
         if candidate['component'] == 'bridge': args['target_tag'] = candidate['tag']
         report['components'].append(pipeline.promote(**args, repository=repository, execute=True, publish=publish,
-                                                    run_closeout=False, scope_checked=True))
+                                                    run_closeout=False, scope_checked=True, product_title=product['title']))
     release = pipeline.remote_identity(repository, product['tag'])
     verify_product_release(release, product)
     if release['draft']:

@@ -79,7 +79,8 @@ class ProductPromotionTests(unittest.TestCase):
             reserve.assert_not_called()
 
     def test_single_and_combined_publish_exactly_one_product_page(self):
-        for components in ([self.tab5], [self.bridge], [self.bridge, self.tab5]):
+        esp8266 = component('esp8266', '0.5.8', 'esp8266-v0.5.8', 'e', ['AI-bot-esp8266-0.5.8-flash.zip'])
+        for components in ([self.tab5], [self.bridge], [esp8266], [self.bridge, self.tab5, esp8266]):
             with self.subTest(components=len(components)):
                 product = render_product('owner/repo', '0.6.21', components)
                 release = {'tag_name':product['tag'], 'name':product['title'], 'body':product['body'],
@@ -97,6 +98,7 @@ class ProductPromotionTests(unittest.TestCase):
                     self.assertTrue(result['published'])
                     self.assertEqual(result['productTag'], 'v0.6.21')
                     self.assertEqual(promote.call_count, len(components))
+                    self.assertTrue(all(call.kwargs['product_title'] == 'AI-bot v0.6.21' for call in promote.call_args_list))
                     reserve.assert_called_once(); cli.assert_called_once()
 
     def test_existing_matching_draft_is_reused(self):

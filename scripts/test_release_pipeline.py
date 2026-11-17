@@ -40,9 +40,31 @@ class CandidateTests(unittest.TestCase):
             pipeline.refresh_release_download_intro(custom, 'tab5', '0.2.320-ui', intro)
 
     def test_release_titles_identify_component_and_version(self):
-        self.assertEqual(pipeline.release_title({'component': 'bridge', 'version': '0.6.20'}), '桥接 0.6.20')
-        self.assertEqual(pipeline.release_title({'component': 'tab5', 'version': '0.2.320-ui'}), 'TAB5 0.2.320-ui')
-        self.assertEqual(pipeline.release_title({'component': 'esp8266', 'version': '0.5.8'}), 'ESP8266 0.5.8')
+        for component, version, old_title, label in (
+                ('bridge', '0.6.20', '桥接 0.6.20', '电脑程序'),
+                ('tab5', '0.2.320-ui', 'TAB5 0.2.320-ui', 'TAB5 固件'),
+                ('esp8266', '0.5.8', 'ESP8266 0.5.8', '小屏固件')):
+            with self.subTest(component=component):
+                candidate = {'component': component, 'version': version}
+                self.assertEqual(pipeline.release_title(candidate), old_title)
+                self.assertEqual(pipeline.release_title(candidate, 'AI-bot v0.6.25'), 'AI-bot v0.6.25 · ' + label)
+
+    def test_resuming_a_component_draft_uses_the_reserved_product_title(self):
+        folder, candidate = self.candidate()
+        acceptance = self.accepted(folder, candidate)
+        draft = {'name': '桥接 ' + candidate['version'], 'draft': True, 'assets': []}
+        published = {**draft, 'name': 'AI-bot v0.6.25 · 电脑程序', 'draft': False,
+                     'html_url': 'https://example.com/component'}
+        with patch.object(pipeline, 'stage', return_value={}), patch.object(pipeline, 'ensure_tag'), \
+                patch.object(pipeline, 'upload'), \
+                patch.object(pipeline, 'remote_identity', side_effect=[draft, draft, published]), \
+                patch.object(pipeline, 'run_cli', return_value=SimpleNamespace(returncode=0)) as cli:
+            result = pipeline.promote(folder, acceptance, 'owner/repo', execute=True, publish=True,
+                                      scope_checked=True, run_closeout=False, product_title='AI-bot v0.6.25')
+        self.assertTrue(result['published'])
+        cli.assert_called_with(
+            ['release', 'edit', candidate['tag'], '--repo', 'owner/repo', '--draft=false',
+             '--latest=false', '--title', published['name']], timeout=120)
 
     def test_frozen_legacy_bridge_candidate_keeps_acceptance_with_new_component_tag(self):
         folder, candidate = self.candidate()

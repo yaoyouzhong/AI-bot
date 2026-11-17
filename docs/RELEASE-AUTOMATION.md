@@ -76,7 +76,7 @@ python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json 
 
 也可显式调度 `promote.yml`，提供成功的 `candidate.yml` 批次 ID、组件、`record` 生成的完整验收 JSON 和 `publish`。它取回该批次的原候选并核对 SHA，不调用构建；默认 `publish=false`。输入只通过环境变量交给 JSON 解析器，不拼接进 shell。多组件发布在本地用 `promote-set` 可统一收尾；独立组件适合 Actions 晋级入口。TAB5 用本地晋级入口，不伪造原生 Actions 批次。
 
-每次交付统一使用一个面向用户的产品总页，标签为 `vX.Y.Z`，标题为 `AI-bot vX.Y.Z`。产品版本从 `v0.6.20` 序列继续递增，与组件版本独立。`promote` 和 `promote-set` 都会为本轮候选创建或复用同一个产品草稿，即使只交付一个组件。总页列出实际交付的组件版本、中英文说明、验收通过的安装或升级包及独立的 `SHA256SUMS.txt`。组件页也提供对应原包。脚本核对两类页面的服务端附件摘要，完成组件发布和下载元数据收尾后，再公开产品总页并设为 Latest。中断后重试复用原产品版本和草稿。
+每次交付统一使用一个面向用户的产品总页，标签为 `vX.Y.Z`，标题为 `AI-bot vX.Y.Z`。产品版本从 `v0.6.20` 序列继续递增，与组件版本独立。`promote` 和 `promote-set` 都会为本轮候选创建或复用同一个产品草稿，即使只交付一个组件。总页列出实际交付的组件版本、中英文说明、验收通过的安装或升级包及独立的 `SHA256SUMS.txt`。组件页标题使用同一产品版本并加组件名称，提供兼容更新器使用的原包。脚本核对两类页面的服务端附件摘要，完成组件发布和下载元数据收尾后，再公开产品总页并设为 Latest。中断后重试复用原产品版本和草稿。
 
 Every delivery uses one public entry point, the product release tagged `vX.Y.Z` and titled `AI-bot vX.Y.Z`. The product version advances from the `v0.6.20` series independently of component versions. Both `promote` and `promote-set` create or reuse one product draft for the selected candidates, including single-component deliveries. The product page lists the shipped component versions, bilingual notes, accepted install or upgrade packages, and its own `SHA256SUMS.txt`. Component pages also carry the corresponding accepted packages. The script checks server-side asset digests on both kinds of pages, completes component publication and download metadata closeout, then publishes the product page as Latest. Retries reuse the reserved product version and draft.
 
