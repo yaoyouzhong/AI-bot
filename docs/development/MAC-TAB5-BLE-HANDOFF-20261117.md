@@ -1,6 +1,6 @@
 # TAB5 传输修复与 macOS 交接
 
-2026-11-17。来源为 Windows 桥接和 TAB5，接收端为 macOS。当前工作在 `codex/tab5-calendar-and-claude-idle-20261116`，本文件与 BLE 修复同一次本地提交。Windows 候选已在本机驻留，TAB5 已安装 322-R6。macOS 实现、构建与真机验收待后续安排。当前授权范围为本地提交和交接。
+2026-11-17。来源为 Windows 桥接和 TAB5，接收端为 macOS。交接覆盖开发分支 `codex/tab5-calendar-and-claude-idle-20261116` 上的 `759a5f7`、`a2e38f3` 及本次文档补充。Windows 候选已在本机驻留，TAB5 已安装 322-R6。授权范围为本地提交和推送该开发分支。
 
 ## 故障与已实施的修复
 
@@ -19,12 +19,38 @@
 | P1 | 前一阶段的状态发布与图库原链路重试。状态生成移出 Windows 传输路径，R4/R5 固件已补同链路重试和 TF/HTTP 诊断。 | `MacTab5Service.swift` 的 `publish`，以及现有 USB、Wi-Fi、BLE 状态读取路径。设备侧图库行为由共用固件提供。 | 待验证。先确认 USB、Wi-Fi 和 BLE 读取已生成的快照，慢采集或资源发送不能阻塞邮箱。连同设备验收确认 HTTP 响应头前的无响应仍走原链路，认证及内容错误仍直接返回。Windows WinRT 的计时和取消参数仅供对照。 |
 | 范围 | 322-R6 萌宠状态单行。离屏渲染通过，实际文案宽 147 px，分配宽度 176 px，真机精确镜像启动核验通过。 | 共用 TAB5 固件。 | 已有无需修改。Mac 连接 R6 时验证状态照常更新即可。 |
 
+## `759a5f7` 的功能和修复
+
+### TAB5 日历入口
+
+- **Mac 是否需要改**。已有无需修改。应用页第三行新增「日历」卡片，整卡可点击，返回时回到应用页。总览日期保持原有入口。改动在共用固件，日期、节日和生日的数据接口沿用现有协议。
+- **已有验证**。322-R1 通过 ESP-IDF 构建、应用卡片实际触控目标的离屏回归，以及日历节日、生日和返回路径的离屏检查。物理 TAB5 经 Wi-Fi OTA 安装 R1，启动镜像和展示设置已核对。九宫格点击回归由离屏预览完成。全量预览遇到的总览节气断言也在 321-R5 原预览器复现。[R1 构建和验证](TAB5-322-R1-APPS-CALENDAR-20261116.md)
+- **待验收**。Mac 桥接连接 322-R6 后，从「应用 → 日历」打开并返回应用页，再从总览日期打开。用已配置的节日、生日数据核对内容与返回路径。
+
+### Claude 空闲识别
+
+- **Mac 是否需要改**。Mac 源码已随 `759a5f7` 更新，先做原生验证。`MacClaudeNativeClient.allLiveTerminalsIdle` 核对同用户 CLI 会话、进程身份、启动时间和可执行文件，并要求所有已验证的活终端都报告 `idle`。`ActivityMetadata.swift` 在历史日志兜底中保留空闲判定，精确任务状态和待输入信号仍优先。
+- **已有验证**。Windows Release 构建、运行真实 Claude 终端时的 `--status-once`、活动与工作区回归已通过。Mac 已增加 `ActivitySamplingTests.testVerifiedIdleTerminalSurvivesAgedLogsUntilNextSample`，覆盖日志超过 15 分钟仍显示 `idle`，下一次采样失去活终端证据后恢复 `offline`。该用例待 macOS 运行。[两端实现与 Windows 验证](TAB5-322-R1-APPS-CALENDAR-20261116.md#windows-与-mac-桥接)
+- **待验收**。在 macOS 跑 `swift test` 和 Release 构建，再用真实 Claude Code CLI 验证空闲、运行、等待输入、关闭的状态变化。加入多个终端的空闲与运行混合场景，确认工作或待输入不会被空闲提示覆盖。若原生验证发现差异，再修改对应识别逻辑。
+
+### Windows USB 解锁和登录准备
+
+- **Mac 是否需要改**。Windows 登录助手、系统任务优先级和 LogonUI 安全桌面焦点检查均为平台专用，Mac 无需移植。322-R2 中控制 RPC 优先与解锁后刷新锁态属于共用固件。Mac 保持 `MacHostUnlock.swift` 的原生授权路径，USB/BLE 使用本机 `host-unlock`，Wi-Fi 使用 `wifi-unlock`。普通 `lock-screen` 查询在 Mac 上返回未知锁态，Windows HID 凭据发放与确认逻辑不适用于该路径。
+- **已有验证**。Windows 登录助手及 PIN 回归通过。322-R2 真机用 Windows WTS 与已认证 USB 回执交叉核对，锁屏和首次解锁均为 5/5，面板打开到确认的中位数为 5.120 秒，仍高于 3–4 秒的目标。该组覆盖 Windows USB 和短间隔锁屏，Mac 没有对应真机结果。[Windows R2 真机记录](TAB5-322-R2-USB-UNLOCK-20261116.md#usb-真机复测)
+- **待验收**。用 Mac 原有授权与已配对的 322-R6，确认控制页锁屏、已启用的 Mac 解锁路径、取消及断线恢复。USB/BLE 本机解锁和 Wi-Fi 解锁分别取证，记录首次成功率与耗时，核对真实系统解锁事件和 TAB5 回执。3–4 秒仍是 Windows USB 的待验收目标。
+
+### Codex 会话切换
+
+- **Mac 是否需要改**。Windows 修复在提权桥接里经当前交互桌面的 Explorer 打开 `codex://threads/{GUID}`，Mac 无需移植。`MacTab5Desktop.swift` 的 `desktop/open-recent` 已走 `NSWorkspace` 与辅助功能校验，先复验现有实现。对标题无法唯一定位的会话，已有 open-only 路径可确认前台应用，精确会话定位和后续草稿操作仍需目标证据。
+- **已有验证**。Windows Release、直达、协议和状态读取回归通过。Windows 实机曾复现只将 Codex 置前台、仍停在原会话。正式运行的修复候选通过 Wi-Fi 接收与「定位」按钮相同的已认证请求，在 3.085 秒返回 `200`，并核对前台与目标会话 ID。TAB5 物理按钮及面板变化尚未验收。Mac 有 `MacCodexDirectValidation.swift` 和 `MacCodexNavigationTitleTests` 相关覆盖，本轮未在 macOS 执行。[Windows 会话定位记录](TAB5-322-R1-APPS-CALENDAR-20261116.md#codex-直达会话切换)
+- **待验收**。Mac 授予现有辅助功能权限后，让 Codex 先在前台停在另一条会话，再从 TAB5 物理按钮定位。用前台目标身份和面板回执确认实际切换，再覆盖后台启动、同名会话与权限缺失。定位失败时核对设备选择和草稿，只有确认复现 Mac 侧缺陷后才调整原生实现。
+
 ## 构建与验收记录
 
-- Windows 本机驻留 `AIBotBridge.dll` 的 SHA-256 为 `75ff24354a9699ca51149ca24a02f9b4206055e0d660996f11c764689ade1eff`。真机包来自当时包含同期本地改动的工作区。此提交交付对应的 BLE 修复，候选包的摘要和真机结果只绑定上述 DLL。
+- Windows 本机驻留 `AIBotBridge.dll` 的 SHA-256 为 `75ff24354a9699ca51149ca24a02f9b4206055e0d660996f11c764689ade1eff`。真机包来自当时包含同期本地改动的工作区。`a2e38f3` 交付对应的 BLE 修复，候选包的摘要和真机结果只绑定上述 DLL。
 - 前一阶段的 Windows 状态发布和 R3–R5 开发资料仍在独立的本地改动中。Mac 可从本提交开始核对 BLE 调度，按需向 Windows 侧取用那些资料。
 - Windows Release、`--status-once`、`--self-test-tab5-ble`、`--self-test-tab5-ble-voice`、`--self-test-tab5-host-binding` 和带独立输出目录的 `--self-test-tab5-integrated-transfer` 通过。自测覆盖 MTU 23/247/517、片序、ACK、窗口重放、超时与取消。恢复计数和空闲读超时通过定向注入验证。
-- 从本提交的暂存源码独立重建 Windows Release，编译 0 警告、0 错误，上述五项检查再次通过。日志位于本机 `artifacts/ble-rpc-stall-20261117/commit-verification-checks/`。
+- 从 `a2e38f3` 的暂存源码独立重建 Windows Release，编译 0 警告、0 错误，上述五项检查再次通过。日志位于本机 `artifacts/ble-rpc-stall-20261117/commit-verification-checks/`。
 - Windows + 无注入 322-R5 真机完成三轮，每轮上传和下载各 3 次 256 KiB。18/18 通过字节、摘要和偏移校验，平均上传 11.0 KiB/s、下载 8.0 KiB/s。语音邮箱成功读 528 次，最长 3.375 秒，最终这组三轮未自然触发空闲轮询超时。尚未在真机走完整录音。
 - 322-R6 OTA 后由 `ota_1` 启动并确认为 `VALID`，USB、Wi-Fi 和 BLE 连接恢复。配对和展示设置前后相同。BIN SHA-256 为 `2eb5a9172512963b0ac1fffc1ebabc3af90edac9382181af0f1e97daec5d0a35`，ELF SHA-256 为 `a353981dbe063adff0de128fe41ccf8bd8473df3e97ddd830496b0b1bd6356b0`。
 - R6 单行布局和实际升级说明分别通过离屏渲染。全量 UI 预览在已有的日历节气断言处结束。
