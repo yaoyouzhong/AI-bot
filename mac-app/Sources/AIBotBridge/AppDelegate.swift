@@ -302,6 +302,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if updatesWindow?.showActiveGalleryOperation() == true { return .terminateCancel }
         if updatesWindow?.busy == true { updatesWindow?.open(); return .terminateCancel }
         if flasher?.busy == true { flasher?.open(); return .terminateCancel }
         if tab5Installer?.busy == true { tab5Installer?.open(); return .terminateCancel }
@@ -358,10 +359,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         menu.insertItem(preview, at: index)
     }
 
+    private var tab5ToolsBusy: Bool {
+        tab5Window?.busy == true || tab5Window?.toolsBusy == true || tab5?.configurationBusy == true || updatesWindow?.galleryBusy == true
+    }
+
     @objc private func openFlasher() {
         if flasher == nil {
             flasher = MacFirmwareFlashWindow(bridgePort: serial?.portName, begin: { [weak self] in
-                guard let self, !self.deviceOperationBusy, self.tab5Window?.busy != true, self.tab5Window?.toolsBusy != true, self.tab5?.configurationBusy != true else { return false }
+                guard let self, !self.deviceOperationBusy, !self.tab5ToolsBusy else { return false }
                 self.deviceOperationBusy = true
                 return true
             }, suspend: { [weak self] in
@@ -386,7 +391,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     private func openTab5Installer() {
         if tab5Installer == nil {
             tab5Installer = MacTab5InstallWindow(begin: { [weak self] in
-                guard let self, !self.deviceOperationBusy, self.tab5Window?.busy != true, self.tab5Window?.toolsBusy != true, self.tab5?.configurationBusy != true, self.tab5?.setMaintenance(true) == true else { return false }
+                guard let self, !self.deviceOperationBusy, !self.tab5ToolsBusy, self.tab5?.setMaintenance(true) == true else { return false }
                 self.deviceOperationBusy = true; return true
             }, suspend: { [weak self] in
                 self?.serial?.stopAndWait(); self?.tab5USB?.stopAndWait(); self?.tab5BLE?.stopAndWait()
@@ -848,7 +853,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
     @objc private func showStatus() {
         bridgeStatusWindow = MacBridgeStatusWindow(capture:{ [weak self] in self?.bridgeStatus() ?? .init(devices:[],data:[],listener:"服务已停止") },reconnect:{ [weak self] kind,done in
-            guard let self, !self.deviceOperationBusy, self.flasher?.busy != true, self.tab5Installer?.busy != true, self.tab5Window?.busy != true, self.tab5Window?.toolsBusy != true, self.tab5?.configurationBusy != true else { done(.failure(MacTab5Error.busy)); return }
+            guard let self, !self.deviceOperationBusy, self.flasher?.busy != true, self.tab5Installer?.busy != true, !self.tab5ToolsBusy else { done(.failure(MacTab5Error.busy)); return }
             self.deviceOperationBusy = true
             DispatchQueue.global(qos:.userInitiated).async {
                 if kind == "tab5" { self.tab5USB?.stopAndWait() } else { self.serial?.stopAndWait() }

@@ -75,6 +75,13 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
     private var checked = false, focusAvailableAfterCheck = false
     private var galleryReleases: [String: MacGalleryRelease] = [:]
     private var galleryManager: MacGalleryManager?, galleryBrowser: MacGalleryBrowser?
+    var galleryBusy: Bool { galleryManager?.busy == true }
+
+    func showActiveGalleryOperation() -> Bool {
+        guard galleryBusy else { return false }
+        galleryManager?.open()
+        return true
+    }
 
     private var availableComponents: [String] {
         components.filter { key in
@@ -123,13 +130,14 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
         displayedComponents.indices.contains(table.selectedRow) ? displayedComponents[table.selectedRow] : nil
     }
     private let session: URLSession
+    private let catalogPage: ((Int) async throws -> Data)?
     private(set) var busy = false
     static let automaticKey = "bridge_automatic_updates"
     private let automatic = NSButton(checkboxWithTitle:"自动检查并提醒",target:nil,action:nil), progress = NSProgressIndicator()
     private let downloader = MacGalleryDownloader()
     private var automaticTimer:Timer?, downloadButton:MacSettingsButton!, installButton:MacSettingsButton!, cancelButton:MacSettingsButton!
-    init(tab5: MacTab5Service?, upgradeTools: @escaping () -> Void, espTools: @escaping () -> Void) {
-        self.tab5 = tab5; self.upgradeTools = upgradeTools; self.espTools = espTools
+    init(tab5: MacTab5Service?, upgradeTools: @escaping () -> Void, espTools: @escaping () -> Void, catalogPage: ((Int) async throws -> Data)? = nil) {
+        self.tab5 = tab5; self.upgradeTools = upgradeTools; self.espTools = espTools; self.catalogPage = catalogPage
         let configuration = URLSessionConfiguration.ephemeral; configuration.timeoutIntervalForRequest = 30; configuration.timeoutIntervalForResource = 600
         session = URLSession(configuration:configuration,delegate:MacUpdateRedirects(),delegateQueue:nil)
         super.init(window:MacBridgeSettingsStyle.window("软件固件",width:800,height:620)); window?.delegate = self
@@ -222,7 +230,9 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
             var result: [String:MacComponentRelease] = [:], complete = false
             var galleryResult: [String:MacGalleryRelease] = [:]
             for page in 1...10 {
-                let data = try await self.bytes(URL(string:"https://api.github.com/repos/yaoyouzhong/AI-bot/releases?per_page=100&page=\(page)")!,maximum:2*1024*1024)
+                let data: Data
+                if let catalogPage = self.catalogPage { data = try await catalogPage(page) }
+                else { data = try await self.bytes(URL(string:"https://api.github.com/repos/yaoyouzhong/AI-bot/releases?per_page=100&page=\(page)")!,maximum:2*1024*1024) }
                 let (releases,count) = try MacReleaseCatalog.parse(data)
                 MacGalleryRelease.merge(try MacGalleryRelease.parse(data).0, into: &galleryResult)
                 for r in releases {
@@ -240,7 +250,7 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
                 self.refreshRows(select: self.focusAvailableAfterCheck ? self.firstAvailableItem : nil)
                 self.focusAvailableAfterCheck = false
                 self.status.stringValue = "已检查；只显示实际发布的平台附件。"
-                if UserDefaults.standard.bool(forKey: Self.automaticKey), Bundle.main.bundleIdentifier != nil {
+                if self.catalogPage == nil, UserDefaults.standard.bool(forKey: Self.automaticKey), Bundle.main.bundleIdentifier != nil {
                     for component in available {
                         guard let release = result[component] else { continue }
                         let key = "update_notified_" + component

@@ -82,6 +82,18 @@ enum MacTab5UIValidation {
         guard service.firmwareControl.handle(rejection, device:"001122334455", transport:"USB", binary:false, bulk:false).status == 200 else { throw MacTab5Error.invalidPacket }
         service.firmwareControl.observeVersion("0.2.318-ui")
         guard service.firmwareControl.summary.contains("草稿") else { throw MacTab5Error.invalidPacket }
+        _ = try MacGalleryConnectionValidation.fixture(root)
+        func release(_ tag: String, _ archives: [String]) -> [String: Any] {
+            let assets = archives.flatMap { [$0, $0 + ".sha256"] }.map { name in
+                ["name": name, "size": 100, "browser_download_url": "https://github.com/yaoyouzhong/AI-bot/releases/download/\(tag)/\(name)"] as [String: Any]
+            }
+            return ["draft": false, "prerelease": false, "tag_name": tag, "assets": assets]
+        }
+        let catalog = try JSONSerialization.data(withJSONObject: [
+            release("gallery-test", ["AI-bot-gallery-painting-standard-2026.11.17.zip", "AI-bot-gallery-calligraphy-standard-2026.11.17.zip"]),
+            release("esp8266-v9.0.0", ["AI-bot-esp8266-9.0.0-flash.zip"])
+        ])
+        let updates = MacUpdateWindow(tab5: service, upgradeTools: {}, espTools: {}, catalogPage: { _ in catalog })
         let windows: [(String, NSWindowController)] = [
             ("device-data",deviceForm),
             ("esp-display",MacESPDisplayWindow(policy:.init(selectedMode:"auto",cycleEnabled:true,intervalSeconds:15,pages:["codex","domestic_kimi","weather"]),apply:{ _ in },brightness:{ _ in true },read:{ $0(.success(70)) })),
@@ -91,7 +103,7 @@ enum MacTab5UIValidation {
             ("computer-control", MacComputerWindow(service: service, music: {})), ("unlock-settings",MacUnlockSettingsWindow(service:service)), ("unlock-test",MacUnlockConnectionWindow()), ("voice", MacVoiceSettingsWindow(service: service, defaults: defaults, inspect: { voiceFixture() })),
             ("stocks", MacStocksWindow(didSave: {})), ("quota-history", MacQuotaHistoryWindow(store: MacDataStore(defaults: defaults, quotaHistory: quotaHistory))),
             ("gallery-browser", MacGalleryBrowser(gallery: service.gallery)), ("configuration", MacConfigurationWindow(didRestore: {})),
-            ("notifications", MacNotificationWindow(service: MacNotifications(directory: root))), ("runtime", MacRuntimeWindow(file:.init("runtime-health.json",directory:root,initial:{ .init() },validate:{ try $0.validate() }),capture:{ "CPU：采样正常\n内存：采样正常\nVPN / PAC：等待网络采样" },reload:{},deviceCapture:{ "本段收音设备：TAB5 内置麦克风 · 豆包输入法\n本机分段计时：本地启动 390 ms · 收音就绪应答 610 ms · 首段结果（含说话等待） 3280 ms · 停止至最终识别 780 ms · 最终结果至响应生成 4 ms\nTAB5 音频：已接收 25 块 · 5.0 秒 · 最近电平 36% · 峰值 82%\n最近请求：USB · 查询 · 200\n\nBLE：当前没有语音请求" })), ("updates", MacUpdateWindow(tab5: service, upgradeTools: {}, espTools: {})), ("features", MacTab5FeaturesWindow(service: service)),
+            ("notifications", MacNotificationWindow(service: MacNotifications(directory: root))), ("runtime", MacRuntimeWindow(file:.init("runtime-health.json",directory:root,initial:{ .init() },validate:{ try $0.validate() }),capture:{ "CPU：采样正常\n内存：采样正常\nVPN / PAC：等待网络采样" },reload:{},deviceCapture:{ "本段收音设备：TAB5 内置麦克风 · 豆包输入法\n本机分段计时：本地启动 390 ms · 收音就绪应答 610 ms · 首段结果（含说话等待） 3280 ms · 停止至最终识别 780 ms · 最终结果至响应生成 4 ms\nTAB5 音频：已接收 25 块 · 5.0 秒 · 最近电平 36% · 峰值 82%\n最近请求：USB · 查询 · 200\n\nBLE：当前没有语音请求" })), ("updates", updates), ("features", MacTab5FeaturesWindow(service: service)),
             ("features-codex-permission", MacTab5FeaturesWindow(service: service, focusSection: .codex, accessibilityTrusted: { false })),
             ("features-codex-authorized", MacTab5FeaturesWindow(service: service, focusSection: .codex, accessibilityTrusted: { true })),
             ("gallery-manager", MacGalleryManager(gallery:service.gallery,browse:{})), ("first-install", MacTab5InstallWindow()),
@@ -104,15 +116,33 @@ enum MacTab5UIValidation {
             try render(content, to: output.appendingPathComponent(name + ".png"))
             if name != "gallery-browser" { try validateSettings(window, name: name, output: output) }
             if name == "updates" {
+                let controls = descendants(content).compactMap({ $0 as? NSButton })
+                updates.open(component: "esp8266")
+                try pump { !updates.busy }
                 guard let table = descendants(content).compactMap({ $0 as? MacSettingsTable }).first,
-                      let row = table.rows.firstIndex(where: { $0.first == "屏保图库" }) else {
-                    throw MacTab5LocalError.invalid("Screen saver collections are missing from update overview")
+                      table.rows.count == 4,
+                      table.rows.first == ["屏保图库", "已安装 2 套", "2 套新版", "有更新"], updates.availableUpdateCount == 1,
+                      table.rows.indices.contains(table.selectedRow), table.rows[table.selectedRow] == ["ESP8266 小屏", "连接设备后查看", "9.0.0", "—"] else {
+                    throw MacTab5LocalError.invalid("Two newer galleries must count once and explicit selection must survive the first check")
                 }
-                table.select(row)
+                updates.open(component: "tab5")
+                guard table.rows.indices.contains(table.selectedRow), table.rows[table.selectedRow].first == "M5Stack TAB5" else {
+                    throw MacTab5LocalError.invalid("An open update window did not select the requested component")
+                }
+                updates.open()
+                guard table.selectedRow == 0 else { throw MacTab5LocalError.invalid("The generic entry did not select the available gallery update") }
                 content.layoutSubtreeIfNeeded()
-                guard descendants(content).compactMap({ $0 as? NSButton }).contains(where: { $0.title == "管理图库…" && !$0.isHidden })
-                else { throw MacTab5LocalError.invalid("Gallery row lacks its management action") }
+                guard let manage = controls.first(where: { $0.title == "管理图库…" && !$0.isHidden && $0.isEnabled }),
+                      descendants(content).compactMap({ $0 as? NSTextField }).contains(where: {
+                        $0.stringValue.contains("每日名画：2026.10.22 → 2026.11.17") && $0.stringValue.contains("每日书法：2026.10.22 → 2026.11.17")
+                      }) else { throw MacTab5LocalError.invalid("Gallery update row lacks its versions or management action") }
                 try render(content, to: output.appendingPathComponent("updates-gallery.png"))
+                manage.performClick(nil)
+                guard let manager = NSApp.windows.first(where: { $0.isVisible && $0.title == "AI-bot · 屏保图库" }),
+                      let managerContent = manager.contentView,
+                      descendants(managerContent).compactMap({ $0 as? NSButton }).contains(where: { $0.title == "安装图库包…" })
+                else { throw MacTab5LocalError.invalid("Gallery update did not open the manager") }
+                try render(managerContent, to: output.appendingPathComponent("updates-gallery-manager.png")); manager.close()
             }
             if name == "quota-history" {
                 guard let range = descendants(content).compactMap({ $0 as? NSPopUpButton })

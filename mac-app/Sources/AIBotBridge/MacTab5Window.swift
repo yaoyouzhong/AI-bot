@@ -313,7 +313,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     }
     func windowDidResize(_ notification: Notification) { refreshStatus() }
     @objc private func openGuide() { if let url = Bundle.main.url(forResource: "MAC-TAB5-CANDIDATE", withExtension: "md") { _ = NSWorkspace.shared.open(url) } }
-    var toolsBusy: Bool { tools?.busy == true || galleryManager?.busy == true }
+    var toolsBusy: Bool { tools?.busy == true }
     @objc private func openFeatures() {
         computerWindow = MacComputerWindow(service: service, music: { [weak self] in self?.openFeature(.music) }); computerWindow?.open()
     }
