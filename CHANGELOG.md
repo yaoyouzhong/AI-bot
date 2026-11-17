@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 This release updates the Windows desktop app.
 
 - **TAB5 status updates.** When reading tasks or music takes longer, the app continues sending the latest valid status. Music progress can refresh independently.
-- **Weather location.** If automatic location is enabled and permission is unavailable when the updated app first starts, it opens Weather and Location settings. You can restore access or choose a location manually.
+- **Weather location.** When automatic location needs permission, the app requests it directly through Windows and refreshes the weather after access is granted.
 - **Quota account sign-in.** Quota sign-in pages block access to the camera and microphone, reducing permission prompts unrelated to sign-in.
 
 ## 0.6.24 - 2026-11-17

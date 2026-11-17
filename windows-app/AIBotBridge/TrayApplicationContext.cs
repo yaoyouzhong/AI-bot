@@ -26,6 +26,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private string? _updateBalloonDevice;
     private bool _healthBalloon;
     private bool _weatherBalloon,_weatherLocationNoticeShown;
+    private bool _requestingWeatherLocation;
+    private const string WeatherLocationPromptedVersion="weather_location_prompted_version";
     private string _healthSession="";
     private long _healthSequence;
     private readonly BridgeNotifications _notifications=new();
@@ -116,7 +118,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var esp=_devices.Snapshot.Devices.SingleOrDefault(d=>d.Kind==HardwareKind.Esp8266&&d.Enabled);
             if(esp is null)ShowDevices();else if(_mirror?.Visible==true)_mirror.Hide();else HandleDeviceAction(esp.Id,"mirror");
         };
-        _icon.BalloonTipClicked+=(_,_)=>{if(_weatherBalloon){_weatherBalloon=false;ShowWeatherSettings();}else if(_healthBalloon){_healthBalloon=false;HandleMenuAction("runtime-health");}else if(_updateBalloon){_updateBalloon=false;ShowUpdates(_updateBalloonDevice);}};
+        _icon.BalloonTipClicked+=async(_,_)=>{if(_weatherBalloon){_weatherBalloon=false;await RequestWeatherLocationAccessAsync();}else if(_healthBalloon){_healthBalloon=false;HandleMenuAction("runtime-health");}else if(_updateBalloon){_updateBalloon=false;ShowUpdates(_updateBalloonDevice);}};
         _updates.Changed+=RefreshUpdateEntry;
         _icon.BalloonTipShown+=(_,_)=>_notifications.BalloonShown();
 
@@ -661,16 +663,35 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowWeatherLocationNotice()
     {
-        const string promptedVersion="weather_location_prompted_version";
         var settings=BridgeSettings.Load();
-        if(!AppPaths.IsPublicSelfTest&&settings.Get(promptedVersion)!=Application.ProductVersion) {
-            // Windows requires a foreground request. Bring up the existing
-            // location controls once per build when background access fails.
-            ShowWeatherSettings();
-            settings.SaveEditable(new Dictionary<string,string>{{promptedVersion,Application.ProductVersion}},out _);
-            return;
-        }
+        if(settings.Get(WeatherLocationPromptedVersion)!=Application.ProductVersion)
+            _ = RequestWeatherLocationAccessAsync();
+        else
+            ShowWeatherLocationReminder();
+    }
+
+    private void ShowWeatherLocationReminder() =>
         Notify("attention","weather-location","天气位置未更新","定位授权不可用，正在使用上次位置。点击重新授权定位。",ToolTipIcon.Warning);
+
+    private async Task RequestWeatherLocationAccessAsync()
+    {
+        if(_requestingWeatherLocation||AppPaths.IsPublicSelfTest||!MigratedWeather.WeatherMonitor.AutoLocation)return;
+        _requestingWeatherLocation=true;
+        try {
+            var access=await MigratedWeather.WindowsLocation.RequestFromTray();
+            Tab5LocalDiagnostics.Write("WEATHER_LOCATION_CONSENT "+(access?.ToString()??"NoForeground"));
+            if(access is Windows.Devices.Geolocation.GeolocationAccessStatus.Allowed or Windows.Devices.Geolocation.GeolocationAccessStatus.Denied)
+                BridgeSettings.Load().SaveEditable(new Dictionary<string,string>{{WeatherLocationPromptedVersion,Application.ProductVersion}},out _);
+            if(access==Windows.Devices.Geolocation.GeolocationAccessStatus.Allowed) {
+                await _runtime.Weather.Refresh();
+                return;
+            }
+        }catch(Exception ex) when(ex is UnauthorizedAccessException or InvalidOperationException or System.Runtime.InteropServices.COMException) {
+            Tab5LocalDiagnostics.Write("WEATHER_LOCATION_CONSENT_FAILED "+ex.GetType().Name);
+        }finally {
+            _requestingWeatherLocation=false;
+        }
+        if(!_exiting)ShowWeatherLocationReminder();
     }
 
     private void ImportPet(string? owner = null)

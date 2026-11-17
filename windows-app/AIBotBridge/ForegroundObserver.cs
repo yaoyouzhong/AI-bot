@@ -7,6 +7,11 @@ internal static class ForegroundObserver
 {
     [DllImport("user32.dll")] private static extern nint GetForegroundWindow();
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(nint window,out uint id);
+    internal static bool CurrentProcessHasFocus()
+    {
+        GetWindowThreadProcessId(GetForegroundWindow(),out var id);
+        return id==Environment.ProcessId;
+    }
     internal static bool CodexVisible()
     {
         try
