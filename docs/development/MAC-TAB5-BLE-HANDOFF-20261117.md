@@ -39,6 +39,11 @@
 - **已有验证**。Windows 登录助手及 PIN 回归通过。322-R2 真机用 Windows WTS 与已认证 USB 回执交叉核对，锁屏和首次解锁均为 5/5，面板打开到确认的中位数为 5.120 秒，仍高于 3–4 秒的目标。该组覆盖 Windows USB 和短间隔锁屏，Mac 没有对应真机结果。[Windows R2 真机记录](TAB5-322-R2-USB-UNLOCK-20261116.md#usb-真机复测)
 - **待验收**。用 Mac 原有授权与已配对的 322-R6，确认控制页锁屏、已启用的 Mac 解锁路径、取消及断线恢复。USB/BLE 本机解锁和 Wi-Fi 解锁分别取证，记录首次成功率与耗时，核对真实系统解锁事件和 TAB5 回执。3–4 秒仍是 Windows USB 的待验收目标。
 
+### Codex 萌宠实时状态
+
+- Windows 的 `759a5f7` 已把活动观测独立为 `ReadActivityAsync`，该入口按快照字段判断，原完整读取、送达核验和控制路径仍要求快照版本 11。Mac 初始也要求版本 11。
+- 接收端在真实桌面读到版本 13，因旧判断导致总览显示「状态未知」。后续两端的快照兼容改动和验证见[对齐记录](MAC-TAB5-BLE-ALIGNMENT-20261117.md#补齐遗漏codex-桌面快照)。
+
 ### Codex 会话切换
 
 - **Mac 是否需要改**。Windows 修复在提权桥接里经当前交互桌面的 Explorer 打开 `codex://threads/{GUID}`，Mac 无需移植。`MacTab5Desktop.swift` 的 `desktop/open-recent` 已走 `NSWorkspace` 与辅助功能校验，先复验现有实现。对标题无法唯一定位的会话，已有 open-only 路径可确认前台应用，精确会话定位和后续草稿操作仍需目标证据。

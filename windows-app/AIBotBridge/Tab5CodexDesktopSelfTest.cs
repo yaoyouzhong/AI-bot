@@ -9,7 +9,7 @@ internal static class Tab5CodexDesktopSelfTest
     internal static async Task RunAsync() {
         using var stop=new CancellationTokenSource(TimeSpan.FromSeconds(20));
         string pipe="tab5-ipc-test-"+Guid.NewGuid().ToString("N"),task=Guid.NewGuid().ToString(),turn=Guid.NewGuid().ToString(),owner=Guid.NewGuid().ToString();
-        int starts=0,steers=0,interrupts=0;bool completed=false,drop=false,busy=false,unavailableActivity=false;int snapshotVersion=11;string routerError="",lastMessage="";
+        int starts=0,steers=0,interrupts=0;bool completed=false,drop=false,busy=false,unavailableActivity=false,malformedRequests=false;int snapshotVersion=11;string routerError="",lastMessage="";
         var dispatched=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var accept=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var clients=new List<Task>();string? expectedImage=null;
@@ -42,7 +42,8 @@ internal static class Tab5CodexDesktopSelfTest
                         object live=new {turnId=turn,turnStartedAtMs=123000,status=completed?"completed":starts>0?"inProgress":"completed",items=new[]{item},@params=new{clientUserMessageId=lastMessage}};
                         await Write(s,new{type="broadcast",method="thread-stream-state-changed",version=snapshotVersion,sourceClientId=owner,
                             @params=new{conversationId=task,hostId="local",change=new{type="snapshot",conversationState=new {
-                                threadRuntimeStatus=unavailableActivity?null:new{type=busy||starts>0&&!completed?"active":"idle"},rolloutPath="",cwd="C:/test",requests=Array.Empty<object>(),
+                                id=task,threadRuntimeStatus=unavailableActivity?null:new{type=busy||starts>0&&!completed?"active":"idle"},
+                                rolloutPath="",cwd="C:/test",requests=malformedRequests?null:Array.Empty<object>(),
                                 turnHistory=new{history=new{entitiesByKey=new Dictionary<string,object>{{"turn:"+turn,live}}}}
                             }}}});continue;
                     } else if(method=="thread-follower-start-turn") {
@@ -118,8 +119,10 @@ internal static class Tab5CodexDesktopSelfTest
             if((await bridge.SubmitAsync(task,"测试发送",stop.Token)).Status!=409||starts!=1)throw new Exception("Busy task cannot dispatch");
             foreach(int version in new[]{11,13,14,99}) {
                 snapshotVersion=version;
-                if((await desktop.ReadActivityAsync(task,stop.Token)).Runtime!="active")
-                    throw new Exception("A compatible activity snapshot was rejected based on its version");
+                if((await desktop.ReadActivityAsync(task,stop.Token)).Runtime!="active"||
+                   (await desktop.ReadAsync(task,stop.Token)).TurnId!=turn||
+                   (await desktop.SubmissionSnapshotAsync(task,stop.Token)).Owner!=owner)
+                    throw new Exception("A compatible owner snapshot was rejected based on its version");
             }
             unavailableActivity=true;
             try {
@@ -128,9 +131,9 @@ internal static class Tab5CodexDesktopSelfTest
             } catch(Tab5CodexDesktop.Rejected ex) when(ex.Code=="desktop_activity_unavailable") {}
             unavailableActivity=false;
             Console.WriteLine("CODEX_ACTIVITY_SCHEMA_OK supported fields across versions; missing status rejected");
-            busy=false;snapshotVersion=99;
-            if((await bridge.SubmitAsync(task,"测试发送",stop.Token)).Status!=503||starts!=1)throw new Exception("Unsupported desktop version must fail before dispatch");
-            snapshotVersion=11;drop=true;
+            busy=false;malformedRequests=true;
+            if((await bridge.SubmitAsync(task,"测试发送",stop.Token)).Status!=503||starts!=1)throw new Exception("Missing pending-request data must fail before dispatch");
+            malformedRequests=false;drop=true;
             var unknown=await bridge.SubmitAsync(task,"测试发送",stop.Token);
             if(unknown.Status!=504||starts!=2||JsonSerializer.SerializeToElement(unknown.Body).GetProperty("error").GetString()!="delivery_unknown")
                 throw new Exception("Lost acknowledgement must not be retried or claimed as failed");

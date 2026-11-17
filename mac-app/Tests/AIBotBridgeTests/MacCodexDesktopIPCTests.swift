@@ -72,9 +72,40 @@ final class MacCodexDesktopIPCTests: XCTestCase {
         client.reset(); XCTAssertFalse(client.available)
     }
 
+    func testCompatibleOwnerShapeSupportsActivityReadsReceiptsAndControlsAcrossVersions() throws {
+        let wire = Wire()
+        wire.runtime = "active"; wire.turnStatus = "inProgress"
+        let client = MacCodexDesktopIPC(connect: { wire })
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let codex = MacTab5Codex(store: MacTab5PrivateStore(root: root, key: { Data(repeating: 9, count: 32) }),
+            enabled: { true }, desktop: client, call: { method, _ in
+                if method == "thread/list" { return ["data": [["id": wire.task, "cwd": "/synthetic", "name": "Fixture"]]] }
+                XCTFail("Activity reads must not fall through to a full reply"); return [:]
+            })
+        for version in [13, 42] {
+            wire.version = version
+            codex.refresh()
+            let overview = codex.snapshot()?["overviewTask"] as? [String: Any]
+            XCTAssertEqual(overview?["companionState"] as? String, "working")
+            XCTAssertEqual(overview?["state"] as? String, "working")
+            XCTAssertEqual(try client.read(wire.task).turn, wire.turn)
+            XCTAssertTrue(client.available)
+            XCTAssertEqual(try client.submissionReceipt(wire.task, expected: "fixture").turn, wire.turn)
+            XCTAssertEqual(try client.execute(task: wire.task, operation: "interrupt", expected: wire.turn,
+                                              request: UUID().uuidString, inputs: [])["turnId"] as? String, wire.turn)
+        }
+        wire.runtime = "future-incompatible-state"
+        codex.refresh()
+        XCTAssertEqual((codex.snapshot()?["overviewTask"] as? [String: Any])?["companionState"] as? String, "unknown")
+        XCTAssertThrowsError(try client.execute(task: wire.task, operation: "interrupt", expected: wire.turn,
+                                                request: UUID().uuidString, inputs: []))
+        XCTAssertEqual(wire.mutations.count, 2)
+    }
+
     func testIncompatibleSnapshotAndMissingOwnerFailBeforeMutation() {
-        for wrongVersion in [true, false] {
-            let wire = Wire(); wire.version = wrongVersion ? 12 : 11; wire.rejectOwner = !wrongVersion
+        for wrongShape in [true, false] {
+            let wire = Wire(); wire.runtime = wrongShape ? "future-incompatible-state" : "idle"; wire.rejectOwner = !wrongShape
             let client = MacCodexDesktopIPC(connect: { wire })
             XCTAssertThrowsError(try client.execute(task: wire.task, operation: "send", expected: "",
                                                     request: UUID().uuidString, inputs: [["type": "text", "text": "fixture"]]))
@@ -224,7 +255,7 @@ final class MacCodexDesktopIPCTests: XCTestCase {
     }
 
     func testExpiredAvailabilityRevalidatesQuickSubmitBeforeChangingComposer() throws {
-        for failure in ["", "owner", "version", "policy", "consent"] {
+        for failure in ["", "owner", "shape", "policy", "consent"] {
             let wire = Wire(), root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             defer { try? FileManager.default.removeItem(at: root) }
             var now: TimeInterval = 100, allowed = true, sendEnabled = true, value = "", editorWrites = 0
@@ -245,7 +276,7 @@ final class MacCodexDesktopIPCTests: XCTestCase {
             XCTAssertEqual(desktop.handle(["op": "stage-draft", "taskId": wire.task,
                 "requestId": stageID, "text": "synthetic draft"], device: "fixture").status, 200)
             now += 16; XCTAssertFalse(codex.canMutate)
-            wire.rejectOwner = failure == "owner"; wire.version = failure == "version" ? 12 : 11
+            wire.rejectOwner = failure == "owner"; wire.runtime = failure == "shape" ? "unrecognized" : "idle"
             allowed = failure != "policy"; sendEnabled = failure != "consent"
             let submit: [String: Any] = ["op": "submit-draft", "taskId": wire.task,
                 "requestId": UUID().uuidString, "draftRequestId": stageID]

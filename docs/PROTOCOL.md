@@ -1510,6 +1510,10 @@ The optional `displayDiag` suffix records dictionary sizes, one-time initializat
 
 `state` 保留原消费者的含义。新固件优先采用存在的 `companionState`，包括显式 `unknown`；旧桥接缺失该字段时可回退 `state`。任务状态必须绑定同一 task，不能把其他任务的全局 `needsInput` 套到当前萌宠。owner 读取失败或观测过期时保留任务/回复缓存，萌宠状态变为 unknown。设备心跳失效时也显示“状态未知”；仅新鲜数据明确报告根 `codex.state=offline` 才显示“Codex 未运行”。答题卡为“等你回答”，授权为“等你确认”，不能细分为“等你处理”。只投影固定类型，不传输请求正文、命令、问题或选项。
 
+Mac 和 Windows 的桌面桥接按可信拥有者、同一会话及所需字段解析 Codex 桌面快照。活动、历史、送达核验和控制前置检查不要求某个快照版本；不识别的结构保持不可确认。发出的控制及已读请求仍使用各方法的消息格式和版本，且遵守现有轮次绑定、授权和回执校验。此行为不改变 TAB5 协议版本。
+
+Mac and Windows validate the trusted owner, matching conversation, and required fields of Codex desktop snapshots rather than pinning their envelope version. Commands still use their existing method format and the existing authorization, turn, and receipt checks. The TAB5 wire protocol is unchanged.
+
 The optional fields preserve protocol v1 and legacy `state` consumers. `companionState` uses explicit lifecycle/owner observations rather than log silence; a present unknown overrides legacy inference. `waitingKind` distinguishes user answers from operation approval, with a generic fallback for mixed/unknown requests. Failed or expired observations retain cached public data while making the companion unknown. Device heartbeat loss is unknown; only fresh explicit global offline means not running. Status and unread completion identities remain bound to their exact task/turn. No request body, command, question or options are exported.
 
 总览优先选择等待处理、受阻、工作中的任务，再按活动时间排序；没有等待/受阻项时保留既有未读完成内容入口。萌宠仅在总览任务卡及用户主动选择的 Codex 屏保中出现。屏保样式为设备本地 NVS `saver_style=9`，不改变旧样式编号或电脑显示设置协议。

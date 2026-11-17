@@ -104,7 +104,7 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
     {
         await using var connection=new Connection(pipeName);
         await connection.OpenAsync(taskId,token);
-        var snapshot=await connection.SnapshotAsync(taskId,token,activityOnly:true);
+        var snapshot=await connection.SnapshotAsync(taskId,token);
         var state=ParseState(snapshot);
         if(state.Runtime is not ("active" or "idle" or "systemError"))
             throw new Rejected("desktop_activity_unavailable");
@@ -289,7 +289,7 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
             Tab5LocalDiagnostics.Write($"CODEX_LOAD phase=snapshot result=timeout reads={reads} ms={Environment.TickCount64-began}");
             throw new Rejected("desktop_load_timeout");
         }
-        internal async Task<JsonElement> SnapshotAsync(string taskId,CancellationToken token,bool activityOnly=false)
+        internal async Task<JsonElement> SnapshotAsync(string taskId,CancellationToken token)
         {
             await WriteAsync(new {type="broadcast",sourceClientId=_client,version=1,method="thread-stream-following-changed",
                 @params=new {conversationId=taskId,hostId="local",following=true},targetClientIds=new[]{Owner}},token);
@@ -299,8 +299,15 @@ internal sealed class Tab5CodexDesktop(string pipeName = "codex-ipc", Func<strin
                 if(Text(msg,"method")!="thread-stream-state-changed"||Text(msg,"sourceClientId")!=Owner)continue;
                 var p=Child(msg,"params");var change=Child(p,"change");
                 if(Text(p,"conversationId")!=taskId||Text(p,"hostId")!="local"||Text(change,"type")!="snapshot")continue;
-                if(!activityOnly&&Child(msg,"version").GetInt32()!=11)throw new Rejected("desktop_version_unsupported");
-                return Child(change,"conversationState");
+                // The envelope version is independent of the fields an exact
+                // task snapshot must provide before it can authorize control.
+                var state=Child(change,"conversationState");
+                // A loading marker is not ready for history or commands.
+                if(Text(state,"resumeState")=="resuming"&&Child(state,"threadRuntimeStatus").ValueKind==JsonValueKind.Undefined)
+                    return state;
+                if(!string.Equals(Text(state,"id"),taskId,StringComparison.OrdinalIgnoreCase)||
+                   Child(state,"requests").ValueKind!=JsonValueKind.Array)throw new Rejected("desktop_snapshot_incompatible");
+                return state;
             }
         }
         internal async Task<JsonElement> RequestAsync(string method,int version,object parameters,CancellationToken token,string? target=null,int timeoutMs=5000)

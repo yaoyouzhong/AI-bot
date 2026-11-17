@@ -263,8 +263,10 @@ final class MacCodexDesktopIPC {
                       let params = value["params"] as? [String: Any], params["conversationId"] as? String == task,
                       params["hostId"] as? String == "local", let change = params["change"] as? [String: Any],
                       change["type"] as? String == "snapshot" else { continue }
-                guard MacTab5Protocol.integer(value["version"]) == 11,
-                      let state = change["conversationState"] as? [String: Any] else { throw MacCodexDesktopError.incompatible }
+                // The owner can rev its stream envelope without changing the
+                // fields our activity, history, and receipt parsers validate.
+                guard let state = change["conversationState"] as? [String: Any],
+                      MacTab5Codex.id(state["id"]) == task else { throw MacCodexDesktopError.incompatible }
                 return state
             }
             throw MacCodexDesktopError.invalidPacket

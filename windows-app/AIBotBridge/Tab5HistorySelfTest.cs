@@ -33,7 +33,7 @@ internal static class Tab5HistorySelfTest
                         complete=true;historyLoads++;result=new{revision=2};
                     }else if(method=="thread-stream-following-changed") {
                         if(snapshots++==0) {
-                            await Write(s,new{type="broadcast",method="thread-stream-state-changed",version=11,sourceClientId=owner,
+                            await Write(s,new{type="broadcast",method="thread-stream-state-changed",version=13,sourceClientId=owner,
                                 @params=new{conversationId=task,hostId="local",change=new{type="snapshot",conversationState=new {resumeState="resuming"}}}});
                             continue;
                         }
@@ -41,9 +41,9 @@ internal static class Tab5HistorySelfTest
                         // Deliberately unordered canonical map; legacy duplicate must not add a turn.
                         var turns=new Dictionary<string,object>{{latest,Turn(latest,3,"最新回复")},{middle,Turn(middle,2,string.Concat(Enumerable.Repeat("上一轮回复：检查连接、缓存及历史分页。\n",240)))}};
                         if(complete)turns.Add(older,Turn(older,1,"最早回复"));
-                        await Write(s,new{type="broadcast",method="thread-stream-state-changed",version=11,sourceClientId=owner,
+                        await Write(s,new{type="broadcast",method="thread-stream-state-changed",version=13,sourceClientId=owner,
                             @params=new{conversationId=task,hostId="local",change=new{type="snapshot",conversationState=new {
-                                threadRuntimeStatus=new{type="idle"},rolloutPath="",requests=Array.Empty<object>(),
+                                id=task,threadRuntimeStatus=new{type="idle"},rolloutPath="",requests=Array.Empty<object>(),
                                 turns=new[]{Turn(latest,3,"重复旧值")},turnsPagination=new{hasLoadedOldest=false},
                                 turnHistory=new{history=new{entitiesByKey=turns,isComplete=complete}}
                             }}}});continue;
