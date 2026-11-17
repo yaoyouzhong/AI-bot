@@ -75,6 +75,33 @@ class NativeMailboxTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.box.poll_native(self.route,self.binding,hub)
         self.assertFalse(self.receipts)
 
+    def test_native_replay_run_overrides_historical_paused_marker(self):
+        calls=[]
+        def hub(method,path,payload=None):
+            calls.append(method)
+            if method=='POST': return dict(event=1,routed=[],paused=['native-probe'])
+            return dict(event=1,routed=[],paused=['native-probe'],
+                        runs=[dict(run=19,rule='native-probe',state='done')])
+        result=self.box.poll_native(self.route,self.binding,hub)
+        self.assertEqual(result['nativeRun'],19)
+        self.assertEqual(calls,['POST','GET'])
+        self.assertTrue(result['recoveredAfterPause'])
+        self.assertEqual(len(self.receipts),1)
+
+    def test_paused_without_actual_run_still_blocks_after_get(self):
+        def hub(method,path,payload=None):
+            return dict(event=1,routed=[],paused=['native-probe'],runs=[])
+        with self.assertRaises(ValueError): self.box.poll_native(self.route,self.binding,hub)
+        self.assertFalse(self.receipts)
+
+    def test_historical_pause_does_not_allow_other_rule_run(self):
+        def hub(method,path,payload=None):
+            if method=='POST': return dict(event=1,routed=[],paused=['native-probe'])
+            return dict(event=1,routed=[],paused=['native-probe'],
+                        runs=[dict(run=19,rule='unrelated',state='done')])
+        with self.assertRaises(ValueError): self.box.poll_native(self.route,self.binding,hub)
+        self.assertFalse(self.receipts)
+
     def test_read_outage_no_native_send(self):
         def fail(path,ref): raise TimeoutError('github offline')
         self.box.get_file=fail
