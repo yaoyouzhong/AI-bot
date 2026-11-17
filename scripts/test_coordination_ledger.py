@@ -11,7 +11,9 @@ C = fixtures.C
 
 class LedgerTests(unittest.TestCase):
     def setUp(self):
-        fixture = fixtures.CoordinationTests(); fixture.setUp()
+        scope = patch.object(c, 'verify_scope', return_value={'fixtureOnly': True})
+        scope.start(); self.addCleanup(scope.stop)
+        fixture = fixtures.CoordinationTests(); fixture.setUp(); self.addCleanup(fixture.doCleanups)
         self.task, self.receipts = fixture.task, fixture.receipts
         self.ledger = ledger.create(self.task, 'Fixture authorization, not a live assignment')
 
