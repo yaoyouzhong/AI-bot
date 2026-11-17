@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+from coordination_scope import verify_scope
 
 PLATFORMS = ("windows", "macos")
 TERMINAL = ("completed", "already-present", "not-applicable")
@@ -102,6 +103,7 @@ def gate(bundle, source, repo):
     require(isinstance(tasks, list), "Missing task list")
     ids = [validate_task(t)["taskId"] for t in tasks]
     require(len(set(ids)) == len(ids) and set(ids) == set(expected), "Task coverage mismatch")
+    scope = verify_scope(bundle, repo)
     receipts = bundle.get("receipts")
     require(isinstance(receipts, list), "Missing receipts")
     by_key = {}
@@ -121,7 +123,7 @@ def gate(bundle, source, repo):
             verification = receipt.get("verification", {})
             if receipt["status"] != "not-applicable" and verification["result"] == "reused":
                 require(ancestor(repo, verification["commit"], receipt["implementationCommit"]), "Reused native evidence is not from implementation history")
-    return {"status": "ready", "releaseSource": source, "taskCount": len(tasks), "publishPerformed": False}
+    return {"status": "ready", "releaseSource": source, "taskCount": len(tasks), "publishPerformed": False, "scope": scope}
 
 
 def read(path):
