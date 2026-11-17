@@ -1217,6 +1217,8 @@ sealed class DomesticQuotaAuthForm : Form
         var env = await CoreWebView2Environment.CreateAsync(null, profile);
         await web.EnsureCoreWebView2Async(env);
         if (!ReferenceEquals(web, _web) || web.IsDisposed) return;
+        await QuotaWebMedia.ConfigureAsync(web.CoreWebView2);
+        if (!ReferenceEquals(web, _web) || web.IsDisposed) return;
         _activeCore = web.CoreWebView2;
         _activeCore.NavigationCompleted += WebViewNavigationCompleted;
         _activeCore.ProcessFailed += WebViewProcessFailed;

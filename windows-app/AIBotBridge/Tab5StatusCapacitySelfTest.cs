@@ -41,6 +41,8 @@ internal static class Tab5StatusCapacitySelfTest
             service.ObserveFirmware("wrong","0.2.198-ui");service.Publish(large);
             Check(service.CurrentFrame!.Length+28<=32768,"another device cannot enable expanded state");
             service.ObserveFirmware(pair.DeviceId,"0.2.198-ui");
+            Check(service.CurrentFrame!.Length<=32740,"capability observation does not build on transport thread");
+            service.RefreshPublication();
             byte[] full=service.CurrentFrame!;
             Check(full.Length>32740&&full.Length+28<=49152,"new firmware keeps complete state within 48 KiB target");
             using(var state=JsonDocument.Parse(full))Check(state.RootElement.GetProperty("data").GetProperty("runtimeHealth").GetProperty("checks")[0].GetProperty("detail").GetString()!.Length==35000,"large detail preserved");

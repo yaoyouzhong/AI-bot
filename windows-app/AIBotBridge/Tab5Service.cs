@@ -1,6 +1,7 @@
 using System.IO.Ports;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace AIBotBridge;
 
@@ -32,9 +33,11 @@ internal sealed partial class Tab5Service : IDisposable
     // Only an explicitly constructed diagnostic service injects test activity.
     internal Func<long?>? DiagnosticInputClock {get;init;}
     private readonly string _session=Guid.NewGuid().ToString("N");
-    private sealed record StatusPublication(byte[] Frame, byte[] LegacyFrame, long PublishedAt, bool MayContainResource)
+    private sealed record StatusPublication(byte[] Frame, byte[] LegacyFrame, byte[] PlainFrame, byte[] PlainLegacyFrame, long PublishedAt, bool ActivityEnabled, bool MusicActive)
     {
-        internal byte[] ForMaximum(int maximum) => Frame.Length <= maximum - 28 ? Frame : LegacyFrame;
+        internal byte[] ForMaximum(int maximum, bool plain = false) => plain
+            ? (PlainFrame.Length <= maximum - 28 ? PlainFrame : PlainLegacyFrame)
+            : (Frame.Length <= maximum - 28 ? Frame : LegacyFrame);
     }
     private StatusPublication? _publishedStatus;
     private int _statusMaximum=Tab5Protocol.MaximumFrame,_usbStatusMaximum=Tab5Protocol.MaximumFrame;
@@ -52,7 +55,7 @@ internal sealed partial class Tab5Service : IDisposable
         set {
             bool changed=_activitySourceEnabled!=value;_activitySourceEnabled=value;
             if(!value){_claudeSessions.Capture(false,DateTimeOffset.Now);ClaudeReplies?.Invalidate();ClaudeWorkspace?.StopOwners();}
-            if(changed&&_lastSnapshot is {} snapshot)Publish(snapshot);
+            if(changed)Republish();
         }
     }
     private Tab5OtaPackage? _ota;
@@ -276,13 +279,17 @@ internal sealed partial class Tab5Service : IDisposable
     }
     private object ConnectionHealthFor(StatusSnapshot snapshot,Tab5OtaPackage? image) => new { uiAutomationCommand=UIAutomation.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),owner:UiAutomationOwner), screenPreviewCommand=ScreenPreview.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), hostBindingVersion=1,hostId=_store.Current is {} hostPair?Tab5HostBinding.Id(hostPair):"",hostName=Tab5HostBinding.Name(Environment.MachineName),voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),image),bootVerifyCommand=BootVerifyCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()),runtimeDiagnosticCommand=RuntimeDiagnosticCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,unlockCredentialVersion=2,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
         bleStandby=Tab5BleClient.ReportStandby(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),Interlocked.Read(ref _bleAckAt),_usbDataActive,_bleStatus) };
-    private long _musicPublishedAt;
+    private long _musicPublishedAt, _snapshotAt;
+    private int _publicationRequested;
     internal void Publish(StatusSnapshot snapshot) => Publish(snapshot,false);
-    private void Publish(StatusSnapshot snapshot,bool musicOnly)
+    private void Publish(StatusSnapshot snapshot,bool reuseSample)
     {
+        long sampledAt=PublicationClock();
         lock(_publishLock) {
+        if(!reuseSample)_snapshotAt=sampledAt;
         _lastSnapshot=snapshot;
         var pairing=_store.Current; if(pairing is null) return;
+        bool activityEnabled=ActivitySourceEnabled;
         var resource=BackgroundAssetTransferPaused?null:_assets.Next(snapshot);var sequence=Interlocked.Increment(ref _sequence);
         var advertisedImage=Volatile.Read(ref _ota);
         var health=ConnectionHealthFor(snapshot,advertisedImage);
@@ -295,16 +302,25 @@ internal sealed partial class Tab5Service : IDisposable
         if(claudeSession is not null){claudeSession["readBinding"]=readBinding;claudeSession["repliesEnabled"]=ClaudeReplies.IsEnabled;if((bound?.SessionId??(safeTitle?observed?.Id:null)) is {} selected)claudeSession["taskId"]=ClaudeWorkspace.Alias(selected);}
         if(bound is not null)snapshot=snapshot with {Claude=bound.Tool with {TokensToday=snapshot.Claude.TokensToday,AgeSeconds=Math.Max(0,(long)(snapshot.CapturedAt-bound.Activity).TotalSeconds)},DomesticActivity=null};
         int maximum=Volatile.Read(ref _statusMaximum),budget=Tab5StatusCapacity.Budget(maximum);
+        var codexProjection=_codexTasks.CaptureProjection();
+        var claudeProjections=new Dictionary<int,object?>();
+        object? ClaudeProjection(int limit) {
+            if(!claudeProjections.TryGetValue(limit,out var value)) {
+                value=ClaudeWorkspace.Snapshot(limit,claudeSession?.GetValueOrDefault("taskId") as string,pairing.DeviceId);
+                claudeProjections[limit]=value;
+            }
+            return value;
+        }
         byte[] Build(int cap,byte[]? previous,out int initial,out int taskLimit,out bool degraded,out string[] deferredFields) {
             int target=Tab5StatusCapacity.Budget(cap);taskLimit=80;
-            var bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(requiredTask:claudeSession?.GetValueOrDefault("taskId") as string,device:pairing.DeviceId),DiagnosticInputClock);
+            var bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,resource,_assets.Ids,codexProjection(80),advertisedImage?.Offer,health,claudeSession,ClaudeProjection(64),DiagnosticInputClock);
             initial=bytes.Length;
             if(bytes.Length>target&&resource is not null)
-                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.Snapshot(),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(requiredTask:claudeSession?.GetValueOrDefault("taskId") as string,device:pairing.DeviceId),DiagnosticInputClock);
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,codexProjection(80),advertisedImage?.Offer,health,claudeSession,ClaudeProjection(64),DiagnosticInputClock);
             foreach(int limit in new[]{64,56,48,40,32,24,16,8,2}) {
                 if(bytes.Length<=target)break;
                 taskLimit=limit;
-                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,_codexTasks.SnapshotLimited(limit),advertisedImage?.Offer,health,claudeSession,ClaudeWorkspace.Snapshot(limit,claudeSession?.GetValueOrDefault("taskId") as string,pairing.DeviceId),DiagnosticInputClock);
+                bytes=Tab5Protocol.Snapshot(snapshot,pairing.DeviceId,_session,sequence,null,_assets.Ids,codexProjection(limit),advertisedImage?.Offer,health,claudeSession,ClaudeProjection(limit),DiagnosticInputClock);
             }
             degraded=bytes.Length>target;deferredFields=[];
             return degraded?Tab5StatusRecovery.Build(bytes,previous,out deferredFields,cap):bytes;
@@ -322,46 +338,60 @@ internal sealed partial class Tab5Service : IDisposable
         }
         _statusFrameDiagnostic=$"bytes={frame.Length}; initialBytes={initialBytes}; maximum={maximum-28}; target={budget}; legacyBytes={legacy.Length}; taskLimit={taskLimit}; degraded={_statusFrameDegraded}; fallbacks={_statusFallbacks}; recoveries={_statusRecoveries}"+deferred;
         long tick=PublicationClock();
-        long publishedAt=musicOnly && previous is not null ? previous.PublishedAt : tick;
-        Volatile.Write(ref _publishedStatus,new(frame,legacy,publishedAt,resource is not null));
+        var plain=WithoutResource(frame);
+        var plainLegacy=ReferenceEquals(frame,legacy)?plain:WithoutResource(legacy);
+        Volatile.Write(ref _publishedStatus,new(frame,legacy,plain,plainLegacy,_snapshotAt,activityEnabled,
+            snapshot.Music is {Title.Length:>0,TimelineAvailable:true}));
         Interlocked.Exchange(ref _musicPublishedAt,tick);
         }
     }
-    private void Republish() {lock(_publishLock){if(_lastSnapshot is {} snapshot)Publish(snapshot);}}
+    // Transport readers only take immutable, complete publications. Work is
+    // coalesced into the manager-owned publisher, including command refreshes.
+    private void Republish() => Interlocked.Exchange(ref _publicationRequested,1);
     internal Func<MusicSnapshot?>? MusicCapture {get;set;}
     internal Func<long> PublicationClock {get;set;}=()=>Environment.TickCount64;
     private StatusPublication? FreshPublication() {
         var status=Volatile.Read(ref _publishedStatus);
-        return status is not null && PublicationClock()-status.PublishedAt is >=0 and <6000 ? status : null;
+        return status is not null && status.ActivityEnabled==ActivitySourceEnabled &&
+            PublicationClock()-status.PublishedAt is >=0 and <6000 ? status : null;
     }
-    private void RefreshMusicFrame() {
-        // Refresh music against the cached non-music state.
-        if(FreshPublication() is not null && PublicationClock()-Interlocked.Read(ref _musicPublishedAt)>=500 && MusicCapture is {} capture) {
-            lock(_publishLock) {
-                if(PublicationClock()-Interlocked.Read(ref _musicPublishedAt)>=500 && _lastSnapshot is {} snapshot &&
-                   capture() is {} music && music.Title.Length>0) {
-                    var now=DateTimeOffset.Now;
-                    Publish(snapshot with {Music=music,CapturedAt=now,EpochUtc=now.ToUnixTimeSeconds(),Time=now.ToString("HH:mm:ss")},true);
-                }
-            }
-        }
+    private static byte[] WithoutResource(byte[] frame) {
+        var root=JsonNode.Parse(frame)!;
+        if(root["data"]?["resource"] is null)return frame;
+        root["data"]!["resource"]=null;
+        return JsonSerializer.SerializeToUtf8Bytes(root,Tab5Protocol.StatusJson);
     }
-    internal byte[]? CurrentFrame {
-        get {
-            RefreshMusicFrame();
-            return FreshPublication()?.Frame;
-        }
-    }
-    internal byte[]? CurrentFrameForMaximum(int maximum) {
-        RefreshTransferPublication();
-        return FreshPublication()?.ForMaximum(maximum);
-    }
-    private void RefreshTransferPublication() {
+    internal void RefreshPublication() {
         lock(_publishLock) {
-            if(BackgroundAssetTransferPaused&&_publishedStatus?.MayContainResource==true&&_lastSnapshot is {} snapshot)Publish(snapshot);
+            if(Interlocked.Exchange(ref _publicationRequested,0)!=0 && _lastSnapshot is {} snapshot)
+                Publish(snapshot,true);
+            var previous=FreshPublication();
+            if(previous is null || PublicationClock()-_musicPublishedAt<500 || MusicCapture is not {} capture)return;
+            var music=capture();
+            // Recheck after sampling: a blocked source cannot renew expired state.
+            if(FreshPublication()!=previous)return;
+            var now=DateTimeOffset.Now;
+            long sequence=Interlocked.Increment(ref _sequence);
+            byte[] Refresh(byte[] frame,int maximum) {
+                var root=JsonNode.Parse(frame)!;var data=root["data"]!;
+                root["sequence"]=sequence;
+                data["music"]=JsonSerializer.SerializeToNode(music,Tab5Protocol.StatusJson);
+                data["time"]=now.ToString("HH:mm:ss");data["epochUtc"]=now.ToUnixTimeSeconds();
+                data["epochMilliseconds"]=now.ToUnixTimeMilliseconds();data["capturedAt"]=JsonSerializer.SerializeToNode(now,Tab5Protocol.StatusJson);
+                data["pcInput"]=JsonSerializer.SerializeToNode(new {session=_session,sequence,lastInputTickMs=DiagnosticInputClock is null?SystemIdleTime.LastInputTickMilliseconds():DiagnosticInputClock()},Tab5Protocol.StatusJson);
+                var bytes=JsonSerializer.SerializeToUtf8Bytes(root,Tab5Protocol.StatusJson);
+                return bytes.Length<=maximum-28?bytes:frame;
+            }
+            var frame=Refresh(previous.PlainFrame,Volatile.Read(ref _statusMaximum));
+            var legacy=ReferenceEquals(previous.PlainFrame,previous.PlainLegacyFrame)&&frame.Length<=Tab5Protocol.MaximumFrame-28
+                ?frame:Refresh(previous.PlainLegacyFrame,Tab5Protocol.MaximumFrame);
+            Volatile.Write(ref _publishedStatus,new(frame,legacy,frame,legacy,previous.PublishedAt,previous.ActivityEnabled,
+                music is {Title.Length:>0,TimelineAvailable:true}));
+            Interlocked.Exchange(ref _musicPublishedAt,PublicationClock());
         }
-        RefreshMusicFrame();
     }
+    internal byte[]? CurrentFrame => CurrentFrameForMaximum(Volatile.Read(ref _statusMaximum));
+    internal byte[]? CurrentFrameForMaximum(int maximum) => FreshPublication()?.ForMaximum(maximum,BackgroundAssetTransferPaused);
     internal byte[]? Discover(byte[] packet,System.Net.IPAddress peer) {
         var pair=_store.Current;var host=_host;var port=_port;
         if(pair is null||host is null||port<=0||
@@ -391,8 +421,8 @@ internal sealed partial class Tab5Service : IDisposable
         }
         // An HTTP status poll must not wait for the next catalog or music capture.
         var status=FreshPublication();
-        if(status is null||status.MayContainResource&&BackgroundAssetTransferPaused)return null;
-        var frame=status.ForMaximum(maximum);
+        if(status is null)return null;
+        var frame=status.ForMaximum(maximum,BackgroundAssetTransferPaused);
         if(frame.Length>maximum-28)return null;
         if(verifiedFirmware&&Version.TryParse(firmware!.Split('-')[0],out var version)&&version>=new Version(0,2,40)) {
             frame=SelectTelemetryFrame(frame,1,true,version>=new Version(0,2,42),false,false,maximum)!;
@@ -684,8 +714,6 @@ internal sealed partial class Tab5Service : IDisposable
                     // SetupAPI enumeration must not monopolize the serial gate
                     // while firmware fragments or interactive RPCs are flowing.
                     var candidates=await Task.Run(UsbDevices,token);
-                    Stage("publication");
-                    if(!_usbOnComputerControlPage&&_usbRpcPump?.ExchangeActive!=true)RefreshTransferPublication();
                     Stage("gate");
                     await _usbGate.WaitAsync(token);gateHeld=true;
                     Stage("discover_identity");
@@ -715,8 +743,8 @@ internal sealed partial class Tab5Service : IDisposable
                         // Poll the immutable publication under the serial gate.
                         // A slow catalog or music refresh must leave USB RPC free.
                         var status=FreshPublication();
-                        if(status is not null&&(!status.MayContainResource||!BackgroundAssetTransferPaused)) {
-                            byte[] frame=status.ForMaximum(_usbStatusMaximum);
+                        if(status is not null) {
+                            byte[] frame=status.ForMaximum(_usbStatusMaximum,BackgroundAssetTransferPaused);
                             bool refreshHost=Tab5HostBinding.NeedsFullStatus(_usbHostBinding,Environment.TickCount64,_usbHostFullStatusAt);
                             byte[] wire=_usbState.Wire(frame,_usbPacked,_usbDelta&&!refreshHost,_usbStatusMaximum);
                             using var sent=JsonDocument.Parse(frame);
@@ -794,7 +822,7 @@ internal sealed partial class Tab5Service : IDisposable
                 }
                 finally { _usbConnectionAttempt="";if(gateHeld)_usbGate.Release(); }
             }
-            await Task.Delay(pendingResources?40:MusicCapture?.Invoke() is {Title.Length:>0,TimelineAvailable:true}?500:2000,token);
+            await Task.Delay(pendingResources?40:FreshPublication()?.MusicActive==true?500:2000,token);
         }
     }
     internal Task RunBleAsync(CancellationToken token) => new Tab5BleClient(_store,maximum=>Volatile.Read(ref _otaTransfers)>0?null:CurrentFrameForMaximum(maximum),s=>{_bleStatus=s;if(s is "已连接 · 数据已确认" or "已连接 · USB 优先待命")Interlocked.Exchange(ref _bleAckAt,Environment.TickCount64);},_assets.Acknowledge,s=>{_bleDiagnostic=s;if(s.StartsWith("FAILED "))_bleLastFailure=DateTimeOffset.Now.ToString("HH:mm:ss")+" "+s;},

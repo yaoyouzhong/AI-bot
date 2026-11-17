@@ -5,12 +5,16 @@ namespace AIBotBridge;
 // The manager cancels and awaits this worker before disposing the paired service.
 internal static class Tab5StatusPublisher
 {
-    internal static async Task RunAsync(Action publish,CancellationToken token,TimeSpan? interval=null)
+    internal static async Task RunAsync(Action publish,CancellationToken token,TimeSpan? interval=null,Action? refresh=null)
     {
-        using var timer=new PeriodicTimer(interval??TimeSpan.FromSeconds(2));
+        var period=interval??TimeSpan.FromSeconds(2);
+        using var timer=new PeriodicTimer(refresh is null?period:TimeSpan.FromMilliseconds(500));
+        long next=0;
         do {
             token.ThrowIfCancellationRequested();
-            publish();
+            long now=Environment.TickCount64;
+            if(now>=next) { next=now+(long)period.TotalMilliseconds;publish(); }
+            else refresh?.Invoke();
         } while(await timer.WaitForNextTickAsync(token).ConfigureAwait(false));
     }
 }

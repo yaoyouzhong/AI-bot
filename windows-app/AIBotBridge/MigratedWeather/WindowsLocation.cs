@@ -8,11 +8,14 @@ static class WindowsLocation
     public sealed record Result(double Latitude, double Longitude, string Label,
         double AccuracyMeters=double.NaN,string Source="Unknown",DateTimeOffset Timestamp=default);
 
+    internal static async Task<GeolocationAccessStatus> RequestAccess() =>
+        await Geolocator.RequestAccessAsync();
+
     public static async Task<Result> Locate()
     {
-        var access = await Geolocator.RequestAccessAsync();
+        var access = await RequestAccess();
         if (access != GeolocationAccessStatus.Allowed)
-            throw new UnauthorizedAccessException("尚未获得 AI-bot 的位置授权，请允许 Windows 提示；若已拒绝，请在系统“位置”设置中允许 AI-bot 访问位置。");
+            throw new UnauthorizedAccessException("尚未获得 AI-bot 的位置授权。若 Windows 未显示授权提示，请打开系统的“隐私和安全性 → 位置”，允许桌面应用访问位置。");
 
         return await LocateSilently();
     }

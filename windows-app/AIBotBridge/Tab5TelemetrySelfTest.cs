@@ -9,6 +9,7 @@ internal static class Tab5TelemetrySelfTest
         Tab5StatusBudgetSelfTest.RunAsync().GetAwaiter().GetResult();
         Tab5StatusCapacitySelfTest.RunAsync(vectors).GetAwaiter().GetResult();
         VerifyUsbSchedulingAsync().GetAwaiter().GetResult();
+        VerifySlowCatalogAsync().GetAwaiter().GetResult();
         var directory=Path.Combine(Path.GetTempPath(),"tab5-telemetry-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(directory);
         try {
             var store=new Tab5PairingStore(Path.Combine(directory,"pair.dat"));store.Pair("001122334455",@"USB\TEST");
@@ -174,7 +175,7 @@ internal static class Tab5TelemetrySelfTest
             if(!release.Wait(TimeSpan.FromSeconds(10)))throw new TimeoutException("Fixture did not release publication");
             return null;
         };
-        var publishing=Task.Factory.StartNew(()=>service.CurrentFrame,CancellationToken.None,TaskCreationOptions.LongRunning,TaskScheduler.Default);
+        var publishing=Task.Factory.StartNew(service.RefreshPublication,CancellationToken.None,TaskCreationOptions.LongRunning,TaskScheduler.Default);
         try {
             if(!entered.Wait(TimeSpan.FromSeconds(5)))throw new TimeoutException("Publication did not enter the music reader");
             var pair=store.Current!;
@@ -187,10 +188,23 @@ internal static class Tab5TelemetrySelfTest
             }
             if(await Task.Run(Read).WaitAsync(TimeSpan.FromSeconds(2)) is not {Length:>28})
                 throw new Exception("Wi-Fi did not return the latest complete frame while publication was blocked");
+            foreach(int maximum in new[]{Tab5Protocol.MaximumFrame,Tab5Protocol.MaximumStatusFrame})
+                if(await Task.Run(()=>service.CurrentFrameForMaximum(maximum)).WaitAsync(TimeSpan.FromSeconds(2)) is not {Length:>0})
+                    throw new Exception("USB/BLE cached reader waited for publication");
+            service.OtaTransferActive(true);
+            try {
+                foreach(int maximum in new[]{Tab5Protocol.MaximumFrame,Tab5Protocol.MaximumStatusFrame}) {
+                    var bytes=await Task.Run(()=>service.CurrentFrameForMaximum(maximum)).WaitAsync(TimeSpan.FromSeconds(2));
+                    using var plain=JsonDocument.Parse(bytes!);
+                    if(plain.RootElement.GetProperty("data").TryGetProperty("resource",out var chunk)&&chunk.ValueKind!=JsonValueKind.Null)
+                        throw new Exception("Priority traffic received a cached resource chunk");
+                }
+                if(await Task.Run(Read).WaitAsync(TimeSpan.FromSeconds(2)) is not {Length:>28})throw new Exception("Priority traffic suppressed Wi-Fi heartbeat");
+            } finally {service.OtaTransferActive(false);}
             Interlocked.Exchange(ref clock,7000);
             if(await Task.Run(Read).WaitAsync(TimeSpan.FromSeconds(2)) is not null)
                 throw new Exception("Wi-Fi accepted an expired publication");
-            Console.WriteLine("TAB5_WIFI_STATUS_PUBLICATION_OK fresh authenticated read during publication; expired frame rejected");
+            Console.WriteLine("TAB5_WIFI_STATUS_PUBLICATION_OK USB/BLE/Wi-Fi reads during blocked publication; expired frame rejected");
         } finally {
             release.Set();
             await publishing;
@@ -198,6 +212,37 @@ internal static class Tab5TelemetrySelfTest
             service.PublicationClock=()=>Environment.TickCount64;
             service.ResetTelemetryChannel(1);
         }
+    }
+    private static async Task VerifySlowCatalogAsync() {
+        string directory=Path.Combine(Path.GetTempPath(),"tab5-publication-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(directory);
+        try {
+            var store=new Tab5PairingStore(Path.Combine(directory,"pair.dat"));var pair=store.Pair("001122334455",@"USB\PUBLICATION_TEST");
+            using var entered=new ManualResetEventSlim();using var release=new ManualResetEventSlim();
+            bool block=false;long tick=1000;
+            using var tasks=new Tab5CodexTasks((_,_,_)=>Task.FromResult(default(JsonElement)),()=>{
+                if(block){entered.Set();if(!release.Wait(TimeSpan.FromSeconds(10)))throw new TimeoutException("Catalog fixture not released");}
+                return [];
+            });
+            using var service=new Tab5Service(store,tasks){PublicationClock=()=>Interlocked.Read(ref tick)};
+            var snapshot=new StatusSnapshot(1,"12:00",1000,0,DateTimeOffset.UtcNow,new("idle",null),new("idle",null));
+            service.Publish(snapshot);var original=service.CurrentFrame;
+            block=true;Interlocked.Exchange(ref tick,1600);
+            var build=Task.Factory.StartNew(()=>service.Publish(snapshot),CancellationToken.None,TaskCreationOptions.LongRunning,TaskScheduler.Default);
+            try {
+                if(!entered.Wait(TimeSpan.FromSeconds(5)))throw new Exception("Catalog build did not start");
+                foreach(int maximum in new[]{32768,65536})
+                    if(!ReferenceEquals(await Task.Run(()=>service.CurrentFrameForMaximum(maximum)).WaitAsync(TimeSpan.FromSeconds(2)),original))
+                        throw new Exception("Transport waited for or observed unfinished catalog");
+                string nonce=Guid.NewGuid().ToString("N");var key=Convert.FromBase64String(pair.Key);
+                if(await Task.Run(()=>service.Respond(pair.DeviceId,nonce,Tab5Protocol.Proof(key,"GET|"+pair.DeviceId+"|"+nonce))).WaitAsync(TimeSpan.FromSeconds(2)) is null)
+                    throw new Exception("HTTP waited for catalog generation");
+                Interlocked.Exchange(ref tick,7600);
+            } finally {release.Set();await build;}
+            if(service.CurrentFrame is not null)throw new Exception("Slow generation falsely renewed its original sample timestamp");
+            block=false;Interlocked.Exchange(ref tick,8000);service.Publish(snapshot);
+            if(service.CurrentFrame is null)throw new Exception("Publisher did not recover after slow catalog");
+            Console.WriteLine("TAB5_SLOW_CATALOG_OK cached reads without builder lock; source age includes build time; recovery without restart");
+        } finally {Directory.Delete(directory,true);}
     }
     private static async Task VerifyUsbSchedulingAsync() {
         using var gate=new SemaphoreSlim(1,1);await gate.WaitAsync();

@@ -38,7 +38,7 @@ internal static class Tab5RemoteOtaSelfTest
             if(service.CanStartOta||Tab5Service.SupportsRemoteOta("190")||Tab5Service.SupportsRemoteOta("0.2.190"))throw new Exception("Unsupported peer enabled");
             try{await service.StartOtaAsync(CancellationToken.None);throw new Exception("Legacy peer upgraded");}catch(InvalidOperationException){}
             service.ObserveFirmware(pair.DeviceId,"0.2.190-ui");if(!service.CanStartOta)throw new Exception("Capable fresh peer disabled");
-            JsonElement Command(){using var frame=JsonDocument.Parse(service.CurrentFrame!);return frame.RootElement.Clone();}
+            JsonElement Command(){service.RefreshPublication();using var frame=JsonDocument.Parse(service.CurrentFrame!);return frame.RootElement.Clone();}
             async Task<JsonElement> Ack(JsonElement frame,string stage,string error="",string? requestOverride=null,string? shaOverride=null,bool corrupt=false) {
                 var c=frame.GetProperty("data").GetProperty("connectionHealth").GetProperty("otaCommand");string n=Guid.NewGuid().ToString("N");
                 var raw=JsonSerializer.SerializeToUtf8Bytes(new{kind="ota-control",session=frame.GetProperty("session").GetString(),issuedAt=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -147,7 +147,7 @@ internal static class Tab5RemoteOtaSelfTest
             await service.RpcAsync(pair.DeviceId,verifiedNonce,verifiedProof,verifiedPacket,CancellationToken.None,transport:"USB");
             if(!service.CanStartOta)throw new Exception("Authenticated USB could not recover after a pairing failure");
             await Tab5Service.OtaStopSelfTest.RunAsync();
-            Console.WriteLine("TAB5_REMOTE_OTA_OK actual encrypted HTTP/RPC; legacy gate; immediate publication; paired commit then started; wrong hash/request/auth, duplicate/cancel/draft failure rejected; USB authentication failure blocks start with no-transfer reason and recovers after valid authentication; no physical flash claim");
+            Console.WriteLine("TAB5_REMOTE_OTA_OK actual encrypted HTTP/RPC; legacy gate; coalesced background publication; paired commit then started; wrong hash/request/auth, duplicate/cancel/draft failure rejected; USB authentication failure blocks start with no-transfer reason and recovers after valid authentication; no physical flash claim");
         }finally{stop.Cancel();await serving;}
     }
 }

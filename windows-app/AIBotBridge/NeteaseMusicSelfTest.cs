@@ -74,6 +74,8 @@ internal static class NeteaseMusicSelfTest
             tick+=499;
             if(!ReferenceEquals(initial,service.CurrentFrame))throw new Exception("Music exceeded its publication cadence");
             tick++;song=song with {ElapsedSeconds=17,Playing=false};
+            if(!ReferenceEquals(initial,service.CurrentFrame))throw new Exception("Transport reader triggered publication");
+            service.RefreshPublication();
             using var fresh=JsonDocument.Parse(service.CurrentFrame!);
             var data=fresh.RootElement.GetProperty("data").GetProperty("music");
             if(data.GetProperty("elapsedSeconds").GetDouble()!=17||data.GetProperty("playing").GetBoolean()||data.GetProperty("album").GetString()!="Piano")
@@ -83,7 +85,16 @@ internal static class NeteaseMusicSelfTest
             using var zip=new System.IO.Compression.ZLibStream(bytes,System.IO.Compression.CompressionMode.Decompress);
             using var restored=JsonDocument.Parse(zip);
             if(restored.RootElement.GetProperty("data").GetProperty("music").GetProperty("album").GetString()!="Piano")throw new Exception("Packed transport lost album");
-            tick=15999;_ = service.CurrentFrame;
+            service.ObserveFirmware(store.Current!.DeviceId,"0.2.198-ui");service.RefreshPublication();
+            tick+=500;song=song with {Album=new string('x',35000)};service.RefreshPublication();
+            if(service.CurrentFrameForMaximum(65536) is not {Length:>32740 and <=65508}||
+                service.CurrentFrameForMaximum(32768) is not {Length:>0 and <=32740})
+                throw new Exception("Fast music growth lost the independently bounded legacy frame");
+            tick+=500;song=song with {Album="Piano"};service.RefreshPublication();
+            using(var legacy=JsonDocument.Parse(service.CurrentFrameForMaximum(32768)!))
+                if(legacy.RootElement.GetProperty("data").GetProperty("music").GetProperty("album").GetString()!="Piano")
+                    throw new Exception("Legacy music did not recover after an oversized update");
+            tick=15999;service.RefreshPublication();
             tick=16000;
             if(service.CurrentFrame is not null)throw new Exception("Music renewed stale non-music state");
             Console.WriteLine("NETEASE_FAST_FRAME_OK 500ms publication; latest seek/pause; full album; lossless packed wire; stale state expires");

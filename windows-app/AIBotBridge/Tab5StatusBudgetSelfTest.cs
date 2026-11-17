@@ -22,7 +22,8 @@ internal static class Tab5StatusBudgetSelfTest
             };
             return Task.FromResult(JsonSerializer.SerializeToElement(response));
         }
-        using var tasks=new Tab5CodexTasks(Call,()=>catalog,readState);
+        int scans=0;
+        using var tasks=new Tab5CodexTasks(Call,()=>{scans++;return catalog;},readState);
         foreach(var task in catalog) {
             Check((await tasks.SubmitAsync(task.Id,"synthetic fixture",CancellationToken.None)).Status==202,"mock turn accepted");
             tasks.Completed(task.Id,turn,"completed",reply);
@@ -55,7 +56,9 @@ internal static class Tab5StatusBudgetSelfTest
             snapshot=snapshot with {RuntimeHealth=health with {Checks=[health.Checks[0] with {Detail=new string('x',21000)}]}};
             for(int iteration=0;iteration<3;iteration++) {
                 snapshot=snapshot with {EpochUtc=snapshot.EpochUtc+1,CapturedAt=snapshot.CapturedAt.AddSeconds(1)};
+                int beforeScans=scans;
                 service.Publish(snapshot);
+                Check(scans==beforeScans+1,"budget retries scan the catalog only once per publication");
                 byte[] frame=service.CurrentFrame??throw new Exception("Over-budget catalog stopped fresh publication: "+service.Summary);
                 Check(frame.Length+28<=Tab5Protocol.MaximumFrame,"encrypted frame fits 32 KiB");
                 using var state=JsonDocument.Parse(frame);var data=state.RootElement.GetProperty("data");

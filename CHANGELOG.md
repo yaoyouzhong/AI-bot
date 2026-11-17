@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.25 - 2026-11-17
+
+This release updates the Windows desktop app.
+
+- **TAB5 status updates.** When reading tasks or music takes longer, the app continues sending the latest valid status. Music progress can refresh independently.
+- **Weather location.** When automatic location is enabled, the desktop app requests Windows location permission at startup. You can still set a location manually.
+- **Quota account sign-in.** Quota sign-in pages block access to the camera and microphone, reducing permission prompts unrelated to sign-in.
+
 ## 0.6.24 - 2026-11-17
 
 This release ships bridge 0.6.24 for Windows x64 and Apple Silicon Mac, together with TAB5 firmware 0.2.322-ui. ESP8266 remains at 0.5.8. You can update the bridge and TAB5 separately.

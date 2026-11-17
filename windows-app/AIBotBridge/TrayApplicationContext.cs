@@ -191,6 +191,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             try{if(_tab5Error is not null)throw new InvalidOperationException(_tab5Error);}
             catch(Exception ex){_tab5Error=ex.Message;MessageBox.Show(ex.Message,"设备服务未启动");ShowDevices();}
             if(_devices.Snapshot.Devices.Length==0||_devices.Snapshot.LegacyDecisionPending)ShowDevices();
+            _ = RequestStartupWeatherLocationAsync();
         });
     }
 
@@ -657,6 +658,23 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (_weatherSettings is null || _weatherSettings.IsDisposed)
             _weatherSettings = new MigratedWeather.WeatherSettingsForm(_runtime.Weather);
         PresentPanel("common:weather-settings",_weatherSettings);
+    }
+
+    private async Task RequestStartupWeatherLocationAsync()
+    {
+        const string requested="weather_startup_location_requested";
+        var settings=BridgeSettings.Load();
+        if(AppPaths.IsPublicSelfTest||settings.Get(requested)=="2"||
+            settings.Get("weather_auto_location")=="0")return;
+        try {
+            var access=await MigratedWeather.WindowsLocation.RequestAccess();
+            if(access is Windows.Devices.Geolocation.GeolocationAccessStatus.Allowed or
+                Windows.Devices.Geolocation.GeolocationAccessStatus.Denied)
+                settings.SaveEditable(new Dictionary<string,string>{{requested,"2"}},out _);
+        }catch(Exception ex) when(ex is UnauthorizedAccessException or InvalidOperationException or
+            PlatformNotSupportedException or System.Runtime.InteropServices.COMException) {
+            Tab5LocalDiagnostics.Write("WEATHER_STARTUP_LOCATION_FAILED "+ex.GetType().Name);
+        }
     }
 
     private void ImportPet(string? owner = null)

@@ -107,6 +107,17 @@ internal static class DeviceRecoverySelfTest
             try{await drain.WaitAsync(TimeSpan.FromSeconds(5));}catch(OperationCanceledException) when(draining.IsCancellationRequested){}
             Check(completed==1,"Exit lost an in-flight status publication");
         }finally{finish.Set();draining.Cancel();try{await drain;}catch(OperationCanceledException){}}
-        Console.WriteLine("TAB5_STATUS_WORKER_OK sequential, coalesced ticks, fresh capture, cancellation drain and visible faults; synthetic only");
+        using var fastStop=new CancellationTokenSource();using var fastRelease=new ManualResetEventSlim();
+        var fastEntered=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);int fullCalls=0,fastCalls=0;
+        var fast=Task.Run(()=>Tab5StatusPublisher.RunAsync(()=>fullCalls++,fastStop.Token,refresh:()=>{
+            fastCalls++;fastEntered.SetResult();if(!fastRelease.Wait(TimeSpan.FromSeconds(5)))throw new TimeoutException();
+        }));
+        try {
+            await fastEntered.Task.WaitAsync(TimeSpan.FromSeconds(3));fastStop.Cancel();
+            Check(fullCalls==1&&fastCalls==1&&!fast.IsCompleted,"Fast refresh did not share the publisher lifecycle");
+            fastRelease.Set();try{await fast.WaitAsync(TimeSpan.FromSeconds(5));}catch(OperationCanceledException){}
+            Check(fullCalls==1&&fastCalls==1,"Cancellation queued another full/fast publication");
+        }finally{fastRelease.Set();fastStop.Cancel();try{await fast;}catch(OperationCanceledException){}}
+        Console.WriteLine("TAB5_STATUS_WORKER_OK sequential, coalesced full/fast ticks, fresh capture, cancellation drain and visible faults; synthetic only");
     }
 }

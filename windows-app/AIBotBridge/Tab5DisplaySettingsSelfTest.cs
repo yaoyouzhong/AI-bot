@@ -23,9 +23,10 @@ internal static class Tab5DisplaySettingsSelfTest
         if(service.Respond(pair.DeviceId,nonce,Tab5Protocol.Proof(key,$"GET|{pair.DeviceId}|{nonce}")) is null)throw new Exception("Test authentication failed");
         var expected=new Tab5DisplaySettings("1234abcd",75,35,false,-1,true,15,5,true,[1,1,1,1,1,1,1,0],[0,1,2,3,4,5,6,7]);
         async Task<(int Status,byte[]? Packet)> Reply(Task<Tab5DisplaySettings> pending,bool ok,string error="") {
+            service.RefreshPublication(); // simulate the manager-owned background tick
             using var frame=JsonDocument.Parse(service.CurrentFrame!);
             var command=frame.RootElement.GetProperty("data").GetProperty("connectionHealth").GetProperty("displayCommand");
-            if(command.ValueKind!=JsonValueKind.Object)throw new Exception("Settings request waited for periodic publication");
+            if(command.ValueKind!=JsonValueKind.Object)throw new Exception("Settings request missing after publisher tick");
             using var selected=JsonDocument.Parse(service.TelemetryFrame(2,true,true,true)!);
             JsonDocument? unpacked=null;
             try {

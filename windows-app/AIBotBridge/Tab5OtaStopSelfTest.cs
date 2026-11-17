@@ -69,7 +69,7 @@ internal sealed partial class Tab5Service
                 service.ObserveOtaRebootUsb(UsbBoot(),7,6000,7000);
                 if(Interlocked.Read(ref service._rpcOtaUntil)!=0||service.UpgradeBootSummary=="启动核验通过")throw new Exception("Reboot lease release confused with boot verification");
                 service.CancelOta();
-                JsonElement Frame(){using var doc=JsonDocument.Parse(service.CurrentFrame!);return doc.RootElement.Clone();}
+                JsonElement Frame(){service.RefreshPublication();using var doc=JsonDocument.Parse(service.CurrentFrame!);return doc.RootElement.Clone();}
                 async Task<JsonElement> Rpc(object payload,string transport="BLE") {
                     string n=Guid.NewGuid().ToString("N");var packet=Tab5Protocol.Encrypt(key,n,JsonSerializer.SerializeToUtf8Bytes(payload,JsonDefaults.Options));
                     string proof=Tab5Protocol.Proof(key,$"POST|/tab5/v1/rpc|{pair.DeviceId}|{n}|{Convert.ToHexString(SHA256.HashData(packet)).ToLowerInvariant()}");

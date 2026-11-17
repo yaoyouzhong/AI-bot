@@ -70,6 +70,7 @@ internal sealed class DomesticQuotaAuthForm : Form
                 "AI-bot", "quota-auth-profile");
             var environment = await CoreWebView2Environment.CreateAsync(null, profile);
             await _web.EnsureCoreWebView2Async(environment);
+            await QuotaWebMedia.ConfigureAsync(_web.CoreWebView2);
             _web.CoreWebView2.Settings.AreDevToolsEnabled = false;
             _web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             await _web.CoreWebView2.CallDevToolsProtocolMethodAsync("Network.enable", "{}");
