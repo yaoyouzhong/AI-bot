@@ -151,12 +151,8 @@ def main():
         assets[metadata.name] = {'bytes': metadata.stat().st_size, 'sha256': digest(metadata)}
         (args.output / 'upload-manifest.json').write_text(json.dumps(assets, indent=2) + '\n', encoding='utf-8')
     else:
-        if args.direct:
-            for key in list(os.environ):
-                if 'proxy' in key.lower():
-                    os.environ.pop(key)
-        upload(args.repo, args.tag, args.directory.resolve(),
-               json.loads(args.manifest.read_text(encoding='utf-8')), args.state.resolve(), args.workers)
+        parser.error('Standalone release uploads are disabled; use release_pipeline.py promote with accepted candidate and AIBOT_COORDINATION_PLAN')
+
 
 
 if __name__ == '__main__':
