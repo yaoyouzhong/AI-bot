@@ -194,6 +194,9 @@ def promote_product(entries, repository, *, execute=False, publish=False, commit
     candidates = [item['candidate'] for item in components]
     if len({candidate['tag'] for candidate in candidates}) != len(candidates):
         raise ValueError('Product release contains duplicate component tags')
+    if execute:
+        for candidate in candidates:
+            pipeline.require_coordination(candidate, repository)
     # Validate notes and exact scope before any tag, draft or upload is created.
     preview = render_product(repository, '0.0.0', components)
     scope = pipeline.require_release_scope(candidates, online=execute, reason=scope_reason) if publish else None
