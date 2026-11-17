@@ -33,17 +33,23 @@ class NativeMailbox(Mailbox):
         posted = hub('POST', '/v1/events', payload)
         require(isinstance(posted, dict) and type(posted.get('event')) is int and posted['event'] > 0,
                 'Native event acceptance unknown')
-        require(not posted.get('paused') and posted.get('routed') == [binding['expectedRule']], 'Unexpected native routing; stop and inspect')
         event_id = posted['event']
         observed = hub('GET', '/v1/events/' + str(event_id))
         require(isinstance(observed, dict) and type(observed.get('event')) is int
-                and observed['event'] == event_id and not observed.get('paused') and observed.get('routed') == [binding['expectedRule']]
+                and observed['event'] == event_id
                 and isinstance(observed.get('runs'), list), 'Invalid native observation')
         runs = observed['runs']
         require(all(r.get('rule') == binding['expectedRule'] for r in runs) and len(runs) <= 1,
                 'Unexpected or multiple native runs; no completion receipt')
+        # Native replay retains the historical paused/routed fields. Only a real
+        # unique run linked by this event's GET can establish successful recovery.
+        normal = all(not x.get('paused') and x.get('routed') == [binding['expectedRule']]
+                     for x in (posted, observed))
+        recovered = bool(runs) and all(x.get('paused') == [binding['expectedRule']] and x.get('routed') == []
+                                      for x in (posted, observed))
+        require(normal or recovered, 'Native route still paused/unmatched; explicit native replay required')
         result = dict(snapshot=commit, packetId=packet_id, nativeEvent=event_id,
-                      eventKey=payload['id'], state='awaiting-run', developmentCompletionAsserted=False,
+                      eventKey=payload['id'], state='awaiting-run', recoveredAfterPause=recovered, developmentCompletionAsserted=False,
                       publicationPerformed=False)
         if not runs: return result
         run = runs[0]
