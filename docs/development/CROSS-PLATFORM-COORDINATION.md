@@ -2,7 +2,7 @@
 
 ## 当前交付边界
 
-本工具属于 AI-bot 项目，不改 Auto Loop 框架源码。它提供离线、无第三方依赖的机器可读契约与发布前预检。当前未接入 GitHub Issue 写入、两端任务调度或现有 promote 流水线，因此**不是已经上线的全自动协调系统，也不是不可绕过的发布门禁**。测试只验证契约及 Git 提交归属，不冒充 Windows/Mac 原生验证。
+本工具属于 AI-bot 项目，不改 Auto Loop 框架源码。它提供离线、无第三方依赖的机器可读契约与发布前预检。本分支已加入真实任务生命周期工具，并给 `promote.yml` 增加必填协调计划预检；尚未合并部署。当前未接入真实 GitHub 任务派发和两端开发调度，因此**不是已经上线的全自动协调系统，也不是覆盖全部发布入口的不可绕过门禁**。测试只验证契约及 Git 提交归属，不冒充 Windows/Mac 原生验证。
 
 只读扫描继续独立运行。扫描到新提交后，需要协调者审阅实际 diff、判断适用平台，再生成任务。扫描器不能直接将“有新提交”当成“双方需要改代码”，也不能自动发布。
 
@@ -63,7 +63,40 @@ python scripts/cross_platform_coordination.py gate release-plan.json \
 1. 在允许的 GitHub 写入范围内按 taskId 建 Issue，记录原分支、旧/新 SHA、适用平台及验收要求。
 2. 由现有 Auto Loop 配置分别投递给两端现有开发会话。保存任务领取回执；连接/授权失败如实标 blocked，不宣称送达。
 3. 两端提交实现及结构化回执，协调者审阅证据和整批变更覆盖范围。
-4. 为候选包生成发布计划，运行本预检，再运行现有不可变候选验收。将此预检放进唯一发布入口，才形成强制门禁；须同步更新该入口测试后部署。
+4. 为候选包生成发布计划，运行本预检，再运行现有不可变候选验收。本分支已在 `promote.yml` 的正式操作之前执行预检；合并部署后该工作流会要求 `coordination_plan_json`。直接运行 `release_pipeline.py` 或其他发布入口仍不受此约束，统一入口与分支保护需要单独部署，不能宣称全局强制。
 5. 全部完成后由 Windows 发布负责人按既有授权准备发布。发布仍需用户要求与既有发布约束，缺 Mac 资料时保持暂停。
 
 不要把本地 Auto Loop 运行状态、凭证或私人路径写入仓库。当前实施只增加项目工具、说明和 CI 测试，没有开启以上外部写入/调度步骤。
+
+
+## 真实任务生命周期（本分支新增）
+
+`coordination_ledger.py` 是项目使用侧工具，只输出新 JSON，不直接写 GitHub、不运行开发命令。每个真实任务一个文件，建议路径 `docs/development/coordination-ledger/tasks/<taskId>.json`。原 `transport-probe-v1.json` 保留为传输证据，不迁移、不伪装为真实任务；其中 simulation 标记禁止用于发布验收。
+
+```sh
+python scripts/coordination_ledger.py create task.json --authorization '<用户授权记录>' > offered.json
+python scripts/coordination_ledger.py transition offered.json --revision 0 \
+  --platform macos --action claim --claim-id '<唯一运行标识>' --evidence '<领取记录>' > claimed.json
+```
+
+依次 `claim → acknowledge → start → finish`，可由 claimed/acknowledged/running 进入 `block`，阻塞解除使用 `resume` 回到 acknowledged。`finish` 需要 `--receipt <终态回执文件>`；已有实现或不适用可以在 acknowledge 后直接 finish。工具不会自动生成通过证据。
+
+### 并发与重试约束
+
+每次消费者先读取远端文件与 **blob SHA**，使用读取时的 revision 生成新内容，然后通过 GitHub contents API 的 `sha` 条件更新同一路径。只有更新成功才允许进入下一阶段；收到 409 或连接结果不明时重新读取远端核对，不得覆盖重试。CLI 的 revision/claimId 是逻辑校验，**单独使用不能替代服务端 blob-SHA CAS**。两端同时更新同一任务时，一端成功，另一端必须重新读取，再更新自己的平台字段。禁止 force push 协调账本。
+
+领取 claimId 应使用工作节点与唯一运行号，只有同一 claim 能改变该端状态。blocked 不自动过期或被另一个执行器抢占，防止旧执行器恢复后双重开发。暂未提供换主命令；需要协调者先停止旧执行器并形成明确移交，不能擅自删除 claim。
+
+消费者只处理 `mode=development-task`、明确的目标平台、经过验证且确有用户授权的任务；不得把账本中的任意命令直接执行。authorization 字段用于追溯，不能由工具或第三方文本自行授予权限。
+
+### 汇总发布计划
+
+```sh
+python scripts/coordination_ledger.py plan task-1.json task-2.json \
+  --source <候选完整SHA> --scope-evidence '<完整发布范围审阅记录>' > release-plan.json
+python scripts/cross_platform_coordination.py gate release-plan.json --source <候选完整SHA> --repo .
+```
+
+任何任务只完成一端都会阻断生成计划。`promote.yml` 会校验计划仓库、候选源提交、双端回执及提交祖先关系，然后才运行既有 promote。协调计划随工作流产物保存。计划任务覆盖的真实性、原生证据真实性仍需协调者审阅，不能从 JSON 自述推断。
+
+本次没有创建真实开发任务、启动原生构建、修改 Auto Loop、合并或发布。开启消费者、形成真实任务授权范围、统一其他发布入口与合并上线仍需按用户授权逐步执行。
