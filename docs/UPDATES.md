@@ -23,6 +23,13 @@ TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备�
 
 此入口负责发现、下载和交接。安装后的真实运行版本、TAB5 精确镜像启动结果和实体屏效果仍需分别核验；下载成功不等于升级完成。自动后台检查不会下载安装器或刷写设备。
 
+<a id="windows-0624"></a>
+## Windows 0.6.24：软件固件入口 / Software and Firmware
+
+Windows 0.6.24 在「设备中心 → 桥接设置 → 软件固件」把屏保图库与电脑软件、设备固件一起列出。图库有两个新版时仍只算一个更新项。选中「屏保图库」，再点「管理图库…」即可查看新版、下载或导入 ZIP；设备卡片的「屏保图库」用于浏览作品。安装图库期间请求退出会回到该窗口；安装完成或取消后可退出。TAB5 的 Wi-Fi、USB 配对、固件升级和测速在「连接设置」。ESP8266 的「管理 → 手动刷机…」用于 USB 刷机，「连接设置 → 重置网络…」用于重置已保存的网络。Windows 0.6.24 的实际可下载状态以[下载中心](../DOWNLOADS.md)为准。
+
+In Windows 0.6.24, Device Center → Bridge Settings → Software/Firmware lists screensaver artwork alongside desktop software and firmware. Two collection updates still count as one item. Select Artwork Collections and choose Manage Collections to view versions, download or import a ZIP. The device's artwork shortcut opens the browser. A quit request during installation returns to the collection window; you can quit when the operation finishes or is cancelled. TAB5 Connection Settings contains Wi-Fi, USB pairing, firmware upgrades, and speed tests. For ESP8266, use Manage → Manual Flash for USB flashing, and Connection Settings → Reset Network to clear saved networks. Check the [download center](../DOWNLOADS.en.md) for actual Windows 0.6.24 availability.
+
 ## English
 
 The [complete download center](../DOWNLOADS.en.md) lists both desktop apps, ESP8266 firmware, TAB5 first-install/upgrade packages and both artwork collections. Bridge 0.6.10's manual-download link opens this center.

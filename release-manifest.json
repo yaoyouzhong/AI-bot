@@ -3,7 +3,7 @@
   "components": {
     "bridge": {
       "versionFile": "VERSION",
-      "desktopPlatform": "macos",
+      "desktopPlatform": "windows",
       "tagPrefix": "bridge-v",
       "changelogs": ["CHANGELOG.md", "CHANGELOG.zh.md"]
     },

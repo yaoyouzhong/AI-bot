@@ -69,7 +69,7 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 
 **Cable note:** The compact display's included power cable does not carry data. Use a USB data cable for flashing and USB bridge connections; a lit screen alone does not mean the computer can detect it.
 
-1. **连接并打开刷机。** 插 USB；新设备在“添加”里选 **ESP8266 小屏 → ESP8266 首次安装…**，已有设备选中小屏 → **管理… → 固件升级**。关闭其他串口工具，保持 AI-bot 桥接运行。
+1. **连接并打开刷机。** 插 USB；新设备在“添加”里选 **ESP8266 小屏 → ESP8266 首次安装…**。已有设备选中小屏：Windows 0.6.24 使用 **管理 → 手动刷机…**，旧版 Windows 使用 **管理… → 固件升级**。关闭其他串口工具，保持 AI-bot 桥接运行。
 2. **选择文件并刷入。** 点 **选择文件**，直接选下载的 ESP8266 固件 ZIP，无需解压；确认设备后点 **开始刷机**。工具自动先备份，再写入和回读校验；过程中保持供电与连接。
 
 ![图 3：ESP8266 刷机；先“选择文件”，再“开始刷机”](assets/screens/firmware-flasher.png)
@@ -186,7 +186,7 @@ TAB5 需要无线时，在 **连接设置 → Wi-Fi** 保存网络并确认有�
 - **语音：** 在电脑端“设备中心 → TAB5 → 语音设置”选择可用服务；Mac 本地 Speech 与豆包输入法使用各自权限。识别结束自动填入原目标，核对后再明确发送。本地对齐候选采用后台加载、保存前检查和取消不保存，详见 [Mac 候选记录](MAC-TAB5-CANDIDATE.md)。
 - **电脑控制：** 在设备中心选择 TAB5 → 电脑控制，设置快捷启动、音量与一键解锁。Windows 的登录组件与 Mac 权限分别配置。
 - **日程：** 在设备中心或 TAB5 应用页管理，最多 16 项；离线修改在重连后同步。
-- **图库：** 名画与书法各 366 件，按需选择[标准图库](GALLERY-PACKS.md)或[高清完整版](GALLERY-HD.md)，同类无需重复安装。字库已在固件中，不必单独下载。
+- **图库：** 名画与书法各 366 件，按需选择[标准图库](GALLERY-PACKS.md)或[高清完整版](GALLERY-HD.md)，同类无需重复安装。Windows 0.6.24 在[软件固件 → 屏保图库 → 管理图库…](UPDATES.md#windows-0624)下载或导入；设备卡片的「屏保图库」用于浏览。字库已在固件中，不必单独下载。
 
 后续版本变化见[当前发布说明](RELEASE-0.6.23.md)与[更新日志](../CHANGELOG.zh.md)；界面示例见[截图说明](SCREENSHOTS.md)。安装步骤以本文当前路线为准。
 

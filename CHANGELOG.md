@@ -4,12 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- Recognize open Claude Code terminals waiting for input. The companion can show Idle before the first task and after long periods without activity.
-- Windows renews USB host ownership through acknowledged status updates and reauthenticates on the same serial connection when the device requests it. Background metrics and asset transfers yield while the TAB5 control page is open.
-- The USB status sender uses already published data so catalog and music updates cannot hold up computer-control requests on the same serial link.
-- Windows one-click unlock directly confirms a focused PIN or password field on the secure desktop. The login helper uses interactive task priority, with its wait budget aligned to the TAB5 credential request.
-- Codex Direct hands conversation links to the interactive user's Explorer when the Windows bridge is elevated, then verifies the conversation in the foreground window.
-- The TAB5 overview reads Codex activity from the session snapshot's state fields, including newer snapshots that use the same fields.
+## 0.6.24 - 2026-11-17
+
+This release updates the Windows x64 bridge only. Mac stays at 0.6.23, TAB5 at 0.2.321-ui, and ESP8266 at 0.5.8. Updating the bridge does not require reflashing a device.
+
+### Software, firmware, and artwork
+
+- Check for desktop, firmware, and screensaver artwork updates in Device Center → Bridge Settings → Software/Firmware. The artwork row counts as one update even when both collections have new versions. Use Manage Collections to see versions and installation options for paintings and calligraphy. If you quit from the tray during a collection installation, the bridge brings the collection window back until the operation finishes or is cancelled.
+- Update notifications open the relevant item. If you cancel opening the downloaded Windows installer, the bridge confirms that it was downloaded but not installed. TAB5 connection, pairing, firmware upgrades, and speed tests now share Connection Settings.
+
+### Claude, Codex, and TAB5 connectivity
+
+- The companion can show Idle while an open Claude Code terminal is waiting for input. The bridge checks the session and available controls when resuming a Claude background session. The Codex overview and read status use recognized data fields, including newer versions that retain those fields.
+- When TAB5 requests authentication again, the bridge tries to recover on the same USB connection. Metrics and asset transfers yield to device controls while the control page is open. The bridge attempts to recover from Bluetooth status-acknowledgement and idle-poll timeouts separately to reduce interruptions to unrelated transfers.
+- When the Windows bridge runs with administrator privileges, Codex Direct opens the conversation on the interactive user's desktop and verifies that the intended conversation opened. One-click unlock improves focus handling on the secure desktop and adjusts the timing of the login helper.
 
 ## 0.6.23 - 2026-11-16
 
