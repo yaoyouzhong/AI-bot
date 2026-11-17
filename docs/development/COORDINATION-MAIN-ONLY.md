@@ -36,7 +36,7 @@
 
 ## 可执行观察与动态工作区（原生插件的薄程序）
 
-`python coordination_main_watch.py --config <本机可信配置>` 可作为原生 command/cron 程序。配置包含 enabled、branch=main、binding、expectedRule、baselineVerified、auditRoot、ghExecutable、hubUrl；编辑模式还需 workspaceDispatcherVerified=true。hubUrl 只允许明确 loopback HTTP 地址；禁止重定向。既有 source key 由本机受信启动器从现有配置读取至子进程 `AIBOT_HUB_SOURCE_KEY`，不放命令参数、项目文件或共享记录，不需要 owner key。
+`python coordination_main_watch.py --config <本机可信配置>` 可作为原生 command/cron 程序。配置包含 enabled、dispatchEnabled（必须显式布尔值）、branch=main、binding、baselineVerified、auditRoot、ghExecutable；dispatchEnabled=true 时另需 expectedRule、hubUrl 和内存中的 source key。dispatchEnabled=false 只保存不可变观察并返回 observed-not-dispatched，不调用Hub、不要求source key，不预先制造未路由事件；后续启用可使用原身份首次真正派发。编辑模式还需 workspaceDispatcherVerified=true。hubUrl 只允许明确 loopback HTTP 地址；禁止重定向。既有 source key 由本机受信启动器从现有配置读取至子进程 `AIBOT_HUB_SOURCE_KEY`，不放命令参数、项目文件或共享记录，不需要 owner key。
 
 watch 保存每个 main SHA 的不可变观察资料后才调用原生API；网络中断后仍保留老观察，后续轮询原样POST同ID，由Hub去重。运行状态另以内容哈希只追加审计文件，绝不覆盖初始baseline、reviewed或aligned结论；观察文件不是可编辑“已完成游标”。同目录换binding会失败关闭，迁移需先核对既有任务，不用新模式直接覆盖。最多1000观察文件，超限停止要求审计归档，不默默丢未处理任务。历史所有观察的重复查询有开销，当前只为单项目初始落地，后续优先用原生查询优化，不能改成私有任务队列。
 
