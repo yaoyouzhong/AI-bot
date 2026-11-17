@@ -58,6 +58,8 @@
 
 ## Mac 接手顺序
 
+Mac 接收分支的代码与验证状态另见 [macOS 对齐记录](MAC-TAB5-BLE-ALIGNMENT-20261117.md)。以下保留 Windows 交接时的建议顺序。
+
 1. 先审查 `MacTab5BLE.swift` 的共享 `busy`/`deadline` 机制，用 `MacTab5BLEDiagnostics` 记录操作类型、等待时长、片偏移、期望/实际 ACK、连接代际和重连原因。分别复现丢失状态 ACK 与邮箱首次读超时，判断各自是否会取消进行中的 RPC。
 2. 用 `MacTab5BLEStatusTests`、`MacTab5BLEVoicePacingTests`、`MacTab5BLERPCWindowTests` 和 `MacTab5BLEDiagnosticsTests` 覆盖修复，再在 macOS 执行 `cd mac-app && swift test && swift build -c release`。复测分片顺序、授权窗口、旧固件兼容性和真实断线恢复。
 3. 在已配对的 322-R6 上记录三通道双向吞吐和半小时稳定性。BLE 每方向至少重复跨越 96 和 144 KiB，并校验内容与顺序。对大回复期间的语音同时做邮箱轮询和实际录音验收，记录等待时长与结果。验证 USB 单独断开后回退 Wi-Fi、恢复后自动切回，执行前后核对展示设置。

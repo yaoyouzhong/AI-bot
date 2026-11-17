@@ -35,6 +35,9 @@ struct MacTab5BLEWriteSchedule {
     }
     var end: Int { min(count, start + window) }
     func requiresResponse(at index: Int) -> Bool { confirmed || replaying || index + 1 == end }
+    func canYieldToVoice(next: Int, now: TimeInterval, lastProbe: TimeInterval) -> Bool {
+        replaying && next > start && next < end && now - lastProbe >= 1
+    }
     mutating func acknowledged(next: Int) {
         if next == end { start = next; replaying = false }
     }

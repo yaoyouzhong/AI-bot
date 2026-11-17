@@ -10,6 +10,7 @@ final class MacTab5BLEDiagnostics {
         let id: UInt64, kind: Kind, began: TimeInterval
         var stage = Stage.processing, read = 0, submitted = 0, reads = 0, writes = 0
         var phaseBegan: TimeInterval
+        var paused: TimeInterval = 0
         var phases: [Stage: Int] = [:]
         var operation: VoiceOperation?, terminal = false
         var grants = 0, commandGrants = 0, notifications = 0
@@ -41,7 +42,7 @@ final class MacTab5BLEDiagnostics {
         var idle = Totals()
     }
     private let lock = NSLock(), clock: () -> TimeInterval
-    private var counter: UInt64 = 0, current: Entry?
+    private var counter: UInt64 = 0, current: Entry?, suspendedRPC: Entry?
     private var results: [Kind: Result] = [:]
     private var capture: Capture?
     private var voiceLink: String?
@@ -126,10 +127,10 @@ final class MacTab5BLEDiagnostics {
         current!.submitted = min(8 * 1024 * 1024, current!.submitted + max(0, min(65536, count)))
         current!.writes = min(65536, current!.writes + 1)
     }
-    func finish(_ id: UInt64, success: Bool) {
+    func finish(_ id: UInt64, success: Bool, recoverable: Bool = false) {
         lock.lock(); defer { lock.unlock() }
         guard current?.id == id else { return }
-        finishLocked(success: success)
+        finishLocked(success: success, recoverable: recoverable)
     }
     func discard(_ id: UInt64) {
         lock.lock(); defer { lock.unlock() }
@@ -138,8 +139,26 @@ final class MacTab5BLEDiagnostics {
         if let current { recordCaptureLocked(current, success: true, idle: true) }
         current = nil
     }
+    func suspendRPC() {
+        lock.lock(); defer { lock.unlock() }
+        guard current?.kind == .rpc else { return }
+        closePhaseLocked()
+        suspendedRPC = current; current = nil
+    }
+    func resumeRPC() {
+        lock.lock(); defer { lock.unlock() }
+        resumeRPCLocked()
+    }
+    private func resumeRPCLocked() {
+        guard current == nil, var entry = suspendedRPC else { return }
+        let now = clock()
+        entry.paused += max(0, now - entry.phaseBegan); entry.phaseBegan = now
+        current = entry; suspendedRPC = nil
+    }
     func failCurrent() {
         lock.lock(); defer { lock.unlock() }
+        finishLocked(success: false)
+        resumeRPCLocked()
         finishLocked(success: false)
         if capture?.end == nil { capture?.end = clock() }
     }
@@ -147,21 +166,21 @@ final class MacTab5BLEDiagnostics {
         let elapsed = clock() - began
         return elapsed.isFinite ? Int(min(180, max(0, elapsed)) * 1000) : 0
     }
-    private func finishLocked(success: Bool) {
+    private func finishLocked(success: Bool, recoverable: Bool = false) {
         closePhaseLocked()
         guard let entry = current else { return }
-        results[entry.kind] = Result(entry: entry, milliseconds: milliseconds(entry.began), success: success)
-        recordCaptureLocked(entry, success: success, idle: false)
+        results[entry.kind] = Result(entry: entry, milliseconds: milliseconds(entry.began + entry.paused), success: success)
+        recordCaptureLocked(entry, success: success, idle: false, recoverable: recoverable)
         current = nil
     }
-    private func recordCaptureLocked(_ entry: Entry, success: Bool, idle: Bool) {
+    private func recordCaptureLocked(_ entry: Entry, success: Bool, idle: Bool, recoverable: Bool = false) {
         if entry.kind == .voice, entry.operation == .start, success, !idle { capture = Capture(began: entry.began) }
         guard capture != nil, capture?.end == nil else { return }
-        let duration = milliseconds(entry.began)
+        let duration = milliseconds(entry.began + entry.paused)
         capture!.kinds[entry.kind, default: Totals()].add(entry, duration: duration)
         if idle { capture!.idle.add(entry, duration: duration) }
         else if let operation = entry.operation { capture!.operations[operation, default: Totals()].add(entry, duration: duration) }
-        if !success || entry.terminal {
+        if (!success && !recoverable) || entry.terminal {
             capture!.end = clock(); capture!.confirmed = success && entry.terminal
         }
     }
@@ -173,7 +192,7 @@ final class MacTab5BLEDiagnostics {
         if let voiceConfiguration { lines.append(voiceConfiguration) }
         if let rpcLink { lines.append(rpcLink) }
         if let rpcConfiguration { lines.append(rpcConfiguration) }
-        if let current { lines.append("\(current.kind.rawValue)：\(current.stage.rawValue) · \(milliseconds(current.began)) ms · \(sizes(current))") }
+        if let current { lines.append("\(current.kind.rawValue)：\(current.stage.rawValue) · \(milliseconds(current.began + current.paused)) ms · \(sizes(current))") }
         for kind in Kind.allCases {
             if let result = results[kind] {
                 lines.append("\(kind.rawValue)：\(result.success ? "流程完成" : "未确认") · \(result.milliseconds) ms · \(sizes(result.entry))")

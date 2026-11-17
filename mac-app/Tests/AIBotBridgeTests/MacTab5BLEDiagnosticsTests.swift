@@ -86,6 +86,24 @@ final class MacTab5BLEDiagnosticsTests: XCTestCase {
         XCTAssertEqual(diagnostics.summary.components(separatedBy: "本轮蓝牙累计：").last,
                        summary.components(separatedBy: "本轮蓝牙累计：").last)
     }
+    func testRecoverableProbeDuringReplayPreservesRPCProgressAndVoiceCapture() {
+        var now: TimeInterval = 0
+        let diagnostics = MacTab5BLEDiagnostics(clock: { now })
+        let start = diagnostics.begin(.voice); diagnostics.voice(.start, terminal: false)
+        now = 1; diagnostics.finish(start, success: true)
+        let rpc = diagnostics.begin(.rpc); diagnostics.stage(.writing); diagnostics.submit(100)
+        now = 2; diagnostics.suspendRPC()
+        let probe = diagnostics.begin(.voice)
+        now = 5; diagnostics.finish(probe, success: false, recoverable: true)
+        diagnostics.resumeRPC(); diagnostics.submit(170)
+        now = 6; diagnostics.finish(rpc, success: true)
+        XCTAssertTrue(diagnostics.summary.contains("控制邮箱：流程完成 · 2000 ms"))
+        XCTAssertTrue(diagnostics.summary.contains("提交 270 B/2 次"))
+        XCTAssertTrue(diagnostics.summary.contains("本轮蓝牙累计：进行中"))
+        let final = diagnostics.begin(.voice); diagnostics.voice(.poll, terminal: true)
+        now = 7; diagnostics.finish(final, success: true)
+        XCTAssertTrue(diagnostics.summary.contains("终态响应已提交"))
+    }
     func testResetClosesCaptureAndOnlySuccessfulNewStartReplacesIt() {
         var now: TimeInterval = 0
         let diagnostics = MacTab5BLEDiagnostics(clock: { now })
