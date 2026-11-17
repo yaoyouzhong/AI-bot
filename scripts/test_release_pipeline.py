@@ -60,6 +60,8 @@ class CandidateTests(unittest.TestCase):
             pipeline.promote(folder, acceptance, 'owner/repo', target_tag='bridge-v9.9.9')
 
     def setUp(self):
+        coordination = patch.object(pipeline, 'require_coordination', return_value={'status': 'fixture-only'})
+        coordination.start(); self.addCleanup(coordination.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
