@@ -24,6 +24,7 @@ final class MacClaudeTerminalIntegrationTests: XCTestCase {
         let client = try XCTUnwrap(registry.owner(session).client)
         XCTAssertEqual(client.source, .terminal)
         XCTAssertTrue(client.allows("send", images: true))
+        XCTAssertTrue(MacClaudeNativeClient.allLiveTerminalsIdle(config: config))
         let backend = MacClaudeWorkspaceBackend(root: projects, store: store, key: { key }, harnesses: registry)
         let workspace = MacClaudeWorkspace(store: store, backend: backend, enabled: { true })
         defer { workspace.stop() }
@@ -81,6 +82,7 @@ final class MacClaudeTerminalIntegrationTests: XCTestCase {
 
         let first = try request("send", "fixture running for append")
         try until { client.allows("steer", images: false) && FileManager.default.fileExists(atPath: fixture.appendingPathComponent("append-busy").path) }
+        XCTAssertFalse(MacClaudeNativeClient.allLiveTerminalsIdle(config: config))
         let released = fixture.appendingPathComponent("append-release")
         DispatchQueue.global().asyncAfter(deadline: .now() + 1) { try? Data().write(to: released) }
         let queued = try request("steer", "fixture terminal queued", expected: first)
@@ -91,6 +93,7 @@ final class MacClaudeTerminalIntegrationTests: XCTestCase {
         let stopped = try request("interrupt", expected: running)
         XCTAssertEqual(stopped, running)
         XCTAssertEqual(try client.state(), "idle")
+        XCTAssertTrue(MacClaudeNativeClient.allLiveTerminalsIdle(config: config))
         XCTAssertEqual(try state(queued), "completed")
         try Data().write(to: fixture.appendingPathComponent("interrupt-release"))
         XCTAssertEqual(workspace.tasks.handle(["op": "read", "taskId": task], device: device).status, 200)
