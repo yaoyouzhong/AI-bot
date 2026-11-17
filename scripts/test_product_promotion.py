@@ -14,6 +14,8 @@ import test_release_pipeline as fixtures
 
 class ProductPromotionTests(unittest.TestCase):
     def setUp(self):
+        coordination = patch.object(promotion.pipeline, 'require_coordination', return_value={'status': 'fixture-only'})
+        coordination.start(); self.addCleanup(coordination.stop)
         self.bridge = component('bridge', '0.6.20', 'bridge-v0.6.20', 'b', ['AI-bot-bridge-v0.6.20-macos-arm64.zip'])
         self.tab5 = component('tab5', '0.2.321-ui', 'tab5-v0.2.321-ui', 'a', ['AI-bot-tab5-0.2.321-ui-upgrade.zip'])
 
