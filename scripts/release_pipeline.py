@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -399,10 +400,27 @@ def release_title(candidate):
     return prefix + candidate["version"]
 
 
+def require_coordination(candidate, repository):
+    """All supported publishing entry points require reviewed, source-bound plans."""
+    from cross_platform_coordination import gate
+    configured = os.environ.get('AIBOT_COORDINATION_PLAN', '')
+    if not configured:
+        raise ValueError('AIBOT_COORDINATION_PLAN is required before release mutations')
+    path = Path(configured)
+    if path.is_dir():
+        path = path / (sha(candidate['sourceCommit']) + '.json')
+    plan = read(path)
+    if plan.get('repository') != repository:
+        raise ValueError('Coordination repository differs from release repository')
+    return gate(plan, candidate['sourceCommit'], ROOT)
+
+
 def promote(directory, acceptance, repository, *, execute=False, publish=False, expected_source=None, commit_closeout=False, run_closeout=True, allow_deferred=False, minimal_bridge_assets=False, minimal_tab5_assets=False, scope_reason=None, scope_checked=False, target_tag=None):
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("Invalid GitHub repository")
     candidate, data, pending = readiness(directory, acceptance, expected_source=expected_source)
+    if execute:
+        require_coordination(candidate, repository)
     accepted_tag = candidate['tag']
     if target_tag is not None:
         if candidate['component'] != 'bridge' or target_tag != 'bridge-v' + candidate['version']:
@@ -493,6 +511,8 @@ def promote_set(plan, *, execute=False, publish=False, commit_closeout=False, al
         result['releaseScope'] = require_release_scope(preflight, online=execute, reason=scope_reason)
     if not execute:
         return result
+    for candidate in preflight:
+        require_coordination(candidate, data['repository'])
     if commit_closeout:
         check_closeout_workspace()
     state = plan.parent / ('release-set-' + canonical_id(preflight)[:16] + '.json')
