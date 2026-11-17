@@ -45,6 +45,8 @@ def transition(ledger, expected_revision, platform, action, claim_id, evidence, 
                'block': ('claimed', 'acknowledged', 'running'), 'resume': ('blocked',),
                'finish': ('acknowledged', 'running')}
     c.require(action in allowed and old['status'] in allowed[action], 'Invalid lifecycle transition')
+    if c.inspection_only(ledger['task']):
+        c.require(action not in ('start', 'finish'), 'Read-only task cannot start development or produce a release receipt')
     if action != 'claim':
         c.require(old.get('claimId') == claim_id, 'Another worker owns this claim')
     result = deepcopy(ledger)
