@@ -136,6 +136,15 @@ class Checkpoints:
             self.log(delivery, 'confirmed', evidence)
             return self.get(delivery)
 
+    def mark_uncertain(self, delivery, token, evidence):
+        require(text(evidence), 'Uncertainty evidence required')
+        with self.transaction():
+            row = self.get(delivery)
+            require(row['token'] == token and row['state'] in ('inflight', 'uncertain'), 'Stale or finished delivery')
+            self.db.execute("UPDATE deliveries SET state='uncertain',evidence=? WHERE id=?", (evidence, delivery))
+            self.log(delivery, 'uncertain', evidence)
+            return self.get(delivery)
+
     def reconcile_absent(self, delivery, token, evidence, *, worker_stopped=False, absence_verified=False):
         require(worker_stopped is True and absence_verified is True and text(evidence),
                 'Retry requires verified target absence and stopped old worker')
