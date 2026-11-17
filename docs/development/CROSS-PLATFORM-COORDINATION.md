@@ -117,4 +117,40 @@ python scripts/cross_platform_coordination.py gate release-plan.json --source <�
 - 空 `requiredTaskIds`、空 tasks、缺任一必需任务或任一平台回执都不能通过。不能以“本次没任务”为理由省略协调；只涉及已有实现的发布应形成明确范围任务，引用已通过的真实验证并说明复用理由，不要求重新全量测试。
 - 只读巡检（`kind` 以 `read-only` 开头或 `constraints.inspectionOnly=true`）不能推进开发 start/finish，也不能用作发布完成回执。接收确认保留原含义；本工具不会把历史图库巡检变成图库修复任务。
 - task 的 base 必须是 source 的祖先；force-push 造成分叉时先重新审阅，不假称原差异已覆盖。复用原生验证时，验证 baseline 必须在实现提交历史中，仍需解释为何相关行为没有改变。
-- 非空清单只证明列出的任务闭环，**不自动证明清单覆盖全部产品改动**。`scopeEvidence` 必须由协调者核对实际发布 diff 后形成。当前没有独立、不可修改的任务范围注册表，不能声称能检测恶意删除清单中的一整项任务；平台级保护及独立范围审定属于后续治理工作。
+- 门禁现在要求独立固定到 Git 提交的范围记录，并重新计算实际提交与文件差异，能够检测仅从发布计划中整项删除任务。范围记录中的基线选择和语义映射仍需人工/协调者审阅；不能将JSON中的 reviewed=true 自述当成用户授权。
+
+
+## 独立发布范围记录与完整差异覆盖
+
+只读生成待审清单（不会猜任务或自动标记审阅通过）：
+
+```sh
+python scripts/coordination_scope.py --repo . --repository yaoyouzhong/AI-bot \
+  --base <上个已接受发布基线SHA> --source <本次候选源SHA> > scope-draft.json
+```
+
+记录包含 `releaseBase/releaseSource`、完整 `commits/files`、`commitTasks/fileTasks` 和 `requiredTaskIds`。生成结果 `reviewed=false`，所有映射为空，不能发布。协调者按真实 diff 审阅，填写每个提交和每个变更文件所对应的任务 ID；删除和重命名按旧/新文件路径纳入，合并提交、撤销后净文件差异为空的提交仍列在 commits 中，不能静默跳过。范围记录的任务 ID 集合必须等于映射引用集合，且发布计划中的任务集合必须与之完全一致。
+
+审阅后将记录保存到约定分支的：
+
+`docs/development/coordination-ledger/release-scopes/<完整候选sourceCommit>.json`
+
+该文件提交后的 **范围记录所在提交 SHA** 与候选 sourceCommit 不同。执行时独立指定：
+
+```sh
+export AIBOT_COORDINATION_SCOPE_COMMIT=<已审阅范围记录的完整提交SHA>
+export AIBOT_COORDINATION_PLAN=<发布计划文件绝对路径或按源SHA命名的目录>
+python scripts/cross_platform_coordination.py gate release-plan.json --source <候选源SHA> --repo .
+```
+
+Windows PowerShell 使用 `$env:AIBOT_COORDINATION_SCOPE_COMMIT='...'` 设置环境变量。`promote.yml` 新增必填 `coordination_scope_commit`，从该独立输入取得 SHA，**不信任发布计划自行指定的 scopeCommit**。门禁通过 git show 读取固定提交中的规范路径，不读取可能被本地修改的工作区记录；再重新计算 Git 实际变化，逐项匹配提交、文件和任务映射，检查全部任务回执。范围提交或完整历史缺失时失败，须先 fetch；没有免检开关。预检结果保存范围提交、路径和实际变更数量，工作流上传为 `coordination-preflight.json`。
+
+多组件不同 sourceCommit 可在同一范围记录提交中保存多份 `<source>.json`，单独的发布计划也按 source 命名，兼容原有分批发布和已有验收复用。没有实际新产品变更但需要重发已验收候选时，仍使用该候选原来审定的范围记录，不改变候选或要求重复验收。
+
+### 能与不能自动证明的事
+
+能验证：基线是源提交祖先、实际提交/文件没有少列、每个提交/文件都关联任务、独立记录与发布计划任务集一致、双端回执与实现归属有效。整项任务从计划和 receipts 同时删除也会失败。
+
+不能自动证明：选择的上次发布基线是否正确、把某文件映射到某任务是否在产品语义上恰当、原生日志内容是否真实、审阅人是否有批准权。若攻击者同时有权更改范围记录、另选范围提交与发布输入，或直接操作 GitHub，则项目脚本不能提供服务端权限隔离。`reviewed` 和证据字段仅是可追溯声明，不新增任何发布授权。需要平台级强制时另行授权配置环境审批/凭证隔离。
+
+本次只开发和隔离测试范围机制，没有创建真实发布范围记录、没有更改既有任务、没有合并或发布。真实范围审定必须以明确候选版本和既有验收证据为依据。
