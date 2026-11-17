@@ -65,6 +65,24 @@ class Executor:
                                   subject=delivery, meaning='Handoff observed; not development completion'))
         return self.store.confirm(delivery, row['token'], reference, evidence)
 
+    def track(self, delivery):
+        """Read actual run status, including recovery after confirm-before-observe interruption."""
+        row = self.store.get(delivery)
+        require(json.loads(row['envelope']).get('dispatchBinding') == self.fingerprint, 'Binding changed; do not redirect existing delivery')
+        if row['state'] == 'suppressed-loop':
+            return dict(delivery=row['id'], handoffState=row['state'], execution=None, developmentCompletionAsserted=False, publicationPerformed=False)
+        if row['state'] != 'confirmed':
+            row = self.reconcile(delivery)
+        if row['state'] == 'confirmed':
+            run = self.find_run(delivery)
+            if run is not None:
+                reference = 'autoloop:' + self.binding['expectedRule'] + ':run:' + str(run['id'])
+                self.store.observe_run(delivery, reference, run.get('state'),
+                    canonical(dict(run=run['id'], rule=run['rule'], state=run.get('state'),
+                                   meaning='Executor status only; target session supplies technical result')))
+        return dict(delivery=row['id'], handoffState=row['state'], execution=self.store.observation(delivery),
+                    developmentCompletionAsserted=False, publicationPerformed=False)
+
     def deliver(self, envelope, worker):
         require(envelope.get('targetPlatform') == self.binding['targetPlatform'], 'Envelope target differs from fixed binding')
         envelope = {**envelope, "dispatchBinding": self.fingerprint}
