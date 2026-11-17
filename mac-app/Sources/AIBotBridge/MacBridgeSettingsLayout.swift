@@ -106,7 +106,7 @@ private final class MacBridgeSettingsDocument: NSView { override var isFlipped: 
 /// title/detail card like the Windows device center, using macOS semantic colors.
 final class MacBridgeActionCard: NSButton {
     private let caption: String
-    private let detail: String
+    private var detail: String
     private let handler: () -> Void
 
     init(_ title: String, _ detail: String, id: String, action: @escaping () -> Void) {
@@ -120,6 +120,13 @@ final class MacBridgeActionCard: NSButton {
         heightAnchor.constraint(equalToConstant: 68).isActive = true
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    func setDetail(_ value: String) {
+        guard value != detail else { return }
+        detail = value
+        setAccessibilityHelp(value)
+        needsDisplay = true
+    }
+
     @objc private func invoke() { handler() }
     override var isFlipped: Bool { true }
     var preferredWidth: CGFloat {
@@ -166,7 +173,7 @@ final class MacBridgeNavigationButton: NSButton {
 
 enum MacBridgeAction {
     case status, cycle, screenSaver, mirror, petGallery, deviceInfo, flash, reprovisionLAN, pairingToken, copyAddress
-    case appearance, espConnection, espFallback, espReset, espData, tab5Data, quotaHistory, updates, configuration, notifications, permissions, runtime, about
+    case appearance, espConnection, espFallback, espData, tab5Data, quotaHistory, updates, configuration, notifications, permissions, runtime, about
 }
 
 enum MacBridgeSettingsStyle {

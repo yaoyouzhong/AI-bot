@@ -54,9 +54,8 @@ final class MacGalleryBrowser: NSWindowController, NSTextFieldDelegate, NSTableV
     private var thumbnails: [String:NSImage] = [:]
     private let loader = OperationQueue()
     private var displayed: MacGalleryPage?, fullscreen: MacGalleryFullscreen?
-    private let importPack: () -> Void
-    init(gallery:MacTab5Gallery, importPack:@escaping ()->Void) {
-        self.gallery = gallery; self.importPack = importPack; loader.maxConcurrentOperationCount = 1
+    init(gallery:MacTab5Gallery) {
+        self.gallery = gallery; loader.maxConcurrentOperationCount = 1
         let window = MacGalleryWindow(contentRect:NSRect(x:0,y:0,width:1020,height:720),styleMask:[.titled,.closable,.resizable],backing:.buffered,defer:false)
         super.init(window:window); window.title = "AI-bot · 浏览作品"; window.contentMinSize = NSSize(width:960,height:580); window.isReleasedWhenClosed = false; window.center()
         let root = NSView(), filters = NSStackView(); filters.orientation = .vertical; filters.alignment = .leading; filters.spacing = 10
@@ -64,7 +63,7 @@ final class MacGalleryBrowser: NSWindowController, NSTextFieldDelegate, NSTableV
         query.placeholderString = "作品名或作者"; query.delegate = self; query.setAccessibilityLabel("作品名或作者")
         date.datePickerElements = .yearMonthDay; date.dateValue = Date(); date.datePickerStyle = .textFieldAndStepper
         filters.addArrangedSubview(MacBridgeSettingsStyle.row([category,date,MacSettingsButton("按日期查找") { [weak self] in self?.locate() },MacSettingsButton("今日") { [weak self] in self?.date.dateValue = Date(); self?.locate() },query]))
-        filters.addArrangedSubview(MacBridgeSettingsStyle.row([summary,NSView(),MacSettingsButton("刷新") { [weak self] in self?.reload() },MacSettingsButton("管理图库…",importPack)]))
+        filters.addArrangedSubview(MacBridgeSettingsStyle.row([summary,NSView(),MacSettingsButton("刷新") { [weak self] in self?.reload() }]))
         for row in filters.arrangedSubviews { row.widthAnchor.constraint(equalTo:filters.widthAnchor).isActive = true }
         query.widthAnchor.constraint(greaterThanOrEqualToConstant:140).isActive = true
         let scroll = NSScrollView(); scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true; scroll.borderType = .bezelBorder
@@ -87,7 +86,7 @@ final class MacGalleryBrowser: NSWindowController, NSTextFieldDelegate, NSTableV
     @objc private func reload() {
         let selected = displayed?.work.id
         do { works = try gallery.browserWorks(category.indexOfSelectedItem == 0 ? "painting":"calligraphy"); filter(preferred:selected ?? (works.isEmpty ? nil:works[MacTab5Gallery.dayIndex(date.dateValue,count:works.count)].id)) }
-        catch { works = []; visible = []; generation += 1; loader.cancelAllOperations(); list.reloadData(); displayed = nil; stage.update(nil); fullscreen?.stage.update(nil); summary.stringValue = "本机暂无可用图库，请先安装标准版或高清完整包。" }
+        catch { works = []; visible = []; generation += 1; loader.cancelAllOperations(); list.reloadData(); displayed = nil; stage.update(nil); fullscreen?.stage.update(nil); summary.stringValue = "本机暂无可用图库，请到「软件固件 → 屏保图库」安装。" }
     }
     func controlTextDidChange(_ obj:Notification) { filter() }
     private func filter(preferred:String? = nil) {

@@ -28,8 +28,8 @@ enum MacTab5UIValidation {
             bridgeAction: { invoked.append(String(describing: $0)) },registry:registry)
         let tabMenu = center.managementMenu(for:"tab5"), espMenu = center.managementMenu(for:"esp8266")
         guard tabMenu.items.map({ $0.isSeparatorItem ? "|":$0.title }) == ["修改名称","停用设备","|","移除设备…"],
-              espMenu.items.map({ $0.isSeparatorItem ? "|":$0.title }) == ["修改名称","停用设备","|","固件升级","设备信息","连接诊断","重置网络","|","移除设备…"],
-              espMenu.items[3].isEnabled,espMenu.items[4...6].allSatisfy({ !$0.isEnabled }) else { throw MacTab5LocalError.invalid("Management menu does not match Windows") }
+              espMenu.items.map({ $0.isSeparatorItem ? "|":$0.title }) == ["修改名称","停用设备","|","手动刷机…","设备信息","连接诊断","|","移除设备…"],
+              espMenu.items[3].isEnabled,espMenu.items[4...5].allSatisfy({ !$0.isEnabled }) else { throw MacTab5LocalError.invalid("Management menu does not match Windows") }
         tabMenu.performActionForItem(at:1)
         guard !registry.enabled("tab5"),center.managementMenu(for:"tab5").items[1].title == "启用设备",
               let galleryCard = descendants(center.window!.contentView!).compactMap({ $0 as? NSButton }).first(where:{ $0.identifier?.rawValue == "gallery-browser" }),!galleryCard.isEnabled else { throw MacTab5LocalError.invalid("Disabled device actions remained enabled") }
@@ -37,6 +37,10 @@ enum MacTab5UIValidation {
         guard registry.enabled("tab5"),galleryCard.isEnabled else { throw MacTab5Error.invalidPacket }
         try validateDeviceCenter(center, output: output)
         guard invoked == ["weather", "stocks", "quotas", "quotaHistory", "status", "updates", "configuration", "notifications", "permissions", "runtime", "about", "cycle", "appearance", "espData", "espConnection"] else { throw MacTab5Error.invalidPacket }
+        let deviceButtons = descendants(center.window!.contentView!).compactMap { $0 as? NSButton }
+        guard !deviceButtons.contains(where: { ["device-update-tab5","gallery-update"].contains($0.identifier?.rawValue ?? "") })
+        else { throw MacTab5LocalError.invalid("Device cards duplicate the update entry") }
+
         let store = MacDataStore(defaults: defaults)
         try MacModelAccountValidation.runUI(store:store,defaults:defaults)
         defaults.set("separate",forKey:"domestic_source_deepseek")
@@ -86,7 +90,7 @@ enum MacTab5UIValidation {
             ("task-pins", MacTaskPinsWindow(codex: codex, store: MacTaskPins(directory: root), permissions: {})),
             ("computer-control", MacComputerWindow(service: service, music: {})), ("unlock-settings",MacUnlockSettingsWindow(service:service)), ("unlock-test",MacUnlockConnectionWindow()), ("voice", MacVoiceSettingsWindow(service: service, defaults: defaults, inspect: { voiceFixture() })),
             ("stocks", MacStocksWindow(didSave: {})), ("quota-history", MacQuotaHistoryWindow(store: MacDataStore(defaults: defaults, quotaHistory: quotaHistory))),
-            ("gallery-browser", MacGalleryBrowser(gallery: service.gallery, importPack: {})), ("configuration", MacConfigurationWindow(didRestore: {})),
+            ("gallery-browser", MacGalleryBrowser(gallery: service.gallery)), ("configuration", MacConfigurationWindow(didRestore: {})),
             ("notifications", MacNotificationWindow(service: MacNotifications(directory: root))), ("runtime", MacRuntimeWindow(file:.init("runtime-health.json",directory:root,initial:{ .init() },validate:{ try $0.validate() }),capture:{ "CPU：采样正常\n内存：采样正常\nVPN / PAC：等待网络采样" },reload:{},deviceCapture:{ "本段收音设备：TAB5 内置麦克风 · 豆包输入法\n本机分段计时：本地启动 390 ms · 收音就绪应答 610 ms · 首段结果（含说话等待） 3280 ms · 停止至最终识别 780 ms · 最终结果至响应生成 4 ms\nTAB5 音频：已接收 25 块 · 5.0 秒 · 最近电平 36% · 峰值 82%\n最近请求：USB · 查询 · 200\n\nBLE：当前没有语音请求" })), ("updates", MacUpdateWindow(tab5: service, upgradeTools: {}, espTools: {})), ("features", MacTab5FeaturesWindow(service: service)),
             ("features-codex-permission", MacTab5FeaturesWindow(service: service, focusSection: .codex, accessibilityTrusted: { false })),
             ("features-codex-authorized", MacTab5FeaturesWindow(service: service, focusSection: .codex, accessibilityTrusted: { true })),
@@ -99,6 +103,17 @@ enum MacTab5UIValidation {
             window.appearance = NSAppearance(named: .aqua); window.displayIfNeeded(); content.layoutSubtreeIfNeeded()
             try render(content, to: output.appendingPathComponent(name + ".png"))
             if name != "gallery-browser" { try validateSettings(window, name: name, output: output) }
+            if name == "updates" {
+                guard let table = descendants(content).compactMap({ $0 as? MacSettingsTable }).first,
+                      let row = table.rows.firstIndex(where: { $0.first == "屏保图库" }) else {
+                    throw MacTab5LocalError.invalid("Screen saver collections are missing from update overview")
+                }
+                table.select(row)
+                content.layoutSubtreeIfNeeded()
+                guard descendants(content).compactMap({ $0 as? NSButton }).contains(where: { $0.title == "管理图库…" && !$0.isHidden })
+                else { throw MacTab5LocalError.invalid("Gallery row lacks its management action") }
+                try render(content, to: output.appendingPathComponent("updates-gallery.png"))
+            }
             if name == "quota-history" {
                 guard let range = descendants(content).compactMap({ $0 as? NSPopUpButton })
                     .first(where: { $0.itemTitles == ["最近 7 天", "最近 30 天"] }),
@@ -335,7 +350,7 @@ enum MacTab5UIValidation {
 
     private static func validateGallery(output:URL,root:URL) throws {
         let gallery = try MacGalleryConnectionValidation.fixture(root)
-        let browser = MacGalleryBrowser(gallery:gallery,importPack:{})
+        let browser = MacGalleryBrowser(gallery:gallery)
         guard let window = browser.window else { throw MacTab5Error.invalidPacket }
         window.contentView?.layoutSubtreeIfNeeded()
         let deadline = Date().addingTimeInterval(5)

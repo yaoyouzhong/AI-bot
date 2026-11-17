@@ -9,20 +9,33 @@ internal sealed record UpdateDevice(string Id,string Name,string Version,string 
 internal sealed record UpdatePreferences(bool Automatic=true,string[]? Notified=null);
 internal sealed class UpdateCenterForm : Form
 {
+    internal const string GalleryId="gallery";
+    private sealed record Row(string Id,string Name,string Current,string Latest,string Status,UpdateDevice? Device=null);
+
     private readonly CancellationTokenSource _stop=new();
     private readonly System.Windows.Forms.Timer _timer=new(){Interval=2000};
     private CancellationTokenSource? _operation;
+    private readonly Action _refreshRows;
     private bool _disposed,_busy;
-    internal UpdateCenterForm(Func<UpdateDevice[]> capture,Func<UpdateDevice,PreparedUpdate,Task> install,UpdateService service) {
+    private bool _prioritizeUpdates,_focusPending;
+    private string? _focusId;
+
+    internal void FocusUpdate(string? deviceId) {
+        _prioritizeUpdates=true;
+        _focusPending=true;
+        _focusId=deviceId;
+        _refreshRows();
+    }
+    internal UpdateCenterForm(Func<UpdateDevice[]> capture,Func<UpdateDevice,PreparedUpdate,Task<bool>> install,UpdateService service) {
         SuspendLayout();
         var ink=Color.FromArgb(32,43,59);var muted=Color.FromArgb(88,101,119);var blue=Color.FromArgb(34,109,215);
-        Text="AI-bot · 软件与固件更新";Font=SettingsWindow.BodyFont();ForeColor=ink;BackColor=Color.White;AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new(850,550);MinimumSize=new(760,0);AutoScroll=true;
+        Text="AI-bot · 软件固件";Font=SettingsWindow.BodyFont();ForeColor=ink;BackColor=Color.White;AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new(850,550);MinimumSize=new(760,0);AutoScroll=true;
         var root=new TableLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Top,Padding=new(24),ColumnCount=1,RowCount=7};Controls.Add(root);
         root.ColumnStyles.Add(new(SizeType.Percent,100));for(int i=0;i<7;i++)root.RowStyles.Add(new(SizeType.AutoSize));
         var heading=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,ColumnCount=1,Margin=new(0,0,0,18)};
         heading.ColumnStyles.Add(new(SizeType.Percent,100));
-        heading.Controls.Add(new Label{Text="软件与固件更新",Font=new(Font.FontFamily,17,FontStyle.Bold),AutoSize=true,Margin=new(0,0,0,6)},0,0);
-        var subtitle=new Label{Text="各组件独立更新。",ForeColor=muted,AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty};heading.Controls.Add(subtitle,0,1);root.Controls.Add(heading,0,0);
+        heading.Controls.Add(new Label{Text="软件固件",Font=new(Font.FontFamily,17,FontStyle.Bold),AutoSize=true,Margin=new(0,0,0,6)},0,0);
+        var subtitle=new Label{Text="查看电脑软件、设备固件和屏保图库更新。",ForeColor=muted,AutoSize=true,Dock=DockStyle.Fill,Margin=Padding.Empty};heading.Controls.Add(subtitle,0,1);root.Controls.Add(heading,0,0);
         var tools=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,0,0,14)};var check=new Button{Text="检查更新",Name="check",Margin=new(0,0,16,0)};SettingsWindow.StyleButton(check);
         var automatic=new CheckBox{Text="自动检查并提醒",AutoSize=true,Checked=UpdateReminder.Read().Automatic,Margin=new(0,7,0,0)};
         tools.Controls.AddRange([check,automatic]);root.Controls.Add(tools,0,1);
@@ -30,7 +43,7 @@ internal sealed class UpdateCenterForm : Form
         grid.RowTemplate.Height=50;
         grid.DefaultCellStyle=new(){ForeColor=ink,BackColor=Color.White,SelectionBackColor=Color.FromArgb(233,242,255),SelectionForeColor=ink,Padding=new(12,0,8,0),WrapMode=DataGridViewTriState.False};
         grid.ColumnHeadersDefaultCellStyle=new(){ForeColor=muted,BackColor=Color.FromArgb(246,248,251),SelectionBackColor=Color.FromArgb(246,248,251),Padding=new(12,0,8,0),WrapMode=DataGridViewTriState.False};
-        foreach(string text in new[]{"软件 / 设备","当前版本","最新发布","状态"})grid.Columns.Add(text,text);
+        foreach(string text in new[]{"更新项","当前版本 / 安装","最新发布","状态"})grid.Columns.Add(text,text);
         float[] weights=[33,20,20,27];for(int i=0;i<grid.Columns.Count;i++){grid.Columns[i].SortMode=DataGridViewColumnSortMode.NotSortable;grid.Columns[i].FillWeight=weights[i];}
         grid.Columns[0].DefaultCellStyle.Font=new(Font,FontStyle.Bold);root.Controls.Add(grid,0,2);
         var detail=new TableLayoutPanel{Name="update-actions",AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Top,ColumnCount=1,Padding=new(16),Margin=new(0,14,0,0),BackColor=Color.FromArgb(246,248,251)};detail.ColumnStyles.Add(new(SizeType.Percent,100));
@@ -42,9 +55,10 @@ internal sealed class UpdateCenterForm : Form
         actions.Controls.AddRange([download,notes,cancel]);detail.Controls.Add(actions,0,1);root.Controls.Add(detail,0,3);
         var state=new Label{Name="state",AutoSize=true,Dock=DockStyle.Fill,ForeColor=muted,Margin=new(0,12,0,8)};root.Controls.Add(state,0,4);
         var progress=new ProgressBar{Dock=DockStyle.Fill,Visible=false,Height=8,Margin=new(0,0,0,10)};root.Controls.Add(progress,0,5);
-        var footer=new TableLayoutPanel{Name="update-footer",AutoSize=true,Dock=DockStyle.Fill,ColumnCount=2,Margin=Padding.Empty};footer.ColumnStyles.Add(new(SizeType.Percent,50));footer.ColumnStyles.Add(new(SizeType.Percent,50));
-        var galleries=new LinkLabel{Text="屏保图库…",AutoSize=true,LinkColor=blue,Margin=Padding.Empty};galleries.LinkClicked+=(_,_)=>{using var form=new GalleryPackForm(service);form.ShowDialog(this);};
-        var site=new LinkLabel{Text="完整下载与安装说明",AutoSize=true,LinkColor=blue,Anchor=AnchorStyles.Top|AnchorStyles.Right,Margin=Padding.Empty};footer.Controls.Add(galleries,0,0);footer.Controls.Add(site,1,0);root.Controls.Add(footer,0,6);
+        var footer=new TableLayoutPanel{Name="update-footer",AutoSize=true,Dock=DockStyle.Fill,ColumnCount=1,Margin=Padding.Empty};
+        footer.ColumnStyles.Add(new(SizeType.Percent,100));
+        var site=new LinkLabel{Text="完整下载与安装说明",AutoSize=true,LinkColor=blue,Anchor=AnchorStyles.Top|AnchorStyles.Right,Margin=Padding.Empty};
+        footer.Controls.Add(site,0,0);root.Controls.Add(footer,0,6);
         bool fitting=false,fitPending=false;
         void FitContentHeight(){
             if(fitting||IsDisposed||!Visible)return;fitting=true;
@@ -59,11 +73,21 @@ internal sealed class UpdateCenterForm : Form
         // Auto-sized text follows the viewport, including long device names and errors.
         void FitText(){subtitle.MaximumSize=new(Math.Max(100,heading.ClientSize.Width),0);requirement.MaximumSize=new(Math.Max(100,detail.ClientSize.Width-detail.Padding.Horizontal),0);state.MaximumSize=new(Math.Max(100,root.ClientSize.Width-root.Padding.Horizontal),0);}
         root.SizeChanged+=(_,_)=>FitText();detail.SizeChanged+=(_,_)=>FitText();
-        UpdateDevice[] rows=[];bool refreshing=false;
-        UpdateDevice? Selected()=>grid.CurrentCell is {} c&&c.RowIndex<rows.Length?rows[c.RowIndex]:null;
+        Row[] rows=[];bool refreshing=false;
+        GalleryUpdateOverview gallery=new(0,0,"");
+        IReadOnlyDictionary<string,GalleryUpdate>? galleryCatalog=null;
+        long galleryRevision=-1;
+        Row? Selected()=>grid.CurrentCell is {} c&&c.RowIndex<rows.Length?rows[c.RowIndex]:null;
         ComponentUpdate? Release(UpdateDevice? d)=>d is not null&&service.Available.TryGetValue(d.Component,out var u)?u:null;
         void Buttons(){
-            var d=Selected();var u=Release(d);var blocked=d is null?null:UpdateService.PreparationBlocked(d,u);
+            if(Selected()?.Id==GalleryId){
+                download.Text="管理图库…";download.Visible=true;download.Enabled=!_busy;
+                notes.Visible=false;requirement.Visible=true;actions.Margin=new(0,12,0,0);
+                requirement.Text=gallery.Available>0?gallery.Details:"查看名画和书法版本，或安装图库包。";
+                return;
+            }
+            notes.Visible=true;
+            var d=Selected()?.Device;var u=Release(d);var blocked=d is null?null:UpdateService.PreparationBlocked(d,u);
             bool retained=blocked is "已是最新版本" or "当前版本较新，保留现有版本";
             download.Visible=u is not null&&!retained;
             download.Enabled=!_busy&&d is not null&&blocked is null;download.Text=d?.Component=="bridge"?"下载并安装":d is not null&&UpdateService.IsLegacyEsp(d)?"手动准备小屏升级":"下载并准备升级";
@@ -88,39 +112,68 @@ internal sealed class UpdateCenterForm : Form
             if(refreshing)return;
             refreshing=true;
             try {
-                string? id=Selected()?.Id;var next=capture();
+                string? id=Selected()?.Id;
+                long revision=GalleryPack.Revision;
+                if(!ReferenceEquals(galleryCatalog,service.Galleries)||galleryRevision!=revision){
+                    gallery=GalleryUpdateCatalog.Overview(service.Galleries);
+                    galleryCatalog=service.Galleries;galleryRevision=revision;
+                }
+                var next=capture().Select(d=>{
+                    var release=Release(d);
+                    string version=d.Version==EspFirmwareVersion.Legacy?"未上报":d.Version==EspFirmwareVersion.Invalid?"上报无效":d.Version;
+                    return new Row(d.Id,d.Name,version,release?.Version??"待查询",Summary(d,release,UpdateService.PreparationBlocked(d,release)),d);
+                }).Append(new Row(GalleryId,"屏保图库",gallery.Installed>0?$"已安装 {gallery.Installed} 套":"未安装",
+                    gallery.Available>0?$"{gallery.Available} 套新版":service.CheckedAt is null?"待查询":"—",
+                    gallery.Available>0?"有更新":service.CheckedAt is null?"待检查":"可管理")).ToArray();
+                if(_prioritizeUpdates)next=next.OrderByDescending(row=>row.Status=="有更新").ToArray();
+                bool focus=_focusPending&&!_busy&&(_focusId is not null||service.CheckedAt is not null);
+                if(focus)id=next.Any(row=>row.Id==_focusId)?_focusId:next.FirstOrDefault(row=>row.Status=="有更新")?.Id??id;
                 // Keep the selected cell stable during periodic status refreshes.
                 // Updating an auto-sized action button while rebuilding rows can re-enter grid layout.
                 if(!rows.Select(d=>d.Id).SequenceEqual(next.Select(d=>d.Id))){
                     grid.Rows.Clear();rows=next;
-                    foreach(var d in rows)grid.Rows.Add(d.Name,d.Version,"","");
-                    int index=Array.FindIndex(rows,d=>d.Id==id);if(index>=0)grid.CurrentCell=grid[0,index];
+                    foreach(var row in rows)grid.Rows.Add(row.Name,row.Current,row.Latest,row.Status);
+                    int retained=Array.FindIndex(rows,d=>d.Id==id);if(retained>=0)grid.CurrentCell=grid[0,retained];
                 }else rows=next;
+                if(focus){
+                    _focusPending=false;
+                    int index=Array.FindIndex(rows,d=>d.Id==id);
+                    if(index>=0)grid.CurrentCell=grid[0,index];
+                }
                 grid.Height=grid.ColumnHeadersHeight+1+Math.Min(5,rows.Length)*grid.RowTemplate.Height;
                 for(int i=0;i<rows.Length;i++){
-                    var d=rows[i];var u=Release(d);var blocked=UpdateService.PreparationBlocked(d,u);string version=d.Version==EspFirmwareVersion.Legacy?"未上报":d.Version==EspFirmwareVersion.Invalid?"上报无效":d.Version;object[] values=[d.Name,version,u?.Version??"待查询",Summary(d,u,blocked)];
+                    var row=rows[i];object[] values=[row.Name,row.Current,row.Latest,row.Status];
                     for(int j=0;j<values.Length;j++)if(!Equals(grid[j,i].Value,values[j]))grid[j,i].Value=values[j];
-                    grid[0,i].ToolTipText=d.Name;grid[1,i].ToolTipText=d.Version;
-                    var color=blocked=="已是最新版本"?Color.FromArgb(29,120,79):blocked is null?blue:muted;
+                    grid[0,i].ToolTipText=row.Name;grid[1,i].ToolTipText=row.Current;
+                    var color=row.Status=="已是最新"?Color.FromArgb(29,120,79):row.Status is "有更新" or "可手动升级"?blue:muted;
                     grid[3,i].Style.ForeColor=color;grid[3,i].Style.SelectionForeColor=color;
                 }
             }finally{refreshing=false;}
             Buttons();
         }
+        _refreshRows=RefreshRows;
         void CatalogChanged(){if(_disposed||IsDisposed)return;RefreshRows();if(!_busy)state.Text=service.Error is {} error?"检查未完成，保留上次结果："+error:service.CheckedAt is {} time?"已检查 · "+time.ToLocalTime().ToString("MM-dd HH:mm"):"尚未检查更新";}
         service.Changed+=CatalogChanged;FormClosed+=(_,_)=>service.Changed-=CatalogChanged;
         automatic.CheckedChanged+=(_,_)=>{try{UserPreferenceFile.Write("updates.json",UpdateReminder.Read() with {Automatic=automatic.Checked});}catch(Exception ex){state.Text="提醒设置未保存："+ex.Message;}};
         grid.CurrentCellChanged+=(_,_)=>{if(!refreshing&&IsHandleCreated)BeginInvoke((Action)(()=>{if(!IsDisposed)Buttons();}));};
         check.Click+=async(_,_)=>{
-            _busy=true;check.Enabled=false;Buttons();state.Text="正在查询适用于电脑和设备的正式更新…";
+            _busy=true;check.Enabled=false;Buttons();state.Text="正在查询软件、固件和图库的正式更新…";
             try{await service.CheckAsync(_stop.Token);}
             catch(Exception ex){if(!IsDisposed)state.Text="检查未完成："+ex.Message;}
             finally{_busy=false;if(!IsDisposed){check.Enabled=true;CatalogChanged();}}
         };
-        notes.Click+=(_,_)=>{using var dialog=new UpdateNotesForm(service.Available,capture(),Selected()?.Component??"bridge");dialog.ShowDialog(this);};
+        notes.Click+=(_,_)=>{using var dialog=new UpdateNotesForm(service.Available,capture(),Selected()?.Device?.Component??"bridge");dialog.ShowDialog(this);};
         cancel.Click+=(_,_)=>_operation?.Cancel();
         download.Click+=async(_,_)=>{
-            var target=Selected();var release=Release(target);if(target is null||release is null||UpdateService.PreparationBlocked(target,release) is not null)return;
+            if(_busy)return;
+            if(Selected()?.Id==GalleryId){
+                using var manager=new GalleryPackForm(service);
+                manager.ShowDialog(this);
+                if(!IsDisposed)RefreshRows();
+                return;
+            }
+            var target=Selected()?.Device;var release=Release(target);
+            if(target is null||release is null||UpdateService.PreparationBlocked(target,release) is not null)return;
             bool handedOff=false;_operation=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);_busy=true;check.Enabled=false;cancel.Enabled=true;cancel.Visible=true;progress.Value=0;progress.Visible=true;Buttons();state.Text="正在下载并校验 "+target.Name+" 的更新…";
             try {
                 var prepared=await service.DownloadAsync(release,Application.ProductVersion.Split('+')[0],new Progress<int>(value=>{if(!IsDisposed)progress.Value=Math.Clamp(value,0,100);}),_operation.Token);
@@ -128,8 +181,10 @@ internal sealed class UpdateCenterForm : Form
                 var current=capture().SingleOrDefault(d=>d.Id==target.Id);
                 if(!UpdateService.SameTarget(target,current,release))throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
                 cancel.Enabled=false;state.Text=target.Component=="tab5"?"校验通过，正在准备设备升级；仍需在 TAB5 上确认安装。":"校验通过，正在打开安装工具…";
-                handedOff=true;await install(current,prepared);
-                if(!IsDisposed)state.Text=target.Component=="tab5"?"已交给 TAB5 升级工具。请在设备上确认安装，并在升级工具中核验启动。":"已交给安装工具。完成后重新检查运行版本。";
+                handedOff=true;
+                bool opened=await install(current,prepared);
+                if(!IsDisposed)state.Text=!opened?"安装包已下载，尚未安装。":
+                    target.Component=="tab5"?"已交给 TAB5 升级工具。请在设备上确认安装，并在升级工具中核验启动。":"已交给安装工具。完成后重新检查运行版本。";
             }catch(OperationCanceledException){if(!IsDisposed)state.Text=handedOff?"操作已取消，已校验的下载文件保留。":"下载已取消；已下载部分会保留，下次可继续。未安装或刷写。";}
             catch(Exception ex){if(!IsDisposed)state.Text="更新未继续："+ex.Message;}
             finally{_operation?.Dispose();_operation=null;_busy=false;if(!IsDisposed){cancel.Enabled=false;cancel.Visible=false;check.Enabled=true;progress.Visible=false;RefreshRows();}}

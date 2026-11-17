@@ -45,7 +45,7 @@ internal static class DeviceCenterStyleSelfTest
                 ("display",()=>new Tab5DisplaySettingsForm((_,_)=>Task.FromResult(display)),null),
                 ("esp-display",()=>new CycleSettingsForm(()=>Task.FromException<UsbDeviceInfo>(new IOException("USB 未连接")),_=>false),null),
                 ("appearance",()=>new DeviceAppearanceForm("robot",_=>{},_=>{},_=>{},_=>{}),null),
-                ("esp-connection",()=>new LegacyDeviceSettingsForm(view:()=>new(true,"在线","USB","0.5.1",Usb:"已连接",Wifi:"待命",Transport:"USB")),null),
+                ("esp-connection",()=>new LegacyDeviceSettingsForm(view:()=>new(true,"在线","USB","0.5.1",Usb:"已连接",Wifi:"待命",Transport:"USB"),resetNetwork:()=>{}),null),
                 ("birthday",()=>new BirthdaySettingsForm(preview:true),null),
                 ("task-pins",()=>new Tab5TaskPinsForm(Enumerable.Range(0,12).Select(i=>new Tab5CodexTask(Guid.NewGuid().ToString(),i%2==0?"继续 Windows 功能对齐开发，检查语音识别、电脑校对后发送及任务排队状态":"检查任务回复与待处理操作",i%2==0?"AI-bot":"M5Stack TAB5",0)).ToArray()),null),
                 ("voice",()=>voice.CreateSettings(preview:true),null),
@@ -54,7 +54,7 @@ internal static class DeviceCenterStyleSelfTest
                 ("stocks",()=>new SettingsForm(includeDeviceSettings:false,quotes:[]),null),
                 ("quota-history",()=>new QuotaTrendForm(),null),
                 ("status",()=>new BridgeStatusForm(()=>new([new("M5Stack TAB5","在线","Wi-Fi","0.2.156-ui"),new("ESP8266 小屏","在线","USB","0.5.1")],sources.Select(s=>new BridgeDataStatus(s,"数据可用","10-09 23:00:00")).ToArray(),2,null)),null),
-                ("updates",()=>new UpdateCenterForm(()=>devices,(_,_)=>Task.CompletedTask,updates),null),
+                ("updates",()=>new UpdateCenterForm(()=>devices,(_,_)=>Task.FromResult(true),updates),null),
                 ("art-gallery",()=>new GalleryPackForm(updates),null),
                 ("configuration-backup",()=>new ConfigurationBackupForm(()=>{}),null),
                 ("notifications",()=>new NotificationSettingsForm(notifications),null),
@@ -133,7 +133,7 @@ internal static class DeviceCenterStyleSelfTest
                 if(page.Name is "devices" or "devices-work-area") {
                     var grid=Descendants(form).OfType<TableLayoutPanel>().Single(c=>c.Name=="device-actions"&&c.Visible);
                     var cards=grid.Controls.OfType<DeviceActionButton>().OrderBy(c=>grid.GetRow(c)).ThenBy(c=>grid.GetColumn(c)).ToArray();
-                    Check(cards.Select(c=>c.Text).SequenceEqual(new[]{"显示设置","语音设置","日历生日","日程待办","电脑控制","屏保图库","常用任务","数据设置","连接升级"}),"Device action missing or reordered: "+name);
+                    Check(cards.Select(c=>c.Text).SequenceEqual(new[]{"显示设置","语音设置","日历生日","日程待办","电脑控制","屏保图库","常用任务","数据设置","连接设置"}),"Device action missing or reordered: "+name);
                     var viewport=(FlowLayoutPanel)grid.Parent!;
                     File.WriteAllText(Path.Combine(directory,name+"-bounds.json"),JsonSerializer.Serialize(new {dpi=form.DeviceDpi,font=form.Font.Height,workArea=Screen.PrimaryScreen!.WorkingArea,viewport=viewport.Bounds,client=viewport.ClientRectangle,display=viewport.DisplayRectangle,scroll=viewport.AutoScrollPosition,children=viewport.Controls.Cast<Control>().Select(c=>new{type=c.GetType().Name,c.Text,c.Bounds,c.MinimumSize,c.MaximumSize,c.Visible})},new JsonSerializerOptions{WriteIndented=true}));
                     Check(!viewport.HorizontalScroll.Visible,"Horizontal scrolling required: "+name);
@@ -153,7 +153,10 @@ internal static class DeviceCenterStyleSelfTest
                     var footer=((Button)form.AcceptButton!).Parent!;
                     var saverBounds=form.RectangleToClient(saver.RectangleToScreen(saver.ClientRectangle));
                     var footerBounds=form.RectangleToClient(footer.RectangleToScreen(footer.ClientRectangle));
-                    Check(saverBounds.Bottom<=footerBounds.Top,"Connection settings footer overlaps screen-saver input: "+name);
+                    var reset=form.Controls.Find("esp-reset-network",true).Single();
+                    var resetBounds=form.RectangleToClient(reset.RectangleToScreen(reset.ClientRectangle));
+                    Check(reset.Visible&&reset.Enabled&&saverBounds.Bottom<=resetBounds.Top&&resetBounds.Bottom<=footerBounds.Top,
+                        "Network reset action overlaps connection settings or its footer: "+name);
                     Check(!Descendants(form).OfType<ScrollableControl>().Any(c=>c.AutoScroll),"Connection settings unexpectedly require scrolling: "+name);
                 }
                 if(page.Name.StartsWith("tab5-upgrade-",StringComparison.Ordinal)||page.Name.StartsWith("tab5-speed-",StringComparison.Ordinal)) {

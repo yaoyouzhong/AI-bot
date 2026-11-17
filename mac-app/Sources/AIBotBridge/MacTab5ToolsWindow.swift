@@ -20,7 +20,7 @@ final class MacTab5ToolsWindow: NSWindowController, NSWindowDelegate {
     private(set) var busy = false
     init(service:MacTab5Service,usb:MacTab5USB,canBegin:@escaping ()->Bool = { true },install:@escaping ()->Void = {},changeBluetooth:@escaping (Bool)->Void = { _ in }) {
         self.service = service; self.usb = usb; self.canBegin = canBegin; self.install = install; self.changeBluetooth = changeBluetooth
-        let window = MacBridgeSettingsStyle.window("TAB5 连接与升级",width:640,height:650,minimumHeight:520)
+        let window = MacBridgeSettingsStyle.window("TAB5 连接设置",width:640,height:650,minimumHeight:520)
         super.init(window:window); window.delegate = self
         pages = (0..<4).map { _ in MacBridgeSettingsPage() }
         tabs = MacBridgeSettingsTabs(Array(zip(["Wi-Fi","USB 配对","固件升级","传输测速"],pages)))

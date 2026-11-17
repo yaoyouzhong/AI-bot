@@ -2,7 +2,7 @@ namespace AIBotBridge;
 
 internal sealed class DeviceActionButton : Button
 {
-    private readonly string _description;
+    private string _description;
     internal int PreferredCardHeight=>Font.Height*2+Math.Max(20,Font.Height*2/3);
     internal int PreferredCardWidth {
         get {
@@ -12,6 +12,12 @@ internal sealed class DeviceActionButton : Button
     }
     private int HorizontalInset=>Math.Max(10,Font.Height/2);
     internal DeviceActionButton(string title,string description){Text=title;AccessibleName=title;AccessibleDescription=description;_description=description;AutoSize=false;Cursor=Cursors.Hand;FlatStyle=FlatStyle.Flat;Height=PreferredCardHeight;}
+    internal void SetDescription(string description) {
+        if(_description==description)return;
+        _description=description;
+        AccessibleDescription=description;
+        Invalidate();
+    }
     protected override void OnFontChanged(EventArgs e){base.OnFontChanged(e);Height=PreferredCardHeight;}
     protected override void OnPaint(PaintEventArgs e){
         e.Graphics.Clear(Enabled?SettingsWindow.Surface:Color.FromArgb(249,249,249));

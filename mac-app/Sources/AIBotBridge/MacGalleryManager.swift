@@ -20,6 +20,15 @@ struct MacGalleryRelease {
         guard let value = calendar.date(from:date), calendar.dateComponents([.year,.month,.day],from:value) == date else { return nil }
         return p.count == 3 ? p+[0]:p
     }
+    static func merge(_ candidates: [MacGalleryRelease], into releases: inout [String: MacGalleryRelease]) {
+        for candidate in candidates {
+            guard let version = number(candidate.version) else { continue }
+            if let current = releases[candidate.category], let earlier = number(current.version),
+               !earlier.lexicographicallyPrecedes(version) { continue }
+            releases[candidate.category] = candidate
+        }
+    }
+
     static func parse(_ data:Data) throws -> ([MacGalleryRelease],Int) {
         guard let rows = try JSONSerialization.jsonObject(with:data) as? [[String:Any]] else { throw MacTab5Error.invalidPacket }
         var releases: [MacGalleryRelease] = []
@@ -90,14 +99,15 @@ final class MacGalleryDownloader {
 
 final class MacGalleryManager: NSWindowController, NSWindowDelegate {
     private let gallery:MacTab5Gallery, browse:()->Void, downloader = MacGalleryDownloader()
+    private let catalogChanged: ([String: MacGalleryRelease]) -> Void
     private let status = MacBridgeSettingsStyle.note("")
     private var current: [NSTextField] = [], latest: [NSTextField] = [], buttons: [NSButton] = [], controls: [NSButton] = []
     private let progress = NSProgressIndicator(), cancel = NSButton()
     private let collection = NSPopUpButton(), quality = NSPopUpButton()
     private var operation:Task<Void,Never>?, installation:MacGalleryProgress?, releases:[String:MacGalleryRelease] = [:], checked = false
     private(set) var busy = false
-    init(gallery:MacTab5Gallery,browse:@escaping ()->Void) {
-        self.gallery = gallery; self.browse = browse
+    init(gallery:MacTab5Gallery,browse:@escaping ()->Void,catalogChanged: @escaping ([String: MacGalleryRelease]) -> Void = { _ in }) {
+        self.gallery = gallery; self.browse = browse; self.catalogChanged = catalogChanged
         super.init(window:MacBridgeSettingsStyle.window("屏保图库",width:680,height:600,minimumHeight:520)); window?.delegate = self
         let page = MacBridgeSettingsPage(); page.heading("屏保图库",subtitle:"浏览作品集，也可用于 TAB5 屏保。")
         collection.addItems(withTitles:["年度版","全量版"]); collection.selectItem(at:gallery.fullCollection ? 1:0); collection.target = self; collection.action = #selector(changeGallerySelection)
@@ -117,7 +127,12 @@ final class MacGalleryManager: NSWindowController, NSWindowDelegate {
     }
     required init?(coder:NSCoder) { fatalError() }
     deinit { operation?.cancel(); installation?.cancel() }
-    func open() { refresh(); MacSettingsControls.open(self); if !checked && !gallery.fullCollection { check() } }
+    func open(releases catalog: [String: MacGalleryRelease]? = nil) {
+        if !busy, let catalog { releases = catalog; checked = true }
+        refresh()
+        MacSettingsControls.open(self)
+        if !checked && !gallery.fullCollection { check() }
+    }
     func windowShouldClose(_ sender:NSWindow) -> Bool { if busy { status.stringValue = "请先取消操作或等待安装结束。" }; return !busy }
     private let categories = ["painting","calligraphy"]
     @objc private func changeGallerySelection() {
@@ -152,11 +167,11 @@ final class MacGalleryManager: NSWindowController, NSWindowDelegate {
         var found:[String:MacGalleryRelease] = [:], complete = false
         for page in 1...10 {
             let (rows,count) = try MacGalleryRelease.parse(await downloader.metadata(URL(string:"https://api.github.com/repos/yaoyouzhong/AI-bot/releases?per_page=100&page=\(page)")!,maximum:2*1024*1024))
-            for r in rows { if found[r.category] == nil || MacGalleryRelease.number(found[r.category]!.version)!.lexicographicallyPrecedes(MacGalleryRelease.number(r.version)!) { found[r.category] = r } }
+            MacGalleryRelease.merge(rows, into: &found)
             if count < 100 { complete = true; break }
         }
         guard complete else { throw MacTab5LocalError.invalid("发布目录超过查询范围。") }
-        await MainActor.run { self.releases = found; self.checked = true }; return "已检查正式发布的图库。"
+        await MainActor.run { self.releases = found; self.checked = true; self.catalogChanged(found) }; return "已检查正式发布的图库。"
     } }
     private func install(_ url:URL, expected:MacGalleryRelease? = nil) async throws -> String {
         let state = MacGalleryProgress { [weak self] value in DispatchQueue.main.async { self?.progress.doubleValue = 70+value*30 } }; await MainActor.run { self.installation = state; self.status.stringValue = "正在验证与安装，旧图库保留到新包校验完成…" }

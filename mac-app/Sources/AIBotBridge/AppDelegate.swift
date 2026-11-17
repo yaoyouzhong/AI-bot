@@ -4,6 +4,7 @@ import CoreBluetooth
 import MacKeychainSupport
 import Foundation
 import UniformTypeIdentifiers
+import UserNotifications
 
 final class MacWeatherSourceFields: NSObject {
     private let provider: NSPopUpButton
@@ -19,7 +20,7 @@ final class MacWeatherSourceFields: NSObject {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
     private let reader = SessionActivityReader()
     private let recentActivity = MacRecentActivity()
     private let devices = MacDeviceRegistry.shared
@@ -29,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var informationWindows: [String: MacInformationWindow] = [:]
     private let notifications = MacNotifications(), runtimeHealth = MacRuntimeHealth()
     private var notificationWindow: MacNotificationWindow?, configurationWindow: MacConfigurationWindow?, updatesWindow: MacUpdateWindow?
+    private var pendingUpdateComponent: String?
     private var appearanceWindow: NSWindowController?
     private var espDisplayWindow: MacESPDisplayWindow?
     private var bridgeStatusWindow: MacBridgeStatusWindow?
@@ -71,6 +73,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastAttention = false
     private var lastCompletion: Int64 = 0
     private var wakeUntil = Date.distantPast
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        if Bundle.main.bundleIdentifier != nil { UNUserNotificationCenter.current().delegate = self }
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureApplicationMenu()
@@ -156,6 +162,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if self.devices.source("system", kind: "esp8266") { self.serial?.sendMetrics(metrics) }
         }
         prepareUpdateWindow()
+        if let component = pendingUpdateComponent {
+            pendingUpdateComponent = nil
+            openUpdates(component: component)
+        }
         updateTitle()
         musicTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             guard let self, !self.preparingPermissions, self.devices.demanded("music") else { return }
@@ -437,6 +447,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         let recent = recentActivity.capture()
+        let updateCount = updatesWindow?.availableUpdateCount ?? 0
+        tab5Window?.setAvailableUpdates(updateCount)
+        let updateLabel = updateCount > 0 ? "，\(updateCount) 项更新可用" : ""
+        if let button = statusItem.button {
+            let title = updateCount > 0 ? (button.image == nil ? "AI-bot \(updateCount)" : String(updateCount)) : (button.image == nil ? "AI-bot" : "")
+            if button.title != title { button.title = title }
+            if button.image != nil { button.imagePosition = updateCount > 0 ? .imageLeft : .imageOnly }
+            button.setAccessibilityLabel("AI-bot" + updateLabel)
+        }
         statusItem.button?.toolTip = "AI-bot Bridge\nCodex：\(MacRecentActivity.label(state: snapshot.codex.state, observation: recent.codex))\nClaude：\(MacRecentActivity.label(state: snapshot.claude.state, observation: recent.claude))"
         updateAutomaticScreenSaver(snapshot)
         let health = runtimeHealth.snapshot(metrics:snapshot.systemMetrics,now:Date(),logicalProcessors:ProcessInfo.processInfo.activeProcessorCount,codexEnabled:tab5?.codex.isEnabled ?? false,desktopObserved:tab5?.codex.canMutate ?? false,network:networkDiagnostics.snapshot())
@@ -477,6 +496,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     return self.serial?.portName != nil || self.server?.lastESPRequest.map { Date().timeIntervalSince($0) < 8 } == true
                 })
         }
+        tab5Window?.setAvailableUpdates(updatesWindow?.availableUpdateCount ?? 0)
         tab5Window?.open()
     }
     private func performBridgeAction(_ action: MacBridgeAction) {
@@ -494,7 +514,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .appearance: openAppearance()
         case .espConnection: openESPConnection()
         case .espFallback: testWiFiFallback()
-        case .espReset: resetDeviceWiFi()
         case .espData, .tab5Data:
             do { _ = try devices.edit(action == .espData ? "esp8266":"tab5",dataOnly:true); updateTitle() } catch { show("无法保存数据设置",error.localizedDescription) }
         case .quotaHistory:
@@ -507,9 +526,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .runtime: openRuntime()
         case .about: openAbout()
         case .updates:
-            prepareUpdateWindow(); updatesWindow?.open()
+            openUpdates()
         }
     }
+    private func openUpdates(component: String? = nil) {
+        prepareUpdateWindow()
+        updatesWindow?.open(component: component)
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                            withCompletionHandler completionHandler: @escaping () -> Void) {
+        let identifier = response.notification.request.identifier
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+              identifier.hasPrefix("update_notified_") else {
+            completionHandler()
+            return
+        }
+        let component = String(identifier.dropFirst("update_notified_".count))
+        DispatchQueue.main.async { [weak self] in
+            defer { completionHandler() }
+            guard let self else { return }
+            if self.updatesWindow == nil { self.pendingUpdateComponent = component }
+            else { self.openUpdates(component: component) }
+        }
+    }
+
     private func prepareUpdateWindow() {
         if updatesWindow == nil { updatesWindow = MacUpdateWindow(tab5:tab5,upgradeTools:{ [weak self] in self?.openTab5(); self?.tab5Window?.showUpgradeTools() },espTools:{ [weak self] in self?.openFlasher() }) }
     }

@@ -6,6 +6,7 @@ namespace AIBotBridge;
 internal sealed record GalleryUpdate(string Category,string Version,Version Number,UpdateAsset? Package,UpdateAsset? Checksums);
 internal sealed record PreparedGalleryUpdate(GalleryUpdate Release,string File,string Sha256);
 internal sealed record GalleryDownloadIdentity(int SchemaVersion,string Category,string Version,string Name,long Size,string Sha256);
+internal sealed record GalleryUpdateOverview(int Installed,int Available,string Details);
 internal static class GalleryUpdateCatalog
 {
     internal static bool TryNumber(string text,out Version number) {
@@ -37,6 +38,21 @@ internal static class GalleryUpdateCatalog
         }
         return result;
     }
+    internal static GalleryUpdateOverview Overview(IReadOnlyDictionary<string,GalleryUpdate> releases) {
+        int installedCount=0;
+        var updates=new List<string>();
+        foreach(string category in new[]{"painting","calligraphy"}){
+            var installed=GalleryPack.Installed(category);
+            if(installed is null)continue;
+            installedCount++;
+            if(GalleryPreferences.Full||installed.Collection=="full"||!TryNumber(installed.Version,out _)||
+               !releases.TryGetValue(category,out var release)||Blocked(installed,release) is not null||
+               GalleryPreferences.High&&GalleryHdPack.Installed(category) is not null)continue;
+            updates.Add($"{GalleryPack.CategoryName(category)}：{installed.Version} → {release.Version}");
+        }
+        return new(installedCount,updates.Count,string.Join("　",updates));
+    }
+
     internal static string? Blocked(GalleryPackManifest? installed,GalleryUpdate? release) {
         if(release is null)return "暂无可确认的正式精选集";
         if(installed is not null&&TryNumber(installed.Version,out var number)) {

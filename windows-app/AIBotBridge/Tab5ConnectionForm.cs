@@ -9,7 +9,7 @@ internal sealed class Tab5ConnectionForm : Form
     internal Tab5ConnectionForm(Tab5Service service,bool loadNetworks=true,bool showUpgrade=false)
     {
         SuspendLayout();AutoScaleDimensions=new SizeF(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        Font=SettingsWindow.BodyFont();Text="TAB5 连接与升级";
+        Font=SettingsWindow.BodyFont();Text="TAB5 连接设置";
         ClientSize=new Size(640,530);MinimumSize=new Size(560,520);StartPosition=FormStartPosition.CenterScreen;
         BackColor=Color.White;
         var layout=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(24),ColumnCount=1,RowCount=3};

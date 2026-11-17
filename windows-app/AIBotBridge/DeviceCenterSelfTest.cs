@@ -95,7 +95,14 @@ internal static class DeviceCenterSelfTest
                     Descendants(tabs.SelectedTab!).OfType<DeviceActionButton>().Single(b=>b.Text==label).PerformClick();Check(action==route,"Shared action route lost: "+label);
                 }
                 form.Reload();Check(tabs.SelectedTab?.Name=="accounts","Reload unexpectedly left shared settings");
-                form.ShowPage("bridge-settings");Capture(form,directory,$"{key}-{scale:0.00}-bridge");
+                form.ShowPage("bridge-settings");
+                if(key=="both"){
+                    form.SetAvailableUpdates(2);
+                    var updateCard=Descendants(tabs.SelectedTab!).OfType<DeviceActionButton>().Single(b=>b.Text=="软件固件");
+                    Check(updateCard.AccessibleDescription=="2 项更新可用","Existing software card did not show available updates");
+                    updateCard.PerformClick();Check(action=="updates","Existing software card lost its update action");
+                }
+                Capture(form,directory,$"{key}-{scale:0.00}-bridge");
                 form.Show();Application.DoEvents();
                 foreach(var (label,route) in new[]{("服务状态","status"),("关于应用","about")}) {
                     Descendants(tabs.SelectedTab!).OfType<DeviceActionButton>().Single(b=>b.Text==label).PerformClick();Check(action==route,"Bridge action route lost: "+label);
@@ -104,9 +111,12 @@ internal static class DeviceCenterSelfTest
                 form.ShowPage("devices");Check(Descendants(form).OfType<ListBox>().Single().SelectedItem is RegisteredDevice selected?devices.Any(d=>d.Id==selected.Id):devices.Length==0,"Device selection lost across navigation");
                 form.Show();Application.DoEvents();
                 foreach(var d in devices){
-                    form.SelectDevice(d.Id);Check(((RegisteredDevice)Descendants(form).OfType<ListBox>().Single().SelectedItem!).Id==d.Id,"Direct device navigation selected wrong target");
+                    form.SelectDevice(d.Id);
+                    if(key=="both")Check(!Descendants(form).OfType<Button>().Any(b=>b.Name is "device-update" or "gallery-update"),
+                        "Device cards should not duplicate the update entry");
+                    Check(((RegisteredDevice)Descendants(form).OfType<ListBox>().Single().SelectedItem!).Id==d.Id,"Direct device navigation selected wrong target");
                     var cards=Descendants(tabs.SelectedTab!).OfType<DeviceActionButton>().OrderBy(b=>b.PointToScreen(Point.Empty).Y).ThenBy(b=>b.PointToScreen(Point.Empty).X).Select(b=>b.Text).ToArray();
-                    Check(cards.SequenceEqual(d.Kind==HardwareKind.Tab5?new[]{"显示设置","语音设置","日历生日","日程待办","电脑控制","屏保图库","常用任务","数据设置","连接升级"}:new[]{"显示设置","外观设置","数据设置","连接设置"}),"Device action order or duplicate entry regressed: "+key+" scale="+scale+" actual="+string.Join(" / ",cards));
+                    Check(cards.SequenceEqual(d.Kind==HardwareKind.Tab5?new[]{"显示设置","语音设置","日历生日","日程待办","电脑控制","屏保图库","常用任务","数据设置","连接设置"}:new[]{"显示设置","外观设置","数据设置","连接设置"}),"Device action order or duplicate entry regressed: "+key+" scale="+scale+" actual="+string.Join(" / ",cards));
                     var control=Descendants(tabs.SelectedTab!).OfType<Button>().SingleOrDefault(b=>b.Text=="电脑控制");
                     Check((control is not null)==(d.Kind==HardwareKind.Tab5),"Computer control capability leaked or disappeared");
                     if(control is not null) {

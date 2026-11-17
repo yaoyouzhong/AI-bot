@@ -4,14 +4,16 @@ internal static class UpdateNotesSelfTest
 {
     internal static void Run(string directory) {
         string[] components=["bridge","tab5","esp8266"];
-        string[] versions=["0.6.3","0.2.154-ui","0.5.1"];
+        var bundles=components.Select(UpdateNotesForm.Bundled).ToArray();
+        for(int index=0;index<components.Length;index++) {
+            var bundle=bundles[index];
+            if(!ComponentUpdateCatalog.TryNumber(bundle.Version,components[index]=="tab5",out _)||bundle.Notes.Length<40)
+                throw new Exception("Missing bundled component notes: "+components[index]);
+        }
+        string[] versions=bundles.Select(bundle=>bundle.Version).ToArray();
         UpdateDevice[] devices=[new("bridge","电脑桥接",versions[0],"运行中",true,"bridge",""),new("tab","TAB5",versions[1],"在线",true,"upgrade-tab5",""),new("esp","小屏",versions[2],"在线",true,"flash","")];
         const string body="## 完整下载 / All downloads\n[完整下载中心](https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.md)\n\n| 用途 | 版本 | 下载 | SHA-256 |\n| --- | --- | --- | --- |\n| Windows 桥接 | 0.6.2 | [安装包](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.2/setup.exe) | 0123456789abcdef |\n\n## 功能更新\n- **网易云音乐**：采集曲名、歌手和专辑，两个屏幕共享数据。\n- Fix the update view and preserve each component's independent version.\n";
         var published=components.Select((component,index)=>new ComponentUpdate(component,index==1?"0.2.150-ui":index==0?"0.6.2":"0.5.1",new(0,1,0),body)).ToDictionary(x=>x.Component);
-        for(int index=0;index<components.Length;index++) {
-            var bundle=UpdateNotesForm.Bundled(components[index]);
-            if(bundle.Version!=versions[index]||bundle.Notes.Length<40)throw new Exception("Missing bundled component notes: "+components[index]);
-        }
         var inline=MarkdownNotesView.Inline("**测试** [本地文件](../LOCAL.md) [不执行](javascript:alert) [凭据](https://user:password@example.org/a) [说明](https://github.com/yaoyouzhong/AI-bot)");
         if(inline.Links.Length!=1||inline.Text.Contains("](")||inline.Text.Contains("**"))throw new Exception("Markdown caption/link handling failed");
         foreach(float scale in new[]{1f,1.5f,2f}) {

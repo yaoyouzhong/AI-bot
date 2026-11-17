@@ -4,13 +4,14 @@ internal sealed class LegacyDeviceSettingsForm : Form
 {
     private readonly ComboBox _mode=new(){DropDownStyle=ComboBoxStyle.DropDownList,Name="esp-connection-mode"};
     internal EspConnectionMode SelectedMode=>(EspConnectionMode)_mode.SelectedIndex;
-    internal LegacyDeviceSettingsForm(SerialPublisher? serial=null,EspConnectionMode mode=EspConnectionMode.Auto,Func<DeviceView>? view=null) {
+    internal LegacyDeviceSettingsForm(SerialPublisher? serial=null,EspConnectionMode mode=EspConnectionMode.Auto,Func<DeviceView>? view=null,Action? resetNetwork=null) {
         SuspendLayout();
         var settings=BridgeSettings.Load();Text="ESP8266 · 连接设置";Font=SettingsWindow.BodyFont();AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;
-        ClientSize=new(460,365);MinimumSize=SizeFromClientSize(new(440,360));StartPosition=FormStartPosition.CenterScreen;MaximizeBox=false;MinimizeBox=false;
-        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=6};
+        int resetHeight=resetNetwork is null?0:52;
+        ClientSize=new(460,365+resetHeight);MinimumSize=SizeFromClientSize(new(440,360+resetHeight));StartPosition=FormStartPosition.CenterScreen;MaximizeBox=false;MinimizeBox=false;
+        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=7};
         root.ColumnStyles.Add(new(SizeType.Percent,100));
-        for(int i=0;i<6;i++)root.RowStyles.Add(new(i==4?SizeType.Percent:SizeType.AutoSize,i==4?100:0));
+        for(int i=0;i<7;i++)root.RowStyles.Add(new(i==5?SizeType.Percent:SizeType.AutoSize,i==5?100:0));
         root.Controls.Add(SettingsWindow.Title("连接设置"),0,0);
         var modeGroup=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,ColumnCount=1,Margin=Padding.Empty};modeGroup.ColumnStyles.Add(new(SizeType.Percent,100));
         modeGroup.Controls.Add(new Label{Text="连接方式",AutoSize=true,Margin=new(0,0,0,6)},0,0);
@@ -30,7 +31,20 @@ internal sealed class LegacyDeviceSettingsForm : Form
             var value=new Label{Name=name,AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,0,0,8)};connection.Controls.Add(value,1,index);return value;
         }
         var transport=Status("当前通道","esp-current-transport",0);var usb=Status("USB","esp-usb-state",1);var wifi=Status("Wi-Fi","esp-wifi-state",2);
-        void RefreshConnection(){var current=view?.Invoke();transport.Text=current?.Transport??(serial?.PortName is null?"无":"USB");usb.Text=current?.Usb??(serial?.PortName is {} port?"已连接 · "+port:"未连接");wifi.Text=current?.Wifi??"未连接";}
+        var reset=resetNetwork is null?null:DeviceCenterForm.Button("重置网络…",resetNetwork);
+        if(reset is not null){
+            reset.Name="esp-reset-network";
+            reset.Anchor=AnchorStyles.Left;
+            reset.Margin=new Padding(0,14,0,0);
+            root.Controls.Add(reset,0,4);
+        }
+        void RefreshConnection(){
+            var current=view?.Invoke();
+            transport.Text=current?.Transport??(serial?.PortName is null?"无":"USB");
+            usb.Text=current?.Usb??(serial?.PortName is {} port?"已连接 · "+port:"未连接");
+            wifi.Text=current?.Wifi??"未连接";
+            if(reset is not null)reset.Enabled=current?.Online==true;
+        }
         RefreshConnection();
         var timer=new System.Windows.Forms.Timer{Interval=1500};timer.Tick+=(_,_)=>RefreshConnection();timer.Start();Disposed+=(_,_)=>timer.Dispose();
         root.Controls.Add(connection,0,2);
@@ -44,6 +58,6 @@ internal sealed class LegacyDeviceSettingsForm : Form
             if(!settings.SaveEditable(new Dictionary<string,string>{["screensaver_timeout_minutes"]=((int)saver.Value).ToString()},out string error)){MessageBox.Show(this,error);return;}
             DialogResult=DialogResult.OK;Close();
         },true);var cancel=DeviceCenterForm.Button("取消",Close);cancel.DialogResult=DialogResult.Cancel;cancel.CausesValidation=false;
-        row.Controls.Add(cancel);row.Controls.Add(save);CancelButton=cancel;AcceptButton=save;root.Controls.Add(row,0,5);Controls.Add(root);SettingsWindow.FitScreen(this);ResumeLayout(false);
+        row.Controls.Add(cancel);row.Controls.Add(save);CancelButton=cancel;AcceptButton=save;root.Controls.Add(row,0,6);Controls.Add(root);SettingsWindow.FitScreen(this);ResumeLayout(false);
     }
 }
