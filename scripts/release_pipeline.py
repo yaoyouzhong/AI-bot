@@ -394,12 +394,16 @@ def require_release_scope(candidates, *, online, reason):
     return scope
 
 
-def release_title(candidate):
-    prefix = {"bridge": "桥接 ", "tab5": "TAB5 ", "esp8266": "ESP8266 "}[candidate["component"]]
-    return prefix + candidate["version"]
+def release_title(candidate, product_title=None):
+    component = candidate["component"]
+    if product_title:
+        label = {"bridge": "电脑程序", "tab5": "TAB5 固件", "esp8266": "小屏固件"}[component]
+        return f"{product_title} · {label}"
+    label = {"bridge": "桥接", "tab5": "TAB5", "esp8266": "ESP8266"}[component]
+    return f"{label} {candidate['version']}"
 
 
-def promote(directory, acceptance, repository, *, execute=False, publish=False, expected_source=None, commit_closeout=False, run_closeout=True, allow_deferred=False, minimal_bridge_assets=False, minimal_tab5_assets=False, scope_reason=None, scope_checked=False, target_tag=None):
+def promote(directory, acceptance, repository, *, execute=False, publish=False, expected_source=None, commit_closeout=False, run_closeout=True, allow_deferred=False, minimal_bridge_assets=False, minimal_tab5_assets=False, scope_reason=None, scope_checked=False, target_tag=None, product_title=None):
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("Invalid GitHub repository")
     candidate, data, pending = readiness(directory, acceptance, expected_source=expected_source)
@@ -434,6 +438,7 @@ def promote(directory, acceptance, repository, *, execute=False, publish=False, 
         payload = payload.with_name(payload.name + "-minimal")
     manifest = stage(directory, acceptance, payload, allow_deferred=allow_deferred,
                      minimal_bridge_assets=minimal_bridge_assets, minimal_tab5_assets=minimal_tab5_assets)
+    title = release_title(candidate, product_title)
     ensure_tag(repository, candidate)
     existing = run_cli(["release", "view", candidate["tag"], "--repo", repository, "--json", "databaseId"], check=False, timeout=90)
     if existing.returncode:
@@ -441,7 +446,7 @@ def promote(directory, acceptance, repository, *, execute=False, publish=False, 
         releases = gh_json(["api", f"repos/{repository}/releases?per_page=100"])
         if any(x["tag_name"] == candidate["tag"] for x in releases):
             raise ValueError("Existing release lookup failed")
-        run_cli(["release", "create", candidate["tag"], "--repo", repository, "--verify-tag", "--draft", "--latest=false", "--title", release_title(candidate), "--notes-file", str((directory / "RELEASE-NOTES.md").resolve())], timeout=120)
+        run_cli(["release", "create", candidate["tag"], "--repo", repository, "--verify-tag", "--draft", "--latest=false", "--title", title, "--notes-file", str((directory / "RELEASE-NOTES.md").resolve())], timeout=120)
     release = remote_identity(repository, candidate["tag"])
     if release["draft"]:
         unexpected = {a["name"] for a in release["assets"]} - set(manifest)
@@ -452,10 +457,15 @@ def promote(directory, acceptance, repository, *, execute=False, publish=False, 
         release = remote_identity(repository, candidate["tag"])
     verify_remote(release, manifest)
     if publish and release["draft"]:
-        run_cli(["release", "edit", candidate["tag"], "--repo", repository, "--draft=false", "--latest=false"], timeout=120)
+        args = ["release", "edit", candidate["tag"], "--repo", repository, "--draft=false", "--latest=false"]
+        if product_title:
+            args += ["--title", title]
+        run_cli(args, timeout=120)
         release = remote_identity(repository, candidate["tag"])
         if release["draft"]:
             raise ValueError("Release remained a draft")
+        if product_title and release.get("name") != title:
+            raise ValueError("Published component title does not match the product release")
     report.update(url=release["html_url"], published=not release["draft"], verifiedAssets=len(manifest))
     write(directory.parent / ("promotion-" + candidate["candidateId"][:16] + ".json"), report)
     if publish and run_closeout:

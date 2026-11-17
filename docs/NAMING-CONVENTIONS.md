@@ -55,6 +55,6 @@ HD parts append `.partNNN` to the complete ZIP name; use the numbering in that e
 
 [`scripts/artifact_names.py`](../scripts/artifact_names.py) defines canonical names and legacy aliases. Packaging validation, publication staging, download indexing and Windows update discovery accept both, preferring canonical names for equal versions. Existing public assets and URLs remain available. Future Windows installers, ESP8266 packages and TAB5 upgrades retain byte-identical legacy-name aliases with published checksums so installed older bridges can discover updates. Do not duplicate large collections for naming alone; existing collection assets remain usable, while new collection names require a compatible bridge.
 
-产品总页 Git 标签为 `vX.Y.Z`，标题为 `AI-bot vX.Y.Z`；桥接、ESP8266 和 TAB5 的组件标签分别为 `bridge-vX.Y.Z`、`esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui`。旧 `vX.Y.Z` 组合版及桥接发布、旧标签和下载链接保留历史语义。已发布附件保留文件名、字节与 SHA-256，不为标签迁移重新打包。内部固件文件仍使用 `aibot_tab5.bin` 等既有名称。
+产品总页 Git 标签为 `vX.Y.Z`，标题为 `AI-bot vX.Y.Z`。同次发布的组件页标题使用同一产品版本，例如 `AI-bot v0.6.25 · TAB5 固件`；桥接、ESP8266 和 TAB5 的组件标签仍分别使用各自版本的 `bridge-vX.Y.Z`、`esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui`。旧 `vX.Y.Z` 组合版及桥接发布、旧标签和下载链接保留历史语义。已发布附件保留文件名、字节与 SHA-256，不为标签迁移重新打包。内部固件文件仍使用 `aibot_tab5.bin` 等既有名称。
 
 Product release tags use `vX.Y.Z` with the title `AI-bot vX.Y.Z`; component releases use `bridge-v`, `esp8266-v`, and `tab5-v`. Historical `v` bundle and bridge releases remain unchanged. Preserve existing asset names, bytes, checksums and internal firmware names such as `aibot_tab5.bin`.

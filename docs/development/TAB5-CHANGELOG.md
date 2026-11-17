@@ -6,16 +6,20 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 
 ### Apps
 
-- Group the app grid by status, desktop functions, and time and planning. Open the calendar and birthdays from the new bottom-right Calendar tile.
+- The app grid has a new layout. Tap Calendar in the bottom-right corner to see the month view and birthdays.
 
 ### Computer control
 
-- Prioritize USB login preparation and check the authenticated lock state while sending keys. The control page resumes its normal updates after unlock.
+- One-click unlock over USB prioritizes signing in and keeps checking whether the computer has unlocked. The control page then resumes its regular updates.
 
 ### Overview and artwork
 
-- Keep the companion status on one line so the Codex offline label fits in the overview.
-- Retry eligible artwork requests on the current connection and preserve already verified blocks. Record the storage write stage when an artwork transfer cannot save its progress to the card.
+- The overview fits the companion status on one line and shows the full Codex offline label.
+- After an interruption that can be retried, artwork sync tries to resume on the same connection and keeps verified progress. Diagnostics record which step failed if the progress cannot be saved to the storage card.
+
+### Display implementation
+
+- Framebuffer copies use a shorter DMA2D burst length, reduced from 32 to 16.
 
 ## 0.2.321-ui - 2026-11-13
 

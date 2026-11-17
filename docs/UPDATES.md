@@ -1,17 +1,17 @@
 # 软件与固件更新 / Software and firmware updates
 
-本页对应 Windows 和 Mac 桥接 0.6.24。Windows 使用下述托盘设备中心入口；Mac 使用菜单栏 AI-bot 的设备中心与软件/固件入口，同样分别选择电脑应用、小屏和 TAB5 包。两端窗口布局不同，首刷与升级包不能混用。旧版 v0.5.0 用户先更新电脑应用。
+本页对应 Windows 和 Mac 桥接 0.6.24。Windows 从托盘打开设备中心，Mac 从菜单栏打开。检查更新统一从「设备中心 → 桥接设置 → 软件固件」进入。旧版 v0.5.0 用户先更新电脑应用。
 
 [完整下载中心](../DOWNLOADS.md)集中提供 Windows / Mac 桥接、ESP8266 固件、TAB5 首刷与升级包、书法和名画图库。桥接 0.6.10 的「完整下载与安装说明」链接也指向此处。
 
 ## 日常使用
 
-1. 在 Windows 托盘右键进入「设备中心 → 桥接设置 → 软件固件」，打开「软件与固件更新」。列表同时显示电脑软件和设备中心已添加的设备，分别列出当前版本、可用版本及操作状态。
+1. 打开「设备中心 → 桥接设置 → 软件固件」。列表显示电脑软件、已添加设备的固件和屏保图库，可查看版本及更新状态。
 2. 点「检查更新」，选择要更新的一行，查看「所选更新说明」。设备版本来自已连接设备，不能根据电脑端版本猜测。支持版本上报的小屏按真实固件版本判断更新。
 3. 点「下载并安装电脑端」或「下载并准备升级」。程序自动选对应包并核对 SHA-256。下载可以取消，校验失败不会进入安装。
 4. 电脑端确认后打开安装程序；ESP8266 进入已有的小屏刷机窗口，连接 USB 后先备份再写入；TAB5 在设备「设置 → 固件升级」确认安装，桥接收到传输完成信号后自动等待设备重启，核对运行镜像指纹和启动分区。需要重新读取时，在升级窗口点「核验启动」。电脑端、两种硬件的版本号无需一致，也无需一起升级。
 
-勾选「自动检查并提醒」后，程序启动约 30 秒开始检查，成功后每 24 小时再检查；失败约 1 小时后重试。每个设备的同一版本只提醒一次，遵守静默时段。点击提醒进入更新窗口。关闭自动提醒不影响手动检查。只有已添加、启用且已读取当前版本的设备参与可用升级判断。
+勾选「自动检查并提醒」后，程序启动约 30 秒开始检查，成功后每 24 小时再检查；失败约 1 小时后重试。每个设备的同一版本只提醒一次，遵守静默时段。点击提醒会选中对应项目。Windows 合并提醒多项更新时，会打开第一项。手动检查始终可用。设备已添加、启用且成功读取当前版本时，才参与更新判断。
 
 0.6.2 修复：已连接的旧版 ESP8266 如果未上报固件版本，显示「版本未知（旧固件未上报）」，可以点「手动准备小屏升级」。这不表示发现了更新，不触发自动更新提醒。下载并校验最新正式固件包后，程序会说明无法排除同版本或降级，由用户确认进入 USB 刷机工具；仍需连接该小屏并点击开始刷机，先完整备份，再写入和校验。离线、版本上报无效、下载期间设备或版本改变都会阻止继续。新版固件通过 USB 和已认证的 Wi-Fi 请求上报自身版本。0.6.1 及更早的安装包不包含此修复。
 
@@ -24,19 +24,23 @@ TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备�
 此入口负责发现、下载和交接。安装后的真实运行版本、TAB5 精确镜像启动结果和实体屏效果仍需分别核验；下载成功不等于升级完成。自动后台检查不会下载安装器或刷写设备。
 
 <a id="windows-0624"></a>
-## Windows 0.6.24：软件固件入口 / Software and Firmware
+## 0.6.24：软件固件入口 / Software and Firmware
 
-Windows 0.6.24 在「设备中心 → 桥接设置 → 软件固件」把屏保图库与电脑软件、设备固件一起列出。图库有两个新版时仍只算一个更新项。选中「屏保图库」，再点「管理图库…」即可查看新版、下载或导入 ZIP；设备卡片的「屏保图库」用于浏览作品。安装图库期间请求退出会回到该窗口；安装完成或取消后可退出。TAB5 的 Wi-Fi、USB 配对、固件升级和测速在「连接设置」。ESP8266 的「管理 → 手动刷机…」用于 USB 刷机，「连接设置 → 重置网络…」用于重置已保存的网络。Windows 0.6.24 的实际可下载状态以[下载中心](../DOWNLOADS.md)为准。
+- 「桥接设置」的「软件固件」卡片会显示更新数量。Mac 菜单栏也会显示数量。
+- 在「软件固件 → 屏保图库 → 管理图库…」查看新版、下载或导入 ZIP。两套图库都有新版时合计为一项。安装时点退出会回到图库窗口。设备卡片的「屏保图库」用于浏览。
+- TAB5 的 Wi-Fi、USB 配对、固件升级和测速在「连接设置」。ESP8266 的「管理 → 手动刷机…」用于 USB 刷机，「连接设置 → 重置网络…」用于清除已保存的 Wi-Fi。
 
-In Windows 0.6.24, Device Center → Bridge Settings → Software/Firmware lists screensaver artwork alongside desktop software and firmware. Two collection updates still count as one item. Select Artwork Collections and choose Manage Collections to view versions, download or import a ZIP. The device's artwork shortcut opens the browser. A quit request during installation returns to the collection window; you can quit when the operation finishes or is cancelled. TAB5 Connection Settings contains Wi-Fi, USB pairing, firmware upgrades, and speed tests. For ESP8266, use Manage → Manual Flash for USB flashing, and Connection Settings → Reset Network to clear saved networks. Check the [download center](../DOWNLOADS.en.md) for actual Windows 0.6.24 availability.
+- The Software/Firmware card in Bridge Settings shows the available update count. The Mac menu bar also shows it.
+- In Software/Firmware → Artwork Collections → Manage Collections, you can view versions, download, or import a ZIP. Two collection updates count as one item. Quitting during installation returns you to the collection window. The device's artwork card opens the browser.
+- TAB5 Connection Settings contains Wi-Fi, USB pairing, firmware upgrades, and speed tests. For ESP8266, use Manage → Manual Flash for USB flashing and Connection Settings → Reset Network to clear saved Wi-Fi.
 
 ## English
 
 The [complete download center](../DOWNLOADS.en.md) lists both desktop apps, ESP8266 firmware, TAB5 first-install/upgrade packages and both artwork collections. Bridge 0.6.10's manual-download link opens this center.
 
-This describes Windows and Mac bridge 0.6.24. Windows uses the tray Device Center; Mac uses its menu-bar device center and software/firmware entries for both display types. Native window layouts differ. v0.5.0 users need to install the newer computer app first. Open Device Center → Bridge Settings → Software/Firmware to reach Software and Firmware Updates, check releases, select the computer or an added device, read its notes and download the matching package. SHA-256, package identity and compatibility are validated before handoff. Confirm the Windows installer, use the existing ESP8266 USB backup/flash tool, or confirm installation on TAB5. After transfer, the bridge waits for TAB5 to restart and verifies the firmware fingerprint and boot partition. Use Verify Boot in the upgrade window to read the result again if needed. First-install TAB5 packages remain in the device-center setup flow. Component versions are independent.
+This describes Windows and Mac bridge 0.6.24. Open Device Center from the Windows tray or the Mac menu bar. Go to Bridge Settings → Software/Firmware to check for updates, read the notes, and download the right package. v0.5.0 users need to update the desktop app first. The bridge verifies SHA-256, package identity, and compatibility before it opens the installation tool. Confirm the Windows installer, use the ESP8266 USB backup and flash tool, or confirm installation on TAB5. After transfer, the bridge waits for TAB5 to restart and checks the firmware fingerprint and boot partition. Click Verify Boot in the upgrade window to check again. Use the first-install package from Device Center for a first flash and the upgrade package for a TAB5 that already runs AI-bot. Each component can be updated independently.
 
-Optional automatic checks start about 30 seconds after launch and repeat daily after success, retrying failures after an hour. Notifications respect quiet hours and are deduplicated per device/version. Background checks never download or install. Failed queries retain the last successful in-memory catalog with an error. Unknown or changed device versions block automatic upgrade selection. Local and public builds share the same features. Import optional artwork ZIPs through Artwork Collections; app upgrades preserve the user-data collection directory. Manual checking remains available when reminders are disabled. An accepted download does not prove installation, verified boot or physical display behavior.
+Optional automatic checks start about 30 seconds after launch and repeat daily after success, retrying failures after an hour. Notifications respect quiet hours and appear once per device and version. Click to open the relevant item. A grouped Windows notification opens the first item. Automatic checks only look for updates. When a check fails, the bridge keeps the last successful results. Manual checking is always available. Use the installer, boot check, and physical display to confirm the update after download.
 
 0.6.2 fix: connected legacy ESP8266 devices that omit their firmware version offer a clearly labeled manual preparation action. This does not assert that a newer version exists and never generates an automatic update notification. After downloading and verifying the latest stable package, the user must acknowledge that the version cannot be compared and may be equal or older. The existing USB tool still requires an explicit start, complete backup, write and verification, bound to the selected screen's USB identity when available. Offline devices, malformed versions and target/version changes block continuation. New firmware reports its component version over USB and authenticated Wi-Fi requests. The 0.6.1 and earlier installers do not include this fix.
 
