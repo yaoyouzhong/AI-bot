@@ -17,7 +17,7 @@ import test_cross_platform_coordination as fixtures
 
 class SafetyTests(unittest.TestCase):
     def setUp(self):
-        fixture = fixtures.CoordinationTests(); fixture.setUp()
+        fixture = fixtures.CoordinationTests(); fixture.setUp(); self.addCleanup(fixture.doCleanups)
         self.task = fixture.task
         self.state = ledger.create(self.task, 'ISOLATED TEST ONLY')
         self.version = 0
