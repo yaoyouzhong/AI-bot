@@ -9,7 +9,8 @@ import tempfile
 
 from component_versions import ROOT, versions
 from check_public_content import findings
-from artifact_names import name as artifact_name
+from artifact_names import ESP_FLASH_TEMPLATE, name as artifact_name
+from prepare_esp8266_flash import prepare as prepare_flash
 
 
 def run(command, cwd):
@@ -52,6 +53,9 @@ def package(output):
     for suffix in (".zip", ".zip.sha256"):
         source = audit / (stage.name+suffix)
         shutil.copyfile(source, output / source.name)
+    full = output / (stage.name + ".zip")
+    checksum = full.with_name(full.name + ".sha256").read_text(encoding="ascii").split()[0]
+    prepare_flash(full, output / ESP_FLASH_TEMPLATE.format(version=version), checksum)
     print(f"ESP8266_PACKAGE_OK version={version} output={output} evidence={audit}")
 
 

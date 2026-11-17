@@ -68,25 +68,25 @@ python scripts/release_pipeline.py promote $candidate $acceptance --repo yaoyouz
 
 ```powershell
 python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json --publish
-# 在已有正式发布授权内执行；三个组件发布后只做一次下载元数据收尾
+# 在已有正式发布授权内执行；总页公开后只做一次下载元数据收尾
 python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json --execute --publish
 ```
 
-只列本次变化的组件。执行前先预检全部验收并对照公开下载清单，缺少任一待发组件时停止在建标签前。用户明确指定部分组件时，用 `--scope-reason` 记录原指令，发布报告会同时列出本轮未纳入的更新。网络失败可能让部分组件先公开，记录会明确完成到哪里，重试同一命令继续。
+只列本次变化的组件。执行前先预检全部验收并对照公开下载清单，缺少任一待发组件时停止在建标签前。用户明确指定部分组件时，用 `--scope-reason` 记录原指令，发布报告会同时列出本轮未纳入的更新。网络失败后重试同一命令，继续上传或核验原包。
 
 也可显式调度 `promote.yml`，提供成功的 `candidate.yml` 批次 ID、组件、`record` 生成的完整验收 JSON 和 `publish`。它取回该批次的原候选并核对 SHA，不调用构建；默认 `publish=false`。输入只通过环境变量交给 JSON 解析器，不拼接进 shell。多组件发布在本地用 `promote-set` 可统一收尾；独立组件适合 Actions 晋级入口。TAB5 用本地晋级入口，不伪造原生 Actions 批次。
 
-每次交付统一使用一个面向用户的产品总页，标签为 `vX.Y.Z`，标题为 `AI-bot vX.Y.Z`。产品版本从 `v0.6.20` 序列继续递增，与组件版本独立。`promote` 和 `promote-set` 都会为本轮候选创建或复用同一个产品草稿，即使只交付一个组件。总页列出实际交付的组件版本、中英文说明、验收通过的安装或升级包及独立的 `SHA256SUMS.txt`。组件页标题使用同一产品版本并加组件名称，提供兼容更新器使用的原包。脚本核对两类页面的服务端附件摘要，完成组件发布和下载元数据收尾后，再公开产品总页并设为 Latest。中断后重试复用原产品版本和草稿。
+每次交付在 Releases 只公开一条 `AI-bot vX.Y.Z`，使用 `vX.Y.Z` 标签。产品版本从 `v0.6.20` 序列递增，与组件版本独立。`promote` 和 `promote-set` 创建或复用同一个产品草稿。总页列出实际交付的组件版本、中英文说明、验收通过的安装或升级包及 `SHA256SUMS.txt`。脚本核对服务端附件摘要，再公开总页并设为 Latest，随后刷新下载中心。中断后重试复用原产品版本和草稿。
 
-Every delivery uses one public entry point, the product release tagged `vX.Y.Z` and titled `AI-bot vX.Y.Z`. The product version advances from the `v0.6.20` series independently of component versions. Both `promote` and `promote-set` create or reuse one product draft for the selected candidates, including single-component deliveries. The product page lists the shipped component versions, bilingual notes, accepted install or upgrade packages, and its own `SHA256SUMS.txt`. Component pages also carry the corresponding accepted packages. The script checks server-side asset digests on both kinds of pages, completes component publication and download metadata closeout, then publishes the product page as Latest. Retries reuse the reserved product version and draft.
+Each delivery creates one public Release titled `AI-bot vX.Y.Z` and tagged `vX.Y.Z`. The product version advances independently of component versions. Both `promote` and `promote-set` reuse one product draft for the selected candidates. It contains the shipped component versions, bilingual notes, accepted packages, and `SHA256SUMS.txt`. Promotion verifies server-side asset digests, publishes the product as Latest, and refreshes the download center. Retries reuse the reserved product version and draft.
 
-组件页的标签分别为 `bridge-vX.Y.Z`、`esp8266-vX.Y.Z` 和 `tab5-vX.Y.Z-ui`。Windows 和 Mac 更新器查询 GitHub 的正式发布列表，按平台、组件、标签和附件名选择包。产品总页和历史 `vX.Y.Z` 发布页上的桥接安装包及 TAB5 升级包也可按附件名中的组件版本识别。ESP8266 精简升级包要求匹配其版本的 `esp8266-vX.Y.Z` 标签和对应的 `.sha256` 文件。分别核对总页附件、下载中心和两端更新器实际选择的包及其校验文件。
+组件标签 `bridge-vX.Y.Z`、`esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui` 只用于追溯源码。更新器按总页附件名中的组件版本查找安装包，继续兼容历史发布。ESP8266 精简包与完整包在候选封存前核对固件原件一致。新版桥接从总页优先选择带独立 `.sha256` 的精简包，旧版桥接从总页选择完整包。验收时核对两端识别的包和各自校验文件。
 
-Component releases use `bridge-vX.Y.Z`, `esp8266-vX.Y.Z`, and `tab5-vX.Y.Z-ui`. The Windows and Mac updaters query GitHub's stable release list and select packages by platform, component, tag, and asset name. Bridge installers and TAB5 upgrade packages on product or historical `vX.Y.Z` releases can also be identified by the component version in their asset names. A compact ESP8266 update requires its matching `esp8266-vX.Y.Z` tag and `.sha256` sidecar. Verify product assets, the download center, and the packages and checksums selected by each updater.
+Component tags `bridge-vX.Y.Z`, `esp8266-vX.Y.Z`, and `tab5-vX.Y.Z-ui` identify source commits. Updaters read component versions from product assets and continue to recognize historical releases. The compact and full ESP8266 packages contain identical firmware bytes verified before sealing. Current updaters prefer the compact package with its dedicated `.sha256` file. Installed older updaters can use the full package on the same product release. Verify both updaters and their selected checksums during acceptance.
 
 ## 4. 自动收尾，集中复核
 
-组件页公开后自动刷新并验证 `download-catalog.json`、中英文下载中心及 README 下载块。Release 链接到统一下载中心，并保留对应版本的更新说明和附件。自动核验实际公开下载大小、摘要及所需抽查，不重复下载完整大包。公开的 `CANDIDATE.json`、`ACCEPTANCE.json`、许可证、第三方声明与 `SHA256SUMS.txt` 留存原包身份；便携包和完整桥接源码继续保留在候选归档。
+总页公开后自动刷新并验证 `download-catalog.json`、中英文下载中心及 README 下载块。自动核验实际公开下载大小和摘要。候选归档保留 `CANDIDATE.json`、`ACCEPTANCE.json`、便携包和完整桥接源码，发布包保留许可证、第三方声明和校验文件。
 
 默认只更新本地生成文档。在已有推送授权内加 `--commit-closeout`，只暂存并提交这些指定生成文件，拒绝已有相关改动、非空暂存区、落后主干或会夹带其他本地提交的情况；不自动 rebase。Actions 的公开晋级使用此选项，串行执行以减少冲突。如果分支保护不允许机器人直接推送，公开状态和收尾失败会被分别记录；负责人按仓库现有合并方式处理生成文档，不重新构建或验收包。
 
@@ -124,7 +124,7 @@ Release Assets contain installable or flashable packages and updater checksums. 
 
 Use four steps: select changed scope and source, reuse or build native candidate packages once, record actual or justified reused acceptance once, then promote those exact bytes and close out. Four deliverables share three component version lines. Tag events validate metadata only. Candidate identities bind source, scope, notes and file hashes; altered packages or missing/failed acceptance block promotion. Record explicit baseline evidence and reasons when reusing unchanged-path results.
 
-`release_pipeline.py promote` defaults to a local-only preflight. Within an existing release authorization, both `promote` and `promote-set` create or resume an independently numbered product draft alongside component releases. The product page includes only selected accepted packages, original bytes and checksums. `--publish` publishes it after component verification and closeout; retries preserve the same reserved product number. GitHub does not provide a cross-Release transaction. Neither command rebuilds, installs or flashes a product. Actions promotion retrieves an explicitly selected successful native candidate run; TAB5 retains independently validated local artifacts and corresponding source.
+`release_pipeline.py promote` defaults to a local-only preflight. Both `promote` and `promote-set` create or resume one independently numbered product draft. The product page uses selected accepted packages and their checksums. `--publish` publishes it after verifying the staged assets, then refreshes the download metadata. Retries preserve the same reserved product number. Actions promotion retrieves the selected successful native candidate run. TAB5 retains separately validated local artifacts and corresponding source.
 
 Verified assets are skipped on retry, published mismatches are never replaced, and failures distinguish publication from pending closeout. Optional `--commit-closeout` stages only generated download files and refuses unrelated work; protected branches may require the existing merge route. Ordinary code CI still validates changed products, while documentation/tooling changes avoid product compilation. The release owner reviews affected bilingual prose and accurate media reuse once, preserves limitations, and does not request separate approval for stages already covered by the user's release instruction.
 

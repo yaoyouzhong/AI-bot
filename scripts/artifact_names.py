@@ -3,6 +3,8 @@ import argparse
 from pathlib import Path
 import re
 
+ESP_FLASH_TEMPLATE = "AI-bot-esp8266-{version}-flash.zip"
+
 TEMPLATES = {
     "windows": ("AI-bot-bridge-v{version}-windows-x64-setup.exe", "AIBotBridge-{version}-setup-win-x64.exe"),
     "windows-zip": ("AI-bot-bridge-v{version}-windows-x64.zip", "AIBotBridge-{version}-local-candidate-win-x64.zip"),

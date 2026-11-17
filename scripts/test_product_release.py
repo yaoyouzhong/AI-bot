@@ -24,7 +24,7 @@ class ProductReleaseTests(unittest.TestCase):
         self.assertEqual(product['tag'], 'v0.6.21')
         self.assertIn('TAB5 0.2.321-ui', product['body'])
         self.assertIn('/download/v0.6.21/AI-bot-tab5-0.2.321-ui-upgrade.zip', product['body'])
-        self.assertIn('/tag/tab5-v0.2.321-ui', product['body'])
+        self.assertNotIn('/tag/tab5-v0.2.321-ui', product['body'])
         self.assertNotIn('桌面桥接', product['body'])
         self.assertIn('English update', product['body'])
 

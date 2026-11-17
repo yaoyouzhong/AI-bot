@@ -1,4 +1,4 @@
-"""Build one product release from independently accepted component releases."""
+"""Build one product release from independently accepted component candidates."""
 from __future__ import annotations
 
 import hashlib
@@ -9,6 +9,7 @@ import re
 _PRODUCT_TAG = re.compile(r"v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\Z")
 _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 _SAFE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
+PRODUCT_ONLY_MARKER = '<!-- aibot-product-only -->'
 
 
 def valid_product_tag(tag):
@@ -80,12 +81,12 @@ def render_product(repository, version, components):
             raise ValueError('Product release requires known component download assets')
         prefix = f'https://github.com/{repository}/releases/download/v{version}/'
         links = ' · '.join(f"[{a['label']}]({prefix}{a['name']})" for a in assets)
-        downloads.append(f"- {labels[component][0]} {candidate['version']}：{links} · [组件发布页](https://github.com/{repository}/releases/tag/{tag})")
+        downloads.append(f"- {labels[component][0]} {candidate['version']}：{links}")
         chinese, english = split_notes(item['notes'], candidate)
         zh_sections.append(chinese)
         nested = re.sub(r'^(#{2,5}) ', lambda m: '#' + m.group(1) + ' ', english, flags=re.M)
         en_sections.append(f"### {labels[component][1]} {candidate['version']}\n\n{nested}")
     marker = '<!-- aibot-product-release:' + identity + ' -->'
     body = ('## 下载\n\n' + '\n'.join(downloads) + '\n\n' + '\n\n'.join(zh_sections)
-            + '\n\n## English\n\n' + '\n\n'.join(en_sections) + '\n\n' + marker + '\n')
+            + '\n\n## English\n\n' + '\n\n'.join(en_sections) + '\n\n' + PRODUCT_ONLY_MARKER + '\n' + marker + '\n')
     return {'tag': 'v' + version, 'title': 'AI-bot v' + version, 'body': body, 'identity': identity}

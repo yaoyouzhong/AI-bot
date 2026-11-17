@@ -7,7 +7,7 @@ import re
 import shutil
 import zipfile
 from component_versions import versions as declared_versions
-from artifact_names import COMPONENT_KEYS, UPDATE_ALIASES, name as artifact_name, names as artifact_names, resolve
+from artifact_names import COMPONENT_KEYS, ESP_FLASH_TEMPLATE, UPDATE_ALIASES, name as artifact_name, names as artifact_names, resolve
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,6 +25,14 @@ def prepare(directory: Path, version: str, commit: str, *, component="bundle", v
     elif desktop_platform == "macos":
         keys = ("macos", "bridge-source")
     archives = [resolve(directory, key, current["bridge" if key in COMPONENT_KEYS["bridge"] else "esp8266" if key == "esp8266" else "tab5"]) for key in keys]
+    flash = ESP_FLASH_TEMPLATE.format(version=esp)
+    if component == "esp8266" and (directory / flash).is_file():
+        full = archives[0]
+        with zipfile.ZipFile(directory / full) as materials, zipfile.ZipFile(directory / flash) as compact:
+            mirrored = ("firmware.bin", "VERSION", "COMPONENT.json", "LICENSE", "THIRD_PARTY_NOTICES.md")
+            if any(materials.read(name) != compact.read(name) for name in mirrored):
+                raise ValueError("Compact ESP8266 package differs from its full materials")
+        archives.append(flash)
     expected = {name + suffix for name in archives for suffix in ("", ".sha256")}
     if {p.name for p in directory.iterdir()} != expected:
         raise ValueError(f"Expected exactly {component} packages and their sidecar hashes: {', '.join(archives)}")

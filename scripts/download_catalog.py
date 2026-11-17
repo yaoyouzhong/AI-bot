@@ -9,7 +9,8 @@ import re
 import urllib.request
 
 from component_versions import release_target, desktop_platform, versions
-from artifact_names import TEMPLATES, names as artifact_names, match as match_artifact
+from artifact_names import ESP_FLASH_TEMPLATE, TEMPLATES, names as artifact_names, match as match_artifact
+from product_release import PRODUCT_ONLY_MARKER, valid_product_tag
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = "https://github.com/yaoyouzhong/AI-bot"
@@ -19,7 +20,6 @@ HD_CATALOG = ROOT / "gallery-hd-downloads.json"
 CENTER = REPO + "/blob/main/DOWNLOADS.md"
 HD_GUIDE = REPO + "/blob/main/docs/GALLERY-HD.md"
 FIRST_INSTALL_GUIDE = REPO + "/blob/main/docs/FIRST-INSTALL.zh.md"
-ESP_FLASH_TEMPLATE = "AI-bot-esp8266-{version}-flash.zip"
 INSTALL_DOWNLOADS = ("windows", "macos", "esp8266", "tab5-first", "tab5-upgrade")
 # id: component, asset template, Chinese label, English label
 SPECS = {
@@ -72,11 +72,12 @@ def validate(data):
         pattern = r"\d{4}\.\d{2}\.\d{2}(?:\.\d+)?" if component == "gallery" else r"\d+\.\d+\.\d+" + (r"-ui" if component == "tab5" else "")
         filenames = artifact_names(key, version)
         if key == 'esp8266':
-            filenames = (ESP_FLASH_TEMPLATE.format(version=version),)
+            filenames = (ESP_FLASH_TEMPLATE.format(version=version), *filenames)
         if not re.fullmatch(pattern, version) or item["file"] not in filenames:
             raise ValueError(f"Wrong version/package for {key}")
         tag_component, tag_version = release_target(item["tag"])
-        if component != "gallery" and tag_component != "bundle" and (tag_component, tag_version) != (component, version):
+        if (component != "gallery" and not valid_product_tag(item["tag"]) and tag_component != "bundle"
+                and (tag_component, tag_version) != (component, version)):
             raise ValueError(f"Tag and package disagree: {key}")
         if component in ("bridge", "esp8266") and tag_component == "bundle" and tag_version != version:
             raise ValueError(f"Legacy tag and package disagree: {key}")
@@ -129,24 +130,28 @@ def discover(releases):
                 tag_component, tag_version = release_target(release["tag_name"])
             except ValueError:
                 continue
+            product = valid_product_tag(release["tag_name"]) and PRODUCT_ONLY_MARKER in (release.get("body") or "")
             for asset in release["assets"]:
+                compact = False
                 if key == 'esp8266':
                     flash = re.fullmatch(r'AI-bot-esp8266-(\d+\.\d+\.\d+)-flash\.zip', asset['name'])
-                    match = (flash.group(1), 0) if flash else None
+                    compact = flash is not None
+                    match = (flash.group(1), 0) if flash else match_artifact(key, asset['name']) if product else None
                 else:
                     match = match_artifact(key, asset["name"])
                 if not match:
                     continue
                 version, priority = match
-                if component != "gallery" and tag_component != "bundle" and (tag_component, tag_version) != (component, version):
-                    continue
-                if component in ("bridge", "esp8266") and tag_component == "bundle" and tag_version != version:
-                    continue
+                if not product:
+                    if component != "gallery" and tag_component != "bundle" and (tag_component, tag_version) != (component, version):
+                        continue
+                    if component in ("bridge", "esp8266") and tag_component == "bundle" and tag_version != version:
+                        continue
                 order = tuple(map(int, version.removesuffix("-ui").split(".")))
-                candidates.append((order, release["published_at"], -priority, release, asset, version))
+                candidates.append((order, compact, release["published_at"], -priority, release, asset, version))
         if not candidates:
             raise ValueError(f"No published package for {key}")
-        _, _, _, release, asset, version = max(candidates, key=lambda c: c[:3])
+        _, _, _, _, release, asset, version = max(candidates, key=lambda c: c[:4])
         checksum = asset['name'] + '.sha256' if asset['name'] == ESP_FLASH_TEMPLATE.format(version=version) else 'SHA256SUMS.txt'
         if checksum not in {a["name"] for a in release["assets"]}:
             raise ValueError(f"Missing checksum file for {key}")

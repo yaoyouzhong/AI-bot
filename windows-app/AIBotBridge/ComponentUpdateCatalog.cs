@@ -61,7 +61,7 @@ internal static class ComponentUpdateCatalog
                     if (ownTag && tag[prefix.Length..] != version) continue;
                     var package=ReadAsset(tag,asset);
                     bool compact=assetSuffix=="-flash.zip";
-                    if(compact && (!ownTag || package is null || package.Size<=0 || package.Size>256L*1024*1024)) continue;
+                    if(compact && (package is null || package.Size<=0 || package.Size>256L*1024*1024)) continue;
                     var checksum=release.GetProperty("assets").EnumerateArray()
                         .Where(a=>a.GetProperty("name").GetString()==name+".sha256"||!compact&&a.GetProperty("name").GetString()=="SHA256SUMS.txt")
                         .OrderBy(a=>a.GetProperty("name").GetString()==name+".sha256"?0:1)
