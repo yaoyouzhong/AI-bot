@@ -4,7 +4,7 @@
 
 本工具属于 AI-bot 项目，不改 Auto Loop 框架源码。它提供离线、无第三方依赖的机器可读契约与发布前预检。本分支已加入真实任务生命周期工具，给 `promote.yml` 及支持的本地组件/产品发布入口增加协调预检；尚未合并部署。当前未接入真实 GitHub 任务派发和两端开发调度，因此**不是已经上线的全自动协调系统，也不是覆盖全部发布入口的不可绕过门禁**。测试只验证契约及 Git 提交归属，不冒充 Windows/Mac 原生验证。
 
-只读扫描继续独立运行。扫描到新提交后，需要协调者审阅实际 diff、判断适用平台，再生成任务。扫描器不能直接将“有新提交”当成“双方需要改代码”，也不能自动发布。
+只读扫描继续独立运行。扫描到新提交后，由目标端现有 Windows/Mac 开发会话读取提交、分析 diff、决定是否及如何对齐。Dot/Auto Loop 只发送包含提交引用的交接通知并跟踪回执，不做语义判断。扫描器不能直接将“有新提交”当成“双方需要改代码”，也不能自动发布。
 
 ## 任务身份与回执
 
@@ -43,7 +43,7 @@ Windows 使用 `windows`，Mac 使用 `macos`。`status` 可为 `completed`、`a
 - `completed` / `already-present` 必须附原生验证结果 `passed` 或 `reused`。
 - 已测试通过且相关实现未变，允许 `reused`：`verification.commit` 填原验证提交，另加 `reuseReason` 说明为何仍适用；不要求用户重做全量测试。
 - `not-applicable` 必须说明原因及证据，仍填写审阅的实现基准提交；可不填写 verification。
-- 本工具检查字段与提交归属，**不验证链接真实性或日志内容**；协调者必须审阅证据，不得伪造回执。
+- 本工具检查字段与提交归属，**不验证链接真实性或日志内容**；开发会话负责技术判断和验证证据；Dot 只核对回执来源及完整性，不得伪造回执。
 
 ## 发布计划与预检
 
@@ -62,7 +62,7 @@ python scripts/cross_platform_coordination.py gate release-plan.json \
 
 1. 在允许的 GitHub 写入范围内按 taskId 建 Issue，记录原分支、旧/新 SHA、适用平台及验收要求。
 2. 由现有 Auto Loop 配置分别投递给两端现有开发会话。保存任务领取回执；连接/授权失败如实标 blocked，不宣称送达。
-3. 两端提交实现及结构化回执，协调者审阅证据和整批变更覆盖范围。
+3. 两端提交实现及结构化回执，两端现有开发会话确认技术证据和整批变更覆盖范围；Dot 汇总并跟踪。
 4. 为候选包生成发布计划，运行本预检，再运行现有不可变候选验收。本分支已在 `promote.yml` 的正式操作之前执行预检；合并部署后该工作流会要求 `coordination_plan_json`。本地组件和产品 promote/promote-set 执行也必须提供协调计划，旧独立上传 CLI 已拒绝执行；分支保护和用户手工 GitHub 操作不受项目脚本控制，不能宣称全局不可绕过。
 5. 全部完成后由 Windows 发布负责人按既有授权准备发布。发布仍需用户要求与既有发布约束，缺 Mac 资料时保持暂停。
 
@@ -97,7 +97,7 @@ python scripts/coordination_ledger.py plan task-1.json task-2.json \
 python scripts/cross_platform_coordination.py gate release-plan.json --source <候选完整SHA> --repo .
 ```
 
-任何任务只完成一端都会阻断生成计划。`promote.yml` 会校验计划仓库、候选源提交、双端回执及提交祖先关系，然后才运行既有 promote。协调计划随工作流产物保存。计划任务覆盖的真实性、原生证据真实性仍需协调者审阅，不能从 JSON 自述推断。
+任何任务只完成一端都会阻断生成计划。`promote.yml` 会校验计划仓库、候选源提交、双端回执及提交祖先关系，然后才运行既有 promote。协调计划随工作流产物保存。计划任务覆盖的真实性、原生证据真实性由现有开发会话负责判断，Dot 不从 JSON 自述推导技术结论。
 
 本次没有创建真实开发任务、启动原生构建、修改 Auto Loop、合并或发布。开启消费者、形成真实任务授权范围、统一其他发布入口与合并上线仍需按用户授权逐步执行。
 
@@ -117,7 +117,7 @@ python scripts/cross_platform_coordination.py gate release-plan.json --source <�
 - 空 `requiredTaskIds`、空 tasks、缺任一必需任务或任一平台回执都不能通过。不能以“本次没任务”为理由省略协调；只涉及已有实现的发布应形成明确范围任务，引用已通过的真实验证并说明复用理由，不要求重新全量测试。
 - 只读巡检（`kind` 以 `read-only` 开头或 `constraints.inspectionOnly=true`）不能推进开发 start/finish，也不能用作发布完成回执。接收确认保留原含义；本工具不会把历史图库巡检变成图库修复任务。
 - task 的 base 必须是 source 的祖先；force-push 造成分叉时先重新审阅，不假称原差异已覆盖。复用原生验证时，验证 baseline 必须在实现提交历史中，仍需解释为何相关行为没有改变。
-- 门禁现在要求独立固定到 Git 提交的范围记录，并重新计算实际提交与文件差异，能够检测仅从发布计划中整项删除任务。范围记录中的基线选择和语义映射仍需人工/协调者审阅；不能将JSON中的 reviewed=true 自述当成用户授权。
+- 门禁现在要求独立固定到 Git 提交的范围记录，并重新计算实际提交与文件差异，能够检测仅从发布计划中整项删除任务。范围记录中的基线选择和语义映射须由 Windows/Mac 现有开发会话审阅；不能将JSON中的 reviewed=true 自述当成用户授权。
 
 
 ## 独立发布范围记录与完整差异覆盖
@@ -129,7 +129,7 @@ python scripts/coordination_scope.py --repo . --repository yaoyouzhong/AI-bot \
   --base <上个已接受发布基线SHA> --source <本次候选源SHA> > scope-draft.json
 ```
 
-记录包含 `releaseBase/releaseSource`、完整 `commits/files`、`commitTasks/fileTasks` 和 `requiredTaskIds`。生成结果 `reviewed=false`，所有映射为空，不能发布。协调者按真实 diff 审阅，填写每个提交和每个变更文件所对应的任务 ID；删除和重命名按旧/新文件路径纳入，合并提交、撤销后净文件差异为空的提交仍列在 commits 中，不能静默跳过。范围记录的任务 ID 集合必须等于映射引用集合，且发布计划中的任务集合必须与之完全一致。
+记录包含 `releaseBase/releaseSource`、完整 `commits/files`、`commitTasks/fileTasks` 和 `requiredTaskIds`。生成结果 `reviewed=false`，所有映射为空，不能发布。Windows/Mac 现有开发会话按真实 diff 审阅，填写每个提交和每个变更文件所对应的任务 ID；删除和重命名按旧/新文件路径纳入，合并提交、撤销后净文件差异为空的提交仍列在 commits 中，不能静默跳过。范围记录的任务 ID 集合必须等于映射引用集合，且发布计划中的任务集合必须与之完全一致。
 
 审阅后将记录保存到约定分支的：
 
@@ -154,3 +154,6 @@ Windows PowerShell 使用 `$env:AIBOT_COORDINATION_SCOPE_COMMIT='...'` 设置环
 不能自动证明：选择的上次发布基线是否正确、把某文件映射到某任务是否在产品语义上恰当、原生日志内容是否真实、审阅人是否有批准权。若攻击者同时有权更改范围记录、另选范围提交与发布输入，或直接操作 GitHub，则项目脚本不能提供服务端权限隔离。`reviewed` 和证据字段仅是可追溯声明，不新增任何发布授权。需要平台级强制时另行授权配置环境审批/凭证隔离。
 
 本次只开发和隔离测试范围机制，没有创建真实发布范围记录、没有更改既有任务、没有合并或发布。真实范围审定必须以明确候选版本和既有验收证据为依据。
+
+
+项目侧持久检查点、断线恢复与防循环见 `COORDINATION-CHECKPOINTS.md`。这些组件只管理交接状态，不分析代码、不决定对齐、不改变 Auto Loop 框架。
