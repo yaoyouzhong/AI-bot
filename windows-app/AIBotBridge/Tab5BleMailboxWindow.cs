@@ -9,7 +9,8 @@ internal sealed class Tab5BleMailboxWindow(
     Func<CancellationToken,Task<byte[]>> read,
     Func<byte[],bool,CancellationToken,Task> write,
     bool notifications,bool unacknowledged,int mtu,int credits=4,
-    Func<IReadOnlyList<byte[]>,CancellationToken,Task>? writeBatch=null,int notifyCredits=0,int bulkWriteCredits=0,Func<int>? bulkWriteLimit=null)
+    Func<IReadOnlyList<byte[]>,CancellationToken,Task>? writeBatch=null,int notifyCredits=0,int bulkWriteCredits=0,Func<int>? bulkWriteLimit=null,
+    Func<CancellationToken,Task<byte[]>>? poll=null)
 {
     internal const int DefaultBulkWriteCredits=64;
     private readonly List<byte[]> _pendingWrites=[];
@@ -32,12 +33,14 @@ internal sealed class Tab5BleMailboxWindow(
     }
     private void Fail(string message){Volatile.Write(ref _failure,message);_packets.Writer.TryComplete(new IOException(message));}
     private void CheckFailure(){if(Volatile.Read(ref _failure) is {} failure)throw new IOException(failure);}
-    internal async Task<byte[]> ReadAsync(CancellationToken token) {
+    internal Task<byte[]> PollAsync(CancellationToken token)=>ReadAsync(token,poll??read);
+    internal Task<byte[]> ReadAsync(CancellationToken token)=>ReadAsync(token,read);
+    private async Task<byte[]> ReadAsync(CancellationToken token,Func<CancellationToken,Task<byte[]>> readCharacteristic) {
         CheckFailure();
         if(_remaining==0) {
             if(_packets.Reader.TryPeek(out _)||_packets.Reader.Completion.IsCompleted)
                 throw new IOException("BLE unexpected notification outside granted window");
-            return await read(token);
+            return await readCharacteristic(token);
         }
         using var timeout=CancellationTokenSource.CreateLinkedTokenSource(token);timeout.CancelAfter(TimeSpan.FromSeconds(4));
         byte[] packet;
@@ -99,18 +102,19 @@ internal sealed class Tab5BleMailboxWindow(
             await send(packet,true,token);
         }
     }
-    internal static async Task<bool> WriteBatchRecoverableAsync(IReadOnlyList<byte[]> packets,Func<byte[],bool,CancellationToken,Task> send,CancellationToken token) {
+    internal static async Task<bool> WriteBatchRecoverableAsync(IReadOnlyList<byte[]> packets,
+        Func<byte[],bool,CancellationToken,Task> send,Func<Func<Task>,CancellationToken,Task> serialize,CancellationToken token) {
         if(packets.Count is <1 or >64)throw new IOException("BLE recoverable write window invalid");
         try {
             // Serial native submissions preserve ordering without the per-
             // cohort round trips. The final ATT response checks the cursor.
-            await WriteBatchOrderedAsync(packets,send,token);
+            await serialize(()=>WriteBatchOrderedAsync(packets,send,token),token);
             return false;
         }catch(Tab5BleMailboxWriteException ex) when(ex.ProtocolError==0x0e) {
             // Only a negotiated peer can accept exact duplicate ciphertext.
-            // Fill its missing prefix using acknowledged writes, once. Never
-            // retry disconnects, authentication errors or cancellations.
-            await WriteBatchConfirmedAsync(packets,send,token);
+            // Await each acknowledgement before advancing the RPC cursor.
+            // Between fragments the voice mailbox and status can use ATT.
+            await WriteBatchConfirmedAsync(packets,(packet,ack,ct)=>serialize(()=>send(packet,ack,ct),ct),token);
             return true;
         }
     }

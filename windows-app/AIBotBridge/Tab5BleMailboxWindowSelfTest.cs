@@ -7,6 +7,7 @@ internal static class Tab5BleMailboxWindowSelfTest
     internal static async Task RunAsync() {
         await VerifyConfirmedBulkAsync();
         await VerifyRecoverableBulkAsync();
+        await VerifyReplayYieldsToVoiceAsync();
         await VerifyQueuedBatchesAsync();
         await VerifyExtendedQueuedBatchesAsync();
         await VerifyPeerBackpressureAsync();
@@ -30,6 +31,7 @@ internal static class Tab5BleMailboxWindowSelfTest
         }
         Console.WriteLine("TAB5_BLE_WINDOW_PASS MTU 23/247/517; notify/legacy; grant command/ack; exact bytes; final ATT barrier; stale/order/drop/grant-loss/cancel/overflow rejected");
     }
+    private static Task RunImmediately(Func<Task> action,CancellationToken token) => action();
     private static async Task VerifyRecoverableBulkAsync() {
         foreach(int mtu in new[]{23,247,517})foreach(int total in new[]{12289,49316,65535})foreach(int drop in new[]{-1,0,7,31,47,63}) {
             byte[] expected=Enumerable.Range(0,total).Select(i=>(byte)(i%251)).ToArray(),received=new byte[total];
@@ -46,7 +48,7 @@ internal static class Tab5BleMailboxWindowSelfTest
                 return Task.CompletedTask;
             }
             var window=new Tab5BleMailboxWindow(_=>throw new Exception("Unexpected read"),Send,false,true,mtu,8,
-                async(packets,ct)=>{if(await Tab5BleMailboxWindow.WriteBatchRecoverableAsync(packets,Send,ct))recoveries++;},bulkWriteCredits:64);
+                async(packets,ct)=>{if(await Tab5BleMailboxWindow.WriteBatchRecoverableAsync(packets,Send,RunImmediately,ct))recoveries++;},bulkWriteCredits:64);
             for(int at=0;at<total;at+=window.ResponseChunk) {
                 var p=new byte[9+Math.Min(window.ResponseChunk,total-at)];p[0]=2;
                 BinaryPrimitives.WriteUInt16LittleEndian(p.AsSpan(5),(ushort)at);BinaryPrimitives.WriteUInt16LittleEndian(p.AsSpan(7),(ushort)total);
@@ -60,14 +62,14 @@ internal static class Tab5BleMailboxWindowSelfTest
         foreach(byte error in new byte[]{0x05,0x0d,0x0e}) {
             int calls=0;
             try {
-                await Tab5BleMailboxWindow.WriteBatchRecoverableAsync([new byte[1]],(_,_,_)=>{calls++;throw new Tab5BleMailboxWriteException("persistent rejection",new IOException(),error);},CancellationToken.None);
+                await Tab5BleMailboxWindow.WriteBatchRecoverableAsync([new byte[1]],(_,_,_)=>{calls++;throw new Tab5BleMailboxWriteException("persistent rejection",new IOException(),error);},RunImmediately,CancellationToken.None);
                 throw new Exception("Persistent ATT rejection swallowed");
             }catch(Tab5BleMailboxWriteException ex) when(ex.ProtocolError==error){}
             if(calls!=(error==0x0e?2:1))throw new Exception("Replay unbounded or attempted for unrelated ATT error");
         }
         int cancelledCalls=0;using var cancel=new CancellationTokenSource();cancel.Cancel();
         try {
-            await Tab5BleMailboxWindow.WriteBatchRecoverableAsync([new byte[1]],(_,_,_)=>{cancelledCalls++;return Task.CompletedTask;},cancel.Token);
+            await Tab5BleMailboxWindow.WriteBatchRecoverableAsync([new byte[1]],(_,_,_)=>{cancelledCalls++;return Task.CompletedTask;},RunImmediately,cancel.Token);
             throw new Exception("Cancelled recoverable write accepted");
         }catch(OperationCanceledException) when(cancel.IsCancellationRequested){}
         if(cancelledCalls!=0)throw new Exception("Cancelled recovery sent data");
@@ -77,6 +79,54 @@ internal static class Tab5BleMailboxWindowSelfTest
         }
         using(var doc=System.Text.Json.JsonDocument.Parse("{\"rpcReplay\":1}"))if(!Tab5BleClient.ResponseReplaySupported(doc.RootElement))throw new Exception("Replay capability not negotiated");
         Console.WriteLine("BLE_RECOVERABLE_BULK_OK exact_bytes_MTU23_247_517_lost_command_window_replay_bounded_rejection_cancel_strict_negotiation_clean_48K_two_ACKs");
+    }
+    private static async Task VerifyReplayYieldsToVoiceAsync() {
+        foreach(bool cancelDuringReplay in new[]{false,true}) {
+            using var gate=new SemaphoreSlim(1,1);
+            using var deadline=new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var replayStop=CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
+            var packets=Enumerable.Range(0,64).Select(i=>new[]{(byte)i}).ToArray();
+            var firstReplayStarted=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var allowFirstReplayAck=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var replayed=new List<int>();
+            int sent=0;
+            bool voiceServiced=false;
+            Task Serialize(Func<Task> action,CancellationToken token) =>
+                Tab5BleTransfer.SerializeAsync(gate,async ()=>{await action();return true;},token);
+            async Task Send(byte[] packet,bool ack,CancellationToken token) {
+                int index=packet[0];
+                if(gate.CurrentCount!=0)throw new Exception("Native write escaped the ATT gate");
+                if(sent<packets.Length) {
+                    if(index!=sent++||ack!=(index==packets.Length-1))throw new Exception("Clean window order/barrier changed");
+                    if(ack)throw new Tab5BleMailboxWriteException("Peer rejected final barrier",new IOException(),0x0e);
+                    return;
+                }
+                if(!ack||index!=replayed.Count)throw new Exception("Replay changed fragment order or acknowledgement");
+                if(index==0) {
+                    firstReplayStarted.SetResult();
+                    await allowFirstReplayAck.Task.WaitAsync(token);
+                }else if(!voiceServiced)throw new Exception("RPC replay still owns ATT across fragment acknowledgements");
+                replayed.Add(index);
+            }
+            var replay=Tab5BleMailboxWindow.WriteBatchRecoverableAsync(packets,Send,Serialize,replayStop.Token);
+            await firstReplayStarted.Task.WaitAsync(deadline.Token);
+            var voice=Serialize(()=>{
+                if(replayed.Count!=(cancelDuringReplay?0:1))throw new Exception("Voice interleaved before ACK or after another replay fragment");
+                voiceServiced=true;
+                return Task.CompletedTask;
+            },deadline.Token);
+            if(voice.IsCompleted)throw new Exception("Voice overlapped an in-flight GATT operation");
+            if(cancelDuringReplay)replayStop.Cancel();
+            else allowFirstReplayAck.SetResult();
+            await voice.WaitAsync(deadline.Token);
+            try {
+                if(!await replay.WaitAsync(deadline.Token)||cancelDuringReplay||replayed.Count!=packets.Length)
+                    throw new Exception("RPC replay failed to complete exactly once");
+            }catch(OperationCanceledException) when(cancelDuringReplay&&replayStop.IsCancellationRequested) {
+                if(replayed.Count!=0)throw new Exception("Cancelled replay advanced the cursor");
+            }
+        }
+        Console.WriteLine("BLE_REPLAY_YIELDS_TO_VOICE_OK ATT_ack_before_next_fragment_voice_between_fragments_cancel_releases_gate");
     }
     private static async Task VerifyConfirmedBulkAsync() {
         foreach(int mtu in new[]{23,247,517})foreach(int total in new[]{12289,49316,65535})foreach(int fault in new[]{0,1,2}) {

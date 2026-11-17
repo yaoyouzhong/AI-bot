@@ -9,7 +9,7 @@ internal sealed class Tab5BleVoice(
     Func<CancellationToken,Task<byte[]>> read,
     Func<byte[],CancellationToken,Task> write,
     Func<string,string,byte[],CancellationToken,Task<(int Status,byte[]? Packet)>> handle,
-    int mtu, int maximumResponse=12288, int deadlineSeconds=12, int fragmentSize=480, int responseChunk=0,string transportMode="read/ack",int maximumRequest=12288,Func<bool>? bulkPriority=null,Func<long>? clock=null,Action<string>? responseAccepted=null)
+    int mtu, int maximumResponse=12288, int deadlineSeconds=12, int fragmentSize=480, int responseChunk=0,string transportMode="read/ack",int maximumRequest=12288,Func<bool>? bulkPriority=null,Func<long>? clock=null,Action<string>? responseAccepted=null,Func<CancellationToken,Task<byte[]>>? poll=null)
 {
     private uint _completed;
     internal long LastActive {get;private set;}
@@ -37,10 +37,15 @@ internal sealed class Tab5BleVoice(
     internal async Task<bool> PumpAsync(CancellationToken token)
     {
         using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);deadline.CancelAfter(TimeSpan.FromSeconds(deadlineSeconds));
-        token=deadline.Token;
         long started=Now;
         Progress="read mailbox";
-        var part=await read(token);
+        byte[] part;
+        try {part=await (poll??read)(deadline.Token);}
+        catch(OperationCanceledException ex) when(!token.IsCancellationRequested) {
+            // No request header was read and no fragment cursor has advanced.
+            throw new Tab5BleMailboxPollTimeout(ex);
+        }
+        token=deadline.Token;
         if(part.Length<8)throw new IOException("BLE voice header truncated");
         uint id=BinaryPrimitives.ReadUInt32LittleEndian(part);
         if(id==0)return false;
@@ -100,3 +105,6 @@ internal sealed class Tab5BleVoice(
         }
     }
 }
+
+internal sealed class Tab5BleMailboxPollTimeout(OperationCanceledException inner)
+    : IOException("BLE mailbox poll timed out before receiving a request",inner);

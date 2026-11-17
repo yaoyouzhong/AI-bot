@@ -134,7 +134,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                             if(voiceMailbox is not null) {
                                 var window=voiceMailbox.Window;
                                 voice=new Tab5BleVoice(window.ReadAsync,window.WriteAsync,voiceHandler!,
-                                    (int)session.MaxPduSize,responseChunk:window.ResponseChunk,transportMode:window.Mode);
+                                    (int)session.MaxPduSize,responseChunk:window.ResponseChunk,transportMode:window.Mode,poll:window.PollAsync);
                             }
                             Tab5BleVoice? rpc=null;
                             stage="发现 RPC 特征";
@@ -144,7 +144,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                             if(rpcMailbox is not null) {
                                 var window=rpcMailbox.Window;
                                 rpc=new Tab5BleVoice(window.ReadAsync,window.WriteAsync,rpcHandler!,
-                                    (int)session.MaxPduSize,Tab5RpcBinary.MailboxMaximum,75,responseChunk:window.ResponseChunk,transportMode:window.Mode,maximumRequest:Tab5RpcBinary.MailboxMaximum,bulkPriority:imageUploadActive);
+                                    (int)session.MaxPduSize,Tab5RpcBinary.MailboxMaximum,75,responseChunk:window.ResponseChunk,transportMode:window.Mode,maximumRequest:Tab5RpcBinary.MailboxMaximum,bulkPriority:imageUploadActive,poll:window.PollAsync);
                             }
                             timeout.CancelAfter(Timeout.InfiniteTimeSpan);
                             resetTelemetry?.Invoke();
@@ -153,11 +153,13 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                             using var voiceStop=CancellationTokenSource.CreateLinkedTokenSource(token);
                             string preferenceStatus="默认连接参数";
                             using var connectionPreference=Tab5BleConnectionPreference.ForDevice(device,s=>preferenceStatus=s);
+                            bool LinkConnected()=>device.ConnectionStatus==BluetoothConnectionStatus.Connected&&session.SessionStatus==GattSessionStatus.Active;
                             var rpcTask=rpc is null?Task.CompletedTask:PumpVoiceAsync(rpc,"RPC",voiceStop.Token,rpcDiagnostic,()=>rpcMailbox!.QueuedMilliseconds,
-                                ()=>rpcMailbox!.ReceiveDiagnostic,probeTrace:probeTrace,writeTiming:()=>rpcMailbox!.WriteTiming,
-                                linkDiagnostic:()=>"preference="+preferenceStatus+"; "+Tab5BleConnectionPreference.ReadLink(device),idleStandby:standby);
-                            var voiceTask=voice is null?Task.CompletedTask:PumpVoiceAsync(voice,"voice",voiceStop.Token,voiceDiagnostic,()=>voiceMailbox!.QueuedMilliseconds,bulkActive:()=>rpc?.BulkPriorityActive(Environment.TickCount64)==true||imageUploadActive?.Invoke()==true,probeTrace:probeTrace,idleStandby:standby);
+                                ()=>rpcMailbox!.ReceiveDiagnostic+(voiceMailbox is null?"":"; "+voiceMailbox.ReadDiagnostic),probeTrace:probeTrace,writeTiming:()=>rpcMailbox!.WriteTiming,
+                                linkDiagnostic:()=>"preference="+preferenceStatus+"; "+Tab5BleConnectionPreference.ReadLink(device),idleStandby:standby,linkConnected:LinkConnected);
+                            var voiceTask=voice is null?Task.CompletedTask:PumpVoiceAsync(voice,"voice",voiceStop.Token,voiceDiagnostic,()=>voiceMailbox!.QueuedMilliseconds,bulkActive:()=>rpc?.BulkPriorityActive(Environment.TickCount64)==true||imageUploadActive?.Invoke()==true,probeTrace:probeTrace,idleStandby:standby,linkConnected:LinkConnected);
                             long telemetryAt=Environment.TickCount64;
+                            var statusRecovery=new Tab5BleStatusRecovery();
                             try {
                             while(!token.IsCancellationRequested && store.Current?.DeviceId==pairing.DeviceId) {
                                 // A USB benchmark/upgrade must not change a merely
@@ -186,6 +188,7 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                                     });
                                     if(verified){await Task.Delay(1000,token);continue;}
                                 }
+                                if(statusRecovery.Waiting(Environment.TickCount64)){await Task.Delay(100,token);continue;}
                                 if(DeferTelemetry(Environment.TickCount64,telemetryAt,rpc?.InteractivePriorityActive(Environment.TickCount64)==true,imageUploadActive?.Invoke()==true)){await Task.Delay(50,token);continue;}
                                 bool bulkActive=imageUploadActive?.Invoke()==true||voice is not null&&voice.LastActive>0&&Environment.TickCount64-voice.LastActive<1500;
                                 int cadence=telemetry>0?(bulkActive?1000:250):2000;
@@ -199,26 +202,23 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                                     string frameType=doc.RootElement.TryGetProperty("type",out var kind)?kind.GetString()??"unknown":"status";
                                     var bytes=Tab5Protocol.WithLength(Tab5Protocol.Encrypt(Convert.FromBase64String(pairing.Key),nonce,clear,statusMaximum));
                                     int size=Math.Clamp((int)session.MaxPduSize-3,20,488);
-                                    bool fast=input.CharacteristicProperties.HasFlag(GattCharacteristicProperties.WriteWithoutResponse);
-                                    int window=imageUploadActive?.Invoke()==true?4:(size>244?8:16);
                                     var started=System.Diagnostics.Stopwatch.StartNew();
                                     int sent=0;
                                     JsonDocument? confirmed=null;
                                     try {
-                                        await Tab5BleTransfer.SendAsync(bytes,size,fast,
+                                        await SendStatusFrameAsync(transferGate,bytes,size,
                                             async (part,ct)=> {
                                                 using var writer=new DataWriter();writer.WriteBytes(part.ToArray());
-                                                bool response=Tab5BleTransfer.RequiresResponse(sent,part.Length,bytes.Length,size,fast,window);
-                                                stage=$"发送分片 {sent}/{bytes.Length} 字节，{(response?"等待分片确认":"连续发送")}，窗口 {window}，已用 {started.ElapsedMilliseconds}ms";
+                                                stage=$"发送状态分片 {sent}/{bytes.Length} 字节，等待分片确认，已用 {started.ElapsedMilliseconds}ms";
                                                 long operationStarted=Environment.TickCount64;
                                                 GattCommunicationStatus? result=null;
                                                 try {
-                                                    result=await input.WriteValueAsync(writer.DetachBuffer(),response?GattWriteOption.WriteWithResponse:GattWriteOption.WriteWithoutResponse).AsTask(ct);
+                                                    result=await input.WriteValueAsync(writer.DetachBuffer(),GattWriteOption.WriteWithResponse).AsTask(ct);
                                                     if(result!=GattCommunicationStatus.Success)throw new IOException("BLE write failed");
                                                 } catch(Exception ex) when(ex is COMException or IOException or OperationCanceledException) {
                                                     // Snapshot before disposing the session: a local timeout closes
                                                     // an otherwise connected link and can itself produce reason 0x13.
-                                                    stage=$"GATT write; frame={frameType}; offset={sent}/{bytes.Length}; chunk={part.Length}; response={response}; window={window}; operationMs={Environment.TickCount64-operationStarted}; frameMs={started.ElapsedMilliseconds}; result={result?.ToString()??"no-result"}; operationCancelled={ct.IsCancellationRequested}; shutdown={token.IsCancellationRequested}; "+FailureLink(device,session);
+                                                    stage=$"GATT status write; frame={frameType}; offset={sent}/{bytes.Length}; chunk={part.Length}; operationMs={Environment.TickCount64-operationStarted}; frameMs={started.ElapsedMilliseconds}; result={result?.ToString()??"no-result"}; operationCancelled={ct.IsCancellationRequested}; shutdown={token.IsCancellationRequested}; "+FailureLink(device,session);
                                                     throw;
                                                 }
                                                 sent+=part.Length;
@@ -239,23 +239,32 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                                                 // Retain both alternating diagnostic fields even when this
                                                 // authenticated read precedes the current frame's ACK.
                                                 ReadKeyboardDiagnostics(candidate.RootElement);
-                                                if(candidate.RootElement.GetProperty("ack").GetInt64()!=seq){stage=$"整帧确认尚未匹配，{sent}/{bytes.Length} 字节，已用 {started.Elapsed.TotalSeconds:F1} 秒";candidate.Dispose();return false;}
+                                                long acknowledged=candidate.RootElement.GetProperty("ack").GetInt64();
+                                                if(acknowledged!=seq){stage=$"整帧确认尚未匹配，frame={frameType}，期望 {seq}，收到 {acknowledged}，{sent}/{bytes.Length} 字节";candidate.Dispose();return false;}
                                                 confirmed=candidate;return true;
-                                            },token,window,statusMaximum);
+                                            },token,statusMaximum);
                                         int nextMaximum=ReadAssets(confirmed!.RootElement,pairing,nonce);
                                         if(nextMaximum!=statusMaximum)resetTelemetry?.Invoke();
                                         statusMaximum=nextMaximum;
                                         telemetryAcknowledged?.Invoke(seq);
+                                        statusRecovery.Confirmed();
                                         string link=confirmed.RootElement.TryGetProperty("link",out var ld)&&ld.ValueKind==JsonValueKind.Array&&ld.GetArrayLength()==10?"; link="+ld.GetRawText():"";
                                         if(confirmed.RootElement.TryGetProperty("mailboxStats",out var ms)&&ms.ValueKind==JsonValueKind.Array&&ms.GetArrayLength()==4)link+="; mailboxStats="+ms.GetRawText();
                                         if(confirmed.RootElement.TryGetProperty("rpcPacing",out var pacing)&&pacing.ValueKind==JsonValueKind.Array&&pacing.GetArrayLength()==3)link+="; rpcPacing="+pacing.GetRawText();
                                         link+=ReadKeyboardDiagnostics(confirmed.RootElement);
-                                        diagnostic?.Invoke($"{bytes.Length} bytes, MTU {session.MaxPduSize}, {(fast?$"window{window}":"request")}, {started.Elapsed.TotalSeconds:F1}s, ACK verified{link}; connectionPreference={preferenceStatus}");
+                                        diagnostic?.Invoke($"{bytes.Length} bytes, MTU {session.MaxPduSize}, acknowledged fragments, {started.Elapsed.TotalSeconds:F1}s, ACK verified{link}; statusRecoveries={statusRecovery.TotalRecoveries}; connectionPreference={preferenceStatus}");
                                         status("已连接 · 数据已确认");
                                         discovery.Remember(pairing.DeviceId,address,(int)candidates[address]);
                                         // A slow complete transfer has already paced this loop.
                                         // Avoid adding two more seconds to the 8-second freshness budget.
                                         pauseMs=Math.Clamp(cadence-(int)started.ElapsedMilliseconds,20,cadence);
+                                    } catch(OperationCanceledException) when(!token.IsCancellationRequested&&
+                                        statusRecovery.TryRecover(Environment.TickCount64,LinkConnected())) {
+                                        // Discard the unconfirmed delta baseline. The other
+                                        // characteristics can finish their in-flight requests.
+                                        resetTelemetry?.Invoke();
+                                        diagnostic?.Invoke($"状态发送超时，等待残留分片过期后发送完整状态；保留当前 RPC 和语音会话。statusRecoveries={statusRecovery.TotalRecoveries}; {stage}");
+                                        return false;
                                     } finally {confirmed?.Dispose();}
                                     return true;
                                     },token);
@@ -333,14 +342,25 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
     }
     internal static bool AuthenticateStandby(JsonElement info,Tab5Pairing pairing,string expectedNonce)=>
         Authenticate(info,pairing,out var nonce)&&nonce==expectedNonce;
-    internal static Task<bool> SendTelemetryAsync(SemaphoreSlim gate,Func<bool> defer,Func<Task<bool>> send,CancellationToken token)=>
-        Tab5BleTransfer.SerializeAsync(gate,()=>defer()?Task.FromResult(false):send(),token);
+    internal static async Task<bool> SendTelemetryAsync(SemaphoreSlim gate,Func<bool> defer,Func<Task<bool>> send,CancellationToken token)=>
+        await Tab5BleTransfer.SerializeAsync(gate,()=>Task.FromResult(!defer()),token)&&await send();
+    internal static Task SendStatusFrameAsync(SemaphoreSlim gate,byte[] packet,int chunkSize,
+        Func<ReadOnlyMemory<byte>,CancellationToken,Task> write,Func<CancellationToken,Task<bool>> acknowledge,
+        CancellationToken token,int maximum=Tab5Protocol.MaximumFrame)
+    {
+        // The status characteristic has no fragment cursor. Confirm each write
+        // and let the other mailboxes use ATT between writes and ACK reads.
+        return Tab5BleTransfer.SendAsync(packet,chunkSize,false,
+            (part,ct)=>Tab5BleTransfer.SerializeAsync(gate,async ()=>{await write(part,ct);return true;},ct),
+            ct=>Tab5BleTransfer.SerializeAsync(gate,()=>acknowledge(ct),ct),token,maximum:maximum);
+    }
     internal static int VoicePollDelay(long now,long lastActive,bool bulkActive)=>now-lastActive<1000?15:bulkActive?500:250;
     internal static async Task PumpVoiceAsync(Tab5BleVoice voice,string name,CancellationToken token,Action<string>? diagnostic=null,Func<long>? queuedTime=null,Func<string>? receiveDiagnostic=null,Func<bool>? bulkActive=null,
-        Tab5BleProbeTrace? probeTrace=null,Func<Tab5BleGattTiming>? writeTiming=null,Func<string>? linkDiagnostic=null,Func<bool>? idleStandby=null) {
+        Tab5BleProbeTrace? probeTrace=null,Func<Tab5BleGattTiming>? writeTiming=null,Func<string>? linkDiagnostic=null,Func<bool>? idleStandby=null,Func<bool>? linkConnected=null) {
         // Idle voice + RPC mailboxes share the same radio with status frames.
         // Polling both every 30 ms starves the status write queue on Windows.
         long started=0,traceTicket=0;
+        int pollTimeouts=0;
         try {
             while(!token.IsCancellationRequested) {
                 // USB owns voice and RPC as well as status. An idle GATT read
@@ -351,7 +371,17 @@ internal sealed class Tab5BleClient(Tab5PairingStore store,Func<int,byte[]?> cap
                 started=Environment.TickCount64;traceTicket=probeTrace?.Ticket(started)??0;
                 uint before=voice.CompletedCount;
                 long queued=queuedTime?.Invoke()??0;
-                bool active=await voice.PumpAsync(token);
+                bool active;
+                try {active=await voice.PumpAsync(token);}
+                catch(Tab5BleMailboxPollTimeout) when(!token.IsCancellationRequested&&pollTimeouts<2&&linkConnected?.Invoke()==true) {
+                    // An idle read has no pending cursor to discard. Preserve
+                    // the other characteristic exchanges on this active link.
+                    pollTimeouts++;
+                    probeTrace?.RecordActivity(traceTicket,"poll-timeout",started,Environment.TickCount64);
+                    await Task.Delay(250,token);
+                    continue;
+                }
+                pollTimeouts=0;
                 // Preserve the snapshot from the real completed request. A
                 // repeated mailbox id is not another transfer or link sample.
                 if(active&&voice.CompletedCount!=before) {

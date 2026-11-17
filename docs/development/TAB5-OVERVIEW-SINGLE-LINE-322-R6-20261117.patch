@@ -1,0 +1,76 @@
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -1515,7 +1515,8 @@
+         ui_text(home_task_note,claude_title?"最近会话":"当前客户端");
+         ui_text(home_task_title,claude_title?claude_title:"Claude Code");
+         lv_obj_set_width(home_task_title,480);lv_obj_set_y(home_task_title,68);
+-        lv_obj_set_pos(model_state[1],522,4);lv_obj_set_width(model_state[1],176);
++        lv_obj_set_pos(model_state[1],HOME_COMPANION_STATUS_X,4);
++        lv_obj_set_width(model_state[1],HOME_COMPANION_STATUS_WIDTH);
+         if(lv_obj_get_style_text_align(model_state[1],0)!=LV_TEXT_ALIGN_CENTER)
+             lv_obj_set_style_text_align(model_state[1],LV_TEXT_ALIGN_CENTER,0);
+         ui_text(model_state[1],claude_companion_label(claude_mood));tint(model_state[1],companion_color(claude_mood));
+@@ -1550,8 +1551,8 @@
+     visible(home_companion,companion_home_enabled&&companion_pixels!=NULL);
+     lv_obj_set_width(home_task_title,companion_home_enabled?480:706);
+     lv_obj_set_y(home_task_title,valid?68:78);
+-    int pet_width=(CODEX_COMPANION_WIDTH*lv_image_get_scale_x(home_companion)+128)/256;
+-    lv_obj_set_pos(model_state[1],valid?lv_obj_get_x(home_companion):32,4);lv_obj_set_width(model_state[1],valid?pet_width:300);
++    lv_obj_set_pos(model_state[1],valid?HOME_COMPANION_STATUS_X:32,4);
++    lv_obj_set_width(model_state[1],valid?HOME_COMPANION_STATUS_WIDTH:300);
+     lv_text_align_t status_align=valid?LV_TEXT_ALIGN_CENTER:LV_TEXT_ALIGN_LEFT;
+     if(lv_obj_get_style_text_align(model_state[1],0)!=status_align)
+         lv_obj_set_style_text_align(model_state[1],status_align,0);
+--- a/firmware/main/ui_dashboard.h
++++ b/firmware/main/ui_dashboard.h
+@@ -66,6 +66,7 @@
+     ui_text(badge, normalized);
+     visible(badge, normalized[0] && strcmp(normalized,"--"));
+ }
++enum { HOME_COMPANION_STATUS_X=522, HOME_COMPANION_STATUS_WIDTH=176 };
+ static lv_obj_t *home_task_title,*home_task_note,*home_task_action;
+ static lv_obj_t *home_system_captions[2],*home_system_values[2];
+ static bool home_task_unread;
+@@ -82,6 +83,8 @@
+     lv_obj_t *task=card(p,0,0,760,328);
+     model_dot[1]=shape(task,8,14,10,10,MUTED,LV_RADIUS_CIRCLE);
+     model_state[1]=label(task,"等待数据",32,4,300,false);
++    lv_obj_set_height(model_state[1],lv_font_get_line_height(&tab5_font_24));
++    lv_label_set_long_mode(model_state[1],LV_LABEL_LONG_DOT);
+     home_task_note=muted(task,"",8,4,480);
+     lv_obj_set_style_text_align(home_task_note,LV_TEXT_ALIGN_LEFT,0);
+     lv_obj_set_height(home_task_note,34);lv_label_set_long_mode(home_task_note,LV_LABEL_LONG_DOT);
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R5";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R6";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2912,6 +2912,23 @@
+         health_notice_tick(20013);assert(health_banner_active);capture("monitor-new-incident");
+         puts("MONITOR_ACK_OK immediate_clear, same_incident_stays_read, other_incident_preserved, global_sequence_no_replay, page_return_no_replay, escalation_and_recurrence_resurface");
+         puts("MONITOR_NOTICE_OK direct_matching_detail actual_evidence recovery_clears_codex other_alert_preserved");return 0;
++    }
++    if(getenv("TAB5_OVERVIEW_COMPANION_ONLY")) {
++        home_models=1u<<1;offline_since=-1;last_link=LINK_USB;
++        cJSON_DeleteItemFromObject(shown,"codex");
++        cJSON_AddItemToObject(shown,"codex",cJSON_Parse("{\"state\":\"offline\"}"));
++        cJSON_DeleteItemFromObject(shown,"codexTasks");
++        cJSON_AddItemToObject(shown,"codexTasks",cJSON_Parse("{\"overviewTask\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"title\":\"最近会话\",\"folder\":\"AI-bot\"}}"));
++        render();page(0);lv_obj_update_layout(lv_screen_active());
++        const lv_font_t *font=lv_obj_get_style_text_font(model_state[1],0);
++        lv_point_t extent;
++        assert(!strcmp(lv_label_get_text(model_state[1]),"Codex 未运行"));
++        lv_text_get_size(&extent,lv_label_get_text(model_state[1]),font,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);
++        assert(extent.x<=lv_obj_get_content_width(model_state[1]));
++        assert(lv_obj_get_content_height(model_state[1])==lv_font_get_line_height(font));
++        capture("overview-companion-offline-single-line");
++        printf("OVERVIEW_COMPANION_SINGLE_LINE_OK offline=%ldpx label=%ldpx\n",(long)extent.x,(long)lv_obj_get_content_width(model_state[1]));
++        return 0;
+     }
+     if(getenv("TAB5_CALENDAR_LABEL_ONLY")) {
+         calendar_set_today(2026,10,24);lv_obj_send_event(home_calendar_action,LV_EVENT_CLICKED,NULL);

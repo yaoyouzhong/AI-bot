@@ -9,6 +9,9 @@ internal static class Tab5BleSchedulingSelfTest
         await VerifyDiscoveryAsync();
         await VerifyBulkGapAsync();
         await VerifyQueuedTelemetryAsync();
+        await VerifyStatusFrameYieldsAsync();
+        VerifyStatusRecovery();
+        await VerifyIdleMailboxRecoveryAsync();
         await VerifyInteractivePriorityAsync();
         await VerifyQueueComparisonAsync();
         await VerifyQueueComparisonAsync(true);
@@ -164,6 +167,82 @@ internal static class Tab5BleSchedulingSelfTest
             ()=>{sent++;return Task.FromResult(true);},CancellationToken.None)||sent!=1)throw new Exception("Bulk lease starved required status refresh");
         if(Tab5BleClient.VoicePollDelay(now,now-100,true)!=15||Tab5BleClient.VoicePollDelay(now,0,true)!=500||Tab5BleClient.VoicePollDelay(now,0,false)!=250)
             throw new Exception("Bulk gap changed active voice or normal polling");
+    }
+
+    private static async Task VerifyStatusFrameYieldsAsync() {
+        using var gate=new SemaphoreSlim(1,1);
+        using var deadline=new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var firstWrite=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var confirmFirst=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstAckRead=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finishFirstAck=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var payload=Enumerable.Range(0,48).Select(i=>(byte)i).ToArray();
+        var received=new List<byte>();
+        int ackReads=0;
+        bool voiceRead=false,rpcRead=false;
+        var send=Tab5BleClient.SendStatusFrameAsync(gate,payload,24,async (part,ct)=> {
+            if(gate.CurrentCount!=0)throw new Exception("State write missed GATT gate");
+            if(received.Count==0){firstWrite.SetResult();await confirmFirst.Task.WaitAsync(ct);}
+            else if(!voiceRead)throw new Exception("State frame kept GATT across status fragments");
+            received.AddRange(part.ToArray());
+        },async ct=> {
+            if(gate.CurrentCount!=0||!received.SequenceEqual(payload))throw new Exception("State ACK reordered bytes or missed GATT gate");
+            if(++ackReads==1){firstAckRead.SetResult();await finishFirstAck.Task.WaitAsync(ct);return false;}
+            if(!rpcRead)throw new Exception("State ACK retry retained GATT");
+            return true;
+        },deadline.Token);
+        await firstWrite.Task.WaitAsync(deadline.Token);
+        var voice=Tab5BleTransfer.SerializeAsync(gate,()=>{voiceRead=true;return Task.FromResult(true);},deadline.Token);
+        if(voice.IsCompleted)throw new Exception("Voice overlapped an unconfirmed GATT operation");
+        confirmFirst.SetResult();
+        await voice;
+        await firstAckRead.Task.WaitAsync(deadline.Token);
+        var rpc=Tab5BleTransfer.SerializeAsync(gate,()=>{rpcRead=true;return Task.FromResult(true);},deadline.Token);
+        finishFirstAck.SetResult();
+        await rpc;
+        await send;
+        if(ackReads!=2||gate.CurrentCount!=1)throw new Exception("State ACK retry held the shared queue");
+        Console.WriteLine("BLE_STATUS_FRAGMENTS_YIELD_OK exact_order_voice_between_confirmed_writes_and_ack_reads");
+    }
+
+    private static void VerifyStatusRecovery() {
+        var recovery=new Tab5BleStatusRecovery();
+        const long now=1000;
+        int silence=Tab5BleStatusRecovery.FragmentSilenceMs;
+        if(recovery.Waiting(now)||recovery.TryRecover(now,false))throw new Exception("Disconnected status will not recover on the stale session");
+        if(!recovery.TryRecover(now,true)||!recovery.Waiting(now+silence-1)||recovery.Waiting(now+silence))
+            throw new Exception("Partial status must expire before another status write");
+        if(!recovery.TryRecover(now+silence,true)||recovery.TryRecover(now+2*silence,true))
+            throw new Exception("Consecutive status recovery was not bounded");
+        recovery.Confirmed();
+        if(recovery.Waiting(now)||!recovery.TryRecover(now,true))throw new Exception("Successful status did not clear recovery");
+        Console.WriteLine("BLE_STATUS_RECOVERY_OK assembly_silence_bounded_failure_confirmed_reset");
+    }
+
+    private static async Task VerifyIdleMailboxRecoveryAsync() {
+        foreach(bool connected in new[]{true,false}) {
+            using var stop=new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            int polls=0;
+            var idle=new Tab5BleVoice(_=>throw new Exception("Read did not use its idle polling path"),
+                (_,_)=>throw new Exception("Idle timeout wrote a fragment"),
+                (_,_,_,_)=>throw new Exception("Idle timeout invoked the handler"),517,
+                poll:_=>++polls==3?Task.FromResult(new byte[8]):Task.FromException<byte[]>(new OperationCanceledException()));
+            try {
+                await Tab5BleClient.PumpVoiceAsync(idle,"test voice",stop.Token,linkConnected:()=>connected);
+                throw new Exception("Persistent idle polling failure was hidden");
+            }catch(IOException ex) when(ex.InnerException is Tab5BleMailboxPollTimeout) {}
+            if(polls!=(connected?6:1))throw new Exception("Idle polling did not recover and reset only on the live link");
+        }
+
+        byte[] first=new byte[10];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(first,1);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(first.AsSpan(6),124);
+        var active=new Tab5BleVoice(_=>Task.FromException<byte[]>(new OperationCanceledException()),
+            (_,_)=>Task.CompletedTask,(_,_,_,_)=>throw new Exception("Incomplete fragment reached the handler"),517,
+            poll:_=>Task.FromResult(first));
+        try {await active.PumpAsync(CancellationToken.None);throw new Exception("Active read timeout was hidden");}
+        catch(OperationCanceledException) {}
+        Console.WriteLine("BLE_IDLE_MAILBOX_RECOVERY_OK active_link_bounded_retry_success_resets_active_fragment_propagates");
     }
 
     private static async Task VerifyInteractivePriorityAsync() {
