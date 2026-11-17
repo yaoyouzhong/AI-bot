@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 from urllib.parse import urlparse
-from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHandler
 from coordination_checkpoint import canonical, require
 from coordination_main_review import review_event, alignment_event, sha
 
@@ -76,7 +76,7 @@ def main():
             and parsed.path in ('','/') and not parsed.query and not parsed.fragment and not parsed.username,
             'Only fixed local native Hub endpoint allowed')
     key=os.environ.get('AIBOT_HUB_SOURCE_KEY'); require(bool(key),'Existing source key must be supplied in memory by trusted local launcher')
-    opener=build_opener(NoRedirect())
+    opener=build_opener(ProxyHandler({}), NoRedirect())
     def github(repository):
         result=subprocess.run([gh,'api','repos/'+repository+'/commits/main'],capture_output=True,text=True,timeout=60)
         require(result.returncode==0,'GitHub main lookup failed')
