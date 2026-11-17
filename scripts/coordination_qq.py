@@ -46,7 +46,7 @@ class QQNotifier:
         row = self.notifications.begin(key)
         try:
             output = self.runner(body).strip()
-            require(re.fullmatch(r'qq:[A-Za-z0-9._:-]+', output), 'No exact QQ provider receipt; do not claim success')
+            require(re.fullmatch(r'qq:[\x21-\x7e]{1,512}', output), 'No exact QQ provider receipt; do not claim success')
             result = self.notifications.confirm(key, row['token'], output,
                 observed_recipient=self.binding['recipient'], observed_payload=payload, observed_at=time.time(),
                 evidence='Fresh synchronous receipt from verified fixed-recipient transport; provider acceptance only')
