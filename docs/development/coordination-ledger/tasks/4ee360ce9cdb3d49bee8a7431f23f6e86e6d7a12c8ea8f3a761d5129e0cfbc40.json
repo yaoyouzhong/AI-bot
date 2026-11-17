@@ -60,5 +60,65 @@
       "claimId": "readonly-windows-7cdd79b4-a291-4129-953a-0d8f6968d952",
       "evidence": "Owner-authorized read-only source review reception only; no implementation or native validation. Auto Loop run 42"
     }
-  ]
+  ],
+  "inspectionEvidence": {
+    "type": "read-only-source-review",
+    "sourceCommit": "5476a32e59b0e431351508da53e2fa871528a4fd",
+    "baseCommit": "ea0a026ff49f1b4e47222316778be668270f52a6",
+    "conclusion": "Source review completed; Windows and macOS are not fully aligned. No implementation or native verification was performed.",
+    "findings": [
+      {
+        "id": "cache-reuse",
+        "classification": "source-level-aligned",
+        "summary": "Both clients reuse successfully fetched gallery catalogs, including valid empty results. Manual check remains available.",
+        "evidence": [
+          "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/windows-app/AIBotBridge/GalleryPackForm.cs#L192-L197",
+          "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/mac-app/Sources/AIBotBridge/MacGalleryManager.swift#L130-L174",
+          "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/mac-app/Sources/AIBotBridge/MacUpdateWindow.swift#L114-L126"
+        ]
+      },
+      {
+        "id": "query-exit-parity",
+        "classification": "parity-gap-needs-decision",
+        "summary": "Windows query operations set IsInstalling=false and tray exit only blocks installations. Mac check() uses run() setting busy=true; galleryBusy feeds termination guard, so a query alone can block exit.",
+        "evidence": [
+          "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/windows-app/AIBotBridge/GalleryPackForm.cs#L119-L177",
+          "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/windows-app/AIBotBridge/UpdateCenterForm.cs#L22-L29",
+          "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/windows-app/AIBotBridge/TrayApplicationContext.cs#L695-L697",
+          "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/mac-app/Sources/AIBotBridge/MacGalleryManager.swift#L136-L166",
+          "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/mac-app/Sources/AIBotBridge/MacUpdateWindow.swift#L78-L83",
+          "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/mac-app/Sources/AIBotBridge/AppDelegate.swift#L304-L311"
+        ],
+        "recommendation": "Requires product decision or follow-up implementation scope; this read-only task does not authorize a fix."
+      },
+      {
+        "id": "installation-exit-protection",
+        "classification": "source-level-correspondence-only",
+        "summary": "Both clients protect active download/import operations and clear their busy/installing state at operation completion or cancellation. This is a static path reading, not runtime proof.",
+        "evidence": [
+          "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/windows-app/AIBotBridge/GalleryPackForm.cs",
+          "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/mac-app/Sources/AIBotBridge/MacGalleryManager.swift"
+        ]
+      }
+    ],
+    "limitations": [
+      "No Windows/Mac native builds or self-tests executed.",
+      "New Windows regression test source is not proof of test execution.",
+      "No code changes, no development completion assertion, no release readiness assertion."
+    ],
+    "developmentPerformed": false,
+    "nativeValidationPerformed": false,
+    "publishPerformed": false
+  },
+  "pilotValidation": {
+    "readOnlyReviewFinished": true,
+    "lifecycleTerminal": false,
+    "releasePlanBlocked": true,
+    "releasePlanBlockReason": "Task is not complete on both platforms",
+    "macRecovery": "Same claim reused after simulated response loss immediately after durable claim; no actual network change",
+    "duplicateMacRunGitHubWrites": 0,
+    "codeChanges": false,
+    "nativeBuilds": false,
+    "published": false
+  }
 }
