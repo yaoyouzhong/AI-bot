@@ -132,7 +132,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var status = _runtime.Capture();
             if(_runtime.Weather.LocationNeedsPermission&&!_weatherLocationNoticeShown) {
                 _weatherLocationNoticeShown=true;
-                Notify("attention","weather-location","天气位置未更新","定位授权不可用，正在使用上次位置。点击重新授权定位。",ToolTipIcon.Warning);
+                ShowWeatherLocationNotice();
             }
             timing.Step("capture");
             if(status.RuntimeHealth is {} health&&(health.Session!=_healthSession||health.Sequence>_healthSequence)) {
@@ -191,7 +191,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
             try{if(_tab5Error is not null)throw new InvalidOperationException(_tab5Error);}
             catch(Exception ex){_tab5Error=ex.Message;MessageBox.Show(ex.Message,"设备服务未启动");ShowDevices();}
             if(_devices.Snapshot.Devices.Length==0||_devices.Snapshot.LegacyDecisionPending)ShowDevices();
-            _ = RequestStartupWeatherLocationAsync();
         });
     }
 
@@ -660,21 +659,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
         PresentPanel("common:weather-settings",_weatherSettings);
     }
 
-    private async Task RequestStartupWeatherLocationAsync()
+    private void ShowWeatherLocationNotice()
     {
-        const string requested="weather_startup_location_requested";
+        const string promptedVersion="weather_location_prompted_version";
         var settings=BridgeSettings.Load();
-        if(AppPaths.IsPublicSelfTest||settings.Get(requested)=="2"||
-            settings.Get("weather_auto_location")=="0")return;
-        try {
-            var access=await MigratedWeather.WindowsLocation.RequestAccess();
-            if(access is Windows.Devices.Geolocation.GeolocationAccessStatus.Allowed or
-                Windows.Devices.Geolocation.GeolocationAccessStatus.Denied)
-                settings.SaveEditable(new Dictionary<string,string>{{requested,"2"}},out _);
-        }catch(Exception ex) when(ex is UnauthorizedAccessException or InvalidOperationException or
-            PlatformNotSupportedException or System.Runtime.InteropServices.COMException) {
-            Tab5LocalDiagnostics.Write("WEATHER_STARTUP_LOCATION_FAILED "+ex.GetType().Name);
+        if(!AppPaths.IsPublicSelfTest&&settings.Get(promptedVersion)!=Application.ProductVersion) {
+            // Windows requires a foreground request. Bring up the existing
+            // location controls once per build when background access fails.
+            ShowWeatherSettings();
+            settings.SaveEditable(new Dictionary<string,string>{{promptedVersion,Application.ProductVersion}},out _);
+            return;
         }
+        Notify("attention","weather-location","天气位置未更新","定位授权不可用，正在使用上次位置。点击重新授权定位。",ToolTipIcon.Warning);
     }
 
     private void ImportPet(string? owner = null)
