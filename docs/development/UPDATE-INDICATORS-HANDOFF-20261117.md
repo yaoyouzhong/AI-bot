@@ -1,6 +1,6 @@
 # Mac / Windows 最终开发交接：软件固件入口、会话兼容与 TAB5（2026-11-17）
 
-- **同一开发分支**：`codex/tab5-calendar-and-claude-idle-20261116`。Windows 上游 `4d4051fd4c09d2f3a6840e14474b41be0f4444fc` 已合入；合并后的验收源码为 **`c2e9b998e09b023f6313691c7b7f348d2c409669`**。交接文档提交在其后，不改变验收源码。合并版尚未推送，可从同一分支的 Git bundle 导入。
+- **同一开发分支**：`codex/tab5-calendar-and-claude-idle-20261116`。Windows 上游 `4d4051fd4c09d2f3a6840e14474b41be0f4444fc` 已合入；合并后的验收源码为 **`c2e9b998e09b023f6313691c7b7f348d2c409669`**。交接文档提交在其后，不改变验收源码。Windows 从 `origin` 的同一开发分支拉取。
 - **交付范围**：仅开发交接。桥接组件号仍是 `0.6.23`，TAB5 固件和消息协议未改，不要求重新配对或刷机。未指定发布负责人，没有合并 `main`、创建标签、上传草稿或发布。
 - **本轮 Mac 修正**：Windows 原提交将图库管理移到「软件固件」，旧设备窗口仍引用已移除的对象，导致 Mac 编译失败。修正后的退出、手动刷机、首次安装和设备重连都检查新窗口里的图库操作；退出时会回到正在运行的图库窗口。
 
@@ -17,7 +17,7 @@
 - **Mac 签名候选**：`AIBotBridge.app`，arm64，本地签名校验通过；主可执行文件 14,415,344 字节，SHA-256 `e01043848874e60800a5834d08b96103ee1072042e8ea61430741f411a01aa27`。本机证据目录为 `artifacts/desktop-final-alignment-20261117/`；`preview/updates-gallery*.png`、`preview/connection-*.png`、`tab5-claude-retry.log` 和 `tab5-claude-retry/reply.png` 分别对应窗口、连接页和实体设备。没有制作正式安装包或验收覆盖升级。
 - **Windows**：`4d4051f` 的 Windows 本机 Release、`--status-once`、更新窗口、设备中心、图库浏览及连接窗口缩放结果来自原交接记录；原预览在 Windows 的 `artifacts/update-center-unified-20261117/update-ui/`、`artifacts/tab5-connection-settings-20261117/ui-final/`。同一候选 `c2e9b99` 已重新交叉编译（0 错误、0 警告），没有在本机运行 Windows 桌面程序或连接 Windows 真机。以下原生验收完成前不用于发布。
 
-若通过 `aibot-desktop-final-20261117.bundle` 接收，请在已有 `4d4051f` 的 AI-bot 仓库中运行 `git bundle verify <文件路径>`，再运行 `git fetch <文件路径> refs/heads/codex/tab5-calendar-and-claude-idle-20261116` 导入提交。可先用 `git show FETCH_HEAD:docs/development/UPDATE-INDICATORS-HANDOFF-20261117.md` 阅读终版，再从验收源码建立干净的验收目录。Windows 接收后先用 `git rev-parse HEAD` 核对验收源码，再运行（示例路径用于保存隔离截图）：
+Windows 在同一开发分支且工作区干净时运行 `git pull --ff-only origin codex/tab5-calendar-and-claude-idle-20261116`。从验收源码建立干净的验收目录，用 `git rev-parse HEAD` 核对上面的候选 SHA，再运行（示例路径用于保存隔离截图）：
 
 ```powershell
 $p = 'windows-app/AIBotBridge/AIBotBridge.csproj'
