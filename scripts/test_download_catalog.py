@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 
 import download_catalog as catalog
+from product_release import PRODUCT_ONLY_MARKER
 
 
 class DownloadCatalogTests(unittest.TestCase):
@@ -96,6 +97,21 @@ class DownloadCatalogTests(unittest.TestCase):
             self.assertIn(catalog.asset_url(self.data["downloads"]["macos"]), rendered)
             self.assertNotIn("macos-arm64.zip", "\n".join(row for row in rendered.splitlines() if "v99.0.0" in row))
             self.assertEqual(rendered.count("本次发布" if language == "zh" else "this release"), 1)
+
+    def test_single_product_discovers_independent_versions_and_esp_full_fallback(self):
+        windows = "AI-bot-bridge-v99.0.1-windows-x64-setup.exe"
+        full = "AI-bot-esp8266-9.0.1-firmware.zip"
+        flash = "AI-bot-esp8266-9.0.1-flash.zip"
+        product = {"tag_name": "v99.0.3", "body": PRODUCT_ONLY_MARKER, "published_at": "2027-01-01",
+                   "draft": False, "prerelease": False}
+        def selected(*files):
+            product["assets"] = [{"name": name, "size": 10, "digest": "sha256:" + "a"*64} for name in files]
+            return catalog.discover(self.releases() + [product])["downloads"]
+        downloads = selected(windows, full, flash, flash + ".sha256", "SHA256SUMS.txt")
+        self.assertEqual((downloads["windows"]["tag"], downloads["windows"]["version"]),
+                         ("v99.0.3", "99.0.1"))
+        self.assertEqual((downloads["esp8266"]["tag"], downloads["esp8266"]["file"]), ("v99.0.3", flash))
+        self.assertEqual(selected(full, "SHA256SUMS.txt")["esp8266"]["file"], full)
 
     def test_gallery_table_exposes_exact_installed_package_versions(self):
         versions = {self.data["downloads"][key]["version"] for key in ("painting", "calligraphy")}

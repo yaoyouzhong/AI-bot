@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import sys
 
-from artifact_names import COMPONENT_KEYS, UPDATE_ALIASES, name as artifact_name, names, resolve
+from artifact_names import COMPONENT_KEYS, ESP_FLASH_TEMPLATE, UPDATE_ALIASES, name as artifact_name, names, resolve
 from component_versions import ROOT, components, desktop_platform, versions
 from github_cli import run_cli
 from prepare_release_assets import prepare
@@ -89,6 +89,9 @@ def assemble(raw, output, component, platform, source, *, require_stamps=False, 
     sha(source)
     current = versions()
     selected = [resolve(raw, key, current[component]) for key in selected_keys(component, platform)]
+    flash = ESP_FLASH_TEMPLATE.format(version=current["esp8266"])
+    if component == "esp8266" and (raw / flash).is_file():
+        selected.append(flash)
     selected = [n + suffix for n in selected for suffix in ("", ".sha256")]
     if require_stamps:
         stamps = [read(p) for p in raw.glob("BUILD-SOURCE-*.json")]
@@ -125,6 +128,9 @@ def seal(directory, *, notes=None, tab5_source=None):
     component, platform = build["component"], build["desktopPlatform"]
     keys = selected_keys(component, platform)
     expected = {resolve(directory, key, build["version"]) for key in keys}
+    flash = ESP_FLASH_TEMPLATE.format(version=build["version"])
+    if component == "esp8266" and flash in build["packageHashes"]:
+        expected.add(flash)
     if expected != set(build["packageHashes"]):
         raise ValueError("Build scope does not match its package list")
     expected_files = {n + suffix for n in expected for suffix in ("", ".sha256")} | {"BUILD.json", "LICENSE", "THIRD_PARTY_NOTICES.md", "SHA256SUMS.txt"}
@@ -255,6 +261,10 @@ def publication_assets(candidate, build, *, minimal_bridge_assets=False, minimal
             wanted[artifact_name(key, candidate["version"])] = found[0]
             if key in UPDATE_ALIASES:
                 wanted[names(key, candidate["version"])[1]] = found[0]
+    if candidate["component"] == "esp8266":
+        flash = ESP_FLASH_TEMPLATE.format(version=candidate["version"])
+        if flash in build["packageHashes"]:
+            wanted.update({flash: flash, flash + ".sha256": flash + ".sha256"})
     if build.get("tab5Source") and not minimal_tab5_assets:
         name = build["tab5Source"]["file"]
         wanted[name] = name

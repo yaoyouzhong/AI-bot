@@ -1,7 +1,7 @@
-"""Promote component candidates and one independently numbered product release."""
+"""Publish accepted components through one independently numbered product release."""
 from __future__ import annotations
 
-import json
+import hashlib
 from pathlib import Path
 import re
 import shutil
@@ -9,8 +9,8 @@ import subprocess
 import tempfile
 
 import release_pipeline as pipeline
-from artifact_names import name as artifact_name
-from product_release import next_product_version, plan_identity, render_product, valid_product_tag
+from artifact_names import ESP_FLASH_TEMPLATE, UPDATE_ALIASES, names
+from product_release import PRODUCT_ONLY_MARKER, next_product_version, plan_identity, render_product, valid_product_tag
 
 LABELS = {'windows': 'Windows 安装器', 'macos': 'Mac 应用', 'esp8266': 'ESP8266 固件',
           'tab5-first': 'TAB5 首次安装', 'tab5-upgrade': 'TAB5 升级'}
@@ -28,14 +28,26 @@ def component_plan(entry):
     bridge = bool(entry.get('minimal_bridge_assets'))
     tab5 = bool(entry.get('minimal_tab5_assets'))
     available = pipeline.publication_assets(candidate, build, minimal_bridge_assets=bridge, minimal_tab5_assets=tab5)
-    downloads = []
+    downloads, sources = [], {}
     for key in ('windows', 'macos', 'esp8266', 'tab5-first', 'tab5-upgrade'):
-        name = artifact_name(key, candidate['version'])
+        filenames = names(key, candidate['version'])
+        name = filenames[0]
         if name in available:
             downloads.append({'name': name, 'label': LABELS[key]})
+            for filename in filenames if key in UPDATE_ALIASES else (name,):
+                sources[filename] = available[filename]
+    if candidate['component'] == 'esp8266':
+        flash = ESP_FLASH_TEMPLATE.format(version=candidate['version'])
+        if flash in available:
+            downloads.insert(0, {'name': flash, 'label': 'ESP8266 精简刷机包'})
+            sources.update({flash: available[flash], flash + '.sha256': available[flash + '.sha256']})
+    if build.get('tab5Source') and not tab5:
+        source = build['tab5Source']['file']
+        downloads.append({'name': source, 'label': 'TAB5 对应源码'})
+        sources[source] = available[source]
     return {'candidate': candidate, 'downloads': downloads,
             'notes': (directory / 'RELEASE-NOTES.md').read_text(encoding='utf-8-sig'),
-            'directory': directory, 'sources': available,
+            'directory': directory, 'sources': sources,
             'minimal_bridge_assets': bridge, 'minimal_tab5_assets': tab5}
 
 
@@ -98,7 +110,8 @@ def orphan_matches(repository, tag, identity):
 
 def verify_product_release(release, product):
     if (release['tag_name'] != product['tag'] or release['name'] != product['title']
-            or (release.get('body') or '').replace('\r\n', '\n') != product['body']
+            or '<!-- aibot-product-release:' + product['identity'] + ' -->' not in (release.get('body') or '')
+            or release['draft'] and (release.get('body') or '').replace('\r\n', '\n') != product['body']
             or release.get('prerelease')):
         raise ValueError('Existing product release differs from accepted component scope')
 
@@ -117,8 +130,7 @@ def reserve_product(repository, components, manifest):
             raise ValueError('Product release tag does not match its accepted component reservation')
         product = render_product(repository, tag[1:], components)
         verify_product_release(matching, product)
-        if not matching['draft']: pipeline.verify_remote(matching, manifest)
-        elif {a['name'] for a in matching['assets']} - set(manifest):
+        if matching['draft'] and {a['name'] for a in matching['assets']} - set(manifest):
             raise ValueError('Product draft contains assets outside the accepted scope')
         return product, matching
     tags = product_tags()
@@ -160,9 +172,8 @@ def stage_product(components, output):
     selected = {}
     for item in components:
         candidate = item['candidate']
-        for download in item['downloads']:
-            name = pipeline.safe_name(download['name'])
-            source_name = item['sources'][name]
+        for name, source_name in item['sources'].items():
+            pipeline.safe_name(name)
             source = item['directory'] / source_name
             expected = candidate['files'][source_name]
             if name in selected or pipeline.file_record(source) != expected:
@@ -185,6 +196,18 @@ def stage_product(components, output):
     return {p.name: pipeline.file_record(p) for p in output.iterdir()}
 
 
+def historical_manifest(components, manifest):
+    """Verify already-published product pages from the old, smaller asset layout."""
+    filenames = {
+        names(key, item['candidate']['version'])[0]
+        for item in components
+        for key in LABELS
+    }
+    expected = {name: record for name, record in manifest.items() if name in filenames}
+    sums = ''.join(f"{record['sha256']}  {name}\n" for name, record in sorted(expected.items())).encode('ascii')
+    return {**expected, 'SHA256SUMS.txt': {'bytes': len(sums), 'sha256': hashlib.sha256(sums).hexdigest()}}
+
+
 def promote_product(entries, repository, *, execute=False, publish=False, commit_closeout=False, scope_reason=None):
     if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository):
         raise ValueError('Invalid GitHub repository')
@@ -202,15 +225,13 @@ def promote_product(entries, repository, *, execute=False, publish=False, commit
               'productVersion': 'resolved from existing product tags' if not execute else None,
               'components': [candidate['tag'] for candidate in candidates], 'releaseScope': scope}
     if not execute: return report
-    payload = Path(entries[0]['directory']).resolve().parent / ('product-publication-' + preview['identity'][:16])
+    payload = Path(entries[0]['directory']).resolve().parent / ('publication-product-' + preview['identity'][:16])
     manifest = stage_product(components, payload)
     product, release = reserve_product(repository, components, manifest)
-    report.update(productVersion=product['tag'][1:], productTag=product['tag'], productTitle=product['title'], components=[])
-    for entry, candidate in zip(entries, candidates):
-        args = dict(entry)
-        if candidate['component'] == 'bridge': args['target_tag'] = candidate['tag']
-        report['components'].append(pipeline.promote(**args, repository=repository, execute=True, publish=publish,
-                                                    run_closeout=False, scope_checked=True, product_title=product['title']))
+    report.update(productVersion=product['tag'][1:], productTag=product['tag'], productTitle=product['title'])
+    if release['draft']:
+        for candidate in candidates:
+            pipeline.ensure_tag(repository, candidate)
     release = pipeline.remote_identity(repository, product['tag'])
     verify_product_release(release, product)
     if release['draft']:
@@ -219,19 +240,22 @@ def promote_product(entries, repository, *, execute=False, publish=False, commit
         pipeline.upload(repository, product['tag'], payload, manifest,
                         payload.parent / (payload.name + '-upload-state.json'), workers=2, require_draft=True)
         release = pipeline.remote_identity(repository, product['tag'])
+    if not release['draft'] and PRODUCT_ONLY_MARKER not in release['body']:
+        manifest = historical_manifest(components, manifest)
     pipeline.verify_remote(release, manifest)
-    if publish:
-        report['closeout'] = pipeline.closeout(repository=repository, tags=[c['tag'] for c in candidates], commit=commit_closeout)
+    if publish and release['draft']:
+        pipeline.run_cli(['release', 'edit', product['tag'], '--repo', repository, '--draft=false', '--latest=true'], timeout=120)
         release = pipeline.remote_identity(repository, product['tag'])
         verify_product_release(release, product)
         pipeline.verify_remote(release, manifest)
-        if release['draft']:
-            pipeline.run_cli(['release', 'edit', product['tag'], '--repo', repository, '--draft=false', '--latest=true'], timeout=120)
-            release = pipeline.remote_identity(repository, product['tag'])
-        verify_product_release(release, product)
         if release['draft']: raise ValueError('Product release remained a draft')
     report['published'] = not release['draft']
     report['url'] = release['html_url']
+    try:
+        if publish:
+            report['closeout'] = pipeline.closeout(repository=repository, commit=commit_closeout)
+    finally:
+        pipeline.write(payload.parent / ('promotion-product-' + preview['identity'][:16] + '.json'), report)
     return report
 
 

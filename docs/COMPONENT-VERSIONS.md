@@ -29,7 +29,7 @@ The Windows bridge updates to 0.6.25. The current Mac bridge is 0.6.24 and the c
 
 此前桥接 `0.6.6` 与 TAB5 `0.2.194-ui` 的实际交付保留在[历史说明](RELEASE-0.6.6.md)。历史验收见 [0.6.16 说明](RELEASE-0.6.16.md)、[Mac 0.6.15](RELEASE-0.6.15.md) 与 [0.6.14 双平台桥接说明](RELEASE-0.6.14.md)，上轮见 [0.6.11／281 说明](RELEASE-0.6.11.md)，此前结果保留在 [0.6.7／205 历史说明](RELEASE-0.6.7.md)。字库随 TAB5 固件安装，年度精选名画与书法各 366 件以独立图文包提供，旧图库保持兼容。The three independently versioned components and optional collections retain separate verification and acceptance records.
 
-产品总页标题使用 `AI-bot v产品版本号`，标签使用 `vX.Y.Z`；桥接组件使用 `bridge-vX.Y.Z`，ESP8266 和 TAB5 保留各自组件前缀。旧 `v` 桥接／组合版保持历史语义，固件版本值和新包名不加 `v`。后续构建物和旧客户端兼容规则见[命名规范](NAMING-CONVENTIONS.md)。
+每次公开发布使用一个 `AI-bot vX.Y.Z` 总页及对应的 `vX.Y.Z` 标签。桥接、ESP8266 和 TAB5 保留各自的组件标签用于追溯源码。历史发布、标签和下载地址继续有效。包名规则和旧客户端兼容方式见[命名规范](NAMING-CONVENTIONS.md)。
 
 ## 构建与检查
 
@@ -105,7 +105,7 @@ python scripts/test_download_catalog.py
 
 ## English
 
-Product release titles use `AI-bot v<product version>`. New bridge component releases use `bridge-v`; ESP8266 and TAB5 keep their existing prefixes. Historical `v` bridge and bundle releases remain readable. Firmware version values and canonical filenames omit `v`. See [artifact naming and legacy-client compatibility](NAMING-CONVENTIONS.md).
+Each delivery uses one public Release titled `AI-bot vX.Y.Z` and tagged `vX.Y.Z`. Bridge, ESP8266, and TAB5 keep their component tags for source traceability. Historical releases, tags, and download URLs remain available. See [artifact naming and legacy-client compatibility](NAMING-CONVENTIONS.md).
 
 The fixed entry points are DOWNLOADS.md and DOWNLOADS.en.md. download-catalog.json records seven published stable downloads separately from candidate versions. `download_catalog.py refresh`, `sync`, `check` and `verify-online` verify published assets and generate bilingual download centers and README tables. These individual catalog commands never push or publish. The promotion wrapper runs download closeout after publication, updates the Release download table, and can explicitly commit only generated metadata within an existing push authorization. Draft links become downloadable only after publication. Packaging, installation and hardware acceptance remain separate evidence.
 

@@ -56,6 +56,8 @@ internal static class ComponentUpdateSelfTest
             return ComponentUpdateCatalog.Read(data.RootElement)["esp8266"];
         }
         if(Select(fullRelease,compactRelease).Package?.Name!=flash||Select(compactRelease,fullRelease).Package?.Name!=flash||
+           Select(Release("v0.6.26",[flash,full,flash+".sha256","SHA256SUMS.txt"])).Package?.Name!=flash||
+           Select(Release("v0.6.26",[flash,full,"SHA256SUMS.txt"])).Package?.Name!=full||
            Select(Release("esp8266-v0.5.8",[flash,full,"SHA256SUMS.txt"])).Package?.Name!=full||
            Select(compactRelease,Release("esp8266-v0.5.9",["AI-bot-esp8266-0.5.9-firmware.zip","SHA256SUMS.txt"])).Version!="0.5.9")
             throw new InvalidOperationException("ESP8266 must prefer a verified compact option only at the same release version.");

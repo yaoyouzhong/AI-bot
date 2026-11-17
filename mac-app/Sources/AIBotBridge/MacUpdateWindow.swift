@@ -39,7 +39,7 @@ enum MacReleaseCatalog {
                     let sidecar = files.first { $0.name == file.name + ".sha256" }
                     let compact = suffix == "-flash.zip"
                     if compact {
-                        guard tag == tagPrefix + text, !text.hasSuffix("-ui"), file.size <= 256 * 1024 * 1024,
+                        guard !text.hasSuffix("-ui"), file.size <= 256 * 1024 * 1024,
                               let sidecar, sidecar.size <= 256 * 1024 else { continue }
                     }
                     let checksum = sidecar ?? files.first { $0.name == "SHA256SUMS.txt" }

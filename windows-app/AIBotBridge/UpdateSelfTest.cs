@@ -22,17 +22,19 @@ internal static class UpdateSelfTest
             foreach(var pair in entries){using var stream=zip.CreateEntry(pair.Key).Open();stream.Write(pair.Value);}
         return memory.ToArray();
     }
-    internal static object Release(string component,string version,string name,byte[] package,string? url=null,string checksumName="SHA256SUMS.txt")=>new {
-        tag_name=component+"-v"+version,draft=false,prerelease=false,body="## 更新\n- 示例更新说明",
-        assets=new[]{new{name,browser_download_url=url??$"https://github.com/yaoyouzhong/AI-bot/releases/download/{component}-v{version}/{name}",size=package.Length},
-            new{name=checksumName,browser_download_url=$"https://github.com/yaoyouzhong/AI-bot/releases/download/{component}-v{version}/{checksumName}",size=100}}
-    };
+    internal static object Release(string component,string version,string name,byte[] package,string? url=null,string checksumName="SHA256SUMS.txt",string? productTag=null) {
+        string tag=productTag??component+"-v"+version;
+        string download=$"https://github.com/yaoyouzhong/AI-bot/releases/download/{tag}/";
+        return new {tag_name=tag,draft=false,prerelease=false,body="## 更新\n- 示例更新说明",
+            assets=new[]{new{name,browser_download_url=url??download+name,size=package.Length},
+                new{name=checksumName,browser_download_url=download+checksumName,size=100}}};
+    }
     internal static async Task RunAsync() {
         ComponentUpdateSelfTest.Run();
         byte[] image=new byte[2048];image[0]=0xe9;
         byte[] zip=Zip(new(){["VERSION"]="0.6.0\n"u8.ToArray(),["firmware.bin"]=image,["COMPONENT.json"]="{\"component\":\"esp8266\",\"version\":\"0.6.0\",\"protocolVersion\":1}"u8.ToArray()});
         string name="AI-bot-esp8266-0.6.0-flash.zip",hash=Convert.ToHexString(SHA256.HashData(zip)).ToLowerInvariant();
-        string json=JsonSerializer.Serialize(new[]{Release("esp8266","0.6.0",name,zip,checksumName:name+".sha256")});
+        string json=JsonSerializer.Serialize(new[]{Release("esp8266","0.6.0",name,zip,checksumName:name+".sha256",productTag:"v0.6.26")});
         var handler=new Handler();bool corrupt=false,fail=false;int requests=0;
         handler.Reply=(request,token)=>{requests++;string path=request.RequestUri!.AbsolutePath;
             if(fail)return Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));

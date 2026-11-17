@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import zipfile
 
+from artifact_names import ESP_FLASH_TEMPLATE
+
 
 def prepare(source, output, expected_sha256):
     source, output = Path(source), Path(output)
@@ -18,15 +20,15 @@ def prepare(source, output, expected_sha256):
         if len(image) < 1024 or len(image) > 4 * 1024 * 1024 or image[0] != 0xe9 or component['component'] != 'esp8266':
             raise ValueError('Invalid ESP8266 firmware')
         version = component['version']
-        if output.name != f'AI-bot-esp8266-{version}-flash.zip':
+        if output.name != ESP_FLASH_TEMPLATE.format(version=version):
             raise ValueError('Output version/name mismatch')
         tag = f'esp8266-v{version}'
-        materials = f'https://github.com/yaoyouzhong/AI-bot/releases/tag/{tag}'
+        materials = 'https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.md'
         source_url = f'https://github.com/yaoyouzhong/AI-bot/tree/{tag}'
         readme = (f'ESP8266 {version} flash package / 刷机包\n\n'
                   f'Flash firmware.bin with the AI-bot bridge. / 使用 AI-bot 桥接刷写 firmware.bin。\n'
-                  f'Full corresponding source, build materials and notices / 对应完整源码、构建材料及许可：{materials}\n'
-                  f'AI-bot source / 项目源码：{source_url}\n').encode('utf-8')
+                  f'AI-bot downloads / 下载中心：{materials}\n'
+                  f'Corresponding source, build materials and notices / 对应源码、构建材料及许可：{source_url}\n').encode('utf-8')
         with zipfile.ZipFile(output, 'x', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as target:
             for name in ('firmware.bin', 'VERSION', 'COMPONENT.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md'):
                 target.writestr(name, archive.read(name))
