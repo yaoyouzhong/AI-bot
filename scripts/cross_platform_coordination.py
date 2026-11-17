@@ -49,8 +49,10 @@ def new_task(repository, branch, base, head, summary):
 
 def validate_receipt(task, receipt):
     validate_task(task)
+    require(not task.get("simulationOnly"), "Simulation task cannot satisfy release gate")
     require(isinstance(receipt, dict), "Receipt must be an object")
     require(receipt.get("schemaVersion") == 1, "Unsupported receipt schema")
+    require(not receipt.get("simulationOnly"), "Simulation receipt cannot satisfy release gate")
     require(receipt.get("taskId") == task["taskId"] and receipt.get("sourceCommit") == task["sourceCommit"], "Stale receipt")
     require(receipt.get("platform") in PLATFORMS, "Unknown platform")
     require(receipt.get("status") in TERMINAL, "Platform is pending, failed, or unacknowledged")
