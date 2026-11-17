@@ -31,7 +31,7 @@ def identity(task):
 
 def validate_task(task):
     require(isinstance(task, dict), "Task must be an object")
-    require(task.get("schemaVersion") == 1, "Unsupported task schema")
+    require(type(task.get("schemaVersion")) is int and task["schemaVersion"] == 1, "Unsupported task schema")
     require(nonempty(task.get("repository")) and nonempty(task.get("branch")), "Missing repository/branch")
     sha(task.get("baseCommit")); sha(task.get("sourceCommit"))
     require(task["baseCommit"] != task["sourceCommit"], "Task has no source change")
@@ -47,11 +47,18 @@ def new_task(repository, branch, base, head, summary):
     return validate_task(task)
 
 
+def inspection_only(task):
+    constraints = task.get('constraints', {})
+    return (str(task.get('kind', '')).startswith('read-only')
+            or (isinstance(constraints, dict) and constraints.get('inspectionOnly') is True))
+
+
 def validate_receipt(task, receipt):
     validate_task(task)
     require(not task.get("simulationOnly"), "Simulation task cannot satisfy release gate")
+    require(not inspection_only(task), "Read-only inspection cannot satisfy release gate")
     require(isinstance(receipt, dict), "Receipt must be an object")
-    require(receipt.get("schemaVersion") == 1, "Unsupported receipt schema")
+    require(type(receipt.get("schemaVersion")) is int and receipt["schemaVersion"] == 1, "Unsupported receipt schema")
     require(not receipt.get("simulationOnly"), "Simulation receipt cannot satisfy release gate")
     require(receipt.get("taskId") == task["taskId"] and receipt.get("sourceCommit") == task["sourceCommit"], "Stale receipt")
     require(receipt.get("platform") in PLATFORMS, "Unknown platform")
@@ -84,7 +91,7 @@ def ancestor(repo, earlier, later):
 def gate(bundle, source, repo):
     sha(source)
     require(isinstance(bundle, dict), "Plan must be an object")
-    require(bundle.get("schemaVersion") == 1, "Unsupported plan schema")
+    require(type(bundle.get("schemaVersion")) is int and bundle["schemaVersion"] == 1, "Unsupported plan schema")
     require(bundle.get("releaseSource") == source, "Release plan belongs to another source")
     require(nonempty(bundle.get("repository")), "Missing repository")
     require(nonempty(bundle.get("scopeEvidence")), "Missing evidence that task list covers release scope")
@@ -105,11 +112,15 @@ def gate(bundle, source, repo):
         by_key[key] = receipt
     for task in tasks:
         require(task["repository"] == bundle["repository"], "Task repository mismatch")
+        require(ancestor(repo, task["baseCommit"], task["sourceCommit"]), "Task range is divergent; review force-push history before release")
         require(ancestor(repo, task["sourceCommit"], source), "Source change is absent from release")
         for platform in PLATFORMS:
             require((task["taskId"], platform) in by_key, "Missing " + platform + " receipt")
             receipt = validate_receipt(task, by_key[(task["taskId"], platform)])
             require(ancestor(repo, receipt["implementationCommit"], source), "Platform implementation is absent from release")
+            verification = receipt.get("verification", {})
+            if receipt["status"] != "not-applicable" and verification["result"] == "reused":
+                require(ancestor(repo, verification["commit"], receipt["implementationCommit"]), "Reused native evidence is not from implementation history")
     return {"status": "ready", "releaseSource": source, "taskCount": len(tasks), "publishPerformed": False}
 
 
