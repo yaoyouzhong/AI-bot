@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "mode": "isolated-transport-probe",
+  "probeId": "20261117-c5b73fe",
+  "targetPlatform": "macos",
+  "phase": "offered",
+  "task": {
+    "schemaVersion": 1,
+    "repository": "yaoyouzhong/AI-bot",
+    "branch": "codex/tab5-calendar-and-claude-idle-20261116",
+    "baseCommit": "ea0a026ff49f1b4e47222316778be668270f52a6",
+    "sourceCommit": "5476a32e59b0e431351508da53e2fa871528a4fd",
+    "summary": "SIMULATION ONLY: scanner mapping and dual-platform receipt contract, no development",
+    "taskId": "a33a8840c582897a271a7434f86b1d72a26b3b336042c99d8ff3064b9cb959ae",
+    "simulationOnly": true,
+    "purpose": "transport-and-contract-test-only"
+  },
+  "policy": {
+    "developmentAllowed": false,
+    "nativeValidationAllowed": false,
+    "publishAllowed": false,
+    "allowedWriteBranch": "codex/autoloop-coordination"
+  }
+}
