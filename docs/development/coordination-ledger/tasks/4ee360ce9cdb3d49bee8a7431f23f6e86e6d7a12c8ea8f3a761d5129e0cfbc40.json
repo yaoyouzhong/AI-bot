@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "mode": "development-task",
-  "revision": 3,
+  "revision": 4,
   "task": {
     "schemaVersion": 1,
     "repository": "yaoyouzhong/AI-bot",
@@ -21,7 +21,7 @@
   "authorization": "Owner authorized continuing the coordination pilot on 2026-11-17; this task is restricted to read-only source review, claim/ack and evidence, not implementation, native validation or publishing.",
   "platforms": {
     "windows": {
-      "status": "claimed",
+      "status": "acknowledged",
       "claimId": "readonly-windows-7cdd79b4-a291-4129-953a-0d8f6968d952",
       "evidence": "Owner-authorized read-only source review reception only; no implementation or native validation. Auto Loop run 42"
     },
@@ -50,6 +50,13 @@
       "revision": 3,
       "platform": "windows",
       "action": "claim",
+      "claimId": "readonly-windows-7cdd79b4-a291-4129-953a-0d8f6968d952",
+      "evidence": "Owner-authorized read-only source review reception only; no implementation or native validation. Auto Loop run 42"
+    },
+    {
+      "revision": 4,
+      "platform": "windows",
+      "action": "acknowledge",
       "claimId": "readonly-windows-7cdd79b4-a291-4129-953a-0d8f6968d952",
       "evidence": "Owner-authorized read-only source review reception only; no implementation or native validation. Auto Loop run 42"
     }
