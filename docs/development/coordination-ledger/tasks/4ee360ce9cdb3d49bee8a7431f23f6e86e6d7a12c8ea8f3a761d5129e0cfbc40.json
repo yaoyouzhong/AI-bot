@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "mode": "development-task",
-  "revision": 1,
+  "revision": 2,
   "task": {
     "schemaVersion": 1,
     "repository": "yaoyouzhong/AI-bot",
@@ -24,9 +24,9 @@
       "status": "offered"
     },
     "macos": {
-      "status": "claimed",
+      "status": "acknowledged",
       "claimId": "readonly-macos-7831c3f8-5809-4580-b45d-972857bca720",
-      "evidence": "Owner-authorized read-only source review reception only; no implementation or native validation. Auto Loop run 6535"
+      "evidence": "Owner-authorized read-only source review reception only; no implementation or native validation. Auto Loop run 6536"
     }
   },
   "history": [
@@ -36,6 +36,13 @@
       "action": "claim",
       "claimId": "readonly-macos-7831c3f8-5809-4580-b45d-972857bca720",
       "evidence": "Owner-authorized read-only source review reception only; no implementation or native validation. Auto Loop run 6535"
+    },
+    {
+      "revision": 2,
+      "platform": "macos",
+      "action": "acknowledge",
+      "claimId": "readonly-macos-7831c3f8-5809-4580-b45d-972857bca720",
+      "evidence": "Owner-authorized read-only source review reception only; no implementation or native validation. Auto Loop run 6536"
     }
   ]
 }
