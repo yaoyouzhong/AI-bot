@@ -4,11 +4,11 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](docs/RELEASE-0.6.24.md) · [简体中文](README.md)
+[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.25) · [简体中文](README.md)
 
 **Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
-**This update**　Bridge **0.6.24** for Windows and Mac brings desktop software, firmware, and screensaver artwork updates into Software/Firmware. [Bridge release notes](docs/RELEASE-0.6.24.md) · [Installation guide](docs/INSTALL.zh.md)
+**This update**　Windows **0.6.25** improves TAB5 status and music updates, weather location permission, and quota sign-in. [Bridge release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.25) · [Installation guide](docs/INSTALL.zh.md)
 
 **TAB5 0.2.322-ui** adds Calendar to the app grid and improves the overview and artwork transfers. [Firmware release](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.322-ui)
 
@@ -143,8 +143,8 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
-| Windows bridge · Windows 10/11 x64 | 0.6.24 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.24/AI-bot-bridge-v0.6.24-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.24/SHA256SUMS.txt) |
-| Mac bridge · macOS 13+ / Apple Silicon | 0.6.24 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.24/AI-bot-bridge-v0.6.24-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/bridge-v0.6.24/SHA256SUMS.txt) |
+| Windows bridge · Windows 10/11 x64 | 0.6.25 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.25/AI-bot-bridge-v0.6.25-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.25/SHA256SUMS.txt) |
+| Mac bridge · macOS 13+ / Apple Silicon | 0.6.24 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.24/AI-bot-bridge-v0.6.24-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.24/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.8 | [Download · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
 | TAB5 · first install from factory system | 0.2.322-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/AI-bot-tab5-0.2.322-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/SHA256SUMS.txt) |
 | TAB5 · upgrade existing AI-bot | 0.2.322-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/AI-bot-tab5-0.2.322-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/SHA256SUMS.txt) |
@@ -176,7 +176,7 @@ For later updates, open Windows Device Center → Bridge Settings → Software/F
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](docs/RELEASE-0.6.24.md) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.25) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](tab5/) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

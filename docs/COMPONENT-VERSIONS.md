@@ -4,15 +4,15 @@ Windows / Mac 协作、候选构建物与发布职责见[统一开发发布流�
 
 产品对外版本从 `0.6.20` 序列独立递增；桥接、ESP8266 和 TAB5 分别更新，不要求版本号相同。只修改一个组件时，不重编号、重发或要求用户重刷另外两个组件。历史 `v0.5.0` 标签与已发布文件保持不变。
 
-2026-11-17 发布 Windows 和 Mac 桥接 **0.6.24** 与 TAB5 **0.2.322-ui**。ESP8266 保持 **0.5.8**，独立精选图库保持 **2026.2**。[统一下载](../DOWNLOADS.md) · [发布说明](RELEASE-0.6.24.md)
+2026-11-17 发布 Windows 桥接 **0.6.25**。当前 Mac 桥接为 **0.6.24**，TAB5 为 **0.2.322-ui**。ESP8266 保持 **0.5.8**，独立精选图库保持 **2026.2**。[统一下载](../DOWNLOADS.md) · [发布说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.25)
 
-The Windows and Mac bridge update to 0.6.24 and TAB5 updates to 0.2.322-ui. ESP8266 remains at 0.5.8 and the optional artwork collections at 2026.2.
+The Windows bridge updates to 0.6.25. The current Mac bridge is 0.6.24 and the current TAB5 firmware is 0.2.322-ui. ESP8266 remains at 0.5.8 and the optional artwork collections at 2026.2.
 
 ## 版本来源
 
 | 组件 | 当前版本 | 版本文件 | 正式组件标签 |
 | --- | --- | --- | --- |
-| Windows 桥接 | 0.6.24 | 根目录 `VERSION` | `bridge-v0.6.24` |
+| Windows 桥接 | 0.6.25 | 根目录 `VERSION` | `bridge-v0.6.25` |
 | Mac 桥接 | 0.6.24 | 根目录 `VERSION` | `bridge-v0.6.24` |
 | ESP8266 固件 | 0.5.8 | `esp8266/VERSION` | `esp8266-v0.5.8` |
 | TAB5 固件 | 0.2.322-ui | `versions/TAB5` | `tab5-v0.2.322-ui` |
