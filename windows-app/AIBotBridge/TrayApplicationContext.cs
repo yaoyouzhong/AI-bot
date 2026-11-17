@@ -692,7 +692,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     protected override async void ExitThreadCore()
     {
-        if(_exiting)return;if(!ClosePanels())return;_exiting=true;
+        if(_exiting||_updatesForm?.ShowActiveGalleryInstall()==true)return;
+        if(!ClosePanels())return;
+        _exiting=true;
         _healthGuard?.BeginExit();
         _timer.Stop();
         _timer.Dispose();

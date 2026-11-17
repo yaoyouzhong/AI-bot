@@ -19,9 +19,10 @@ internal static class UpdateUiSelfTest
         string installedPath=Path.Combine(GalleryPack.Root,"painting","PACK.json");
         Directory.CreateDirectory(Path.GetDirectoryName(installedPath)!);
         File.WriteAllText(installedPath,JsonSerializer.Serialize(new GalleryPackManifest(1,"2026.10.01","painting",1,1,[]),JsonDefaults.Options));
-        var handler=new UpdateSelfTest.Handler();bool hold=false;var waiting=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler=new UpdateSelfTest.Handler();bool hold=false;int catalogRequests=0;var waiting=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         handler.Reply=async(request,token)=>{
             string path=request.RequestUri!.AbsolutePath;
+            if(request.RequestUri.Host=="api.github.com")Interlocked.Increment(ref catalogRequests);
             if(hold&&path.EndsWith("SHA256SUMS.txt"))await waiting.Task.WaitAsync(token);
             byte[] data=path.EndsWith("SHA256SUMS.txt")
                 ?Encoding.UTF8.GetBytes(path.Contains("/bridge-v")?installerHash+"  "+installerName+"\n":hash+"  "+name+"\n")
@@ -58,12 +59,38 @@ internal static class UpdateUiSelfTest
         if(grid.CurrentRow?.Cells[3].Value?.ToString()!="有更新"||!requirement.Text.Contains("2026.10.01 → 2026.11.01")||notes.Visible)
             throw new Exception("Gallery row did not show its update and version details");
         using(var capture=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(capture,new(Point.Empty,form.Size));capture.Save(Path.Combine(directory,"updates-gallery.png"));}
+        int requestsBeforeOpening=Volatile.Read(ref catalogRequests);
         bool openedGallery=false;
-        form.BeginInvoke(()=> {
-            if(Application.OpenForms.OfType<GalleryPackForm>().SingleOrDefault() is not {} manager)return;
-            openedGallery=true;manager.Close();
+        Exception? galleryFailure=null;
+        form.BeginInvoke(async ()=> {
+            if(Application.OpenForms.OfType<GalleryPackForm>().SingleOrDefault() is not {} gallery)return;
+            openedGallery=true;
+            try {
+                var checkGallery=(Button)gallery.Controls.Find("gallery-check",true).Single();
+                var paint=(Button)gallery.Controls.Find("painting-update",true).Single();
+                await Wait(()=>checkGallery.Enabled);
+                if(Volatile.Read(ref catalogRequests)!=requestsBeforeOpening||!paint.Enabled)
+                    throw new Exception("Opening gallery management did not reuse the successful update catalog");
+                if(form.ShowActiveGalleryInstall())throw new Exception("Idle gallery prevented exit");
+
+                checkGallery.PerformClick();
+                await Wait(()=>checkGallery.Enabled);
+                if(Volatile.Read(ref catalogRequests)!=requestsBeforeOpening+1)
+                    throw new Exception("Manual gallery refresh did not query the catalog");
+
+                hold=true;
+                paint.PerformClick();
+                gallery.WindowState=FormWindowState.Minimized;
+                if(!form.ShowActiveGalleryInstall()||gallery.WindowState!=FormWindowState.Normal)
+                    throw new Exception("An exit request did not restore the active gallery install window");
+                ((Button)gallery.Controls.Find("gallery-cancel",true).Single()).PerformClick();
+                await Wait(()=>checkGallery.Enabled);
+                if(form.ShowActiveGalleryInstall())throw new Exception("Cancelled gallery install still prevented exit");
+            }catch(Exception ex){galleryFailure=ex;}
+            finally{hold=false;gallery.Close();}
         });
         action.PerformClick();
+        if(galleryFailure is not null)throw galleryFailure;
         if(!openedGallery||target is not null)throw new Exception("Gallery action went to the device installer instead of gallery management");
         form.FocusUpdate("bridge");
         await Wait(()=>action.Enabled&&SelectedName()==devices[0].Name);
@@ -118,6 +145,6 @@ internal static class UpdateUiSelfTest
         }catch(Exception ex){failure=ex;}finally{form.Close();}};
         Application.Run(form);
         if(failure is not null)throw new InvalidOperationException("Update UI regression failed",failure);
-        Console.WriteLine("UPDATE_UI_OK notification focus, gallery row and management, available-first ordering, cancelled installer, production ESP view, known and legacy downloads, changed/removed target blocked, equal/newer versions hide upgrade and repeated status, aggregate notes, content-height window, 1x/1.5x/2x captures; no real installation");
+        Console.WriteLine("UPDATE_UI_OK notification focus, gallery row, catalog reuse, install exit protection, available-first ordering, cancelled installer, production ESP view, known and legacy downloads, changed/removed target blocked, equal/newer versions hide upgrade and repeated status, aggregate notes, content-height window, 1x/1.5x/2x captures; no real installation");
     }
 }

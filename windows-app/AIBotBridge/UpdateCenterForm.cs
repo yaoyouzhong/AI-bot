@@ -19,6 +19,13 @@ internal sealed class UpdateCenterForm : Form
     private bool _disposed,_busy;
     private bool _prioritizeUpdates,_focusPending;
     private string? _focusId;
+    private GalleryPackForm? _galleryManager;
+
+    internal bool ShowActiveGalleryInstall() {
+        if(_galleryManager is not { IsInstalling:true, IsDisposed:false, Disposing:false, Visible:true } manager)return false;
+        SettingsWindow.Present(manager);
+        return true;
+    }
 
     internal void FocusUpdate(string? deviceId) {
         _prioritizeUpdates=true;
@@ -168,7 +175,9 @@ internal sealed class UpdateCenterForm : Form
             if(_busy)return;
             if(Selected()?.Id==GalleryId){
                 using var manager=new GalleryPackForm(service);
-                manager.ShowDialog(this);
+                _galleryManager=manager;
+                try{manager.ShowDialog(this);}
+                finally{_galleryManager=null;}
                 if(!IsDisposed)RefreshRows();
                 return;
             }

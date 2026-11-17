@@ -8,6 +8,7 @@ internal sealed class GalleryPackForm : Form
     private readonly bool _ownsService;
     private readonly ContextMenuStrip _moreMenu=new();
     private bool _disposed,_busy;
+    internal bool IsInstalling {get;private set;}
     internal Exception? OperationError {get;private set;}
     internal GalleryPackForm(UpdateService? service=null,Action<string>? openUrl=null,Func<string?>? selectPackage=null) {
         _service=service??new UpdateService();_ownsService=service is null;
@@ -115,20 +116,25 @@ internal sealed class GalleryPackForm : Form
             }
         }
         collection.SelectedIndexChanged+=(_,_)=>ChangeChoice();quality.SelectedIndexChanged+=(_,_)=>ChangeChoice();
-        void StartOperation(bool transfer) {
+        void StartOperation(bool installing) {
+            IsInstalling=installing;
             OperationError=null;
             _busy=true;_operation=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);cancel.Visible=true;cancel.Enabled=true;
-            progress.Visible=transfer;progress.Value=0;RefreshStatus();
+            progress.Visible=installing;progress.Value=0;RefreshStatus();
         }
         void EndOperation() {
-            _operation?.Dispose();_operation=null;_busy=false;
+            _operation?.Dispose();_operation=null;_busy=false;IsInstalling=false;
             if(!IsDisposed){cancel.Visible=false;progress.Visible=false;RefreshStatus();}
+        }
+        void ShowCatalogStatus() {
+            if(_service.Error is {} error)message.Text="检查未完成，保留上次结果："+error;
+            else if(_service.CheckedAt is {} checkedAt)message.Text="已检查线上精选集 · "+checkedAt.ToLocalTime().ToString("MM-dd HH:mm");
         }
         async Task CheckAsync() {
             if(_busy||GalleryPreferences.Full)return;StartOperation(false);message.Text="正在检查名画和书法的正式精选集…";
             try {
                 await _service.CheckAsync(_operation!.Token);
-                if(!IsDisposed)message.Text="已检查线上精选集 · "+_service.CheckedAt!.Value.ToLocalTime().ToString("MM-dd HH:mm");
+                if(!IsDisposed)ShowCatalogStatus();
             }catch(Exception ex){OperationError=ex;if(!IsDisposed)message.Text="检查未完成，保留上次结果："+ex.Message;}
             finally{EndOperation();}
         }
@@ -182,7 +188,13 @@ internal sealed class GalleryPackForm : Form
             finally{EndOperation();}
         };
         tools.Height=operationRow.Height=1;
-        SettingsWindow.AddTitle(root,"屏保图库");Shown+=async(_,_)=>{FitContentHeight();await CheckAsync();};FormClosing+=(_,_)=>_stop.Cancel();RefreshStatus();SettingsWindow.FitScreen(this);
+        SettingsWindow.AddTitle(root,"屏保图库");
+        Shown+=async(_,_)=>{
+            FitContentHeight();
+            if(_service.CheckedAt is null)await CheckAsync();
+            else if(!GalleryPreferences.Full)ShowCatalogStatus();
+        };
+        FormClosing+=(_,_)=>_stop.Cancel();RefreshStatus();SettingsWindow.FitScreen(this);
     }
     protected override void Dispose(bool disposing){if(disposing&&!_disposed){_disposed=true;_stop.Cancel();_stop.Dispose();_moreMenu.Dispose();if(_ownsService)_service.Dispose();}base.Dispose(disposing);}
 }
