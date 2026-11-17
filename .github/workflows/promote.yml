@@ -16,6 +16,10 @@ on:
         description: Hash-bound acceptance JSON produced by release_pipeline.py record
         required: true
         type: string
+      coordination_scope_commit:
+        description: Independently reviewed coordination scope commit SHA (not the candidate source)
+        required: true
+        type: string
       coordination_plan_json:
         description: Reviewed real-task plan with both platform receipts and candidate source SHA
         required: true
@@ -78,6 +82,7 @@ jobs:
           github-token: ${{ github.token }}
       - name: Promote accepted bytes and generate the product release
         env:
+          AIBOT_COORDINATION_SCOPE_COMMIT: ${{ inputs.coordination_scope_commit }}
           COORDINATION_PLAN_JSON: ${{ inputs.coordination_plan_json }}
           ACCEPTANCE_JSON: ${{ inputs.acceptance_json }}
           EXPECTED_SOURCE: ${{ steps.native.outputs.source }}
@@ -94,7 +99,8 @@ jobs:
           plan = json.loads(os.environ['COORDINATION_PLAN_JSON'])
           if plan['repository'] != os.environ['GITHUB_REPOSITORY']: raise SystemExit('Wrong coordination repository')
           if candidate['sourceCommit'] != os.environ['EXPECTED_SOURCE']: raise SystemExit('Wrong coordination candidate source')
-          coordination.gate(plan, candidate['sourceCommit'], '.')
+          preflight = coordination.gate(plan, candidate['sourceCommit'], '.')
+          pathlib.Path('artifacts/coordination-preflight.json').write_text(json.dumps(preflight, indent=2), encoding='utf-8')
           pathlib.Path('artifacts/coordination-plan.json').write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding='utf-8')
           os.environ['AIBOT_COORDINATION_PLAN'] = str(pathlib.Path('artifacts/coordination-plan.json').resolve())
           acceptance = pathlib.Path('artifacts/acceptance.json')
@@ -114,6 +120,7 @@ jobs:
             artifacts/publication-*-upload-state.json
             artifacts/acceptance.json
             artifacts/coordination-plan.json
+            artifacts/coordination-preflight.json
             download-catalog.json
             DOWNLOADS.md
             DOWNLOADS.en.md
