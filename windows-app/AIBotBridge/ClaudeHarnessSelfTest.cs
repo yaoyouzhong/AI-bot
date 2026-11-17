@@ -30,6 +30,15 @@ internal static class ClaudeHarnessSelfTest
                 "An interactive terminal record must not depend on the reported version");
             Check(!TerminalRecord("2.1.322","background")&&!TerminalRecord("2.1.322",entrypoint:"claude-vscode")&&
                 !TerminalRecord("2.1.322",jobId:"background-job"),"Non-terminal session accepted by the console adapter");
+            Guid background=Guid.NewGuid();const string job="a0123456";
+            JsonElement Background(string? version)=>JsonSerializer.SerializeToElement(new{version,kind="bg",entrypoint="cli",jobId=job,sessionId=background,status="idle"});
+            JsonElement Job(Guid id,string shortId)=>JsonSerializer.SerializeToElement(new{backend="daemon",daemonShort=shortId,sessionId=id});
+            Check(ClaudeBackgroundApi.MatchesJob(Background("5.0.0"),Job(background,job),background,job)&&
+                  ClaudeBackgroundApi.MatchesJob(Background(null),Job(background,job),background,job),
+                  "Compatible daemon job must not depend on release metadata");
+            Check(!ClaudeBackgroundApi.MatchesJob(Background(null),Job(Guid.NewGuid(),job),background,job)&&
+                  !ClaudeBackgroundApi.MatchesJob(Background(null),Job(background,"bcdef987"),background,job),
+                  "Different job or session accepted by background adapter");
             using(var process=System.Diagnostics.Process.GetCurrentProcess()){
                 string image=Environment.ProcessPath??throw new InvalidOperationException("Process image unavailable");
                 string start=process.StartTime.ToUniversalTime().ToFileTimeUtc().ToString(System.Globalization.CultureInfo.InvariantCulture);

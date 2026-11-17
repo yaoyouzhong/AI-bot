@@ -4,6 +4,7 @@ Run swift test --package-path mac-app first to build the XCTest fixture.
 The probe uses a fresh CLAUDE_CONFIG_DIR, no real credentials, and a network
 sandbox. Only the supervisor in the temporary config directory is stopped.
 """
+import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import base64
 import hashlib
@@ -13,6 +14,7 @@ from pathlib import Path
 import platform
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -73,9 +75,9 @@ class Model(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-def run_fixture(cli, api, root):
+def run_fixture(cli, api, root, device=None):
     api.fixture, api.photo_calls = root, []
-    config, cwd, scratch = (root / name for name in ("cfg", "project", "tmp"))
+    config, cwd, scratch = (root / name for name in (".claude" if device else "cfg", "project", "tmp"))
     for directory in (config, cwd, scratch):
         directory.mkdir(mode=0o700)
     profile = {"hasCompletedOnboarding": True, "projects": {
@@ -101,9 +103,6 @@ def run_fixture(cli, api, root):
         return subprocess.run(["/usr/bin/sandbox-exec", "-p", sandbox, cli, *args],
                               cwd=cwd, env=env, capture_output=True, text=True, timeout=30)
 
-    version = call("--version")
-    if version.returncode != 0 or not version.stdout.startswith("2.1.318 "):
-        raise RuntimeError("This probe requires native Claude Code 2.1.318")
     session = str(uuid.uuid4())
     flags = ["--model", "claude-sonnet-4-6", "--tools", "", "--strict-mcp-config", "--settings", str(settings)]
     seed = call("--print", "--output-format", "json", "--session-id", session, *flags, "fixture seed")
@@ -121,6 +120,19 @@ def run_fixture(cli, api, root):
             time.sleep(0.2)
         else:
             raise RuntimeError("The same session UUID did not become idle in the isolated daemon")
+        if device:
+            executable, output = device
+            (root / ".aibot-synthetic-claude").write_text("background\n")
+            (root / "terminal-session").write_text(session)
+            (root / "environment.json").write_text(json.dumps({
+                "PATH": env["PATH"], "HOME": str(root), "TMPDIR": str(root),
+                **dict(provider, ANTHROPIC_API_KEY="synthetic-key"),
+            }))
+            before = api.calls
+            subprocess.run([str(executable), "--tab5-automation", str(output), "--claude-fixture", str(root)],
+                           stdin=sys.stdin, check=True, timeout=300)
+            print(f"MAC_CLAUDE_BACKGROUND_DEVICE_SESSION_OK model_requests={api.calls - before}")
+            return
         package = Path(__file__).resolve().parents[1] / "mac-app"
         test_env = dict(os.environ, AIBOT_CLAUDE_BG_FIXTURE=str(config), AIBOT_CLAUDE_BG_SESSION=session)
         subprocess.run(["swift", "test", "--skip-build", "--package-path", str(package), "--filter",
@@ -136,6 +148,13 @@ def run_fixture(cli, api, root):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--device", nargs=2, metavar=("BRIDGE_EXECUTABLE", "NEW_OUTPUT_DIR"), type=Path)
+    device = parser.parse_args().device
+    if device:
+        device = [path.resolve() for path in device]
+        if not device[0].is_file() or device[1].exists():
+            parser.error("expected an existing bridge executable and a new output directory")
     cli = shutil.which("claude")
     if platform.system() != "Darwin" or not cli:
         raise SystemExit("Run on macOS with native Claude Code on PATH")
@@ -143,9 +162,10 @@ def main():
         api.calls, api.reply = 0, "fixture seed response"
         threading.Thread(target=api.serve_forever, daemon=True).start()
         try:
-            with tempfile.TemporaryDirectory(prefix="aibg-", dir="/private/tmp") as folder:
-                run_fixture(cli, api, Path(folder))
-            print("MAC_CLAUDE_BACKGROUND_OK same UUID, exact PNG/JPEG inputs, idempotent receipts, completed TAB5 replies")
+            with tempfile.TemporaryDirectory(prefix="aibg-", dir=None if device else "/private/tmp") as folder:
+                run_fixture(cli, api, Path(folder).resolve(), device)
+            if not device:
+                print("MAC_CLAUDE_BACKGROUND_OK same UUID, exact PNG/JPEG inputs, idempotent receipts, completed TAB5 replies")
         finally:
             api.shutdown()
 

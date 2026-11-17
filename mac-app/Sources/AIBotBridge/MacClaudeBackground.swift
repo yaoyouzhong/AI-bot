@@ -5,7 +5,6 @@ import Foundation
 /// directly. Discovery and dispatch never start or attach a job.
 final class MacClaudeBackground: MacClaudeDirectSession {
     let usesFileImageReferences = true
-    private static let version = "2.1.318"
     private static let defaultRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
     private static let socketRoot = URL(fileURLWithPath: "/private/tmp/cc-daemon-\(getuid())", isDirectory: true)
     let source = MacClaudeSessionSource.background
@@ -118,9 +117,17 @@ final class MacClaudeBackground: MacClaudeDirectSession {
     }
 
     private static func identity(_ row: [String: Any], executable: String) -> ProcessIdentity? {
-        guard row["version"] as? String == version, let value = row["pid"] as? Int, let pid = pid_t(exactly: value),
+        guard let value = row["pid"] as? Int, let pid = pid_t(exactly: value),
               let process = ProcessIdentity.inspect(pid), process.executable == executable, process.matches(row) else { return nil }
         return process
+    }
+
+    static func matchesJob(_ row: [String: Any], jobState: [String: Any], session: UUID, job: String) -> Bool {
+        guard shortID(job), row["kind"] as? String == "bg", row["entrypoint"] as? String == "cli",
+              row["jobId"] as? String == job, jobState["daemonShort"] as? String == job,
+              jobState["backend"] as? String == "daemon", let status = row["status"] as? String, !status.isEmpty else { return false }
+        return UUID(uuidString: row["sessionId"] as? String ?? "") == session &&
+            UUID(uuidString: jobState["sessionId"] as? String ?? "") == session
     }
 
     func state() throws -> String {
@@ -131,14 +138,10 @@ final class MacClaudeBackground: MacClaudeDirectSession {
             throw MacTab5Error.unconfirmed
         }
         let jobState = try Self.record(jobs.appendingPathComponent("\(job)/state.json"))
-        guard row["kind"] as? String == "bg", row["entrypoint"] as? String == "cli",
-              row["version"] as? String == Self.version, lock["version"] as? String == Self.version,
-              row["jobId"] as? String == job, jobState["daemonShort"] as? String == job,
-              jobState["backend"] as? String == "daemon",
-              UUID(uuidString: row["sessionId"] as? String ?? "") == session,
-              UUID(uuidString: jobState["sessionId"] as? String ?? "") == session,
-              worker.matches(row), daemon.matches(lock) else { throw MacTab5Error.unconfirmed }
-        return row["status"] as? String ?? "unknown"
+        guard Self.matchesJob(row, jobState: jobState, session: session, job: job),
+              worker.matches(row), daemon.matches(lock),
+              let status = row["status"] as? String else { throw MacTab5Error.unconfirmed }
+        return status
     }
 
     func scope() throws -> String {

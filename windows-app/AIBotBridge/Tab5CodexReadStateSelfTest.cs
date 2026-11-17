@@ -39,8 +39,11 @@ internal static class Tab5CodexReadStateSelfTest
         string Claims(long expiry)=>Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new Dictionary<string,object>{
             ["exp"]=expiry,["https://api.openai.com/auth"]=new{chatgpt_account_id="account",user_id="user"}}))).TrimEnd('=').Replace('+','-').Replace('/','_');
         string Auth(long expiry)=>JsonSerializer.Serialize(new{tokens=new{access_token="test."+Claims(expiry)+".test"}});
-        string State(string id,string h,int version=1)=>JsonSerializer.Serialize(new Dictionary<string,object>{["electron-thread-read-state-v1"]=new{
-            version,unreadByIdentity=new Dictionary<string,object>{{id,new Dictionary<string,object>{{h,new[]{task}}}}}}});
+        string State(string id,string h,int? version=1,object? tasks=null){
+            var data=new Dictionary<string,object>{["unreadByIdentity"]=new Dictionary<string,object>{{id,new Dictionary<string,object>{{h,tasks??new[]{task}}}}}};
+            if(version is int v)data["version"]=v;
+            return JsonSerializer.Serialize(new Dictionary<string,object>{["electron-thread-read-state-v1"]=data});
+        }
         string auth=Auth(DateTimeOffset.UtcNow.ToUnixTimeSeconds()+3600);
         var context=JsonSerializer.SerializeToElement(Tab5CodexReadState.ParseIdentity(auth)!.Context);
         Check(context.GetProperty("identity").GetProperty("kind").GetString()=="chatgpt"&&
@@ -50,7 +53,11 @@ internal static class Tab5CodexReadStateSelfTest
         Check(Tab5CodexReadState.Parse(auth,State(identity,host))?.Unread.SetEquals([task])==true,"current account local host");
         Check(Tab5CodexReadState.Parse(auth,State("other-account",host)) is null,"other account rejected");
         Check(Tab5CodexReadState.Parse(auth,State(identity,"local:other-host")) is null,"other host rejected");
-        Check(Tab5CodexReadState.Parse(auth,State(identity,host,2)) is null,"unknown schema rejected");
+        Check(Tab5CodexReadState.Parse(auth,State(identity,host,2))?.Unread.SetEquals([task])==true,"compatible shape with newer metadata");
+        Check(Tab5CodexReadState.Parse(auth,State(identity,host,null))?.Unread.SetEquals([task])==true,"compatible shape without version metadata");
+        Check(Tab5CodexReadState.Parse(auth,State(identity,host,2,"not an array")) is null,"malformed shape rejected");
+        Check(Tab5CodexReadState.Parse(auth,State(identity,host,2,new[]{"not-a-uuid"})) is null,"malformed ID rejected");
+        Check(Tab5CodexReadState.Parse(auth,"{}") is null,"missing known bucket rejected");
         Check(Tab5CodexReadState.Parse(Auth(1),State(identity,host)) is null,"expired identity rejected");
         Console.WriteLine("CODEX_DESKTOP_READ_STATE_OK identity, host, expiry, settle, desktop_read, new_turn, disconnect, account_switch");
     }

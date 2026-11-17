@@ -2,7 +2,7 @@
 
 Windows 普通终端通过控制台输入 API 向原会话发送消息，Windows 后台适配器通过 Claude 自己的控制通道发送。Mac 接入 Claude 自带的后台服务。TAB5 可以向已启动并验证身份的空闲后台会话发送文字和图片。普通 Terminal/iTerm2 会话可以查看历史。
 
-在原项目目录下，等原会话空闲后退出 Claude，再运行 `claude --bg --resume <会话 UUID>`。使用完整 UUID 续接已有历史，并在 `claude agents --json` 确认后台项的 `sessionId` 与原会话一致。桥接自动发现已经运行的后台会话。该版本的适配器验证范围为 Claude Code 2.1.318 的本机安装和默认配置目录。工具审批继续由 Claude 处理。[Claude Code 后台会话文档](https://code.claude.com/docs/en/agent-view#dispatch-an-agent-from-your-shell)
+在原项目目录下，等原会话空闲后退出 Claude，再运行 `claude --bg --resume <会话 UUID>`。使用完整 UUID 续接已有历史，并在 `claude agents --json` 确认后台项的 `sessionId` 与原会话一致。桥接自动发现已经运行的后台会话。最初验收的是 Claude Code 2.1.318 的本机安装和默认配置目录；当前适配器按[进程、任务和控制通道条件](CLAUDE-CAPABILITY-ALIGNMENT-20261117.md)判断，不固定发行版本。工具审批继续由 Claude 处理。[Claude Code 后台会话文档](https://code.claude.com/docs/en/agent-view#dispatch-an-agent-from-your-shell)
 
 ## 界面
 

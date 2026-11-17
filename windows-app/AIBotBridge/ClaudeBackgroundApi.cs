@@ -12,7 +12,6 @@ namespace AIBotBridge;
 internal sealed class ClaudeBackgroundApi : IClaudeNativeSession
 {
     public ClaudeSessionSource Source=>ClaudeSessionSource.Background;
-    private const string SupportedVersion="2.1.319";
     private static readonly string Home=AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile);
     private static readonly string Root=Path.Combine(Home,".claude");
     private readonly Guid session;
@@ -78,14 +77,21 @@ internal sealed class ClaudeBackgroundApi : IClaudeNativeSession
         client.interruptAcceptanceScope=expectedScope;
         return client;
     }
+    internal static bool MatchesJob(JsonElement worker,JsonElement target,Guid session,string job){
+        if(job.Length!=8||!job.All(Uri.IsHexDigit)||Str(worker,"kind")!="bg"||Str(worker,"entrypoint")!="cli"||
+           Str(worker,"jobId")!=job||Str(worker,"status").Length==0||Str(target,"backend")!="daemon")return false;
+        // Windows records may omit the redundant short ID; the exact job
+        // directory and both session IDs still bind the target.
+        if(target.TryGetProperty("daemonShort",out var shortId)&&
+           (shortId.ValueKind!=JsonValueKind.String||shortId.GetString()!=job))return false;
+        return Guid.TryParse(Str(worker,"sessionId"),out var sid)&&sid==session&&
+            Guid.TryParse(Str(target,"sessionId"),out var active)&&active==session;
+    }
     public string State {
         get {
             var r=Record(RuntimePath(workerPid));var d=Record(Path.Combine(Root,"daemon.lock"));
             var target=Record(Path.Combine(Root,"jobs",job,"state.json"));
-            if(Str(r,"kind")!="bg"||Str(r,"entrypoint")!="cli"||Str(r,"jobId")!=job||
-                Str(r,"version")!=SupportedVersion||Str(d,"version")!=SupportedVersion||Str(target,"backend")!="daemon"||
-                !Guid.TryParse(Str(target,"sessionId"),out var active)||active!=session||
-                !Guid.TryParse(Str(r,"sessionId"),out var sid)||sid!=session||r.GetProperty("pid").GetInt32()!=workerPid||
+            if(workerPid==daemonPid||!MatchesJob(r,target,session,job)||r.GetProperty("pid").GetInt32()!=workerPid||
                 Birth(r,"procStart")!=workerStart||d.GetProperty("pid").GetInt32()!=daemonPid||Birth(d,"procStartFt")!=daemonStart||
                 !VerifiedProcess(workerPid,workerStart)||!VerifiedProcess(daemonPid,daemonStart))throw new IOException("native_background_identity_changed");
             return Str(r,"status");

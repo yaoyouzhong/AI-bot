@@ -72,8 +72,7 @@ final class MacCodexReadState {
               let identityBytes = try? JSONSerialization.data(withJSONObject: ["chatgpt", account, user], options: [.withoutEscapingSlashes]),
               let hostBytes = try? JSONSerialization.data(withJSONObject: ["local", "local", NSNull()], options: [.withoutEscapingSlashes]),
               let global = try? JSONSerialization.jsonObject(with: state) as? [String: Any],
-              let readState = global["electron-thread-read-state-v1"] as? [String: Any],
-              MacTab5Protocol.integer(readState["version"]) == 1 else { return nil }
+              let readState = global["electron-thread-read-state-v1"] as? [String: Any] else { return nil }
         let key = MacTab5Protocol.sha256(identityBytes), host = "local:" + MacTab5Protocol.sha256(hostBytes)
         guard let identities = readState["unreadByIdentity"] as? [String: Any],
               let hosts = identities[key] as? [String: Any], let ids = hosts[host] as? [String],

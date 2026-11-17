@@ -50,15 +50,20 @@ enum MacCodexReadStateValidation {
         let auth = try json(["tokens": ["access_token": "fixture." + payload + ".fixture"]])
         let identity = MacTab5Protocol.sha256(try json(["chatgpt", "fixture-account", "fixture-user"]))
         let host = "local:" + MacTab5Protocol.sha256(try json(["local", "local", NSNull()]))
-        func state(_ ids: Any, key: String? = nil, version: Any = 1) throws -> Data {
-            try json(["electron-thread-read-state-v1": ["version": version, "unreadByIdentity": [key ?? identity: [host: ids]]]])
+        func state(_ ids: Any, key: String? = nil, executionHost: String? = nil, version: Any? = 1) throws -> Data {
+            var bucket: [String: Any] = ["unreadByIdentity": [key ?? identity: [executionHost ?? host: ids]]]
+            bucket["version"] = version
+            return try json(["electron-thread-read-state-v1": bucket])
         }
         try check("valid local bucket", MacCodexReadState.parse(auth: auth, state: state([task]), now: 100)?.unread == [task])
         try check("explicit empty bucket is valid", MacCodexReadState.parse(auth: auth, state: state([String]()), now: 100)?.unread == [])
         try check("wrong account is unknown", MacCodexReadState.parse(auth: auth, state: state([task], key: "other"), now: 100) == nil)
         try check("expired account unavailable", MacCodexReadState.parse(auth: auth, state: state([]), now: 1000) == nil)
-        try check("unknown schema unavailable", MacCodexReadState.parse(auth: auth, state: state([], version: 2), now: 100) == nil)
-        try check("boolean version rejected", MacCodexReadState.parse(auth: auth, state: state([], version: true), now: 100) == nil)
+        try check("compatible shape with newer metadata", MacCodexReadState.parse(auth: auth, state: state([task], version: 2), now: 100)?.unread == [task])
+        try check("compatible shape without version metadata", MacCodexReadState.parse(auth: auth, state: state([task], version: nil), now: 100)?.unread == [task])
+        try check("wrong host is unknown", MacCodexReadState.parse(auth: auth, state: state([task], executionHost: "local:other"), now: 100) == nil)
+        try check("missing known bucket is unknown", MacCodexReadState.parse(auth: auth, state: json([:]), now: 100) == nil)
+        try check("non-array list is unknown", MacCodexReadState.parse(auth: auth, state: state("not an array", version: 2), now: 100) == nil)
         try check("malformed task list unavailable", MacCodexReadState.parse(auth: auth, state: state(["bad-id"]), now: 100) == nil)
         try check("corrupt state unavailable", MacCodexReadState.parse(auth: auth, state: Data(), now: 100) == nil)
 

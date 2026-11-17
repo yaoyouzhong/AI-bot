@@ -51,14 +51,20 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
         guard row["entrypoint"] as? String == entrypoint, row["kind"] as? String == "interactive" else { return false }
         switch entrypoint {
         case "cli": return MacClaudeTerminalRegistration.isInteractiveCLI(row)
-        case "claude-vscode": return ["2.1.314", "2.1.318"].contains(row["version"] as? String ?? "")
+        case "claude-vscode":
+            guard let pid = MacTab5Protocol.integer(row["pid"]), pid > 1, pid <= Int64(Int32.max),
+                  let session = row["sessionId"] as? String, UUID(uuidString: session) != nil,
+                  let started = MacTab5Protocol.integer(row["startedAt"]), started > 0,
+                  let status = row["status"] as? String, !status.isEmpty else { return false }
+            return true
         default: return false
         }
     }
     private static func metadata(_ file:URL) throws -> [String:Any] {
         let info=try file.resourceValues(forKeys:[.isRegularFileKey,.isSymbolicLinkKey,.fileSizeKey])
-        guard info.isRegularFile==true,info.isSymbolicLink != true,(info.fileSize ?? 20000)<16384 else { throw MacTab5Error.unconfirmed }
-        return try MacTab5Protocol.object(Data(contentsOf:file))
+        guard info.isRegularFile==true,info.isSymbolicLink != true,(info.fileSize ?? 20000)<16384,
+              let record = MacClaudeTerminalRegistration.read(file) else { throw MacTab5Error.unconfirmed }
+        return record
     }
     static func live(entrypoint: String) -> Set<UUID> {
         let root=FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/sessions")
@@ -102,7 +108,7 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
                 let storage=FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0].appendingPathComponent("Code/User/workspaceStorage")
                 let folders=try FileManager.default.contentsOfDirectory(at:storage,includingPropertiesForKeys:nil)
                 guard folders.count<=2048 else { return nil }
-                let found=folders.compactMap { folder -> URL? in let file=folder.appendingPathComponent("state.vscdb");guard let object=try? readDatabase(file,"Anthropic.claude-code"),let panels=object["panelTabSessions"] as? [[String:Any]],panels.contains(where:{ UUID(uuidString:$0["sessionId"] as? String ?? "")==session }) else { return nil };return file }
+                let found=folders.compactMap { folder -> URL? in let file=folder.appendingPathComponent("state.vscdb");guard let object=try? readDatabase(file,"Anthropic.claude-code"),let panels=object["panelTabSessions"] as? [[String:Any]],panels.filter({ UUID(uuidString:$0["sessionId"] as? String ?? "")==session }).count == 1 else { return nil };return file }
                 guard found.count==1 else { return nil };database=found[0]
             } else if !["com.apple.Terminal","com.googlecode.iterm2"].contains(host.bundleIdentifier ?? "") { return nil }
             return MacClaudeNativeClient(session:session,pid:pid,start:start,record:record,host:host,hostStart:fingerprint(try process(host.processIdentifier)),entrypoint:entrypoint,database:database,registeredAt:registeredAt,executablePath:image)
@@ -116,8 +122,8 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
         let row=try Self.metadata(record)
         guard !host.isTerminated,UUID(uuidString:row["sessionId"] as? String ?? "")==session,row["startedAt"] as? Double==registeredAt,
               row["pid"] as? Int==Int(pid),Self.acceptsSessionRecord(row, entrypoint: entrypoint),
-              entrypoint != "cli" || (Self.executable(pid) == executablePath &&
-                  Self.matchesExecutable(executablePath, reportedVersion: row["version"] as? String)),
+              Self.executable(pid) == executablePath,
+              Self.matchesExecutable(executablePath, reportedVersion: row["version"] as? String),
               Self.fingerprint(try Self.process(pid))==start,Self.fingerprint(try Self.process(host.processIdentifier))==hostStart else {throw MacTab5Error.unconfirmed}
         return row["status"] as? String ?? "unknown"
     }
@@ -145,6 +151,11 @@ final class MacClaudeNativeClient: MacClaudeNativeSession {
     }
     @discardableResult private func selectedCode() throws -> Bool {
         guard let database else {throw MacTab5Error.unconfirmed}
+        let extensionState = try Self.readDatabase(database, "Anthropic.claude-code")
+        guard let panels = extensionState["panelTabSessions"] as? [[String: Any]],
+              panels.filter({ UUID(uuidString: $0["sessionId"] as? String ?? "") == session }).count == 1 else {
+            throw MacTab5Error.unconfirmed
+        }
         let saved=try Self.readDatabase(database,"memento/workbench.parts.editor")
         guard let part=saved["editorpart.state"] as? [String:Any],let grid=part["serializedGrid"] as? [String:Any],let root=grid["root"] as? [String:Any],let active=part["activeGroup"] as? Int else {throw MacTab5Error.unconfirmed}
         var groups:[[String:Any]]=[]

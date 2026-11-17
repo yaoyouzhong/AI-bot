@@ -43,3 +43,5 @@ R6 总览在已安装基线和 Mac 候选都把正在处理的会话标为「状
 - 修复候选源码 `a6ee531c7692119ecc1673842dacf5a1f8b56f43`；Mac 可执行文件 SHA-256 `50fbacb914eb922e13ec3b98af20a36ea314004f2c5cf6cd4892d4545ca9d08b`。Mac 539 项测试（4 跳过、0 失败）、Release、签名校验通过；Windows Release 跨平台编译 0 警告、0 错误，原生 `--status-once` 和自测仍需 Windows 环境。
 - 用 Mac 生产 IPC 读取代码直连本机实际 Codex 拥有者，同一任务读取结果为 `working`。随后使用同一签名候选，通过 USB 自动取回 R6 的 1280 × 720 真机总览，原先显示「状态未知」的任务显示「工作中」和工作动画。自动验收确认展示设置前后相同，一次多余的总览点击未获回执；最终画面由设备实际回传。没有发送消息或中断真实任务。
 - 「仅蓝牙」时设备接受 USB 管理状态，但 USB 自动验收在读取展示设置阶段未获回执。用户恢复「自动选择」后，从真机 USB 镜像重新核对该设置；候选之后仍运行，日常安装包未覆盖。证据见本机 `artifacts/mac-tab5-ble-alignment-20261117/codex-device-verification/`。
+
+后续 Claude 与 Codex 已读状态的版本解除及测试见[能力与数据结构对齐记录](CLAUDE-CAPABILITY-ALIGNMENT-20261117.md)。

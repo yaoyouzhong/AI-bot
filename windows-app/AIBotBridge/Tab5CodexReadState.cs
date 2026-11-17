@@ -76,9 +76,8 @@ internal sealed class Tab5CodexReadState
         string identity=principal.Scope[..separator],host=principal.Scope[(separator+1)..];
         using var global=JsonDocument.Parse(stateJson);
         var state=Tab5CodexDesktop.Child(global.RootElement,"electron-thread-read-state-v1");
-        if(Tab5CodexDesktop.Child(state,"version").ValueKind!=JsonValueKind.Number||state.GetProperty("version").GetInt32()!=1)return null;
         var bucket=Tab5CodexDesktop.Child(Tab5CodexDesktop.Child(Tab5CodexDesktop.Child(state,"unreadByIdentity"),identity),host);
-        if(bucket.ValueKind!=JsonValueKind.Array)return null;
+        if(bucket.ValueKind!=JsonValueKind.Array||bucket.GetArrayLength()>8192)return null;
         var unread=new HashSet<string>();
         foreach(var id in bucket.EnumerateArray()) {
             if(id.ValueKind!=JsonValueKind.String||!Guid.TryParse(id.GetString(),out var parsed))return null;

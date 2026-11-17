@@ -25,6 +25,36 @@ final class MacClaudeNativeTests: XCTestCase {
         XCTAssertNil(baseline.confirm(try read(original+[user(UUID().uuidString.lowercased(),seed,"other"),user(sent,seed,"next")]),scope:"scope"))
         XCTAssertNil(baseline.confirm(try read(original+[user(sent,seed,"next")]),scope:"different"))
     }
+    func testDaemonBindingUsesJobAndSessionInsteadOfRelease() {
+        let id = UUID(), job = "a0123456"
+        var row: [String: Any] = ["kind": "bg", "entrypoint": "cli", "jobId": job, "sessionId": id.uuidString, "status": "idle"]
+        var target: [String: Any] = ["backend": "daemon", "daemonShort": job, "sessionId": id.uuidString]
+        XCTAssertTrue(MacClaudeBackground.matchesJob(row, jobState: target, session: id, job: job))
+        row["version"] = "5.0.0"; target["version"] = "different"
+        XCTAssertTrue(MacClaudeBackground.matchesJob(row, jobState: target, session: id, job: job))
+        XCTAssertFalse(MacClaudeBackground.matchesJob(row, jobState: target, session: UUID(), job: job))
+        target["daemonShort"] = "bcdef987"
+        XCTAssertFalse(MacClaudeBackground.matchesJob(row, jobState: target, session: id, job: job))
+        target["daemonShort"] = job; row["status"] = 1
+        XCTAssertFalse(MacClaudeBackground.matchesJob(row, jobState: target, session: id, job: job))
+    }
+
+    func testVSCodeRegistrationUsesInteractiveSessionShapeInsteadOfRelease() {
+        let session = UUID().uuidString
+        func row(version: String?, kind: String = "interactive", status: Any = "idle",
+                 id: String = session, pid: Int = 250) -> [String: Any] {
+            ["version": version as Any, "entrypoint": "claude-vscode", "kind": kind, "status": status,
+             "sessionId": id, "pid": pid, "startedAt": 1_000_000]
+        }
+        for version in ["2.1.314", "2.1.325", "5.0.0", nil] {
+            XCTAssertTrue(MacClaudeNativeClient.acceptsSessionRecord(row(version: version), entrypoint: "claude-vscode"))
+        }
+        XCTAssertFalse(MacClaudeNativeClient.acceptsSessionRecord(row(version: nil, kind: "bg"), entrypoint: "claude-vscode"))
+        XCTAssertFalse(MacClaudeNativeClient.acceptsSessionRecord(row(version: nil, status: 1), entrypoint: "claude-vscode"))
+        XCTAssertFalse(MacClaudeNativeClient.acceptsSessionRecord(row(version: nil, id: "not-a-uuid"), entrypoint: "claude-vscode"))
+        XCTAssertFalse(MacClaudeNativeClient.acceptsSessionRecord(row(version: nil, pid: 0), entrypoint: "claude-vscode"))
+    }
+
     func testAttachmentAccessibleLabel(){
         XCTAssertEqual(MacClaudeNativeClient.attachmentName("blue-probe.png 96×96 Remove attachment"),"blue-probe.png")
         XCTAssertEqual(MacClaudeNativeClient.attachmentName("设计 图片 96×96.png 1280×720 Remove attachment"),"设计 图片 96×96.png")
