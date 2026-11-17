@@ -3,7 +3,7 @@
   "mode": "isolated-transport-probe",
   "probeId": "20261117-c5b73fe",
   "targetPlatform": "macos",
-  "phase": "offered",
+  "phase": "claimed",
   "task": {
     "schemaVersion": 1,
     "repository": "yaoyouzhong/AI-bot",
@@ -20,5 +20,11 @@
     "nativeValidationAllowed": false,
     "publishAllowed": false,
     "allowedWriteBranch": "codex/autoloop-coordination"
+  },
+  "claim": {
+    "id": "0ff9b37cf3101ef1b16656b7fe937ca66ae123f49acb916b053535799d65c3cc",
+    "platform": "macos",
+    "at": "2026-11-17T07:59:01.113Z",
+    "purpose": "isolated transport only"
   }
 }
