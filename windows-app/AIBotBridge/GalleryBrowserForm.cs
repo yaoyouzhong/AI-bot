@@ -48,7 +48,6 @@ internal sealed class GalleryBrowserForm : Form
         filters.Controls.Add(Action("今日","browse-today",()=>{_date.Value=DateTime.Today;FindDate();}));
         filters.Controls.Add(Caption("搜索"));_search.AccessibleName="作品名或作者";
         filters.Controls.Add(_search);filters.Controls.Add(Action("刷新","browse-refresh",async()=>await ReloadAsync()));
-        filters.Controls.Add(Action("管理图库…","browse-manage",()=>{using var manager=new GalleryPackForm();manager.ShowDialog(this);_ = ReloadAsync();}));
         var content=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Margin=Padding.Empty};
         content.ColumnStyles.Add(new(SizeType.Percent,30));content.ColumnStyles.Add(new(SizeType.Percent,70));content.RowStyles.Add(new(SizeType.Percent,100));root.Controls.Add(content,0,2);
         var directory=new Panel{Dock=DockStyle.Fill,Margin=new(0,0,20,0),Padding=new(1),BackColor=SettingsWindow.Border};content.Controls.Add(directory,0,0);
@@ -112,7 +111,7 @@ internal sealed class GalleryBrowserForm : Form
         string search=_search.Text.Trim();_filtered=Enumerable.Range(0,_catalog.Works.Length).Where(i=>search.Length==0||(_catalog.Works[i].Title??"").Contains(search,StringComparison.OrdinalIgnoreCase)||(_catalog.Works[i].Author??"").Contains(search,StringComparison.OrdinalIgnoreCase)).ToArray();
         _selected=preferred is int p&&_filtered.Contains(p)?p:_filtered.FirstOrDefault(-1);
         RenderList();
-        if(_selected<0)ClearDetail(_catalog.Works.Length==0?"尚未安装这类图库，请返回屏保图库导入。":"没有匹配的作品，请更换搜索词。");
+        if(_selected<0)ClearDetail(_catalog.Works.Length==0?"尚未安装这类图库，请到「软件固件 → 屏保图库」安装。":"没有匹配的作品，请更换搜索词。");
         UpdateNavigation();if(_selected>=0){_frame=0;_ = LoadDetailAsync();}
     }
     private void FindDate() {

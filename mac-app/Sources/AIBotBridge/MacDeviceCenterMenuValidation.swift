@@ -46,7 +46,7 @@ enum MacDeviceCenterMenuValidation {
             for (group, device) in zip(groups, sorted) {
                 let expected = device.kind == "esp8266"
                     ? ["显示设置", "外观设置", "数据设置", "连接设置"]
-                    : ["屏保图库", "语音设置", "日历生日", "电脑控制", "数据设置", "连接升级"]
+                    : ["屏保图库", "语音设置", "日历生日", "电脑控制", "数据设置", "连接设置"]
                 let entries = group.submenu!.items
                 try check("Windows shortcut labels and order", entries.map(\.title) == expected)
                 try check("disabled group and children", group.isEnabled == device.enabled && entries.allSatisfy { $0.isEnabled == device.enabled })

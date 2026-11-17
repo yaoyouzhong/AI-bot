@@ -36,7 +36,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     private var features: MacTab5FeaturesWindow?
     private var voiceSettings: MacVoiceSettingsWindow?
     private var birthdayWindow: MacBirthdayWindow?, agendaWindow: MacAgendaWindow?, pinsWindow: MacTaskPinsWindow?
-    private var galleryBrowser: MacGalleryBrowser?, galleryManager: MacGalleryManager?, computerWindow: MacComputerWindow?
+    private var galleryBrowser: MacGalleryBrowser?, computerWindow: MacComputerWindow?
     private let registry: MacDeviceRegistry?
     private let startup = NSButton(checkboxWithTitle: "开机启动", target: nil, action: nil)
     private(set) var busy = false
@@ -153,10 +153,10 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
             card("日历生日", "设置日历与提醒", id: "birthday-settings", #selector(openBirthdays)),
             card("日程待办", "管理事项与提醒", id: "agenda", #selector(openAgenda)),
             card("电脑控制", "常用软件与文件夹", id: "computer-control", #selector(openFeatures)),
-            card("屏保图库", "浏览名画与书法", id: "gallery-browser", #selector(openGalleryManager)),
+            card("屏保图库", "浏览名画与书法", id: "gallery-browser", #selector(openGalleryBrowser)),
             card("常用任务", "优先显示常用任务", id: "task-pins", #selector(openPins)),
             commonCard("数据设置", "选择需要的数据", id: "tab5-data", .tab5Data),
-            card("连接升级", "管理连接与升级", id: "tab5-connect", #selector(showConnection))
+            card("连接设置", "Wi-Fi 与 USB", id: "tab5-connect", #selector(showConnection))
         ])
         overview.add(note("亮度、声音、页面和轮播以设备实际值为准，保存后显示设备确认结果。"))
     }
@@ -170,6 +170,12 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
             commonCard("数据设置", "选择需要的数据", id: "esp8266-data", .espData),
             commonCard("连接设置", "USB、Wi-Fi 回退和配对令牌", id: "esp8266-connect", .espConnection)
         ])
+    }
+
+    private var updateCard: MacBridgeActionCard?
+
+    func setAvailableUpdates(_ count: Int) {
+        updateCard?.setDetail(count > 0 ? "\(count) 项更新可用" : "查看软件、固件和图库更新")
     }
 
     private func buildSharedPages() {
@@ -187,9 +193,12 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
         bridge.add(heading("桥接设置", size: 23))
         bridge.add(note("查看本机运行状态，管理局域网连接与使用说明。"))
         startup.state = MacLoginItem.enabled ? .on : .off; startup.target = self; startup.action = #selector(toggleStartup); bridge.add(startup)
+        let status = commonCard("服务状态", "查看状态、数据更新与连接", id: "bridge-status", .status)
+        let updates = commonCard("软件固件", "查看软件、固件和图库更新", id: "updates", .updates)
+        updateCard = updates
         bridge.addCards([
-            commonCard("服务状态", "查看状态、数据更新与连接", id: "bridge-status", .status),
-            commonCard("软件固件", "检查版本、下载校验与升级", id: "updates", .updates),
+            status,
+            updates,
             commonCard("配置迁移", "备份、预览与选择恢复", id: "configuration-backup", .configuration),
             commonCard("提醒管理", "任务、额度、运行提醒与勿扰", id: "notifications", .notifications),
             commonCard("系统授权", "定位、语音、通知与自动化", id: "system-permissions", .permissions),
@@ -249,7 +258,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
             }
         } else if kind == "tab5" {
             switch action {
-            case "gallery-browser": openGalleryManager()
+            case "gallery-browser": openGalleryBrowser()
             case "voice": openVoice()
             case "birthday-settings": openBirthdays()
             case "computer-control": openFeatures()
@@ -320,8 +329,10 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     @objc private func openBirthdays() { if birthdayWindow == nil { birthdayWindow = MacBirthdayWindow(store: service.birthdays) }; birthdayWindow?.open() }
     @objc private func openAgenda() { if agendaWindow == nil { agendaWindow = MacAgendaWindow(store: service.agenda) }; agendaWindow?.open() }
     @objc private func openPins() { pinsWindow = MacTaskPinsWindow(codex: service.codex, permissions: { [weak self] in self?.openCodex() }); pinsWindow?.open() }
-    @objc private func openGalleryBrowser() { if galleryBrowser == nil { galleryBrowser = MacGalleryBrowser(gallery: service.gallery, importPack: { [weak self] in self?.openGalleryManager() }) }; galleryBrowser?.open() }
-    @objc private func openGalleryManager() { if galleryManager == nil { galleryManager = MacGalleryManager(gallery:service.gallery,browse:{ [weak self] in self?.openGalleryBrowser() }) }; galleryManager?.open() }
+    @objc private func openGalleryBrowser() {
+        if galleryBrowser == nil { galleryBrowser = MacGalleryBrowser(gallery: service.gallery) }
+        galleryBrowser?.open()
+    }
     @objc private func toggleStartup() { do { try MacLoginItem.setEnabled(startup.state == .on); result.stringValue = MacLoginItem.description } catch { result.stringValue = "登录项设置失败：" + error.localizedDescription }; startup.state = MacLoginItem.enabled ? .on : .off }
     @objc private func addDevice() {
         guard let registry else { return }
@@ -346,8 +357,8 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
         add("修改名称",#selector(renameDevice)); add(enabled ? "停用设备":"启用设备",#selector(toggleDevice))
         if kind == "esp8266" {
             menu.addItem(.separator())
-            add("固件升级",#selector(deviceUpgrade),allowed:enabled)
-            for (title,action) in [("设备信息",#selector(deviceInformation)),("连接诊断",#selector(deviceDiagnostics)),("重置网络",#selector(resetDeviceNetwork))] { add(title,action,allowed:enabled && smallScreenOnline()) }
+            add("手动刷机…",#selector(deviceUpgrade),allowed:enabled)
+            for (title,action) in [("设备信息",#selector(deviceInformation)),("连接诊断",#selector(deviceDiagnostics))] { add(title,action,allowed:enabled && smallScreenOnline()) }
         }
         menu.addItem(.separator()); add("移除设备…",#selector(removeDevice)); return menu
     }
@@ -369,7 +380,6 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     @objc private func deviceInformation() { bridgeAction(.deviceInfo) }
     @objc private func deviceDiagnostics() { bridgeAction(.espFallback) }
     @objc private func deviceUpgrade() { bridgeAction(.flash) }
-    @objc private func resetDeviceNetwork() { bridgeAction(.espReset) }
     @objc private func removeDevice() {
         guard let registry else { return }; let kind = selectedDevice == 0 ? "tab5":"esp8266"
         let alert = NSAlert(); alert.messageText = "从列表移除此设备？"; alert.informativeText = "停止此设备的数据服务；配对和本机资料保留，可重新添加。"; alert.addButton(withTitle:"移除"); alert.addButton(withTitle:"取消")
@@ -378,8 +388,8 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     func showUpgradeTools() { openTools(page:.firmware) }
     private func deviceHeading(_ title: NSTextField) -> NSView {
         let spacer = NSView(); spacer.setContentHuggingPriority(.defaultLow,for:.horizontal)
-        let button = NSButton(title:"管理 ▾",target:self,action:#selector(manageDevice(_:)))
-        return MacBridgeSettingsStyle.row([title,spacer,button])
+        let manage = NSButton(title:"管理 ▾",target:self,action:#selector(manageDevice(_:)))
+        return MacBridgeSettingsStyle.row([title,spacer,manage])
     }
     private func openTools(page:MacTab5ToolsWindow.Page? = nil) {
         if tools == nil { tools = MacTab5ToolsWindow(service: service, usb: usb, canBegin: { [weak self] in self?.busy == false && self?.canBegin() == true }, install: install, changeBluetooth: changeBluetooth) }

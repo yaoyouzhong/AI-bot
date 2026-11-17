@@ -88,14 +88,16 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 ![图 4：TAB5 首次安装；上方选端口，中间选 ZIP 并安装，下方检查启动](assets/screens/tab5-first-install.png)
 
 3. **重启并检查。** 提示“写入校验通过”后短按 RESET，等待屏幕启动；点 **刷新设备**，重新选择启动后的端口，再点 **检查启动**。检查通过后点底部“返回添加设备”，再完成验证并添加。端口号变化属于正常情况。
-4. **添加并确认数据。** 回“添加”刷新，选重启后的 TAB5，点 **验证并添加**，此操作会完成 USB 验证与配对。确认实体屏、触摸和数据更新；需要重新配对时使用 **连接升级 → USB 配对 → 刷新设备 → 配对**。保留 TAB5 当前展示设置，无需启用轮播；Wi-Fi 可稍后配置。
+4. **添加并确认数据。** 回“添加”刷新，选重启后的 TAB5，点 **验证并添加**，此操作会完成 USB 验证与配对。确认实体屏、触摸和数据更新；需要重新配对时使用 **连接设置 → USB 配对 → 刷新设备 → 配对**。旧版桥接中的入口名为「连接升级」。保留 TAB5 当前展示设置，无需启用轮播；Wi-Fi 可稍后配置。
 
 ![图 5：TAB5 USB 配对；若尚未配对，选择本机端口后点“配对”](assets/screens/tab5-usb-pairing.png)
 
 <a id="tab5-upgrade"></a>
 ### C. TAB5：已有 AI-bot，后续升级 · 4 步
 
-1. **解压并打开升级页。** 完整解压 `AI-bot-tab5-0.2.321-ui-upgrade.zip`。设备中心选中 TAB5 → **连接升级 → 固件升级**，保持有效连接和供电。
+日常检查新版请从 **设备中心 → 桥接设置 → 软件固件** 进入。以下步骤用于手动安装已下载的升级包。
+
+1. **解压并打开升级页。** 完整解压 `AI-bot-tab5-0.2.321-ui-upgrade.zip`。设备中心选中 TAB5 → **连接设置 → 固件升级**，保持有效连接和供电。
 2. **提供固件。** 点 **选择固件…**，选解压后的 `aibot_tab5.bin`，同目录保留更新说明文件；核对版本 **0.2.321-ui** 与更新说明，确认提供。
 
 ![图 6：TAB5 固件升级界面示例；升级完成后在状态旁点“核验启动”](assets/screens/tab5-upgrade.png)
@@ -103,7 +105,7 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 3. **开始升级。** 支持的设备在电脑点 **开始升级**；旧固件先在 TAB5 上完成一次升级。等待传输、校验与重启。“已提供固件”只是准备完成，不代表已安装。
 4. **核验并检查显示。** 重启后用 USB 连接电脑，在升级页的核验状态旁点 **核验启动**，看到“启动核验通过”后检查触摸与数据；保留原连接模式、亮度和展示设置，不要求 TAB5 恢复自动模式或启用轮播。
 
-**传输测速：** “连接升级 → 传输测速”选择 **图库写卡**或 **通信传输**，点 **开始测速**。前者测独立样本的传输、校验和写卡速度，保留现有图库；后者只测通信。默认显示速度和完成状态，点 **查看详细数据**展开分段耗时。需连接 USB 读取结果；图库测试通道按 TAB5 的连接方式选择。
+**传输测速：** “连接设置 → 传输测速”选择 **图库写卡**或 **通信传输**，点 **开始测速**。前者测独立样本的传输、校验和写卡速度，保留现有图库；后者只测通信。默认显示速度和完成状态，点 **查看详细数据**展开分段耗时。需连接 USB 读取结果；图库测试通道按 TAB5 的连接方式选择。
 
 **Transfer tests:** Select **Gallery/Card** or **Communication** in the transfer test tab, then **Start Test**. Gallery tests include sample transfer, validation and card writes while retaining installed collections; communication tests do not write to the card. Expand details for phase timings. USB is required to read results; gallery transport follows the device connection setting.
 
@@ -128,7 +130,7 @@ Windows Computer Control → One-click Unlock Settings uses one page for the swi
 
 ![TAB5 独立的存储与缓存设置，默认使用设备缓存](assets/screens/tab5-settings-storage.png)
 
-TAB5 需要无线时，在 **连接升级 → Wi-Fi** 保存网络并确认有效数据。先把 USB 主流程完成，再按需设置无线；Wi-Fi 已关联不等于桥接数据已连通。ESP8266 无线设置见[进阶说明](FLASH_BUILD.zh.md)。
+TAB5 需要无线时，在 **连接设置 → Wi-Fi** 保存网络并确认有效数据。先把 USB 主流程完成，再按需设置无线；Wi-Fi 已关联不等于桥接数据已连通。ESP8266 无线设置见[进阶说明](FLASH_BUILD.zh.md)。
 
 ![图 7：TAB5 Wi-Fi 设置，按需配置；USB 已能正常使用时可以跳过](assets/screens/tab5-connection.png)
 

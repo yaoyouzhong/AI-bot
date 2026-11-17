@@ -25,7 +25,7 @@ enum MacDeviceCenterMenu {
             let submenu = NSMenu(); submenu.autoenablesItems = false
             let actions = device.kind == "esp8266"
                 ? [("cycle", "显示设置"), ("appearance", "外观设置"), ("data", "数据设置"), ("legacy-settings", "连接设置")]
-                : [("gallery-browser", "屏保图库"), ("voice", "语音设置"), ("birthday-settings", "日历生日"), ("computer-control", "电脑控制"), ("data", "数据设置"), ("tab5", "连接升级")]
+                : [("gallery-browser", "屏保图库"), ("voice", "语音设置"), ("birthday-settings", "日历生日"), ("computer-control", "电脑控制"), ("data", "数据设置"), ("tab5", "连接设置")]
             for (key, label) in actions {
                 let entry = MacDeviceMenuItem(label, key: key) { deviceAction(device, key) }
                 entry.isEnabled = device.enabled; submenu.addItem(entry)

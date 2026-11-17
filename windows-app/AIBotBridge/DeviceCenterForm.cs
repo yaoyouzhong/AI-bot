@@ -13,6 +13,8 @@ internal sealed class DeviceCenterForm : Form
     private readonly Action<string> _common;
     private readonly Func<string,bool> _setting;
     private readonly StartupSettingControl _startup;
+    private DeviceActionButton? _updateCard;
+    private int _availableUpdates;
     private readonly TabControl _pages=new(){Dock=DockStyle.Fill,Padding=new(18,9)};
     private readonly ListBox _list=new(){Dock=DockStyle.Fill,DisplayMember="Name",IntegralHeight=false,BorderStyle=BorderStyle.None,DrawMode=DrawMode.OwnerDrawFixed,ItemHeight=36};
     private readonly TableLayoutPanel _deviceLayout=new(){Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Margin=Padding.Empty};
@@ -101,7 +103,7 @@ internal sealed class DeviceCenterForm : Form
             _manage.Items.Add(d.Enabled?"停用设备":"启用设备",null,async(_,_)=>await Change(d,false));
             if(d.Kind==HardwareKind.Esp8266){
                 _manage.Items.Add(new ToolStripSeparator());
-                foreach(var (label,key) in new[]{("固件升级","flash"),("设备信息","info"),("连接诊断","fallback"),("重置网络","reset")}){
+                foreach(var (label,key) in new[]{("手动刷机…","flash"),("设备信息","info"),("连接诊断","fallback")}){
                     var item=new ToolStripMenuItem(label){Tag=key};item.Click+=(_,_)=>_action(d.Id,key);_manage.Items.Add(item);
                 }
             }
@@ -113,7 +115,7 @@ internal sealed class DeviceCenterForm : Form
                 if(action=="data"){
                     Card(grid,"数据设置",Description(action),()=>{using var dialog=new DeviceDataForm(_store,d.Id);if(dialog.ShowDialog(this)==DialogResult.OK){_action(d.Id,"data-changed");Reload();}});continue;
                 }
-                string title=action switch {"tab5"=>"连接升级","birthday-settings"=>"日历生日","legacy-settings"=>"连接设置","cycle"=>"显示设置","appearance"=>"外观设置",_=>DeviceCapabilities.Actions(d.Kind).Single(c=>c.Action==action).Label};
+                string title=action switch {"birthday-settings"=>"日历生日","legacy-settings"=>"连接设置","cycle"=>"显示设置","appearance"=>"外观设置",_=>DeviceCapabilities.Actions(d.Kind).Single(c=>c.Action==action).Label};
                 var button=Card(grid,title,Description(action),()=>_action(d.Id,action));_actions.Add((button,action));
             }
             RefreshStatus();
@@ -127,6 +129,13 @@ internal sealed class DeviceCenterForm : Form
         row.Controls.Add(new Label{Text="发现 ESP8266 旧配置",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(0,7,12,7)});
         row.Controls.Add(Button("导入 ESP8266",()=>_action("","migrate-legacy")));row.Controls.Add(Button("不再提示",()=>_action("","dismiss-legacy")));_legacy.Controls.Add(row);
     }
+    internal void SetAvailableUpdates(int count) {
+        _availableUpdates=count;
+        _updateCard?.SetDescription(UpdateDescription);
+    }
+
+    private string UpdateDescription => _availableUpdates>0?$"{_availableUpdates} 项更新可用":"查看软件、固件和图库更新";
+
     private void RenderShared() {
         Clear(_accounts);Heading(_accounts,"账号数据",17);
         var accounts=ActionGrid(_accounts,compact:true);
@@ -138,7 +147,7 @@ internal sealed class DeviceCenterForm : Form
         _startup.RefreshState();_bridge.Controls.Add(_startup);
         var bridge=ActionGrid(_bridge);
         Card(bridge,"服务状态","连接状态与数据更新",()=>_common("status"));
-        Card(bridge,"软件固件","版本、兼容与升级入口",()=>_common("updates"));
+        _updateCard=Card(bridge,"软件固件",UpdateDescription,()=>_common("updates"));
         Card(bridge,"配置迁移","备份、预览与选择恢复",()=>_common("configuration-backup"));
         Card(bridge,"提醒管理","勿扰时段与提醒记录",()=>_common("notifications"));
         Card(bridge,"运行监控","VPN / PAC 与电脑流畅度",()=>_common("runtime-health"));
@@ -208,7 +217,7 @@ internal sealed class DeviceCenterForm : Form
     private static string Description(string action)=>action switch {
         "agenda"=>"管理事项与提醒",
         "gallery-browser"=>"浏览名画与书法",
-        "tab5"=>"管理连接与升级", "tab5-display"=>"调节亮度与声音", "voice"=>"设置语音与麦克风", "birthday-settings"=>"设置日历与提醒", "task-pins"=>"优先显示常用任务", "computer-control"=>"常用软件与文件夹", "data"=>"选择需要的数据",
+        "tab5"=>"Wi-Fi 与 USB", "tab5-display"=>"调节亮度与声音", "voice"=>"设置语音与麦克风", "birthday-settings"=>"设置日历与提醒", "task-pins"=>"优先显示常用任务", "computer-control"=>"常用软件与文件夹", "data"=>"选择需要的数据",
         "legacy-settings"=>"设置连接与屏保", "cycle"=>"设置亮度与轮播", "mirror"=>"查看显示内容预览",
         "flash"=>"选择固件并升级", "pet-gallery"=>"浏览桌宠素材", "appearance"=>"选择动画与桌宠", _=>""
     };
@@ -251,7 +260,7 @@ internal sealed class DeviceCenterForm : Form
         grid.SizeChanged+=(_,_)=>Arrange();grid.FontChanged+=(_,_)=>Arrange();grid.ControlAdded+=(_,_)=>Arrange();
         parent.Controls.Add(grid);return grid;
     }
-    private static Button Card(TableLayoutPanel grid,string title,string description,Action action) {
+    private static DeviceActionButton Card(TableLayoutPanel grid,string title,string description,Action action) {
         int index=grid.Controls.Count;
         var card=new DeviceActionButton(title,description){Dock=DockStyle.Fill,TabIndex=index};
         card.Click+=(_,_)=>action();grid.Controls.Add(card);return card;
