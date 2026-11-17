@@ -3,7 +3,7 @@
   "mode": "isolated-transport-probe",
   "probeId": "20261117-c5b73fe",
   "targetPlatform": "macos",
-  "phase": "claimed",
+  "phase": "acknowledged",
   "task": {
     "schemaVersion": 1,
     "repository": "yaoyouzhong/AI-bot",
@@ -26,5 +26,18 @@
     "platform": "macos",
     "at": "2026-11-17T07:59:01.113Z",
     "purpose": "isolated transport only"
+  },
+  "receipt": {
+    "taskId": "a33a8840c582897a271a7434f86b1d72a26b3b336042c99d8ff3064b9cb959ae",
+    "sourceCommit": "5476a32e59b0e431351508da53e2fa871528a4fd",
+    "platform": "macos",
+    "status": "acknowledged",
+    "simulationOnly": true,
+    "at": "2026-11-17T07:59:03.762Z",
+    "autoLoopRun": "6503",
+    "developmentPerformed": false,
+    "nativeValidationPerformed": false,
+    "publishPerformed": false,
+    "meaning": "Mac Auto Loop received isolated GitHub-ledger probe; no development completion"
   }
 }
