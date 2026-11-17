@@ -9,7 +9,7 @@ class WatchTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         self.binding=dict(repository='owner/repo',targetPlatform='macos',eventType='main.review',verified=True,
                           evidence='fixture',access='read',mode='review-only')
-        self.config=dict(enabled=True,branch='main',binding=self.binding,expectedRule='probe',baselineVerified=True,auditRoot=self.temp.name)
+        self.config=dict(enabled=True,dispatchEnabled=True,branch='main',binding=self.binding,expectedRule='probe',baselineVerified=True,auditRoot=self.temp.name)
         self.head='a'*40; self.keys={}; self.lose=False
     def hub(self,method,path,payload=None):
         if method=='POST':
@@ -37,6 +37,18 @@ class WatchTests(unittest.TestCase):
     def test_unverified_dynamic_workspace_refused(self):
         self.binding.update(mode='isolated-alignment',access='workspace-write')
         with self.assertRaises(ValueError): self.tick()
+    def test_observation_only_never_touches_hub(self):
+        self.config['dispatchEnabled']=False
+        self.config.pop('expectedRule')
+        result=watch_once(self.config,lambda repo:dict(sha=self.head),None)
+        self.assertEqual(result['state'],'observed-not-dispatched')
+        self.assertEqual(len(list((Path(self.temp.name)/'observations').glob('*.json'))),1)
+        self.assertIsNone(result['alignedHead'])
+
+    def test_missing_dispatch_choice_fails_closed(self):
+        self.config.pop('dispatchEnabled')
+        with self.assertRaises(ValueError): self.tick()
+
     def test_pause_not_reported_as_execution(self):
         def paused(method,path,payload=None): return dict(event=1,routed=[],paused=['probe'],runs=[])
         result=watch_once(self.config,lambda repo:dict(sha=self.head),paused)
