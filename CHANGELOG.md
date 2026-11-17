@@ -6,11 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.24 - 2026-11-17
 
-This release updates the Windows x64 bridge only. Mac stays at 0.6.23, TAB5 at 0.2.321-ui, and ESP8266 at 0.5.8. Updating the bridge does not require reflashing a device.
+This release ships bridge 0.6.24 for Windows x64 and Apple Silicon Mac, together with TAB5 firmware 0.2.322-ui. ESP8266 remains at 0.5.8. You can update the bridge and TAB5 separately.
 
 ### Software, firmware, and artwork
 
-- Check for desktop, firmware, and screensaver artwork updates in Device Center → Bridge Settings → Software/Firmware. The artwork row counts as one update even when both collections have new versions. Use Manage Collections to see versions and installation options for paintings and calligraphy. If you quit from the tray during a collection installation, the bridge brings the collection window back until the operation finishes or is cancelled.
+- Check for desktop, firmware, and screensaver artwork updates in Device Center → Bridge Settings → Software/Firmware. The artwork row counts as one update even when both collections have new versions. Manage Collections shows painting and calligraphy versions and reuses the last successful update check. A quit request during installation returns to the collection window.
 - Update notifications open the relevant item. If you cancel opening the downloaded Windows installer, the bridge confirms that it was downloaded but not installed. TAB5 connection, pairing, firmware upgrades, and speed tests now share Connection Settings.
 
 ### Claude, Codex, and TAB5 connectivity
@@ -18,6 +18,10 @@ This release updates the Windows x64 bridge only. Mac stays at 0.6.23, TAB5 at 0
 - The companion can show Idle while an open Claude Code terminal is waiting for input. The bridge checks the session and available controls when resuming a Claude background session. The Codex overview and read status use recognized data fields, including newer versions that retain those fields.
 - When TAB5 requests authentication again, the bridge tries to recover on the same USB connection. Metrics and asset transfers yield to device controls while the control page is open. The bridge attempts to recover from Bluetooth status-acknowledgement and idle-poll timeouts separately to reduce interruptions to unrelated transfers.
 - When the Windows bridge runs with administrator privileges, Codex Direct opens the conversation on the interactive user's desktop and verifies that the intended conversation opened. One-click unlock improves focus handling on the secure desktop and adjusts the timing of the login helper.
+
+### Apple Silicon Mac
+
+- The menu bar opens the relevant update in Software/Firmware. Update and maintenance actions return you to an active artwork operation. Bluetooth status and mailbox timeouts can recover independently, and newer Claude clients and Codex snapshots are checked by their available capabilities and fields.
 
 ## 0.6.23 - 2026-11-16
 

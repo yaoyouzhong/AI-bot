@@ -2,7 +2,7 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
-## 0.2.322-ui (unreleased)
+## 0.2.322-ui - 2026-11-17
 
 ### Apps
 
@@ -11,6 +11,11 @@ TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5`
 ### Computer control
 
 - Prioritize USB login preparation and check the authenticated lock state while sending keys. The control page resumes its normal updates after unlock.
+
+### Overview and artwork
+
+- Keep the companion status on one line so the Codex offline label fits in the overview.
+- Retry eligible artwork requests on the current connection and preserve already verified blocks. Record the storage write stage when an artwork transfer cannot save its progress to the card.
 
 ## 0.2.321-ui - 2026-11-13
 
