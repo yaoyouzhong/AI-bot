@@ -53,6 +53,13 @@ class Notifications:
         with self.store.transaction():
             self.db.execute("UPDATE notifications SET state='unknown',evidence='Transport result must be reconciled; no resend' WHERE state='sending'")
 
+    def mark_unknown(self, key, token):
+        with self.store.transaction():
+            row = self.get(key)
+            require(row['token'] == token and row['state'] in ('sending', 'unknown'), 'Stale notification attempt')
+            self.db.execute("UPDATE notifications SET state='unknown',evidence='Transport outcome uncertain; do not resend' WHERE key=?", (key,))
+            return self.get(key)
+
     def confirm(self, key, token, receipt_ref, *, observed_recipient, observed_payload, observed_at, evidence):
         require(text(receipt_ref) and text(evidence), 'Actual matching transport receipt is required')
         with self.store.transaction():
