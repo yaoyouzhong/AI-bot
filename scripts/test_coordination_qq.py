@@ -36,6 +36,12 @@ class QQTests(unittest.TestCase):
         self.assertTrue(first['providerAccepted']); self.assertFalse(first['deliveryConfirmed'])
         self.assertFalse(first['readConfirmed']); self.assertFalse(second['sentNow']); self.assertEqual(self.calls, 1)
 
+    def test_opaque_provider_id_with_exclamation_is_accepted(self):
+        self.output = 'qq:opaque_provider.fixture!!'
+        result = self.notifier.notify_execution(self.delivery)
+        self.assertTrue(result['providerAccepted'])
+        self.assertEqual(result['receipt'], self.output)
+
     def test_unknown_never_blindly_resends(self):
         self.fail = True
         with self.assertRaises(TimeoutError): self.notifier.notify_execution(self.delivery)
