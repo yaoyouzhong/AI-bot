@@ -11,6 +11,8 @@ A, B, C = 'a' * 40, 'b' * 40, 'c' * 40
 
 class CoordinationTests(unittest.TestCase):
     def setUp(self):
+        scope = patch.object(c, 'verify_scope', return_value={'fixtureOnly': True})
+        scope.start(); self.addCleanup(scope.stop)
         self.task = c.new_task('owner/AI-bot', 'feature', A, B, 'Desktop change')
         self.receipts = [dict(schemaVersion=1, taskId=self.task['taskId'], sourceCommit=B,
             platform=p, status='completed', implementationCommit=C,
