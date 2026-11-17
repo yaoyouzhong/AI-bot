@@ -65,7 +65,7 @@
     "type": "read-only-source-review",
     "sourceCommit": "5476a32e59b0e431351508da53e2fa871528a4fd",
     "baseCommit": "ea0a026ff49f1b4e47222316778be668270f52a6",
-    "conclusion": "Source review completed; Windows and macOS are not fully aligned. No implementation or native verification was performed.",
+    "conclusion": "Owner confirmed the original two gallery alignment items are already complete; Windows session and remote 5476 source were checked by the coordinator. This source-only pilot does not reopen or redispatch them. Query-path differences are observations, not confirmed defects. No native validation was performed by this pilot.",
     "findings": [
       {
         "id": "cache-reuse",
@@ -79,7 +79,7 @@
       },
       {
         "id": "query-exit-parity",
-        "classification": "parity-gap-needs-decision",
+        "classification": "source-observation-not-confirmed-defect",
         "summary": "Windows query operations set IsInstalling=false and tray exit only blocks installations. Mac check() uses run() setting busy=true; galleryBusy feeds termination guard, so a query alone can block exit.",
         "evidence": [
           "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/windows-app/AIBotBridge/GalleryPackForm.cs#L119-L177",
@@ -89,7 +89,7 @@
           "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/mac-app/Sources/AIBotBridge/MacUpdateWindow.swift#L78-L83",
           "https://github.com/yaoyouzhong/AI-bot/blob/5476a32e59b0e431351508da53e2fa871528a4fd/mac-app/Sources/AIBotBridge/AppDelegate.swift#L304-L311"
         ],
-        "recommendation": "Requires product decision or follow-up implementation scope; this read-only task does not authorize a fix."
+        "recommendation": "Do not reopen or redispatch completed alignment work based on this static observation. Further action requires a separately confirmed requirement and explicit scoped authorization."
       },
       {
         "id": "installation-exit-protection",
@@ -108,7 +108,14 @@
     ],
     "developmentPerformed": false,
     "nativeValidationPerformed": false,
-    "publishPerformed": false
+    "publishPerformed": false,
+    "ownerClarification": {
+      "recordedAt": "2026-11-17T09:16:13.719617+00:00",
+      "originalTwoAlignmentItems": "owner-confirmed-complete",
+      "queryDifference": "not-confirmed-defect",
+      "redispatchAuthorized": false,
+      "pilotNativeValidationPerformed": false
+    }
   },
   "pilotValidation": {
     "readOnlyReviewFinished": true,
