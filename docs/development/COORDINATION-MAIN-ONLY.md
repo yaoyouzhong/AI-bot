@@ -33,3 +33,17 @@
 ## 当前状态
 
 纯函数、离线测试与隔离模式约束已实现。真实两端基线和原生规则启用由本机独立步骤核验并报告；本文件不意味着常驻生产自动开发已接通。沿用原生调度、会话和现有通知；不修改Auto Loop源码，不开放网络端口，不新建任务队列。通知只报告真实审阅/阻塞/代码结果，不把运行done当开发完成。
+
+## 可执行观察与动态工作区（原生插件的薄程序）
+
+`python coordination_main_watch.py --config <本机可信配置>` 可作为原生 command/cron 程序。配置包含 enabled、branch=main、binding、expectedRule、baselineVerified、auditRoot、ghExecutable、hubUrl；编辑模式还需 workspaceDispatcherVerified=true。hubUrl 只允许明确 loopback HTTP 地址；禁止重定向。既有 source key 由本机受信启动器从现有配置读取至子进程 `AIBOT_HUB_SOURCE_KEY`，不放命令参数、项目文件或共享记录，不需要 owner key。
+
+watch 保存每个 main SHA 的不可变观察资料后才调用原生API；网络中断后仍保留老观察，后续轮询原样POST同ID，由Hub去重。运行状态另以内容哈希只追加审计文件，绝不覆盖初始baseline、reviewed或aligned结论；观察文件不是可编辑“已完成游标”。同目录换binding会失败关闭，迁移需先核对既有任务，不用新模式直接覆盖。最多1000观察文件，超限停止要求审计归档，不默默丢未处理任务。历史所有观察的重复查询有开销，当前只为单项目初始落地，后续优先用原生查询优化，不能改成私有任务队列。
+
+`python coordination_workspace_program.py --config <本机可信配置> -- <原生Codex参数>` 可作为原生codex program包装器。配置包含 binding、eventSource、workspaceRoot、isolatedClone、isolatedCloneVerified、gitExecutable、codexExecutable。两个根目录必须固定绝对路径，isolatedClone是经核对的独立克隆，不是产品工作区。程序读取原生AGENT_AUTOLOOP_CONTEXT，只接受绑定一致的单一main SHA资料，payload绝不拼进shell或CLI命令。Git与Codex均为固定可执行路径，所有参数用数组传递。
+
+首次收到一个SHA时，核对独立clone的origin、fetch main、确认SHA在main历史，然后建立该SHA独立detached worktree。原生task subject随SHA不同而不同；同任务resume保留旧工作树和dirty文件，不reset、不清理。prepare锁仅保护Git工作树准备，不抢占遗留锁；中断后未完成标记或HEAD变化需核对，不自动抹除。不同SHA树不同，并发任务不共享可写树；原生rule仍应限制并发/按subject隔离。同任务无源event的特殊resume暂拒绝，不猜工作区。
+
+原生rule的固定任务说明必须读取初始baseline及未处理范围。独立worktree建在新main不等于旧Mac差异已消失，开发会话须分析 pending base→head、平台文件与既有验证资料。执行只在隔离树，禁止commit/push/merge/release为明确任务范围；它不等于阻止所有恶意Git操作的安全沙箱。真正权限由原生worker/sandbox及用户批准控制，不以项目JSON布尔字段代替。
+
+自动运行启用、固定program路径以及真实上下文测试仍须本机核验。本轮单元测试验证响应丢失、历史保留、暂停报告、上下文污染、两SHA隔离、dirty resume、并发锁和异常树拒绝；不能仅凭离线测试宣称常驻已启用。未来有新SHA时才可证明自然触发，人工回放须明确标注。
