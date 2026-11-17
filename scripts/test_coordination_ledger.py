@@ -67,6 +67,24 @@ class LedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Invalid lifecycle'):
             self.step('windows', 'start')
 
+    def test_actual_read_only_pilot_cannot_start_or_finish(self):
+        directory = Path(__file__).resolve().parents[1] / 'docs/development/coordination-ledger/tasks'
+        files = list(directory.glob('*.json'))
+        checked = 0
+        for path in files:
+            data = c.read(path)
+            if not c.inspection_only(data['task']):
+                continue
+            ledger.validate(data)
+            checked += 1
+            for platform, state in data['platforms'].items():
+                if state['status'] == 'acknowledged':
+                    for action in ('start', 'finish'):
+                        with self.assertRaisesRegex(ValueError, 'Read-only'):
+                            ledger.transition(data, data['revision'], platform, action,
+                                              state['claimId'], 'fixture only', self.receipts[0])
+        self.assertGreater(checked, 0, 'Read-only pilot fixture missing')
+
     def test_workflow_gates_before_promotion(self):
         workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/promote.yml').read_text()
         self.assertIn('coordination_plan_json:', workflow)
