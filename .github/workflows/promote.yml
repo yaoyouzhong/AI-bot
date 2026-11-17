@@ -96,6 +96,7 @@ jobs:
           if candidate['sourceCommit'] != os.environ['EXPECTED_SOURCE']: raise SystemExit('Wrong coordination candidate source')
           coordination.gate(plan, candidate['sourceCommit'], '.')
           pathlib.Path('artifacts/coordination-plan.json').write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding='utf-8')
+          os.environ['AIBOT_COORDINATION_PLAN'] = str(pathlib.Path('artifacts/coordination-plan.json').resolve())
           acceptance = pathlib.Path('artifacts/acceptance.json')
           acceptance.write_text(os.environ['ACCEPTANCE_JSON'], encoding='utf-8')
           command = [sys.executable,'scripts/release_pipeline.py','promote',str(directory),str(acceptance),
