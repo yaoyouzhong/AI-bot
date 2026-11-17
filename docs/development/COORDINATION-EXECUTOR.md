@@ -43,7 +43,7 @@ python coordination_executor.py --binding binding.json --database checkpoint.sql
 - `emit <固定type> --id <deliveryId> --subject <deliveryId> --summary <固定说明> --detail <JSON资料>`。
 - `runs <固定规则名> --json`，必要时使用 `--before` 翻页。
 
-emit 的中文摘要或 exit 0 **不代表目标已收到**。只有 runs 中规则、Agent、事件来源、类型和 subject 全部精确匹配时，才记录实际 run ID，状态 confirmed 表示“交接在目标运行记录中可查”，不是开发完成或测试通过。若 run 还没出现，返回 uncertain；重复 deliver 只查询，绝不再 emit。超时/断线同样保留原 deliveryId，查询核对后再决定，不能自动生成新身份重发。
+emit 的中文摘要或 exit 0 **不代表目标已收到**。只有 runs 中规则、Agent、事件来源、类型和 subject 全部精确匹配时，才记录实际 run ID，状态 confirmed 表示“交接在目标运行记录中可查”，不是开发完成或测试通过。固定版本的 `runs` CLI 只列已结束的轮次：任务已经派发且正在运行时，仍可能返回 uncertain。此状态仅表示“尚未取得终态运行记录”，**不表示没有派发**；重复 deliver 只查询，绝不再 emit。真实临时 Hub 验证已观察到运行中无记录、结束后 reconcile 成功的路径。超时/断线同样保留原 deliveryId，查询核对后再决定，不能自动生成新身份重发。
 
 分页最多 100 页，遇到不完整/重复游标、多个匹配运行或格式异常时失败关闭，不能判定目标不存在。已有运行失败仍是“交接已到达”，执行失败需要单独跟踪，不自动另开开发任务。
 
