@@ -76,6 +76,11 @@ def main():
     directory=prepare(config,context)
     executable=config['codexExecutable']; require(Path(executable).is_absolute(),'Fixed Codex executable required')
     # Upstream native worker owns argv/session. Event data never becomes shell/argv.
+    if os.name == 'nt':
+        # Windows exec is not POSIX process replacement. Keep the supervised
+        # Python process alive until Codex exits, preserving inherited stdio.
+        completed = subprocess.run([executable,*forward], cwd=str(directory), shell=False)
+        raise SystemExit(completed.returncode)
     os.chdir(directory); os.execv(executable,[executable,*forward])
 
 
