@@ -16,6 +16,10 @@ on:
         description: Hash-bound acceptance JSON produced by release_pipeline.py record
         required: true
         type: string
+      coordination_plan_json:
+        description: Reviewed real-task plan with both platform receipts and candidate source SHA
+        required: true
+        type: string
       publish:
         description: Publish component and product after verification; false leaves both as drafts
         required: true
@@ -74,6 +78,7 @@ jobs:
           github-token: ${{ github.token }}
       - name: Promote accepted bytes and generate the product release
         env:
+          COORDINATION_PLAN_JSON: ${{ inputs.coordination_plan_json }}
           ACCEPTANCE_JSON: ${{ inputs.acceptance_json }}
           EXPECTED_SOURCE: ${{ steps.native.outputs.source }}
           COMPONENT: ${{ inputs.component }}
@@ -84,6 +89,13 @@ jobs:
           directory = pathlib.Path('artifacts/accepted-candidate')
           candidate = json.loads((directory/'CANDIDATE.json').read_text())
           if candidate['component'] != os.environ['COMPONENT']: raise SystemExit('Wrong candidate component')
+          sys.path.insert(0, 'scripts')
+          import cross_platform_coordination as coordination
+          plan = json.loads(os.environ['COORDINATION_PLAN_JSON'])
+          if plan['repository'] != os.environ['GITHUB_REPOSITORY']: raise SystemExit('Wrong coordination repository')
+          if candidate['sourceCommit'] != os.environ['EXPECTED_SOURCE']: raise SystemExit('Wrong coordination candidate source')
+          coordination.gate(plan, candidate['sourceCommit'], '.')
+          pathlib.Path('artifacts/coordination-plan.json').write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding='utf-8')
           acceptance = pathlib.Path('artifacts/acceptance.json')
           acceptance.write_text(os.environ['ACCEPTANCE_JSON'], encoding='utf-8')
           command = [sys.executable,'scripts/release_pipeline.py','promote',str(directory),str(acceptance),
@@ -100,6 +112,7 @@ jobs:
             artifacts/promotion-*.json
             artifacts/publication-*-upload-state.json
             artifacts/acceptance.json
+            artifacts/coordination-plan.json
             download-catalog.json
             DOWNLOADS.md
             DOWNLOADS.en.md
