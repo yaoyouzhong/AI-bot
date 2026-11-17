@@ -104,6 +104,24 @@ def run_fixture(cli, api, root, device=None):
                               cwd=cwd, env=env, capture_output=True, text=True, timeout=30)
 
     session = str(uuid.uuid4())
+
+    def user_turns():
+        turns = set()
+        for transcript in (config / "projects").rglob(session + ".jsonl"):
+            for line in transcript.read_text().splitlines():
+                row = json.loads(line)
+                message = row.get("message", {})
+                if (row.get("sessionId") != session or row.get("isSidechain") or row.get("isMeta") or
+                        row.get("type") != "user" or message.get("role") != "user"):
+                    continue
+                content = message.get("content")
+                if (isinstance(content, str) and content.strip()) or (
+                    isinstance(content, list) and any(item.get("type") == "text" and item.get("text", "").strip()
+                                                     for item in content if isinstance(item, dict))
+                ):
+                    turns.add(row["uuid"])
+        return turns
+
     flags = ["--model", "claude-sonnet-4-6", "--tools", "", "--strict-mcp-config", "--settings", str(settings)]
     seed = call("--print", "--output-format", "json", "--session-id", session, *flags, "fixture seed")
     if seed.returncode != 0 or api.calls == 0 or not list(config.rglob(session + ".jsonl")):
@@ -128,10 +146,15 @@ def run_fixture(cli, api, root, device=None):
                 "PATH": env["PATH"], "HOME": str(root), "TMPDIR": str(root),
                 **dict(provider, ANTHROPIC_API_KEY="synthetic-key"),
             }))
-            before = api.calls
+            before = user_turns()
+            if not before:
+                raise RuntimeError("Could not find the fixture seed turn in the selected conversation")
             subprocess.run([str(executable), "--tab5-automation", str(output), "--claude-fixture", str(root)],
                            stdin=sys.stdin, check=True, timeout=300)
-            print(f"MAC_CLAUDE_BACKGROUND_DEVICE_SESSION_OK model_requests={api.calls - before}")
+            received = len(user_turns() - before)
+            if received != 1:
+                raise RuntimeError(f"Expected one new user turn in the original session; found {received}")
+            print("MAC_CLAUDE_BACKGROUND_DEVICE_SESSION_OK new_user_turns=1 in_original_session=true")
             return
         package = Path(__file__).resolve().parents[1] / "mac-app"
         test_env = dict(os.environ, AIBOT_CLAUDE_BG_FIXTURE=str(config), AIBOT_CLAUDE_BG_SESSION=session)
