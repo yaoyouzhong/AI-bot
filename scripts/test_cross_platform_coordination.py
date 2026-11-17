@@ -67,7 +67,7 @@ class CoordinationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 c.gate(plan, C, '.')
 
-    @patch.object(c, 'ancestor', return_value=False)
+    @patch.object(c, 'ancestor', side_effect=[True, False])
     def test_unmerged_change_blocks(self, _):
         with self.assertRaisesRegex(ValueError, 'absent'):
             c.gate(self.plan, C, '.')
@@ -85,6 +85,41 @@ class CoordinationTests(unittest.TestCase):
             self.assertFalse(c.ancestor(folder, head, base))
             with self.assertRaisesRegex(ValueError, 'unavailable'):
                 c.ancestor(folder, A, head)
+
+    @patch.object(c, 'ancestor', return_value=True)
+    def test_empty_scope_cannot_bypass_gate(self, _):
+        for ids, tasks, receipts in [([], [], []), ([], [self.task], []),
+                                      ([self.task['taskId']], [], []),
+                                      ([self.task['taskId'], 'omitted'], [self.task], self.receipts)]:
+            plan = deepcopy(self.plan)
+            plan.update(requiredTaskIds=ids, tasks=tasks, receipts=receipts)
+            with self.assertRaises(ValueError):
+                c.gate(plan, C, '.')
+
+    @patch.object(c, 'ancestor', return_value=False)
+    def test_divergent_task_range_blocks(self, _):
+        with self.assertRaisesRegex(ValueError, 'divergent'):
+            c.gate(self.plan, C, '.')
+
+    def test_reuse_requires_baseline_in_implementation_history(self):
+        self.receipts[0]['verification'].update(result='reused', commit=A, reuseReason='Unchanged behavior')
+        with patch.object(c, 'ancestor', side_effect=[True, True, True, False]):
+            with self.assertRaisesRegex(ValueError, 'implementation history'):
+                c.gate(self.plan, C, '.')
+        with patch.object(c, 'ancestor', return_value=True):
+            self.assertEqual(c.gate(self.plan, C, '.')['status'], 'ready')
+
+    def test_read_only_scope_never_counts_as_release_completion(self):
+        for fields in [{'kind': 'read-only-parity-review'}, {'constraints': {'inspectionOnly': True}}]:
+            task = deepcopy(self.task); task.update(fields); task['taskId'] = c.identity(task)
+            receipt = deepcopy(self.receipts[0]); receipt['taskId'] = task['taskId']
+            with self.assertRaisesRegex(ValueError, 'Read-only'):
+                c.validate_receipt(task, receipt)
+
+    def test_boolean_schema_not_accepted_as_integer_version(self):
+        self.task['schemaVersion'] = True; self.task['taskId'] = c.identity(self.task)
+        with self.assertRaisesRegex(ValueError, 'schema'):
+            c.validate_task(self.task)
 
     def test_not_applicable_still_needs_scope_evidence(self):
         receipt = deepcopy(self.receipts[0]); receipt['status'] = 'not-applicable'
