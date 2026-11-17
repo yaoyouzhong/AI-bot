@@ -68,6 +68,9 @@ class DownloadCatalogTests(unittest.TestCase):
 
     def test_product_version_does_not_replace_independent_component_versions(self):
         releases = self.releases()
+        replaced_files = {self.data['downloads'][key]['file'] for key in ('windows', 'tab5-first', 'tab5-upgrade')}
+        for existing in releases:
+            existing['assets'] = [asset for asset in existing['assets'] if asset['name'] not in replaced_files]
         bridge = 'AI-bot-bridge-v0.6.21-windows-x64-setup.exe'
         firmware = 'AI-bot-tab5-0.2.321-ui-upgrade.zip'
         first = 'AI-bot-tab5-0.2.321-ui-first-install.zip'
