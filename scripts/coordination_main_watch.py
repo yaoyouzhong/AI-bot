@@ -25,7 +25,9 @@ def immutable(path, value):
 def watch_once(config, github, hub):
     require(config.get('enabled') is True and config.get('branch')=='main','Explicit main watch required')
     binding=config['binding']; repository=binding['repository']
-    require(config.get('expectedRule') and config.get('baselineVerified') is True,'Verified baseline and rule required')
+    require(config.get('baselineVerified') is True,'Verified baseline required')
+    require(type(config.get('dispatchEnabled')) is bool,'Explicit dispatch mode required')
+    if config['dispatchEnabled']: require(config.get('expectedRule'),'Fixed native rule required')
     root=Path(config['auditRoot']); require(root.is_absolute(),'Fixed absolute audit root required')
     remote=github(repository)
     head=remote.get('sha'); require(sha(head),'Verified GitHub main SHA required')
@@ -36,6 +38,9 @@ def watch_once(config, github, hub):
     # Save before dispatch. Reading a current HEAD never marks older heads processed.
     record=dict(schema=1,repository=repository,branch='main',head=head,event=payload)
     immutable(root/'observations'/ (head+'.json'),record)
+    if not config['dispatchEnabled']:
+        return dict(observedHead=head,state='observed-not-dispatched',reviewedHead=None,alignedHead=None,
+                    developmentCompletionAsserted=False,publicationPerformed=False)
     files=sorted((root/'observations').glob('*.json'))
     require(len(files)<=1000,'Observation history needs explicit archival; do not drop pending work')
     results=[]
@@ -71,16 +76,18 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__); parser.add_argument('--config',required=True)
     args=parser.parse_args(); config=json.loads(Path(args.config).read_text(encoding='utf-8'))
     gh=config['ghExecutable']; require(Path(gh).is_absolute(),'Fixed gh executable required')
+    def github(repository):
+        result=subprocess.run([gh,'api','repos/'+repository+'/commits/main'],capture_output=True,text=True,timeout=60)
+        require(result.returncode==0,'GitHub main lookup failed')
+        return json.loads(result.stdout)
+    if config.get('dispatchEnabled') is False:
+        print(json.dumps(watch_once(config,github,None),ensure_ascii=False)); return
     url=config['hubUrl']; parsed=urlparse(url)
     require(parsed.scheme=='http' and parsed.hostname in ('127.0.0.1','::1') and parsed.port
             and parsed.path in ('','/') and not parsed.query and not parsed.fragment and not parsed.username,
             'Only fixed local native Hub endpoint allowed')
     key=os.environ.get('AIBOT_HUB_SOURCE_KEY'); require(bool(key),'Existing source key must be supplied in memory by trusted local launcher')
     opener=build_opener(ProxyHandler({}), NoRedirect())
-    def github(repository):
-        result=subprocess.run([gh,'api','repos/'+repository+'/commits/main'],capture_output=True,text=True,timeout=60)
-        require(result.returncode==0,'GitHub main lookup failed')
-        return json.loads(result.stdout)
     def hub(method,path,payload=None):
         request=Request(url.rstrip('/')+path,data=canonical(payload).encode() if payload is not None else None,
                         headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method=method)
