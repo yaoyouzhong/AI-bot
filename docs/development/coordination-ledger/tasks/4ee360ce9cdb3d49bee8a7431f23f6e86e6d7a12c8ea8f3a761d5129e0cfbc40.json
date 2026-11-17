@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "mode": "development-task",
+  "revision": 0,
+  "task": {
+    "schemaVersion": 1,
+    "repository": "yaoyouzhong/AI-bot",
+    "branch": "codex/tab5-calendar-and-claude-idle-20261116",
+    "baseCommit": "ea0a026ff49f1b4e47222316778be668270f52a6",
+    "sourceCommit": "5476a32e59b0e431351508da53e2fa871528a4fd",
+    "summary": "Read-only review of Windows/macOS gallery-update behavior parity at 5476a32e; no implementation or native verification",
+    "taskId": "4ee360ce9cdb3d49bee8a7431f23f6e86e6d7a12c8ea8f3a761d5129e0cfbc40",
+    "kind": "read-only-parity-review",
+    "constraints": {
+      "codeChanges": false,
+      "nativeBuilds": false,
+      "publish": false,
+      "inspectionOnly": true
+    }
+  },
+  "authorization": "Owner authorized continuing the coordination pilot on 2026-11-17; this task is restricted to read-only source review, claim/ack and evidence, not implementation, native validation or publishing.",
+  "platforms": {
+    "windows": {
+      "status": "offered"
+    },
+    "macos": {
+      "status": "offered"
+    }
+  },
+  "history": []
+}
