@@ -41,6 +41,8 @@ class Checkpoints:
           CREATE TABLE IF NOT EXISTS journal (
             sequence INTEGER PRIMARY KEY, delivery TEXT NOT NULL,
             action TEXT NOT NULL, evidence TEXT NOT NULL);
+          CREATE TABLE IF NOT EXISTS run_observations (
+            delivery TEXT PRIMARY KEY, effect_ref TEXT NOT NULL, state TEXT NOT NULL, evidence TEXT NOT NULL);
           CREATE UNIQUE INDEX IF NOT EXISTS unique_effect
             ON deliveries(target,effect_ref) WHERE effect_ref IS NOT NULL;
         ''')
@@ -144,6 +146,25 @@ class Checkpoints:
             self.db.execute("UPDATE deliveries SET state='uncertain',evidence=? WHERE id=?", (evidence, delivery))
             self.log(delivery, 'uncertain', evidence)
             return self.get(delivery)
+
+    def observe_run(self, delivery, effect_ref, state, evidence):
+        require(state in ('queued', 'claimed', 'unknown', 'done', 'nothing', 'cancelled') and text(evidence),
+                'Unknown run state or missing evidence')
+        with self.transaction():
+            row = self.get(delivery)
+            require(row['state'] == 'confirmed' and row['effect_ref'] == effect_ref, 'Run does not match confirmed handoff')
+            prior = self.db.execute('SELECT * FROM run_observations WHERE delivery=?', (delivery,)).fetchone()
+            if prior and prior['state'] in ('done', 'nothing', 'cancelled'):
+                require(prior['state'] == state, 'Terminal run changed; manual reconciliation required')
+            self.db.execute('INSERT OR REPLACE INTO run_observations(delivery,effect_ref,state,evidence) VALUES(?,?,?,?)',
+                            (delivery, effect_ref, state, evidence))
+            if not prior or prior['state'] != state:
+                self.log(delivery, 'run-' + state, evidence)
+            return self.observation(delivery)
+
+    def observation(self, delivery):
+        row = self.db.execute('SELECT * FROM run_observations WHERE delivery=?', (delivery,)).fetchone()
+        return dict(row) if row else None
 
     def reconcile_absent(self, delivery, token, evidence, *, worker_stopped=False, absence_verified=False):
         require(worker_stopped is True and absence_verified is True and text(evidence),
