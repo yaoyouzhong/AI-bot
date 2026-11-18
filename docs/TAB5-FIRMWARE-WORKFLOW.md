@@ -4,11 +4,11 @@
 
 用户选择升级固件时始终使用 `artifacts/firmware/tab5/latest/aibot_tab5.bin`。同目录包含与镜像匹配的 `.bin.notes.json`、`manifest.json` 和 `SHA256SUMS.txt`。这些是本地 OTA 候选，不代表已经刷入或公开发布。
 
-历史固件保存在 `artifacts/firmware/tab5/versions/<版本>/<镜像哈希前缀>-<说明哈希前缀>/`，修改说明也保留独立归档。已有 development 目录保留为构建、预览和验收证据，不再让用户从这些目录选择新固件。
+准备固件时在 `artifacts/firmware/tab5/versions/<版本>/<镜像哈希前缀>-<说明哈希前缀>/` 记录本次镜像和说明。阶段收尾按 [本地工作区保留与清理](WORKSPACE-RETENTION.md) 核对当前升级入口、待验收或明确用于回退的原包，再清理被替代的本地镜像。`development` 目录按需提取构建和验收证据，升级入口使用 `latest`。
 
 开始新一轮开发前先核对公开发布记录。TAB5 正式版本公开后，后续新改动递增正式版本号，内部修订从 R1 开始。例如 0.2.319-ui 发布后，首个新候选为 320-R1。
 
-开发验收的小修复可继续使用同一个待发布版本号，用构建标识及 BIN SHA-256/ELF 指纹区分候选，不为每次编译或小修复递增正式版本号。新候选独立归档，保留之前的原包和验收；同版本更新仍须核对实际运行镜像，不能仅看设备版本文字。正式发布时统一确定对外版本，已有原包不得重新改版本后套用旧验收。
+开发验收的小修复可继续使用同一个待发布版本号，用构建标识及 BIN SHA-256/ELF 指纹区分候选，不为每次编译或小修复递增正式版本号。新候选独立归档，当前验收依赖的原包及其证据保留至阶段收尾；同版本更新仍须核对实际运行镜像，不能仅看设备版本文字。正式发布时统一确定对外版本，已有原包不得重新改版本后套用旧验收。
 
 从 2026-11-09 起，新的本地修订同时使用易读的内部编号，例如 `318-R1`、`318-R2`。正式版本源、镜像应用描述和设备协议版本保持 `0.2.318-ui`，不要拼接修订后缀，否则现有 Mac/Windows 桥接会误判能力。内部编号以 `AIBOT_INTERNAL_REVISION=R3` 等独立标记编入镜像，在设备升级页当前版本旁显示。`prepare_tab5_firmware.ps1 -InternalRevision R3` 校验镜像标记后记录 `releaseVersion`、`internalRevision`、`internalVersion`，归档目录包含修订号；不靠改名伪造版本。固件内容改变后递增 R，已冻结原包的复制、验证或安装不递增；旧原包和未安装的 R1/R2 试制包保留摘要与历史记录，不追溯改写。正式发布仍须按最终原包和源码身份验收。
 
@@ -46,4 +46,4 @@ The Windows bridge verifies boot in the background after the transfer completes 
 
 Build and test Windows candidates under development, but run validated binaries from the existing fixed Release path. Exit normally, back up runtime files, verify deployed hashes and the user profile, then restart there. Carousel restoration applies only to ESP8266 small screens. Preserve TAB5 display preferences; do not run `--restore-cycle-default` for TAB5 acceptance. New executable paths may trigger repeated Windows network-access prompts; do not modify firewall rules for testing.
 
-For factory installation use a full first-install ZIP, not this application BIN. Both may carry version 0.2.234-ui; see INSTALL.zh.md. For an existing AI-bot installation, select `artifacts/firmware/tab5/latest/aibot_tab5.bin`. Its matching notes, manifest and checksum accompany it. `scripts/prepare_tab5_firmware.ps1` validates the image with the Release bridge loader and requires structured release notes before updating this fixed path. Previous image/note combinations are retained under `versions/<version>/<image-hash-prefix>-<notes-hash-prefix>/`; development artifacts remain available as evidence. Preview the actual notes with the adjacent TAB5 preview script. Preparing a candidate does not flash a device or publish a release.
+For factory installation use a full first-install ZIP, not this application BIN. Both may carry version 0.2.234-ui; see INSTALL.zh.md. For an existing AI-bot installation, select `artifacts/firmware/tab5/latest/aibot_tab5.bin`. Its matching notes, manifest and checksum accompany it. `scripts/prepare_tab5_firmware.ps1` validates the image with the Release bridge loader and requires structured release notes before updating this fixed path. It archives each prepared image under `versions/<version>/<image-hash-prefix>-<notes-hash-prefix>/`. At closeout, follow the [workspace retention policy](WORKSPACE-RETENTION.md) for superseded local images and development evidence. Preview the actual notes with the adjacent TAB5 preview script. Preparing a candidate does not flash a device or publish a release.

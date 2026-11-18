@@ -86,7 +86,7 @@ Component tags `bridge-vX.Y.Z`, `esp8266-vX.Y.Z`, and `tab5-vX.Y.Z-ui` identify 
 
 ## 4. 自动收尾，集中复核
 
-总页公开后自动刷新并验证 `download-catalog.json`、中英文下载中心及 README 下载块。自动核验实际公开下载大小和摘要。候选归档保留 `CANDIDATE.json`、`ACCEPTANCE.json`、便携包和完整桥接源码，发布包保留许可证、第三方声明和校验文件。
+总页公开后自动刷新并验证 `download-catalog.json`、中英文下载中心及 README 下载块。自动核验实际公开下载大小和摘要。候选归档包含 `CANDIDATE.json`、`ACCEPTANCE.json`、便携包和完整桥接源码，发布包保留许可证、第三方声明和校验文件。发布闭环后的本地副本与长期验收记录按 [本地工作区保留与清理](WORKSPACE-RETENTION.md) 处理。
 
 默认只更新本地生成文档。在已有推送授权内加 `--commit-closeout`，只暂存并提交这些指定生成文件，拒绝已有相关改动、非空暂存区、落后主干或会夹带其他本地提交的情况；不自动 rebase。Actions 的公开晋级使用此选项，串行执行以减少冲突。如果分支保护不允许机器人直接推送，公开状态和收尾失败会被分别记录；负责人按仓库现有合并方式处理生成文档，不重新构建或验收包。
 
@@ -102,7 +102,7 @@ Component tags `bridge-vX.Y.Z`, `esp8266-vX.Y.Z`, and `tab5-vX.Y.Z-ui` identify 
 - `LICENSE`、`THIRD_PARTY_NOTICES.md` 保留在包内；确认包内齐全后，后续版本不再重复上传独立声明附件。
 - `CANDIDATE.json`、验收记录、额外源码包与构建依赖、宣传视频移至对应构建归档、开发资源或演示页面，保留来源、校验与引用关系，不作为普通用户安装附件。
 - 兼容文件名别名只有在确认已有桥接客户端具备升级路径后才退役。GitHub 自动生成的 Source code ZIP/tar.gz 入口保留。
-- 桥接独立发布在确认安装包内已包含许可声明后，使用 `promote --minimal-bridge-assets`。每个平台发布一份安装包，并提供对应校验清单。Windows 0.6.8 起识别统一命名的安装器。更早的 Windows 桥接可先升级到 0.6.18，再升级到当前版本。冻结清单、验收记录、便携包和额外源码包仍在构建归档。
+- 桥接独立发布在确认安装包内已包含许可声明后，使用 `promote --minimal-bridge-assets`。每个平台发布一份安装包，并提供对应校验清单。Windows 0.6.8 起识别统一命名的安装器。更早的 Windows 桥接可先升级到 0.6.18，再升级到当前版本。冻结清单、验收记录、便携包和额外源码包随候选封存，发布闭环后的本地保留范围按 [本地工作区保留与清理](WORKSPACE-RETENTION.md) 复核。
 - TAB5 使用 `promote --minimal-tab5-assets`，发布首刷 ZIP、升级 ZIP、兼容升级别名和校验清单。完整源码随候选封存，在发布页链接到对应的 Git 源码路径。
 
 Release Assets contain installable or flashable packages and updater checksums. Keep licenses and third-party notices inside packages. Archive candidate and acceptance records, extra source and build resources, and media at their linked locations. For a bridge-only release, use `promote --minimal-bridge-assets` after checking the bundled notices. Publish one installer per platform with checksums. Starting with v0.6.19, publish only the canonical Windows installer name. Windows bridge 0.6.8 and later recognize it. Earlier Windows clients can upgrade to 0.6.18 first, then upgrade to the current release. Retire firmware aliases after verifying an upgrade path for existing clients. GitHub continues to provide its source archives.
