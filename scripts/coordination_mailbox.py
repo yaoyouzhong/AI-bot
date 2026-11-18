@@ -44,11 +44,27 @@ class Mailbox:
     def create(self, filename, content):
         require(re.fullmatch(r'[0-9a-f]{64}(?:\.receipt)?\.json', filename), 'Invalid mailbox filename')
         path = self.directory + '/' + filename
+        return self.create_at(path, content, 'Record isolated coordination transport evidence')
+
+    def create_at(self, path, content, message, attempts=1):
+        # Create-only Contents API is a blob/ref CAS: never supply an update SHA.
+        # A concurrent ref move can reject a create; reread before any retry.
+        require(type(attempts) is int and 1 <= attempts <= 3, 'Invalid retry bound')
+        for attempt in range(attempts):
+            try:
+                return self._create_once(path, content, message)
+            except ValueError:
+                actual = self.get_file(path, self.config['branch'])
+                if actual == content: return dict(path=path, existed=True, reconciled=True)
+                require(actual is None, 'Immutable mailbox conflict; do not overwrite')
+                if attempt + 1 == attempts: raise
+
+    def _create_once(self, path, content, message):
         existing = self.get_file(path, self.config['branch'])
         if existing is not None:
             require(existing == content, 'Immutable mailbox conflict; do not overwrite')
             return dict(path=path, existed=True)
-        payload = dict(branch=self.config['branch'], message='Record isolated coordination transport evidence',
+        payload = dict(branch=self.config['branch'], message=message,
                        content=base64.b64encode((canonical(content) + '\n').encode()).decode())
         try:
             response = self.runner([self.prefix + 'contents/' + path, '--method', 'PUT', '--input', '-'], payload)
