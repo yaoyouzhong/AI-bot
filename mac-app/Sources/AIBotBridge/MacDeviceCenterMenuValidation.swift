@@ -30,7 +30,7 @@ enum MacDeviceCenterMenuValidation {
         var long = screen; long.name = String(repeating: "长", count: 30); long.enabled = false
         var offScreen = screen; offScreen.enabled = false
         let cases: [[MacRegisteredDevice]] = [[], [tab], [screen], [tab, screen], [disabled, long], [tab, offScreen], [disabled, screen]]
-        for devices in cases {
+        for (caseIndex, devices) in cases.enumerated() {
             var received: (String, String)?, common: String?
             let menu = MacDeviceCenterMenu.build(devices: devices, deviceAction: { received = ($0.id, $1) }, common: { common = $0 })
             let preview = devices.contains { $0.enabled }
@@ -65,8 +65,11 @@ enum MacDeviceCenterMenuValidation {
             for key in ["devices", "exit"] {
                 common = nil
                 try invoke(menu.items.first { $0.identifier?.rawValue == key }!)
+                let started = ProcessInfo.processInfo.systemUptime
                 waitForCallback { common != nil }
-                try check("common command routing", common == key)
+                let elapsed = ProcessInfo.processInfo.systemUptime - started
+                let configuration = devices.map { "\($0.kind):enabled=\($0.enabled)" }.joined(separator: ",")
+                try check("common command routing case=\(caseIndex) [\(configuration)] key=\(key) expected=\(key) actual=\(common ?? "nil") elapsed=\(elapsed)s mainThread=\(Thread.isMainThread)", common == key)
             }
             if preview {
                 let entry = menu.items.first { $0.identifier?.rawValue == "mirror" }!
