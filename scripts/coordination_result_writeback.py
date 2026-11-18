@@ -16,7 +16,7 @@ from coordination_checkpoint import canonical, require
 from coordination_mailbox import Mailbox
 from coordination_main_review import alignment_event, review_event, sha
 from coordination_main_watch import NoRedirect
-from coordination_main_eligibility import binding_digest, descendant, evidence, schedule_proof
+from coordination_main_eligibility import binding_digest, descendant, evidence, validate_schedule_proof
 
 REPOSITORY = 'yaoyouzhong/AI-bot'
 BRANCH = 'codex/autoloop-coordination'
@@ -131,8 +131,7 @@ def qualify_future(config, watch, observation, row, github):
     saved=json.loads((root/'main-eligibility'/(head+'.json')).read_text(encoding='utf-8'))
     proof=saved['proof']
     # Revalidate the fixed native schedule envelope, not an event/model claim.
-    synthetic=dict(events=[dict(id=proof['scheduleId'],source='schedule',type='schedule.tick',hops=0,receivedAt=proof['receivedAt'])])
-    require(schedule_proof(synthetic,str(proof['watcherRun']),policy['watcherRule'])==proof,'Invalid natural watch proof')
+    validate_schedule_proof(proof,policy['watcherRule'])
     require(timestamp(proof['receivedAt'])>=timestamp(policy['enabledAt']), 'Pre-authorization observation')
     require(saved==evidence(binding,head,observation['event'],proof),'Wrong watch provenance')
     digest=hashlib.sha256(canonical(row).encode()).hexdigest()

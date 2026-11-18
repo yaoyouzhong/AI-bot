@@ -61,3 +61,18 @@ finishedAt 早于固定 activatedAt 的记录标记 observation=backfill；之�
 - 更新前备份所有被替换的本机文件；原子替换 Python 文件与 JSON，不重启服务、不改已领取任务。先隔离测试，再观察下一次真实 cron；未来业务提交自然出现前，不能声称生产新会话→结果回写→QQ端到端验收完成。
 
 隔离验证使用临时目录、假的原生 source/运行和假的 GitHub/QQ 调用；与真实生产隔离，不发送 QQ 消息。新 SHA 产生不同任务身份、相同 SHA 重复去重、写入响应丢失/并发CAS、错误来源/祖先/上下文、验证缺口与原生 QQ 发送失败/恢复分别由协调测试覆盖。真实 QQ 自然通知与新业务会话的联合验收仍需等待真实 main 变化，不能以隔离替身测试代替。
+
+
+## 原生重试合并 cron 修复（2026-11-18）
+
+Windows 真实网络超时后，Hub 会把同事项多个 schedule.tick 合并给重试轮次。f58db71 的单事件假设不成立；修复不改框架，也不通过忽略多余事件绕过校验。
+
+schedule_proof 现在逐条核验 1–1000 个事件：同一固定 watcherRule、source=schedule、type=schedule.tick、整数 hops=0、完整原生定时 ID 与有效 UTC receivedAt。精确相同的 ID/时间重复可去重；同 ID 不同时间拒绝。混入任意其他来源、规则、类型、回答或定时复查内容，整批拒绝。排序后的规范证明与输入顺序无关。
+
+单个唯一 tick 输出旧格式，已有 provenance 无须迁移。多个唯一 tick 使用 scheduleProofVersion=2 和完整 scheduleEvents，仅留本机。顶层 scheduleId/receivedAt 取最新合法唤醒，允许重试带着早期 tick；source 仍必须晚于启用时 GitHub anchor，并属于当前 main 祖先，不能借此扩展到旧业务提交。回写端重新校验全部保存的 tick、规范顺序及顶层摘要，不只校验最新一条。未知版本、篡改、缺失或不规范证明停止。
+
+同 SHA 重试不会替换首次证明或新建任务；Github 超时、CAS竞争及未知发送状态沿用原处理。不会输出 scheduleEvents、原始事件、session、本机路径或 QQ receipt 到 GitHub。已有 b909 回执字节语义不变。
+
+Windows 升级合同（也适用 Mac）：备份后更新 coordination_main_eligibility.py 和 coordination_result_writeback.py，确保 watcher 和回写各自模块目录均更新，避免新证明由旧 reader 读取。优先先更新 reader 所在目录，再更新 watcher 所在目录；同目录模块通过原子 replace 发布。使用原先 f58db71 的 coordination_main_watch.py（本次不改）、本机 futureMain/resultEligibility 政策；保留既有 anchorCommit/enabledAt、绑定指纹、allowlist 和审计目录，不按重试时间重新初始化授权。Windows 若已回滚，先核对恢复的本机政策及固定规则/source，再按既有部署合同重新启用，不能复制 Mac 配置。
+
+不清空原生队列、旧上下文或去重账本，不手工重放事件。让原生重试或下一 cron 恢复；已领取进程保持运行，替换模块只影响后续启动，无需重启框架或 WAN。观察已有合并上下文成功执行、旧回执 existed=true 及远端无新增写入，再等待新自然业务提交验证。失败则保留证据并回滚这两个模块，不覆盖旧 receipt。
