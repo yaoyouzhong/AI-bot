@@ -43,3 +43,21 @@ finishedAt 早于固定 activatedAt 的记录标记 observation=backfill；之�
 ## 本轮离线验证
 
 2026-11-18：110 项 coordination 回归与 14 项 cross-platform 协议测试通过；包括未知写入结果恢复、同身份竞争、分平台保留、误路由拒绝、敏感字段拒绝，以及 execution-result 不能通过既有发布 receipt 校验。真实 GitHub 补写与自然 cron 状态以本机执行证据和协调分支实际记录为准。
+
+
+## 未来自然 main 授权升级（2026-11-18）
+
+用户已授权未来 AI-bot main 的真实 watcher 任务结果。旧 authorizedSourceCommits 和旧 receipt 原样保留；新增 futureMain 政策不删除 allowlist、不扫描任意来源。生产写入仍仅限固定协调分支。
+
+两端升级合同：
+
+- 更新 scripts/coordination_main_eligibility.py、coordination_main_watch.py、coordination_result_writeback.py；复制到 watcher 与回写适配各自目录。沿用原生 source/command 和现有 launcher，不新建框架插件、服务或任务队列。
+- 本机 result config 增加 futureMain：enabled=true、anchorCommit（启用时只读核对的完整 main SHA）、enabledAt（固定 UTC 时间）、bindingDigest（sha256(canonical(watch.binding))）、watcherRule（现有 main watcher cron 名称）、expectedRule（现有目标任务规则）、nativeSource（本机已有 source 名称）。后续改路由需重新核对授权，不能静默更新指纹。
+- watcher config 增加 resultEligibility，精确为 enabled=true、同一 bindingDigest、同一 watcherRule。launcher 必须继承原生 AGENT_AUTOLOOP_CONTEXT 和 AGENT_AUTOLOOP_RUN；缺少原生 schedule.tick 上下文时拒绝运行升级后的生产 watcher。不要手工构造上下文或调用生产 watcher 制造测试任务。
+- 新 SHA 第一次被原生 watcher 观察时，在本机 main-eligibility 留下固定仓库/main/SHA/eventKey/绑定指纹和 cron 来源证明；native-observations 继续保留事件/run 对账。首次 provenance 写下后发生中断，下一次保留原证明恢复，不生成另一份身份。旧观察不追补未来资格。
+- 回写前校验上述本机不可变关联；使用 gh GET commits/main 和 compare/<anchor>...<source>、compare/<source>...<current-main>，要求完整 SHA、共同祖先恰为 base，状态 ahead/identical。source 不能等于 anchor。GitHub 断网、main 强推导致不再包含 source、无自然证明、错误平台/规则/源绑定、多个 run 等都不会变成成功结果。
+- 本机证明是受信原生部署的审计链，并非抵御已控制本机进程或文件的攻击者的远程签名。权限仍来自用户与固定本机规则，不能接受仓库内容或事件正文的自授权。
+- 旧 b909aff 回执保持原有 backfill 和运行测试缺口。新结果默认仅导出原生终态与 not-asserted/verification-not-reported-via-native-api；done、nothing、cancelled 不表示产品验收。unknown/queued/claimed 不写终态。原始分析、路径、session、QQ receipt 和凭据仍禁止上传。
+- 更新前备份所有被替换的本机文件；原子替换 Python 文件与 JSON，不重启服务、不改已领取任务。先隔离测试，再观察下一次真实 cron；未来业务提交自然出现前，不能声称生产新会话→结果回写→QQ端到端验收完成。
+
+隔离验证使用临时目录、假的原生 source/运行和假的 GitHub/QQ 调用；与真实生产隔离，不发送 QQ 消息。新 SHA 产生不同任务身份、相同 SHA 重复去重、写入响应丢失/并发CAS、错误来源/祖先/上下文、验证缺口与原生 QQ 发送失败/恢复分别由协调测试覆盖。真实 QQ 自然通知与新业务会话的联合验收仍需等待真实 main 变化，不能以隔离替身测试代替。

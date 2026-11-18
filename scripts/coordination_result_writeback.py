@@ -16,6 +16,7 @@ from coordination_checkpoint import canonical, require
 from coordination_mailbox import Mailbox
 from coordination_main_review import alignment_event, review_event, sha
 from coordination_main_watch import NoRedirect
+from coordination_main_eligibility import binding_digest, descendant, evidence, schedule_proof
 
 REPOSITORY = 'yaoyouzhong/AI-bot'
 BRANCH = 'codex/autoloop-coordination'
@@ -40,6 +41,13 @@ def validate_config(config):
     allowed = config.get('authorizedSourceCommits')
     require(isinstance(allowed, list) and bool(allowed) and all(sha(x) for x in allowed)
             and len(set(allowed)) == len(allowed), 'Explicit authorized SHA allowlist required')
+    policy=config.get('futureMain')
+    if policy is not None:
+        require(isinstance(policy,dict) and set(policy)=={'enabled','anchorCommit','enabledAt','bindingDigest','watcherRule','expectedRule','nativeSource'}
+                and policy['enabled'] is True and sha(policy['anchorCommit'])
+                and re.fullmatch('[0-9a-f]{64}',policy['bindingDigest'])
+                and all(isinstance(policy[k],str) and policy[k] for k in ('watcherRule','expectedRule','nativeSource')), 'Invalid future main policy')
+        timestamp(policy['enabledAt'])
     timestamp(config.get('activatedAt'))
     require(set(config.get('publicFacts', {})) <= set(allowed), 'Facts outside authorized scope')
     return config
@@ -57,11 +65,11 @@ def public_facts(facts):
     return json.loads(canonical(facts))
 
 
-def receipt(config, watch, observation, native):
+def receipt(config, watch, observation, native, qualified=False):
     validate_config(config)
     binding = watch['binding']; head = observation['head']
     require(binding['repository'] == REPOSITORY and watch['branch'] == 'main', 'Not main observation')
-    require(head in config['authorizedSourceCommits'], 'Source outside authorized scope')
+    require(head in config['authorizedSourceCommits'] or qualified is True, 'Source outside authorized scope')
     expected = (alignment_event if binding['mode'] == 'isolated-alignment' else review_event)(REPOSITORY, 'main', head, binding)
     require(observation.get('event') == expected and observation.get('repository') == REPOSITORY
             and observation.get('branch') == 'main', 'Observation binding changed')
@@ -102,16 +110,40 @@ class ResultMailbox(Mailbox):
         self.config = config; self.prefix = 'repos/' + REPOSITORY + '/'
         self.runner = runner or self.run
 
-    def publish_result(self, value):
+    def publish_result(self, value, qualified=False):
         head = value['sourceCommit']; platform = value['platform']
-        require(head in self.config['authorizedSourceCommits'] and platform in {'macos', 'windows'}, 'Wrong result route')
+        require((head in self.config['authorizedSourceCommits'] or qualified is True) and platform in {'macos', 'windows'}, 'Wrong result route')
         require(value['repository'] == REPOSITORY and value['dispatchEligible'] is False
                 and value['publicationPerformed'] is False and value['productAccepted'] is False, 'Invalid result semantics')
         path = DIRECTORY + '/' + head + '/' + platform + '.json'
         return self.create_at(path, value, 'Record native terminal execution result (not product acceptance)', attempts=3)
 
 
-def writeback_once(config, watch, hub, mailbox=None):
+def qualify_future(config, watch, observation, row, github):
+    policy=config.get('futureMain'); require(policy and github,'Future main verifier required')
+    binding=watch['binding'];head=observation['head']
+    require(sha(head) and head!=policy['anchorCommit'],'Not a future source SHA')
+    require(binding_digest(binding)==policy['bindingDigest'] and watch['expectedRule']==policy['expectedRule']
+            and config.get('nativeSource')==policy['nativeSource'], 'Pinned local route changed')
+    eligibility=watch.get('resultEligibility',{})
+    require(eligibility==dict(enabled=True,bindingDigest=policy['bindingDigest'],watcherRule=policy['watcherRule']), 'Watcher proof not enabled')
+    root=Path(watch['auditRoot'])
+    saved=json.loads((root/'main-eligibility'/(head+'.json')).read_text(encoding='utf-8'))
+    proof=saved['proof']
+    # Revalidate the fixed native schedule envelope, not an event/model claim.
+    synthetic=dict(events=[dict(id=proof['scheduleId'],source='schedule',type='schedule.tick',hops=0,receivedAt=proof['receivedAt'])])
+    require(schedule_proof(synthetic,str(proof['watcherRun']),policy['watcherRule'])==proof,'Invalid natural watch proof')
+    require(timestamp(proof['receivedAt'])>=timestamp(policy['enabledAt']), 'Pre-authorization observation')
+    require(saved==evidence(binding,head,observation['event'],proof),'Wrong watch provenance')
+    digest=hashlib.sha256(canonical(row).encode()).hexdigest()
+    require(json.loads((root/'native-observations'/(digest+'.json')).read_text(encoding='utf-8'))==row,'Missing immutable native association')
+    current=github('commits/main').get('sha');require(sha(current),'Invalid GitHub main')
+    descendant(github,policy['anchorCommit'],head)
+    descendant(github,head,current)
+    return True
+
+
+def writeback_once(config, watch, hub, mailbox=None, github=None):
     validate_config(config)
     require(watch.get('enabled') is True and watch.get('branch') == 'main', 'Fixed enabled watch required')
     root = Path(watch['auditRoot']); require(root.is_absolute(), 'Fixed audit root required')
@@ -119,12 +151,18 @@ def writeback_once(config, watch, hub, mailbox=None):
     # Never POST events, replay, or synthesize notifications here.
     snapshot = json.loads(Path(config['watchSnapshot']).read_text(encoding='utf-8'))
     rows = snapshot.get('results'); require(isinstance(rows, list) and len(rows) <= 1000, 'Invalid native watch snapshot')
-    authorized = [x for x in rows if x.get('head') in config['authorizedSourceCommits']]
+    require(all(sha(x.get('head')) for x in rows),'Invalid source SHA in watch snapshot')
+    authorized = [x for x in rows if x.get('head') in config['authorizedSourceCommits'] or (config.get('futureMain') and x.get('head')!=config['futureMain']['anchorCommit'])]
     require(len({x['head'] for x in authorized}) == len(authorized), 'Duplicate source observations')
     box = mailbox or ResultMailbox(config); results = []
     for row in authorized:
         head = row['head']; observation = json.loads((root/'observations'/(head+'.json')).read_text(encoding='utf-8'))
         require(observation['head'] == head, 'Wrong observation source')
+        qualified=False
+        if head not in config['authorizedSourceCommits']:
+            if not (root/'main-eligibility'/(head+'.json')).exists():
+                results.append(dict(sourceCommit=head,state='ineligible-no-natural-proof')); continue
+            qualified=qualify_future(config,watch,observation,row,github)
         event_id = row.get('nativeEvent')
         require(type(event_id) is int and event_id > 0, 'No native event reference')
         native = hub('GET', '/v1/events/' + str(event_id))
@@ -132,9 +170,9 @@ def writeback_once(config, watch, hub, mailbox=None):
         if native['runs'] and row.get('nativeRun') is not None:
             require(native['runs'][0].get('run') == row['nativeRun'], 'Native run association changed')
         # Existing immutable watch audit is the event -> source association.
-        value = receipt(config, watch, observation, native)
+        value = receipt(config, watch, observation, native, qualified)
         if value is None: results.append(dict(sourceCommit=head, state='not-terminal')); continue
-        results.append(dict(sourceCommit=head, terminalState=value['terminalState'], **box.publish_result(value)))
+        results.append(dict(sourceCommit=head, terminalState=value['terminalState'], **box.publish_result(value, qualified=qualified)))
     return dict(results=results, publicationPerformed=False, eventsEmitted=0)
 
 
@@ -152,7 +190,11 @@ def main():
         require(method == 'GET' and re.fullmatch(r'/v1/events/[1-9][0-9]*', path), 'Read-only native query only')
         request = Request(url.rstrip('/')+path, headers={'Authorization': 'Bearer '+key}, method='GET')
         with opener.open(request, timeout=30) as response: return json.load(response)
-    print(json.dumps(writeback_once(config, watch, hub), ensure_ascii=False))
+    box=ResultMailbox(config)
+    def github(endpoint):
+        require(endpoint=='commits/main' or re.fullmatch(r'compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40}',endpoint),'Fixed main/ancestry API only')
+        return box.runner([box.prefix+endpoint])
+    print(json.dumps(writeback_once(config, watch, hub, box, github), ensure_ascii=False))
 
 
 if __name__ == '__main__':

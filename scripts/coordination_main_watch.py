@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHandler
 from coordination_checkpoint import canonical, require
 from coordination_main_review import review_event, alignment_event, sha
+from coordination_main_eligibility import binding_digest, schedule_proof, evidence
 
 
 def immutable(path, value):
@@ -22,13 +23,17 @@ def immutable(path, value):
         require(path.read_text(encoding='utf-8')==encoded,'Immutable observation conflict; inspect before continuing')
 
 
-def watch_once(config, github, hub):
+def watch_once(config, github, hub, natural_proof=None):
     require(config.get('enabled') is True and config.get('branch')=='main','Explicit main watch required')
     binding=config['binding']; repository=binding['repository']
     require(config.get('baselineVerified') is True,'Verified baseline required')
     require(type(config.get('dispatchEnabled')) is bool,'Explicit dispatch mode required')
     if config['dispatchEnabled']: require(config.get('expectedRule'),'Fixed native rule required')
     root=Path(config['auditRoot']); require(root.is_absolute(),'Fixed absolute audit root required')
+    eligibility=config.get('resultEligibility')
+    if eligibility:
+        require(eligibility.get('enabled') is True and eligibility.get('bindingDigest')==binding_digest(binding), 'Eligibility binding changed')
+        require(natural_proof and natural_proof['watcherRule']==eligibility['watcherRule'], 'Natural cron proof required')
     remote=github(repository)
     head=remote.get('sha'); require(sha(head),'Verified GitHub main SHA required')
     if binding.get('mode')=='isolated-alignment':
@@ -37,6 +42,13 @@ def watch_once(config, github, hub):
     else: payload=review_event(repository,'main',head,binding)
     # Save before dispatch. Reading a current HEAD never marks older heads processed.
     record=dict(schema=1,repository=repository,branch='main',head=head,event=payload)
+    if eligibility and not (root/'observations'/(head+'.json')).exists():
+        proof_path=root/'main-eligibility'/(head+'.json')
+        if proof_path.exists():
+            prior=json.loads(proof_path.read_text(encoding='utf-8'))
+            require(prior==evidence(binding,head,payload,prior['proof']), 'Partial observation provenance changed')
+        else:
+            immutable(proof_path,evidence(binding,head,payload,natural_proof))
     immutable(root/'observations'/ (head+'.json'),record)
     if not config['dispatchEnabled']:
         return dict(observedHead=head,state='observed-not-dispatched',reviewedHead=None,alignedHead=None,
@@ -75,13 +87,17 @@ class NoRedirect(HTTPRedirectHandler):
 def main():
     parser=argparse.ArgumentParser(description=__doc__); parser.add_argument('--config',required=True)
     args=parser.parse_args(); config=json.loads(Path(args.config).read_text(encoding='utf-8'))
+    proof=None
+    if config.get('resultEligibility'):
+        context=Path(os.environ['AGENT_AUTOLOOP_CONTEXT'])
+        proof=schedule_proof(json.loads(context.read_text(encoding='utf-8')),os.environ.get('AGENT_AUTOLOOP_RUN'),config['resultEligibility']['watcherRule'])
     gh=config['ghExecutable']; require(Path(gh).is_absolute(),'Fixed gh executable required')
     def github(repository):
         result=subprocess.run([gh,'api','repos/'+repository+'/commits/main'],capture_output=True,text=True,timeout=60)
         require(result.returncode==0,'GitHub main lookup failed')
         return json.loads(result.stdout)
     if config.get('dispatchEnabled') is False:
-        print(json.dumps(watch_once(config,github,None),ensure_ascii=False)); return
+        print(json.dumps(watch_once(config,github,None,proof),ensure_ascii=False)); return
     url=config['hubUrl']; parsed=urlparse(url)
     require(parsed.scheme=='http' and parsed.hostname in ('127.0.0.1','::1') and parsed.port
             and parsed.path in ('','/') and not parsed.query and not parsed.fragment and not parsed.username,
@@ -92,7 +108,7 @@ def main():
         request=Request(url.rstrip('/')+path,data=canonical(payload).encode() if payload is not None else None,
                         headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method=method)
         with opener.open(request,timeout=30) as response: return json.load(response)
-    print(json.dumps(watch_once(config,github,hub),ensure_ascii=False))
+    print(json.dumps(watch_once(config,github,hub,proof),ensure_ascii=False))
 
 
 if __name__=='__main__':
