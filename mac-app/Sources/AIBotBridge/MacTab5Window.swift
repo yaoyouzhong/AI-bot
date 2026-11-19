@@ -175,6 +175,7 @@ final class MacTab5Window: NSWindowController, NSWindowDelegate, NSTabViewDelega
     private var updateCard: MacBridgeActionCard?
 
     func setAvailableUpdates(_ count: Int) {
+        updateCard?.setUpgradeAvailable(count > 0)
         updateCard?.setDetail(count > 0 ? "\(count) 项更新可用" : "查看软件、固件和图库更新")
     }
 

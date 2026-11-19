@@ -87,7 +87,7 @@ final class MacFirmwareFlasher {
         return size
     }
 
-    func execute(port: String, firmware: URL?, backupDirectory: URL = MacFirmwareFlasher.backupDirectory) throws -> URL {
+    func execute(port: String, firmware: URL?, backupDirectory: URL = MacFirmwareFlasher.backupDirectory, expectedDevice: String? = nil) throws -> URL {
         guard port.hasPrefix("/dev/cu."), !port.contains(".."), !port.contains("\n") else { throw FlashError.failed("请选择设备串口。") }
         var baud = "460800"
         func command(_ arguments: [String]) -> [String] { ["--chip", "esp8266", "--port", port, "--baud", baud] + arguments }
@@ -104,7 +104,21 @@ final class MacFirmwareFlasher {
             stage("正在检查固件…")
             _ = try run(["--chip", "esp8266", "image_info", firmware.path])
         }
-        let size = try Self.flashSize(readWithFallback(["flash_id"], message: "正在检查设备…"))
+        func verifyDevice(_ probe: String) throws {
+            guard let expectedDevice else { return }
+            let compact = expectedDevice.dropFirst("esp8266-".count)
+            let mac = stride(from: 0, to: compact.count, by: 2).map { offset in
+                String(compact.dropFirst(offset).prefix(2))
+            }.joined(separator: ":")
+            let pattern = "(?im)^MAC:[ \t]*" + NSRegularExpression.escapedPattern(for: mac) + "[ \t]*\\r?$"
+            guard expectedDevice.hasPrefix("esp8266-"), compact.count == 12,
+                  probe.range(of: pattern, options: .regularExpression) != nil else {
+                throw FlashError.failed("已连接小屏的硬件身份不匹配，升级已停止。")
+            }
+        }
+        let probe = try readWithFallback(["flash_id"], message: "正在检查设备…")
+        try verifyDevice(probe)
+        let size = try Self.flashSize(probe)
         if let firmware, (try firmware.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max) > size { throw FlashError.failed("固件超过设备存储容量，已停止。") }
         try FileManager.default.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
         let backup = backupDirectory.appendingPathComponent("backup-\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString).bin")
@@ -113,6 +127,9 @@ final class MacFirmwareFlasher {
         let digest = try Self.hash(Data(contentsOf: backup))
         try (digest + "  " + backup.lastPathComponent + "\n").write(to: backup.appendingPathExtension("sha256"), atomically: true, encoding: .utf8)
         if let firmware {
+            if expectedDevice != nil {
+                try verifyDevice(readWithFallback(["read_mac"], message: "正在重新确认小屏…"))
+            }
             stage("正在刷机，请勿拔线…")
             _ = try run(command(["write_flash", "0x0", firmware.path]))
             stage("即将完成，请保持连接…")

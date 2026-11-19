@@ -20,7 +20,7 @@ final class HTTPStatusServer {
     private var wanted = false, listenerGeneration: UInt64 = 0
     private var listenerRecovery = MacHTTPListenerRecovery()
     private let observationLock = NSLock()
-    private var lastESP: Date?
+    private var lastESP: Date?, reportedESPVersion: String?
     private let statusDiagnosticLock = NSLock()
     private var statusRequests = 0, statusResponses = 0, statusSends = 0, statusSendErrors = 0
     private var statusCode = 0, statusBytes = 0, statusResponseMS = 0, statusMaximumMS = 0, statusSendMS = 0, statusSendError: Int32 = 0
@@ -28,6 +28,11 @@ final class HTTPStatusServer {
     var statusDiagnosticSummary: String {
         statusDiagnosticLock.lock(); defer { statusDiagnosticLock.unlock() }
         return "Mac LAN 监听：\(listenerDiagnostic)\nMac Wi-Fi 状态回包：请求 \(statusRequests)，响应 \(statusResponses)，发送完成 \(statusSends)，发送失败 \(statusSendErrors)\nHTTP \(statusCode)，响应字节 \(statusBytes)，生成 \(statusResponseMS) ms，最大生成 \(statusMaximumMS) ms，发送 \(statusSendMS) ms，错误码 \(statusSendError)\n发送完成只表示本机网络栈已接收，不等于设备已收到。"
+    }
+    var espFirmwareVersion: String? {
+        observationLock.lock(); defer { observationLock.unlock() }
+        guard let lastESP, Date().timeIntervalSince(lastESP) < 8 else { return nil }
+        return reportedESPVersion
     }
     var lastESPRequest: Date? { observationLock.lock(); defer { observationLock.unlock() }; return lastESP }
 
@@ -287,7 +292,14 @@ final class HTTPStatusServer {
         }
         let path = String(parts[1])
         guard espEnabled() else { return http(status: "503 Service Unavailable", body: Data("{\"error\":\"device_disabled\"}".utf8)) }
-        if path == "/status" { if !loopback { observationLock.lock(); lastESP = Date(); observationLock.unlock() }; return http(status: "200 OK", body: snapshot()) }
+        if path == "/status" {
+            if !loopback {
+                let firmware = lines.dropFirst().first { $0.lowercased().hasPrefix("x-aibot-firmware:") }
+                    .map { $0.dropFirst("x-aibot-firmware:".count).trimmingCharacters(in: .whitespaces) }
+                observationLock.lock(); lastESP = Date(); reportedESPVersion = firmware; observationLock.unlock()
+            }
+            return http(status: "200 OK", body: snapshot())
+        }
         let values = resources()
         if path == "/resources" {
             let entries: [[String: Any]] = values.map { ["kind": Int($0.kind.rawValue), "crc": MacBinaryResourceProtocol.crc32(Array($0.data)), "length": $0.data.count] }

@@ -69,6 +69,20 @@ final class MacFirmwareFlashWindow: NSWindowController, NSWindowDelegate {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     private func button(_ title: String, _ action: Selector) -> NSButton { NSButton(title: title, target: self, action: action) }
     func open() { showWindow(nil); window?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
+    func installDownloaded(_ url: URL, port: String, automaticDevice: String?) throws {
+        guard !busy else { throw FlashError.failed("请先结束当前小屏操作。") }
+        selection = MacFlashDeviceSelection(bridgePort: port)
+        refreshPorts()
+        guard selection.selected == port else {
+            firmware = nil; file.stringValue = "选择下载的固件包"; updateButtons()
+            throw FlashError.failed("USB 小屏已断开，请重新检查更新。")
+        }
+        firmware = url; file.stringValue = url.lastPathComponent
+        updateButtons(); open()
+        if let automaticDevice {
+            guard run(backupOnly: false, expectedDevice: automaticDevice) else { throw FlashError.failed("请先结束当前设备操作。") }
+        } else { status.stringValue = "固件已校验。确认目标为当前小屏后，点开始刷机。" }
+    }
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         if busy { status.stringValue = "操作正在进行，请保持连接，完成后再关闭。" }
         return !busy
@@ -128,8 +142,8 @@ final class MacFirmwareFlashWindow: NSWindowController, NSWindowDelegate {
     }
     @objc private func start() { run(backupOnly: false) }
     @objc private func backup() { run(backupOnly: true) }
-    private func run(backupOnly: Bool) {
-        guard !busy, let port = selection.selected, begin() else { return }
+    @discardableResult private func run(backupOnly: Bool, expectedDevice: String? = nil) -> Bool {
+        guard !busy, let port = selection.selected, begin() else { return false }
         busy = true; updateButtons(); log.string = ""; progress.isHidden = false; progress.isIndeterminate = true; progress.startAnimation(nil)
         let selected = firmware
         DispatchQueue.global(qos: .userInitiated).async { [self] in
@@ -148,7 +162,7 @@ final class MacFirmwareFlashWindow: NSWindowController, NSWindowDelegate {
                 stage("正在连接设备…")
                 suspend()
                 let flasher = MacFirmwareFlasher(run: { args in try MacFirmwareFlasher.process(tool.executable.path, args, log: { text in DispatchQueue.main.async { self.append(text) } }) }, stage: stage)
-                let backup = try flasher.execute(port: port, firmware: prepared)
+                let backup = try flasher.execute(port: port, firmware: prepared, expectedDevice: expectedDevice)
                 DispatchQueue.main.async { self.append("备份保存到：" + backup.path) }
                 success = true
                 message = backupOnly ? "备份完成。" : "刷机完成，小屏正在重新连接。"
@@ -159,5 +173,6 @@ final class MacFirmwareFlashWindow: NSWindowController, NSWindowDelegate {
                 self.progress.doubleValue = success ? 100 : 0; self.status.stringValue = message; self.append(message)
             }
         }
+        return true
     }
 }

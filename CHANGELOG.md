@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- **Software and firmware on Mac.** The settings card shows a white up arrow on a green circle alongside the update count. Select an item to read its release notes. One-Click Update downloads and verifies the package, installs and restarts the desktop app, starts the update on supported TAB5 devices, or backs up and flashes an identified USB-connected ESP8266.
+
 ## 0.6.25 - 2026-11-17
 
 This release updates the Windows desktop app.

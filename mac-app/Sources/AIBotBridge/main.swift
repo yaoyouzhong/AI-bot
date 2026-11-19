@@ -175,6 +175,17 @@ if Array(CommandLine.arguments.dropFirst()) == ["--self-test-flash-tool"] {
     catch { fputs("\(error.localizedDescription)\n", stderr); exit(1) }
 }
 
+if CommandLine.arguments.count == 3, ["--self-test-desktop-update", "--self-test-desktop-update-boot"].contains(CommandLine.arguments[1]) {
+    do {
+        try MainActor.assumeIsolated {
+            let root = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
+            if CommandLine.arguments[1].hasSuffix("-boot") { try MacDesktopUpdateValidation.verifyBoot(root) }
+            else { try MacDesktopUpdateValidation.run(root) }
+        }
+        exit(0)
+    } catch { fputs("Mac desktop update acceptance failed: \(error.localizedDescription)\n", stderr); exit(1) }
+}
+
 let instance: MacApplicationInstance
 do { instance = try MacApplicationInstance() }
 catch MacApplicationInstance.Failure.alreadyRunning { print("BRIDGE_ALREADY_RUNNING"); exit(0) }

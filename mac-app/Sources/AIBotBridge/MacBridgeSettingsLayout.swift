@@ -107,6 +107,8 @@ private final class MacBridgeSettingsDocument: NSView { override var isFlipped: 
 final class MacBridgeActionCard: NSButton {
     private let caption: String
     private var detail: String
+    private(set) var showsUpgradeArrow = false { didSet { if oldValue != showsUpgradeArrow { needsDisplay = true } } }
+    func setUpgradeAvailable(_ value: Bool) { showsUpgradeArrow = value }
     private let handler: () -> Void
 
     init(_ title: String, _ detail: String, id: String, action: @escaping () -> Void) {
@@ -123,7 +125,7 @@ final class MacBridgeActionCard: NSButton {
     func setDetail(_ value: String) {
         guard value != detail else { return }
         detail = value
-        setAccessibilityHelp(value)
+        setAccessibilityHelp(value); toolTip = value
         needsDisplay = true
     }
 
@@ -139,7 +141,24 @@ final class MacBridgeActionCard: NSButton {
         (isHighlighted ? NSColor.selectedContentBackgroundColor.withAlphaComponent(0.12) : .controlBackgroundColor).setFill()
         shape.fill(); NSColor.separatorColor.setStroke(); shape.stroke()
         let paragraph = NSMutableParagraphStyle(); paragraph.lineBreakMode = .byTruncatingTail
-        (caption as NSString).draw(in: NSRect(x: 16, y: 12, width: bounds.width - 32, height: 22), withAttributes: [
+        var titleRight = bounds.width - 16
+        if showsUpgradeArrow {
+            let badge = NSRect(x: bounds.maxX - 41, y: 11, width: 24, height: 24)
+            NSColor(srgbRed: 33.0 / 255, green: 133.0 / 255, blue: 74.0 / 255, alpha: 1).setFill()
+            NSBezierPath(ovalIn: badge).fill()
+            let scale = badge.width / 26
+            let x = badge.midX, tip = badge.midY - 6 * scale
+            let arrow = NSBezierPath()
+            arrow.move(to: NSPoint(x: x, y: tip + 11 * scale))
+            arrow.line(to: NSPoint(x: x, y: tip))
+            arrow.move(to: NSPoint(x: x - 5 * scale, y: tip + 5 * scale))
+            arrow.line(to: NSPoint(x: x, y: tip))
+            arrow.line(to: NSPoint(x: x + 5 * scale, y: tip + 5 * scale))
+            arrow.lineWidth = 3 * scale; arrow.lineCapStyle = .round; arrow.lineJoinStyle = .round
+            NSColor.white.setStroke(); arrow.stroke()
+            titleRight = badge.minX - 8
+        }
+        (caption as NSString).draw(in: NSRect(x: 16, y: 12, width: max(1, titleRight - 16), height: 22), withAttributes: [
             .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
             .foregroundColor: isEnabled ? NSColor.labelColor : .disabledControlTextColor,
             .paragraphStyle: paragraph

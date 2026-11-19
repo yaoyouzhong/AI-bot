@@ -56,7 +56,11 @@ struct MacGalleryRelease {
 /// Downloads into a hash-specific cache; only a complete verified ZIP is installed.
 final class MacGalleryDownloader {
     private let session:URLSession
-    init() { let config = URLSessionConfiguration.ephemeral; config.timeoutIntervalForRequest = 30; config.timeoutIntervalForResource = 3600; session = URLSession(configuration:config,delegate:MacUpdateRedirects(),delegateQueue:nil) }
+    init(configuration: URLSessionConfiguration = .ephemeral) {
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 3600
+        session = URLSession(configuration: configuration, delegate: MacUpdateRedirects(), delegateQueue: nil)
+    }
     deinit { session.invalidateAndCancel() }
     func metadata(_ url:URL, maximum:Int) async throws -> Data {
         guard MacUpdateRedirects.allowed(url) else { throw MacTab5Error.invalidPacket }
@@ -81,7 +85,7 @@ final class MacGalleryDownloader {
             guard let http = response as? HTTPURLResponse else { throw MacTab5Error.invalidPacket }
             if http.statusCode == 200 { try handle.truncate(atOffset:0); try handle.seek(toOffset:0); received = 0 }
             else if http.statusCode == 206 { guard http.value(forHTTPHeaderField:"Content-Range") == "bytes \(received)-\(release.asset.size-1)/\(release.asset.size)" else { throw MacTab5Error.invalidPacket } }
-            else { throw MacTab5LocalError.invalid("图库下载失败（HTTP \(http.statusCode)）。") }
+            else { throw MacTab5LocalError.invalid("下载失败（HTTP \(http.statusCode)）。") }
             var buffer = Data(); buffer.reserveCapacity(256*1024)
             for try await byte in bytes {
                 try Task.checkCancellation(); guard received+Int64(buffer.count) < release.asset.size else { throw MacTab5Error.invalidPacket }; buffer.append(byte)
@@ -92,7 +96,7 @@ final class MacGalleryDownloader {
         guard received == release.asset.size else { throw MacTab5LocalError.invalid("下载未完成，可重试继续下载。") }
         try handle.synchronize(); try handle.seek(toOffset:0); var digest = SHA256()
         while let chunk = try handle.read(upToCount:1024*1024), !chunk.isEmpty { try Task.checkCancellation(); digest.update(data:chunk) }
-        guard digest.finalize().map({String(format:"%02x",$0)}).joined() == hash else { try handle.truncate(atOffset:0); throw MacTab5LocalError.invalid("下载校验失败，原图库保持不变。") }
+        guard digest.finalize().map({String(format:"%02x",$0)}).joined() == hash else { try handle.truncate(atOffset:0); throw MacTab5LocalError.invalid("下载文件未通过 SHA-256 校验。") }
         return file
     }
 }

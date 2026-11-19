@@ -64,11 +64,38 @@ final class MacUpdateRedirects: NSObject, URLSessionTaskDelegate {
     static func allowed(_ url: URL) -> Bool { url.scheme == "https" && (url.port == nil || url.port == 443) && url.user == nil && url.password == nil && ["api.github.com","github.com","release-assets.githubusercontent.com","objects.githubusercontent.com"].contains(url.host ?? "") }
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(request.url.map(Self.allowed) == true ? request:nil) }
 }
+private final class MacUpdateTableHeader: NSTableHeaderView {
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.windowBackgroundColor.setFill()
+        bounds.fill()
+        guard let tableView else { return }
+        let font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        let style = NSMutableParagraphStyle(); style.lineBreakMode = .byTruncatingTail
+        for (index, column) in tableView.tableColumns.enumerated() {
+            let cell = headerRect(ofColumn: index)
+            (column.title as NSString).draw(in: NSRect(x: cell.minX + 8, y: cell.midY - 8,
+                width: max(0, cell.width - 16), height: 18), withAttributes: [
+                    .font: font, .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: style
+                ])
+        }
+        NSColor.separatorColor.setFill()
+        NSRect(x: 0, y: bounds.maxY - 1, width: bounds.width, height: 1).fill()
+    }
+}
 final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
-    private let tab5: MacTab5Service?, upgradeTools: () -> Void, espTools: () -> Void
+    struct ESPConnection: Equatable {
+        var port: String? = nil
+        var id: String? = nil
+        var firmware: String? = nil
+    }
+    private let tab5: MacTab5Service?, registry: MacDeviceRegistry
+    private let espConnection: () -> ESPConnection
+    private let upgradeTools: () throws -> Void
+    private let espTools: (URL, String, String?) throws -> Void
+    private let installDesktop: (URL, String) throws -> Void
     static let galleryID = "gallery"
-    private let table = MacSettingsTable(["更新项","当前版本 / 安装","最新发布","状态"]), detail = MacBridgeSettingsStyle.label(""), status = MacBridgeSettingsStyle.note("")
-    private var releases: [String:MacComponentRelease] = [:], operation: Task<Void,Never>?, prepared: [String:URL] = [:]
+    private let table = MacSettingsTable(["更新项","当前版本 / 安装","最新发布","状态"], minimumHeight: 162), detail = MacUpdateNotesView(), status = MacBridgeSettingsStyle.note("")
+    private var releases: [String:MacComponentRelease] = [:], operation: Task<Void,Never>?
     private let components = ["bridge","esp8266","tab5", MacUpdateWindow.galleryID]
     private let componentNames = ["bridge":"Mac 桥接","esp8266":"ESP8266 小屏","tab5":"M5Stack TAB5"]
     private var displayedComponents: [String] = []
@@ -83,12 +110,13 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
         return true
     }
 
+    private func isEnabled(_ key: String) -> Bool { key == "bridge" || registry.enabled(key) }
     private var availableComponents: [String] {
         components.filter { key in
             guard let release = releases[key], release.checksum != nil,
                   let installed = MacReleaseCatalog.version(current(key)),
                   let available = MacReleaseCatalog.version(release.version) else { return false }
-            return installed.lexicographicallyPrecedes(available) && (key == "bridge" || MacDeviceRegistry.shared.enabled(key))
+            return installed.lexicographicallyPrecedes(available) && isEnabled(key)
         }
     }
 
@@ -132,26 +160,52 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
     private let session: URLSession
     private let catalogPage: ((Int) async throws -> Data)?
     private(set) var busy = false
+    private var canCancel = false
     static let automaticKey = "bridge_automatic_updates"
     private let automatic = NSButton(checkboxWithTitle:"自动检查并提醒",target:nil,action:nil), progress = NSProgressIndicator()
-    private let downloader = MacGalleryDownloader()
-    private var automaticTimer:Timer?, downloadButton:MacSettingsButton!, installButton:MacSettingsButton!, cancelButton:MacSettingsButton!
-    init(tab5: MacTab5Service?, upgradeTools: @escaping () -> Void, espTools: @escaping () -> Void, catalogPage: ((Int) async throws -> Data)? = nil) {
-        self.tab5 = tab5; self.upgradeTools = upgradeTools; self.espTools = espTools; self.catalogPage = catalogPage
+    private let downloadPackage: (MacGalleryRelease, @escaping (Double) -> Void) async throws -> URL
+    private var automaticTimer: Timer?, rowTimer: Timer?
+    private var downloadButton: MacSettingsButton!, cancelButton: MacSettingsButton!, checkButton: MacSettingsButton!
+    private let requirement = MacBridgeSettingsStyle.note("")
+    init(tab5: MacTab5Service?, registry: MacDeviceRegistry = .shared,
+         espConnection: @escaping () -> ESPConnection = { .init() },
+         upgradeTools: @escaping () throws -> Void, espTools: @escaping (URL, String, String?) throws -> Void,
+         installDesktop: @escaping (URL, String) throws -> Void,
+         catalogPage: ((Int) async throws -> Data)? = nil,
+         downloadPackage: ((MacGalleryRelease, @escaping (Double) -> Void) async throws -> URL)? = nil) {
+        self.tab5 = tab5; self.registry = registry; self.espConnection = espConnection
+        self.upgradeTools = upgradeTools; self.espTools = espTools; self.installDesktop = installDesktop; self.catalogPage = catalogPage
+        if let downloadPackage { self.downloadPackage = downloadPackage }
+        else {
+            let downloader = MacGalleryDownloader()
+            self.downloadPackage = { release, progress in
+                try await downloader.download(release, root: MacProfileFile<[MacBirthday]>.directory.appendingPathComponent("updates"), progress: progress)
+            }
+        }
         let configuration = URLSessionConfiguration.ephemeral; configuration.timeoutIntervalForRequest = 30; configuration.timeoutIntervalForResource = 600
         session = URLSession(configuration:configuration,delegate:MacUpdateRedirects(),delegateQueue:nil)
-        super.init(window:MacBridgeSettingsStyle.window("软件固件",width:800,height:620)); window?.delegate = self
-        let page = MacBridgeSettingsPage(); page.heading("软件固件",subtitle:"查看电脑软件、设备固件和屏保图库更新。")
+        super.init(window:MacBridgeSettingsStyle.window("软件固件",width:800,height:640,minimumHeight:570)); window?.delegate = self
+        let page = MacBridgeSettingsPage(); page.stack.spacing = 10; page.heading("软件固件")
         automatic.state = UserDefaults.standard.bool(forKey:Self.automaticKey) ? .on:.off; automatic.target = self; automatic.action = #selector(changeAutomatic)
-        page.add(MacBridgeSettingsStyle.row([MacSettingsButton("检查更新") { [weak self] in self?.check() },automatic])); page.add(table); table.heightAnchor.constraint(equalToConstant:180).isActive = true
+        checkButton = MacSettingsButton("检查更新") { [weak self] in self?.check() }
+        page.add(MacBridgeSettingsStyle.row([checkButton,automatic])); page.add(table)
+        table.table.rowHeight = 32
+        table.table.headerView = MacUpdateTableHeader(frame: NSRect(x: 0, y: 0, width: 0, height: 26))
+        table.heightAnchor.constraint(equalToConstant:162).isActive = true
         progress.isIndeterminate = false; progress.maxValue = 100; progress.isHidden = true; page.add(progress)
-        page.section("更新说明"); page.add(detail)
-        downloadButton = MacSettingsButton("下载并准备升级") { [weak self] in self?.download() }; installButton = MacSettingsButton("打开安装／升级工具") { [weak self] in self?.install() }; cancelButton = MacSettingsButton("取消下载") { [weak self] in self?.operation?.cancel() }
-        page.add(MacSettingsButton("完整下载与安装说明") { NSWorkspace.shared.open(URL(string:"https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.md")!) })
-        window?.contentView = MacBridgeSettingsShell(body:page,status:status,actions:[downloadButton,installButton,cancelButton])
+        page.section("所选更新说明"); page.add(detail); page.add(requirement)
+        downloadButton = MacSettingsButton("一键升级") { [weak self] in self?.download() }
+        downloadButton.bezelColor = .controlAccentColor
+        cancelButton = MacSettingsButton("取消下载") { [weak self] in self?.operation?.cancel() }
+        let downloads = MacSettingsButton("完整下载与安装说明") { NSWorkspace.shared.open(URL(string:"https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.md")!) }
+        window?.contentView = MacBridgeSettingsShell(body:page,status:status,actions:[downloadButton,cancelButton,downloads])
         table.selected = { [weak self] _ in self?.selection() }; refreshRows()
+        rowTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            guard let self, self.window?.isVisible == true, !self.busy else { return }
+            self.refreshRows()
+        }
     }
-    deinit { automaticTimer?.invalidate(); operation?.cancel(); session.invalidateAndCancel() }
+    deinit { automaticTimer?.invalidate(); rowTimer?.invalidate(); operation?.cancel(); session.invalidateAndCancel() }
     required init?(coder:NSCoder) { fatalError() }
     func open(component: String? = nil) {
         let requested = component.flatMap { components.contains($0) ? $0 : nil }
@@ -172,14 +226,35 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
     private func controls() {
         let key = selectedComponent ?? ""
         let gallery = key == Self.galleryID
-        downloadButton?.title = gallery ? "管理图库…" : "下载并准备升级"
-        downloadButton?.isEnabled = !busy && (gallery ? tab5 != nil : releases[key]?.checksum != nil)
-        installButton?.isHidden = gallery
-        installButton?.isEnabled = !busy && prepared[key] != nil
-        cancelButton?.isHidden = !busy; automatic.isEnabled = !busy
+        let esp = espConnection()
+        let legacy = key == "esp8266" && esp.port != nil && esp.firmware == nil
+        let release = releases[key]
+        let available = availableComponents.contains(key)
+        downloadButton?.title = gallery ? "管理图库…" : legacy ? "手动准备小屏升级" : "一键升级"
+        downloadButton?.isHidden = !gallery && !available && !legacy
+        downloadButton?.isEnabled = !busy && (gallery ? tab5 != nil :
+            release?.checksum != nil && isEnabled(key) && (key != "esp8266" || esp.port != nil) &&
+            (available || legacy) && (key != "tab5" || tab5?.bootTransport != nil || tab5?.usbActive == true))
+        cancelButton?.isHidden = !canCancel
+        cancelButton?.title = progress.isHidden ? "取消检查" : "取消下载"
+        automatic.isEnabled = !busy; checkButton?.isEnabled = !busy
+        requirement.stringValue = gallery ? "" : legacy ? "无法比较旧固件版本。请在刷机窗口确认目标后开始。" :
+            !available ? "" : key == "bridge" ? "自动校验、安装并重新打开 AI-bot。请先完成正在进行的操作。" :
+            key == "tab5" ? "校验后向 TAB5 发送升级请求。请连接 USB 或 Wi-Fi，并保持供电。" :
+            "通过 USB 升级，写入前自动备份。请保持连接和供电。"
+        requirement.isHidden = requirement.stringValue.isEmpty
     }
-    func windowShouldClose(_ sender:NSWindow) -> Bool { if busy { status.stringValue = "下载中；请先取消或等待完成。" }; return !busy }
-    private func current(_ key: String) -> String { key == "bridge" ? Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "开发版" : key == "tab5" ? tab5?.connectionStatus.firmware ?? "待连接" : "连接设备后查看" }
+    func windowShouldClose(_ sender:NSWindow) -> Bool { if busy { status.stringValue = canCancel ? "操作进行中，请先取消或等待完成。" : "正在准备安装，请等待完成。" }; return !busy }
+    private func current(_ key: String) -> String {
+        switch key {
+        case "bridge": return Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "开发版"
+        case "tab5": return tab5?.connectionStatus.firmware ?? "待连接"
+        default:
+            let esp = espConnection()
+            if let version = esp.firmware { return MacReleaseCatalog.version(version) == nil ? "版本上报无效" : version }
+            return esp.port != nil ? "旧固件未上报" : "连接设备后查看"
+        }
+    }
     func windowDidBecomeKey(_ notification: Notification) { if !busy { refreshRows() } }
 
     private var firstAvailableItem: String? {
@@ -190,8 +265,8 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
         let selected = preferred ?? selectedComponent
         let gallery = galleryOverview()
         let available = availableComponents + (gallery.updates.isEmpty ? [] : [Self.galleryID])
-        displayedComponents = available + components.filter { !available.contains($0) }
-        table.rows = displayedComponents.map { key in
+        let ordered = available + components.filter { !available.contains($0) }
+        let rows = ordered.map { key in
             if key == Self.galleryID {
                 return ["屏保图库", gallery.installed > 0 ? "已安装 \(gallery.installed) 套" : "未安装",
                         gallery.updates.isEmpty ? (checked ? "—" : "待查询") : "\(gallery.updates.count) 套新版",
@@ -200,8 +275,13 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
             return [componentNames[key] ?? key, current(key), releases[key]?.version ?? "待查询",
                     available.contains(key) ? "有更新" : releases[key] == nil ? (checked ? "暂无发布" : "待检查") : "—"]
         }
-        table.select(selected.flatMap { displayedComponents.firstIndex(of: $0) } ?? 0)
-        table.table.scrollRowToVisible(table.selectedRow)
+        let index = selected.flatMap { ordered.firstIndex(of: $0) } ?? 0
+        if table.rows != rows || table.selectedRow != index {
+            displayedComponents = ordered
+            table.rows = rows
+            table.select(index)
+            table.table.scrollRowToVisible(index)
+        }
         selection()
     }
 
@@ -209,9 +289,11 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
         guard let key = selectedComponent else { return }
         if key == Self.galleryID {
             let updates = galleryOverview().updates
-            detail.stringValue = updates.isEmpty ? "查看名画和书法版本，或安装图库包。" : updates.joined(separator: "\n")
+            detail.show(updates.isEmpty ? "查看名画和书法版本，或安装图库包。" : updates.joined(separator: "\n"))
         } else {
-            detail.stringValue = releases[key]?.notes ?? "点击检查更新，读取项目正式发布附件。"
+            if let release = releases[key] {
+                detail.show(MacUpdateNotes.selected(release.notes, component: key, version: release.version))
+            } else { detail.show(checked ? "暂无更新说明。" : "点击检查更新，读取正式发布的更新说明。") }
         }
         controls()
     }
@@ -225,7 +307,7 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
         guard expected == nil || Int64(data.count) == expected else { throw MacTab5LocalError.invalid("下载大小与发布记录不一致。") }; return data
     }
     private func check() {
-        guard !busy else { return }; busy = true; controls(); status.stringValue = "正在读取正式发布记录…"
+        guard !busy else { return }; busy = true; canCancel = true; controls(); status.stringValue = "正在读取正式发布记录…"
         operation = Task { [weak self] in guard let self else { return }; do {
             var result: [String:MacComponentRelease] = [:], complete = false
             var galleryResult: [String:MacGalleryRelease] = [:]
@@ -249,7 +331,7 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
                 let available = self.availableComponents
                 self.refreshRows(select: self.focusAvailableAfterCheck ? self.firstAvailableItem : nil)
                 self.focusAvailableAfterCheck = false
-                self.status.stringValue = "已检查；只显示实际发布的平台附件。"
+                self.status.stringValue = "已检查更新。"
                 if self.catalogPage == nil, UserDefaults.standard.bool(forKey: Self.automaticKey), Bundle.main.bundleIdentifier != nil {
                     for component in available {
                         guard let release = result[component] else { continue }
@@ -264,27 +346,109 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
                     }
                 }
             }
-        } catch { await MainActor.run { self.status.stringValue = "检查未完成，保留上次结果：" + error.localizedDescription } }; await MainActor.run { self.busy = false; self.controls(); self.progress.isHidden = true } }
+        } catch { await MainActor.run { self.status.stringValue = Task.isCancelled ? "已取消检查更新。" : "检查未完成，保留上次结果：" + error.localizedDescription } }; await MainActor.run { self.busy = false; self.canCancel = false; self.controls(); self.progress.isHidden = true } }
     }
     private func download() {
         guard !busy, let key = selectedComponent else { return }
         if key == Self.galleryID { openGalleryManager(); return }
-        guard let release = releases[key], let checksum = release.checksum else { status.stringValue = "请先检查更新并选择附带校验清单的组件。"; return }
-        if let installed = MacReleaseCatalog.version(current(release.component)), let available = MacReleaseCatalog.version(release.version), !installed.lexicographicallyPrecedes(available) { status.stringValue = "当前版本相同或较新，保留现有版本。"; return }
+        guard let release = releases[key], let checksum = release.checksum, isEnabled(key) else { return }
+        let version = current(key), esp = espConnection()
+        let device = registry.device(key), pair = tab5?.currentPairing?.deviceId
+        let legacy = key == "esp8266" && esp.firmware == nil && esp.port != nil
+        guard availableComponents.contains(key) || legacy else { return }
         guard release.asset.size <= 256 * 1024 * 1024 else { status.stringValue = "发布包超过下载限制。"; return }
-        busy = true; controls(); progress.isHidden = false; progress.doubleValue = 0; status.stringValue = "正在下载并校验 \(release.asset.name)…"
-        operation = Task { [weak self] in guard let self else { return }; do {
-            let request = MacGalleryRelease(category:release.component,version:release.version,asset:release.asset,checksum:checksum)
-            let path = try await self.downloader.download(request,root:MacProfileFile<[MacBirthday]>.directory.appendingPathComponent("updates")) { [weak self] value in DispatchQueue.main.async { self?.progress.doubleValue = value*100 } }
-            if release.component == "tab5" { let image = try MacTab5FirmwareImage.load(path); guard image.version == release.version else { throw MacTab5LocalError.invalid("包内固件版本不匹配。") }; try self.tab5?.firmwareControl.select(image) }
-            await MainActor.run { self.prepared[release.component] = path; self.status.stringValue = "下载与校验完成。点击打开安装／升级工具；设备安装仍须明确确认。" }
-        } catch { await MainActor.run { self.status.stringValue = error is CancellationError ? "下载已取消，已下载部分保留，下次可继续。":"未准备升级：" + error.localizedDescription } }; await MainActor.run { self.busy = false; self.controls(); self.progress.isHidden = true } }
+        if key == "esp8266" && esp.port == nil { return }
+        if key == "tab5" && (pair == nil || (tab5?.bootTransport == nil && tab5?.usbActive != true)) { return }
+        busy = true; canCancel = true; progress.isHidden = false; progress.doubleValue = 0; controls()
+        status.stringValue = "正在下载并校验 \(componentNames[key] ?? key) 的更新…"
+        operation = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { busy = false; canCancel = false; progress.isHidden = true; refreshRows() }
+            do {
+                let request = MacGalleryRelease(category:key,version:release.version,asset:release.asset,checksum:checksum)
+                let path = try await downloadPackage(request) { [weak self] value in
+                    DispatchQueue.main.async { self?.progress.doubleValue = value*100 }
+                }
+                try Task.checkCancellation()
+                canCancel = false; controls()
+                status.stringValue = "下载校验通过，正在检查安装包…"
+                if key == "bridge" {
+                    let app = try await Task.detached { try MacDesktopUpdate.unpack(path, version: release.version) }.value
+                    busy = false
+                    do {
+                        try installDesktop(app, release.version)
+                        status.stringValue = "已替换应用，正在重新打开 AI-bot…"
+                    } catch MacTab5Error.busy {
+                        try? FileManager.default.removeItem(at: app.deletingLastPathComponent())
+                        status.stringValue = "请先完成正在进行的设备操作，再点一键升级。"
+                    } catch {
+                        NSWorkspace.shared.activateFileViewerSelecting([app])
+                        status.stringValue = error.localizedDescription + " 已在 Finder 中显示校验后的应用，可退出后手动替换。"
+                    }
+                } else if key == "tab5", let tab5 {
+                    let image = try await Task.detached {
+                        let archive = try MacTab5Archive(path, maximumSize: 32 * 1024 * 1024, allowNested: true)
+                        guard !archive.names.contains("factory.bin") else { throw MacTab5LocalError.invalid("首次安装包不能用于固件升级。") }
+                        try Self.validateCompatibility(archive, entry: "EDITION.json", bridgeVersion: Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String)
+                        let image = try MacTab5FirmwareImage.load(path)
+                        guard image.version == release.version else { throw MacTab5LocalError.invalid("包内固件版本不匹配。") }
+                        return image
+                    }.value
+                    guard registry.device(key)?.id == device?.id, isEnabled(key), tab5.currentPairing?.deviceId == pair, current(key) == version,
+                          tab5.bootTransport != nil || tab5.usbActive else { throw MacTab5LocalError.invalid("TAB5 或运行版本已改变，请重新检查更新。") }
+                    try upgradeTools()
+                    try tab5.firmwareControl.select(image)
+                    if MacReleaseCatalog.version(version)?.lexicographicallyPrecedes([0, 2, 190]) == false {
+                        try tab5.requestUpgrade()
+                        status.stringValue = "已向 TAB5 发送升级请求，等待设备保存草稿并响应。"
+                    } else { status.stringValue = "已提供固件。请在 TAB5 的「设置 → 固件升级」确认。" }
+                } else if key == "esp8266", let port = esp.port {
+                    try await Task.detached {
+                        let archive = try MacTab5Archive(path, maximumSize: 256 * 1024 * 1024, allowNested: true)
+                        let metadata = try Self.validateCompatibility(archive, entry: "COMPONENT.json", bridgeVersion: Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String)
+                        let binary = try archive.read("firmware.bin", maximum: 4 * 1024 * 1024)
+                        guard String(data: try archive.read("VERSION", maximum: 128), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) == release.version,
+                              metadata == nil || (metadata?["component"] as? String == key && metadata?["version"] as? String == release.version),
+                              !archive.names.contains("aibot_tab5.bin"), binary.count >= 1024, binary.first == 0xe9 else {
+                            throw MacTab5LocalError.invalid("固件类型或包内版本不匹配。")
+                        }
+                    }.value
+                    guard registry.device(key)?.id == device?.id, isEnabled(key), espConnection() == esp else {
+                        throw MacTab5LocalError.invalid("USB 小屏或运行版本已改变，请重新检查更新。")
+                    }
+                    let automatic = !legacy && esp.id != nil
+                    if !automatic {
+                        let confirm = NSAlert()
+                        confirm.messageText = legacy ? "小屏未上报当前版本" : "小屏未上报 USB 身份"
+                        confirm.informativeText = "请确认这台小屏和目标版本 \(release.version)。升级前会自动备份。"
+                        confirm.addButton(withTitle: "继续"); confirm.addButton(withTitle: "取消")
+                        guard confirm.runModal() == .alertFirstButtonReturn else { throw CancellationError() }
+                        guard registry.device(key)?.id == device?.id, isEnabled(key), espConnection() == esp else {
+                            throw MacTab5LocalError.invalid("USB 小屏已改变，请重新检查更新。")
+                        }
+                    }
+                    try espTools(path, port, automatic ? esp.id : nil)
+                    status.stringValue = automatic ? "小屏升级已开始，正在准备完整备份。" : "固件已校验，请在刷机窗口开始。"
+                }
+            } catch {
+                status.stringValue = Task.isCancelled || error is CancellationError ? "操作已取消。已下载的部分会保留，可重试。" : "升级未继续：" + error.localizedDescription
+            }
+        }
     }
-    private func install() {
-        guard !busy, let key = selectedComponent else { return }
-        guard let path = prepared[key] else { status.stringValue = "请先下载并校验对应组件。"; return }
-        if key == "bridge" { NSWorkspace.shared.activateFileViewerSelecting([path]); status.stringValue = "安装包已在 Finder 中显示，解压后按包内说明安装。" }
-        else if key == "tab5" { upgradeTools() }
-        else { NSWorkspace.shared.activateFileViewerSelecting([path]); espTools() }
+
+    @discardableResult
+    nonisolated private static func validateCompatibility(_ archive: MacTab5Archive, entry: String, bridgeVersion: String?) throws -> [String: Any]? {
+        guard archive.names.contains(entry) else { return nil }
+        let value = try MacTab5Protocol.object(archive.read(entry, maximum: 8192))
+        if let protocolVersion = value["protocolVersion"], MacTab5Protocol.integer(protocolVersion) != 1 {
+            throw MacTab5LocalError.invalid("固件协议不兼容，请先更新电脑端。")
+        }
+        if value["minimumBridgeVersion"] != nil {
+            guard let minimum = value["minimumBridgeVersion"] as? String, let required = MacReleaseCatalog.version(minimum),
+                  let bridgeVersion, let installed = MacReleaseCatalog.version(bridgeVersion), !installed.lexicographicallyPrecedes(required) else {
+                throw MacTab5LocalError.invalid("请先更新电脑端 AI-bot，再升级设备固件。")
+            }
+        }
+        return value
     }
 }

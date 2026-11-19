@@ -151,6 +151,9 @@ final class AIBotBridgeTests: XCTestCase {
         XCTAssertEqual(SerialBridge.parsePong(
             #"@AIBOT {"version":1,"type":"pong","device":"esp8266","ip":"","device_id":"esp8266-aabbccddeeff"}"#)?.deviceId, "esp8266-aabbccddeeff")
         XCTAssertNil(current.deviceId)
+        XCTAssertNil(current.firmware)
+        XCTAssertEqual(SerialBridge.parsePong(
+            #"@AIBOT {"version":1,"type":"pong","device":"esp8266","firmware":"0.5.8"}"#)?.firmware, "0.5.8")
         XCTAssertNil(SerialBridge.parsePong(
             #"@AIBOT {"version":1,"type":"pong","device":"esp8266","device_id":"invalid"}"#)?.deviceId)
     }

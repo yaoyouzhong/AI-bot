@@ -4,6 +4,16 @@
 
 [完整下载中心](../DOWNLOADS.md)集中提供 Windows / Mac 桥接、ESP8266 固件、TAB5 首刷与升级包、书法和名画图库。桥接 0.6.10 的「完整下载与安装说明」链接也指向此处。
 
+## Mac 一键升级（未发布） / One-Click Update on Mac (unreleased)
+
+有更新时，「桥接设置 → 软件固件」卡片显示绿圆底白色上箭头和更新数量。在版本表选中软件或固件，表格下方显示对应版本的更新说明。点「一键升级」一次开始下载、校验和安装。下载中可以取消，重试时可沿用已下载的数据。
+
+- macOS 在可写的位置替换现有应用并重新打开。需要系统授权或手动替换时按提示操作。
+- 支持电脑端升级的 TAB5 会收到升级请求，先保存草稿，再传输并写入固件。重启后按原流程核验运行镜像和启动分区。旧固件可从设备的「设置 → 固件升级」确认。
+- ESP8266 需连接 USB。识别到目标小屏及其版本后，先完整备份再写入和校验。版本或 USB 身份未知时，使用刷机窗口手动确认。
+
+When updates are available, the Software/Firmware card shows a white up arrow on a green circle and a count. Select an item to see its release notes, then click One-Click Update to download, verify and install the package. Cancel a download to resume it later. The Mac bridge restarts after the update. macOS may require system approval or a manual replacement for protected locations. Supported TAB5 devices save drafts before writing and verify the running image and boot partition after restarting. Connect ESP8266 over USB for automatic backup and flashing. Older TAB5 firmware or an ESP8266 with an unknown version or USB identity still requires manual confirmation.
+
 ## 日常使用
 
 1. 打开「设备中心 → 桥接设置 → 软件固件」。列表显示电脑软件、已添加设备的固件和屏保图库，可查看版本及更新状态。

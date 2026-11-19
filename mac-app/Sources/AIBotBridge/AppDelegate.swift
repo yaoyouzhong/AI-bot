@@ -363,7 +363,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         tab5Window?.busy == true || tab5Window?.toolsBusy == true || tab5?.configurationBusy == true || updatesWindow?.galleryBusy == true
     }
 
-    @objc private func openFlasher() {
+    @objc private func openFlasher() { flashWindow().open() }
+
+    private func flashWindow() -> MacFirmwareFlashWindow {
         if flasher == nil {
             flasher = MacFirmwareFlashWindow(bridgePort: serial?.portName, begin: { [weak self] in
                 guard let self, !self.deviceOperationBusy, !self.tab5ToolsBusy else { return false }
@@ -385,7 +387,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
                 self.deviceOperationBusy = false
             })
         }
-        flasher?.open()
+        return flasher!
     }
 
     private func openTab5Installer() {
@@ -557,8 +559,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
 
     private func prepareUpdateWindow() {
-        if updatesWindow == nil { updatesWindow = MacUpdateWindow(tab5:tab5,upgradeTools:{ [weak self] in self?.openTab5(); self?.tab5Window?.showUpgradeTools() },espTools:{ [weak self] in self?.openFlasher() }) }
+        guard updatesWindow == nil else { return }
+        updatesWindow = MacUpdateWindow(tab5: tab5, registry: devices, espConnection: { [weak self] in
+            if let usb = self?.serial?.espUpdate, usb.port != nil {
+                return .init(port: usb.port, id: usb.id, firmware: usb.firmware)
+            }
+            return .init(firmware: self?.server?.espFirmwareVersion)
+        }, upgradeTools: { [weak self] in
+            guard let self, !self.deviceOperationBusy, !self.tab5ToolsBusy else { throw MacTab5Error.busy }
+            self.openTab5(); self.tab5Window?.showUpgradeTools()
+        }, espTools: { [weak self] url, port, automaticDevice in
+            guard let self, !self.deviceOperationBusy, !self.tab5ToolsBusy else { throw MacTab5Error.busy }
+            try self.flashWindow().installDownloaded(url, port: port, automaticDevice: automaticDevice)
+        }, installDesktop: { [weak self] app, version in
+            guard let self, !self.deviceOperationBusy, self.applicationShouldTerminate(NSApp) == .terminateNow else {
+                throw MacTab5Error.busy
+            }
+            try MacDesktopUpdate.install(app, replacing: Bundle.main.bundleURL, version: version)
+            NSApp.terminate(nil)
+        })
     }
+
     private func openRuntime() {
         let window = MacRuntimeWindow(capture:{ [weak self] in
             guard let self else { return "" }; let sample = self.dataStore.snapshot()

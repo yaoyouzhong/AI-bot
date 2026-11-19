@@ -83,17 +83,63 @@ enum MacTab5UIValidation {
         service.firmwareControl.observeVersion("0.2.318-ui")
         guard service.firmwareControl.summary.contains("草稿") else { throw MacTab5Error.invalidPacket }
         _ = try MacGalleryConnectionValidation.fixture(root)
-        func release(_ tag: String, _ archives: [String]) -> [String: Any] {
+        func release(_ tag: String, _ archives: [String], body: String = "") -> [String: Any] {
             let assets = archives.flatMap { [$0, $0 + ".sha256"] }.map { name in
                 ["name": name, "size": 100, "browser_download_url": "https://github.com/yaoyouzhong/AI-bot/releases/download/\(tag)/\(name)"] as [String: Any]
             }
-            return ["draft": false, "prerelease": false, "tag_name": tag, "assets": assets]
+            return ["draft": false, "prerelease": false, "tag_name": tag, "assets": assets, "body": body]
         }
         let catalog = try JSONSerialization.data(withJSONObject: [
             release("gallery-test", ["AI-bot-gallery-painting-standard-2026.11.17.zip", "AI-bot-gallery-calligraphy-standard-2026.11.17.zip"]),
-            release("esp8266-v9.0.0", ["AI-bot-esp8266-9.0.0-flash.zip"])
+            release("v9.0.0", ["AI-bot-esp8266-9.0.0-firmware.zip", "AI-bot-bridge-v9.0.0-macos-arm64.zip"], body: """
+                ## 下载
+
+                - [完整下载中心](https://github.com/yaoyouzhong/AI-bot)
+
+                ## 桌面桥接 9.0.0
+
+                - 测试用电脑端说明。
+
+                ## ESP8266 小屏 9.0.0
+
+                ### 显示与连接
+
+                - **连接恢复。** 小屏重新连接桥接后，继续显示原来选中的内容。
+                - **USB 升级。** 先完整备份并核对小屏身份，再写入新固件。
+
+                ### 使用方式
+
+                - 升级期间请保持 USB 连接与供电。
+
+                ## English
+
+                - An independent English section.
+
+                <!-- Published metadata -->
+                """)
         ])
-        let updates = MacUpdateWindow(tab5: service, upgradeTools: {}, espTools: {}, catalogPage: { _ in catalog })
+        var espUpdate = MacUpdateWindow.ESPConnection()
+        let targetID = "esp8266-001122334455", targetPort = "/dev/cu.usbserial-test"
+        let espPayload = root.appendingPathComponent("esp-payload")
+        try FileManager.default.createDirectory(at: espPayload, withIntermediateDirectories: true)
+        try "9.0.0".write(to: espPayload.appendingPathComponent("VERSION"), atomically: true, encoding: .utf8)
+        var espBytes = Data(repeating: 0, count: 2048); espBytes[0] = 0xe9
+        try espBytes.write(to: espPayload.appendingPathComponent("firmware.bin"))
+        let espZip = root.appendingPathComponent("test-release.zip")
+        _ = try MacTab5LocalProcess.run("/usr/bin/zip", ["-q", espZip.path, "VERSION", "firmware.bin"], directory: espPayload)
+        var handedOff = 0, changeWhileDownloading = false
+        let updates = MacUpdateWindow(tab5: service, registry: registry, espConnection: { espUpdate }, upgradeTools: {},
+            espTools: { path, port, device in
+                guard path == espZip, port == targetPort, device == targetID else {
+                    throw MacTab5LocalError.invalid("Downloaded update did not bind the selected target")
+                }
+                handedOff += 1
+            }, installDesktop: { _, _ in throw MacTab5Error.unavailable }, catalogPage: { _ in catalog },
+            downloadPackage: { release, _ in
+                guard release.category == "esp8266" else { throw MacTab5Error.invalidPacket }
+                if changeWhileDownloading { espUpdate.id = "esp8266-112233445566" }
+                return espZip
+            })
         let windows: [(String, NSWindowController)] = [
             ("device-data",deviceForm),
             ("esp-display",MacESPDisplayWindow(policy:.init(selectedMode:"auto",cycleEnabled:true,intervalSeconds:15,pages:["codex","domestic_kimi","weather"]),apply:{ _ in },brightness:{ _ in true },read:{ $0(.success(70)) })),
@@ -125,6 +171,29 @@ enum MacTab5UIValidation {
                       table.rows.indices.contains(table.selectedRow), table.rows[table.selectedRow] == ["ESP8266 小屏", "连接设备后查看", "9.0.0", "—"] else {
                     throw MacTab5LocalError.invalid("Two newer galleries must count once and explicit selection must survive the first check")
                 }
+                espUpdate = .init(port: targetPort, id: targetID, firmware: "0.5.8")
+                updates.open(component: "esp8266")
+                guard updates.availableUpdateCount == 2,
+                      let oneClick = controls.first(where: { $0.title == "一键升级" && $0.isEnabled && !$0.isHidden }),
+                      let notes = descendants(content).compactMap({ $0 as? MacUpdateNotesView }).first,
+                      let noteText = (notes.documentView as? NSTextView)?.string,
+                      noteText.contains("显示与连接"), noteText.contains("•"), !noteText.contains("**"),
+                      !noteText.contains("下载中心"), !noteText.contains("电脑端说明"), !noteText.contains("English") else {
+                    throw MacTab5LocalError.invalid("The selected firmware did not show clean release notes and one-click action")
+                }
+                try validateSettings(window, name: "updates-firmware", output: output)
+                oneClick.performClick(nil)
+                try pump { !updates.busy }
+                guard handedOff == 1 else { throw MacTab5LocalError.invalid("One click did not hand off the validated ESP8266 update") }
+                changeWhileDownloading = true
+                oneClick.performClick(nil)
+                try pump { !updates.busy }
+                guard handedOff == 1 else { throw MacTab5LocalError.invalid("A changed USB target received a firmware upgrade") }
+                espUpdate.firmware = "9.0.0"
+                updates.open(component: "esp8266")
+                guard controls.contains(where: { $0.title == "一键升级" && !$0.isEnabled && $0.isHidden }) else {
+                    throw MacTab5LocalError.invalid("Installed firmware still offered an upgrade")
+                }
                 updates.open(component: "tab5")
                 guard table.rows.indices.contains(table.selectedRow), table.rows[table.selectedRow].first == "M5Stack TAB5" else {
                     throw MacTab5LocalError.invalid("An open update window did not select the requested component")
@@ -133,9 +202,9 @@ enum MacTab5UIValidation {
                 guard table.selectedRow == 0 else { throw MacTab5LocalError.invalid("The generic entry did not select the available gallery update") }
                 content.layoutSubtreeIfNeeded()
                 guard let manage = controls.first(where: { $0.title == "管理图库…" && !$0.isHidden && $0.isEnabled }),
-                      descendants(content).compactMap({ $0 as? NSTextField }).contains(where: {
-                        $0.stringValue.contains("每日名画：2026.10.22 → 2026.11.17") && $0.stringValue.contains("每日书法：2026.10.22 → 2026.11.17")
-                      }) else { throw MacTab5LocalError.invalid("Gallery update row lacks its versions or management action") }
+                      let galleryNotes = (notes.documentView as? NSTextView)?.string,
+                      galleryNotes.contains("每日名画：2026.10.22 → 2026.11.17"),
+                      galleryNotes.contains("每日书法：2026.10.22 → 2026.11.17") else { throw MacTab5LocalError.invalid("Gallery update row lacks its versions or management action") }
                 try render(content, to: output.appendingPathComponent("updates-gallery.png"))
                 manage.performClick(nil)
                 guard let manager = NSApp.windows.first(where: { $0.isVisible && $0.title == "AI-bot · 屏保图库" }),
@@ -495,6 +564,10 @@ enum MacTab5UIValidation {
                 }
                 for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
                     window.appearance = NSAppearance(named: appearance)
+                    for table in descendants(content).compactMap({ $0 as? MacSettingsTable }) {
+                        table.table.headerView?.needsDisplay = true
+                        table.table.headerView?.displayIfNeeded()
+                    }
                     try render(content, to: output.appendingPathComponent("\(name)-tab\(index)-\(sizeName)-\(suffix).png"))
                 }
                 if sizeName == "default", let document = pages.first?.documentView {
@@ -613,6 +686,18 @@ enum MacTab5UIValidation {
             tabs.selectTabViewItem(at: index); try checkPages()
             for id in actions { try click(id) }
             try render(content, to: output.appendingPathComponent("device-center-\(name).png"))
+            if name == "bridge", let card = descendants(content).compactMap({ $0 as? MacBridgeActionCard }).first(where: { $0.identifier?.rawValue == "updates" }) {
+                controller.setAvailableUpdates(2)
+                guard card.showsUpgradeArrow else { throw MacTab5LocalError.invalid("Available updates did not show the card arrow") }
+                for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
+                    window.appearance = NSAppearance(named: appearance)
+                    try render(content, to: output.appendingPathComponent("device-center-update-arrow-\(suffix).png"))
+                }
+                window.appearance = NSAppearance(named: .aqua)
+                controller.setAvailableUpdates(0)
+                guard !card.showsUpgradeArrow else { throw MacTab5LocalError.invalid("The update arrow remained after clearing the count") }
+            }
+
         }
         tabs.selectTabViewItem(at: 0); try click("device-esp8266"); try checkPages()
         for id in ["cycle", "appearance", "data", "connect"] { try click("esp8266-" + id) }

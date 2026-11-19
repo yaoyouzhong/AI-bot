@@ -95,6 +95,10 @@ final class SerialBridge {
     }
 
     var portName: String? { connectionState.snapshot().port }
+    var espUpdate: (port: String?, id: String?, firmware: String?) {
+        let snapshot = connectionState.snapshot()
+        return (snapshot.port, snapshot.handshake?.deviceId, snapshot.handshake?.firmware)
+    }
     var deviceHost: String? { connectionState.snapshot().host }
 
     func start() {
@@ -220,7 +224,7 @@ final class SerialBridge {
                 from: descriptor, stopped: { [weak self] in self?.isStopped ?? true }) else { noteProbe("未收到小屏握手回执"); return }
 
         noteProbe("USB 握手已确认")
-        setActive(descriptor, path: path, deviceHost: handshake.deviceHost)
+        setActive(descriptor, path: path, handshake: handshake)
         _ = provisionLan()
         var nextDeviceProbeAt = Date().addingTimeInterval(handshake.deviceHost == nil ? 5 : 30)
         while !isStopped && enabled() {
@@ -248,11 +252,11 @@ final class SerialBridge {
         return stopped
     }
 
-    private func setActive(_ descriptor: Int32, path: String, deviceHost: String?) {
+    private func setActive(_ descriptor: Int32, path: String, handshake: SerialHandshake) {
         lock.lock()
         acknowledgedResources.reset()
         activeDescriptor = descriptor
-        connectionState.setConnection(port: path, host: deviceHost)
+        connectionState.setConnection(port: path, host: handshake.deviceHost, handshake: handshake)
         lock.unlock()
     }
 
@@ -280,7 +284,7 @@ final class SerialBridge {
         guard activeDescriptor == descriptor, !paused,
               Self.write(Self.controlFrame(type: "ping"), to: descriptor),
               let handshake = Self.waitForPong(from: descriptor, stopped: { false }) else { return }
-        connectionState.setHost(handshake.deviceHost)
+        connectionState.setConnection(port: portName, host: handshake.deviceHost, handshake: handshake)
     }
 
     private func wait(milliseconds: UInt32) {
@@ -367,7 +371,7 @@ final class SerialBridge {
               response.device == "esp8266" else { return nil }
         let host = response.ip.flatMap { PrivateIPv4Address.isValid($0) ? $0 : nil }
         let id = response.device_id.flatMap { $0.range(of: "^esp8266-[0-9a-f]{12}$", options: .regularExpression) != nil && $0 != "esp8266-000000000000" && $0 != "esp8266-ffffffffffff" ? $0 : nil }
-        return SerialHandshake(deviceHost: host, deviceId: id)
+        return SerialHandshake(deviceHost: host, deviceId: id, firmware: response.firmware)
     }
 
     private static func write(_ data: Data, to descriptor: Int32) -> Bool {
@@ -458,12 +462,14 @@ final class SerialBridge {
         let device: String
         let ip: String?
         let device_id: String?
+        let firmware: String?
     }
 }
 
 struct SerialHandshake {
     let deviceHost: String?
     let deviceId: String?
+    let firmware: String?
 }
 
 struct USBDeviceReply: Decodable {
@@ -488,13 +494,14 @@ struct MacAcknowledgedResources {
 final class MacSerialConnectionState {
     private let lock = NSLock()
     private var port: String?, host: String?
+    private var handshake: SerialHandshake?
     private var detail = "等待扫描"
-    func snapshot() -> (port: String?, host: String?, detail: String) {
+    func snapshot() -> (port: String?, host: String?, detail: String, handshake: SerialHandshake?) {
         lock.lock(); defer { lock.unlock() }
-        return (port, host, detail)
+        return (port, host, detail, handshake)
     }
-    func setConnection(port: String?, host: String?) {
-        lock.lock(); defer { lock.unlock() }; self.port = port; self.host = host
+    func setConnection(port: String?, host: String?, handshake: SerialHandshake? = nil) {
+        lock.lock(); defer { lock.unlock() }; self.port = port; self.host = host; self.handshake = handshake
     }
     func setHost(_ host: String?) { lock.lock(); defer { lock.unlock() }; self.host = host }
     func setDetail(_ detail: String) { lock.lock(); defer { lock.unlock() }; self.detail = detail }
