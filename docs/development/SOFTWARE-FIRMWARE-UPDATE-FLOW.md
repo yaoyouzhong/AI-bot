@@ -12,6 +12,7 @@
 - Windows 和 macOS 使用同一按钮授权升级，分别调用原生安装链路。2026-11-19，用户确认 Mac 桥接和固件一键升级合入本地主干，固件模拟测试通过，真机刷写验收后补。Windows 代码保留在 `codex/software-firmware-update-flow`，待 Windows 原生验收后合入。正式发布仍待单独确认。
 - TAB5 沿用已支持的电脑端升级请求、草稿保存与启动核验。ESP8266 沿用 USB 备份、写入和校验。Mac 读取已有 USB 回执和已认证 LAN 状态报告里的固件版本。无协议字段或固件版本改动。
 - Windows 安装版在旧进程退出后运行安装器并重启桥接，便携版打开安装器。Mac 校验 App 标识、版本和签名，同卷替换并重启，受保护的位置提供已校验 App 的手动入口。
+- Windows 验收分支为 `codex/windows-software-firmware-update-flow`，基于已包含 Mac 改动的 `main` 提交 `3a7f6e3`。Windows 源码与原开发分支一致。验收覆盖原生界面、安装包覆盖升级、便携版入口，以及 TAB5 和 ESP8266 的真机升级。
 
 | 用户行为 | macOS 实现与验证 | Windows 实现与验证 |
 | --- | --- | --- |

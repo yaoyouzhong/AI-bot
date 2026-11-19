@@ -50,7 +50,7 @@ internal sealed class FirmwareFlashForm : Form
         };
     }
 
-    internal FirmwareFlashForm(bool preview = false, string? preferredPort = null, string? preparedFirmware = null, bool bridgeRunning = false, string? expectedUsbIdentity = null)
+    internal FirmwareFlashForm(bool preview = false, string? preferredPort = null, string? preparedFirmware = null, bool bridgeRunning = false, string? expectedUsbIdentity = null, bool startAutomatically = false)
     {
         SuspendLayout();_preview = preview;_bridgeRunning=bridgeRunning;
         _selection = new FlashDeviceSelection(preferredPort,expectedUsbIdentity);
@@ -123,7 +123,14 @@ internal sealed class FirmwareFlashForm : Form
         _cancel.Click += (_, _) => _cancelSource?.Cancel();
         FormClosing += (_, e) => { if (_busy) { e.Cancel = true; _status.Text = _writing ? "正在写入或校验，请保持连接，完成后再关闭。" : "请先取消并等待操作结束，再关闭窗口。"; } };
         if (preview) { _deviceLabel.Text = "USB 设备已连接"; _deviceLabel.ForeColor = Color.FromArgb(18, 116, 94); _firmware.Text = "firmware.bin"; UpdateButtons(); }
-        else Shown += async (_, _) => { await RefreshDevicesAsync(); _deviceTimer.Start(); };
+        else Shown += async (_, _) => {
+            await RefreshDevicesAsync();
+            if (IsDisposed) return;
+            _deviceTimer.Start();
+            if (startAutomatically && preparedFirmware is not null && expectedUsbIdentity is not null &&
+                _selection.Selected is { } device && device.Identity == expectedUsbIdentity && device.Port == preferredPort)
+                await RunAsync(false);
+        };
     }
 
     protected override void OnLoad(EventArgs e)

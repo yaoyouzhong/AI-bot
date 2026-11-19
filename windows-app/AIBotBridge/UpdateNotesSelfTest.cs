@@ -16,6 +16,9 @@ internal static class UpdateNotesSelfTest
         var published=components.Select((component,index)=>new ComponentUpdate(component,index==1?"0.2.150-ui":index==0?"0.6.2":"0.5.1",new(0,1,0),body)).ToDictionary(x=>x.Component);
         var inline=MarkdownNotesView.Inline("**测试** [本地文件](../LOCAL.md) [不执行](javascript:alert) [凭据](https://user:password@example.org/a) [说明](https://github.com/yaoyouzhong/AI-bot)");
         if(inline.Links.Length!=1||inline.Text.Contains("](")||inline.Text.Contains("**"))throw new Exception("Markdown caption/link handling failed");
+        const string combined="## 下载\n- 下载中心\n## 桌面桥接 9.0.0\n- 桌面项\n## ESP8266 小屏 9.0.0\n### USB\n- 小屏项\n## English\n- English\n<!-- metadata -->";
+        if(UpdateNotesForm.Selected(combined,"esp8266","9.0.0")!="### USB\n- 小屏项")
+            throw new Exception("Selected release notes included downloads, another component or a second language");
         foreach(float scale in new[]{1f,1.5f,2f}) {
             using var form=new UpdateNotesForm(published,devices,"tab5"){StartPosition=FormStartPosition.Manual,Location=new(-30000,-30000),ShowInTaskbar=false};
             form.Show();Application.DoEvents();if(scale!=1)form.Scale(new SizeF(scale,scale));

@@ -132,6 +132,7 @@ internal sealed class DeviceCenterForm : Form
     internal void SetAvailableUpdates(int count) {
         _availableUpdates=count;
         _updateCard?.SetDescription(UpdateDescription);
+        _updateCard?.SetUpgradeAvailable(count>0);
     }
 
     private string UpdateDescription => _availableUpdates>0?$"{_availableUpdates} 项更新可用":"查看软件、固件和图库更新";
@@ -148,6 +149,7 @@ internal sealed class DeviceCenterForm : Form
         var bridge=ActionGrid(_bridge);
         Card(bridge,"服务状态","连接状态与数据更新",()=>_common("status"));
         _updateCard=Card(bridge,"软件固件",UpdateDescription,()=>_common("updates"));
+        _updateCard.SetUpgradeAvailable(_availableUpdates>0);
         Card(bridge,"配置迁移","备份、预览与选择恢复",()=>_common("configuration-backup"));
         Card(bridge,"提醒管理","勿扰时段与提醒记录",()=>_common("notifications"));
         Card(bridge,"运行监控","VPN / PAC 与电脑流畅度",()=>_common("runtime-health"));

@@ -99,10 +99,15 @@ internal static class DeviceCenterSelfTest
                 if(key=="both"){
                     form.SetAvailableUpdates(2);
                     var updateCard=Descendants(tabs.SelectedTab!).OfType<DeviceActionButton>().Single(b=>b.Text=="软件固件");
-                    Check(updateCard.AccessibleDescription=="2 项更新可用","Existing software card did not show available updates");
+                    Check(updateCard.ShowsUpgradeArrow&&updateCard.AccessibleDescription=="2 项更新可用","Existing software card did not show available updates");
                     updateCard.PerformClick();Check(action=="updates","Existing software card lost its update action");
                 }
                 Capture(form,directory,$"{key}-{scale:0.00}-bridge");
+                if(key=="both"){
+                    form.SetAvailableUpdates(0);
+                    Check(!Descendants(tabs.SelectedTab!).OfType<DeviceActionButton>().Single(b=>b.Text=="软件固件").ShowsUpgradeArrow,
+                        "Update arrow remained after clearing the update count");
+                }
                 form.Show();Application.DoEvents();
                 foreach(var (label,route) in new[]{("服务状态","status"),("关于应用","about")}) {
                     Descendants(tabs.SelectedTab!).OfType<DeviceActionButton>().Single(b=>b.Text==label).PerformClick();Check(action==route,"Bridge action route lost: "+label);

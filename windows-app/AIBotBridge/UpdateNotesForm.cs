@@ -17,6 +17,30 @@ internal sealed class UpdateNotesForm : Form
         int start=match.Index+match.Length,end=text.IndexOf("\n## ",start,StringComparison.Ordinal);
         return (match.Groups[1].Value,text[start..(end<0?text.Length:end)].Trim());
     }
+    internal static string Selected(string body,string component,string version) {
+        var lines=new List<string>();
+        var sections=new Dictionary<string,List<string>>();
+        List<string>? scope=null;
+        bool downloads=false;
+        foreach(string raw in Regex.Replace(body,@"<!--.*?-->","",RegexOptions.Singleline).Split('\n')) {
+            string line=raw.Trim();
+            if(line.StartsWith("## ",StringComparison.Ordinal)) {
+                string name=line[3..].ToLowerInvariant();
+                if(name=="english"&&lines.Any(item=>item.Length>0))break;
+                downloads=new[]{"下载","完整下载","download","all downloads"}.Any(prefix=>name.StartsWith(prefix,StringComparison.Ordinal));
+                scope=null;
+                var number=Regex.Match(name,@"[0-9]+\.[0-9]+\.[0-9]+(?:-ui)?");
+                string? key=name.Contains("tab5")?"tab5":name.Contains("esp8266")||name.Contains("小屏")?"esp8266":
+                    name.Contains("桥接")||name.Contains("bridge")?"bridge":null;
+                if(key is not null&&number.Success){scope=[];sections[key+":"+number.Value]=scope;continue;}
+            }
+            if(downloads||line is "---" or "## English")continue;
+            lines.Add(line);
+            scope?.Add(line);
+        }
+        string notes=string.Join("\n",sections.GetValueOrDefault(component+":"+version)??(sections.Count==0?lines:[])).Trim();
+        return notes.Length==0?"暂无更新说明。":notes;
+    }
     internal UpdateNotesForm(IReadOnlyDictionary<string,ComponentUpdate> published,UpdateDevice[] devices,string selected) {
         Text="AI-bot · 全部更新说明";Font=SettingsWindow.BodyFont();BackColor=Color.White;
         AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new(860,620);MinimumSize=new(640,460);

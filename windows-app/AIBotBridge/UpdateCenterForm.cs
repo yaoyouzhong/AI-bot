@@ -54,12 +54,15 @@ internal sealed class UpdateCenterForm : Form
         float[] weights=[33,20,20,27];for(int i=0;i<grid.Columns.Count;i++){grid.Columns[i].SortMode=DataGridViewColumnSortMode.NotSortable;grid.Columns[i].FillWeight=weights[i];}
         grid.Columns[0].DefaultCellStyle.Font=new(Font,FontStyle.Bold);root.Controls.Add(grid,0,2);
         var detail=new TableLayoutPanel{Name="update-actions",AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Top,ColumnCount=1,Padding=new(16),Margin=new(0,14,0,0),BackColor=Color.FromArgb(246,248,251)};detail.ColumnStyles.Add(new(SizeType.Percent,100));
-        var requirement=new Label{Name="requirement",AutoSize=true,Dock=DockStyle.Fill,ForeColor=muted,Margin=Padding.Empty};detail.Controls.Add(requirement,0,0);
+        var notesTitle=new Label{Text="所选更新说明",AutoSize=true,Font=new(Font,FontStyle.Bold),Margin=new(0,0,0,6)};
+        var preview=new MarkdownNotesView{Name="selected-update-notes",Dock=DockStyle.Top,Height=160,Margin=new(0,0,0,12)};
+        detail.Controls.Add(notesTitle,0,0);detail.Controls.Add(preview,0,1);
+        var requirement=new Label{Name="requirement",AutoSize=true,Dock=DockStyle.Fill,ForeColor=muted,Margin=Padding.Empty};detail.Controls.Add(requirement,0,2);
         var actions=new FlowLayoutPanel{AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Fill,Margin=new(0,12,0,0)};
         var download=new Button{Name="download",Text="下载并升级",Margin=new(0,0,12,0)};SettingsWindow.StyleButton(download,true);
         var notes=new LinkLabel{Name="release-notes",Text="查看更新说明",AutoSize=true,LinkColor=blue,Margin=new(0,8,16,0)};
         var cancel=new Button{Text="取消下载",Enabled=false,Visible=false,Margin=Padding.Empty};SettingsWindow.StyleButton(cancel);
-        actions.Controls.AddRange([download,notes,cancel]);detail.Controls.Add(actions,0,1);root.Controls.Add(detail,0,3);
+        actions.Controls.AddRange([download,notes,cancel]);detail.Controls.Add(actions,0,3);root.Controls.Add(detail,0,3);
         var state=new Label{Name="state",AutoSize=true,Dock=DockStyle.Fill,ForeColor=muted,Margin=new(0,12,0,8)};root.Controls.Add(state,0,4);
         var progress=new ProgressBar{Dock=DockStyle.Fill,Visible=false,Height=8,Margin=new(0,0,0,10)};root.Controls.Add(progress,0,5);
         var footer=new TableLayoutPanel{Name="update-footer",AutoSize=true,Dock=DockStyle.Fill,ColumnCount=1,Margin=Padding.Empty};
@@ -86,26 +89,31 @@ internal sealed class UpdateCenterForm : Form
         long galleryRevision=-1;
         Row? Selected()=>grid.CurrentCell is {} c&&c.RowIndex<rows.Length?rows[c.RowIndex]:null;
         ComponentUpdate? Release(UpdateDevice? d)=>d is not null&&service.Available.TryGetValue(d.Component,out var u)?u:null;
+        ComponentUpdate? shownRelease=null;bool notesInitialized=false;
         void Buttons(){
             if(Selected()?.Id==GalleryId){
                 download.Text="管理图库…";download.Visible=true;download.Enabled=!_busy;
-                notes.Visible=false;requirement.Visible=true;actions.Margin=new(0,12,0,0);
+                notes.Visible=false;notesTitle.Visible=preview.Visible=false;requirement.Visible=true;actions.Margin=new(0,12,0,0);
                 requirement.Text=gallery.Available>0?gallery.Details:"查看名画和书法版本，或安装图库包。";
                 return;
             }
-            notes.Visible=true;
+            notes.Visible=notesTitle.Visible=preview.Visible=true;
             var d=Selected()?.Device;var u=Release(d);var blocked=d is null?null:UpdateService.PreparationBlocked(d,u);
+            if(!notesInitialized||!ReferenceEquals(u,shownRelease)) {
+                notesInitialized=true;shownRelease=u;
+                preview.SetNotes(u is null?"暂无更新说明。":UpdateNotesForm.Selected(u.Notes,u.Component,u.Version));
+            }
             bool retained=blocked is "已是最新版本" or "当前版本较新，保留现有版本";
             download.Visible=u is not null&&!retained;
-            download.Enabled=!_busy&&d is not null&&blocked is null;download.Text=d?.Component=="bridge"?"下载并安装":d is not null&&UpdateService.IsLegacyEsp(d)?"手动准备小屏升级":"下载并准备升级";
+            download.Enabled=!_busy&&d is not null&&blocked is null;download.Text=d is not null&&UpdateService.IsLegacyEsp(d)?"手动准备小屏升级":"一键升级";
             notes.Text="查看全部更新说明";notes.Enabled=true;
             requirement.Visible=!retained;
             actions.Margin=new(0,retained?0:12,0,0);
             requirement.Text=d is null?"请选择组件":blocked is not null?blocked:
                 UpdateService.IsLegacyEsp(d)?"旧固件未提供版本号，无法比较版本。连接 USB 后先完整备份，再手动确认刷机。":d.Component switch {
-                    "bridge"=>"下载并校验安装包后，打开安装程序完成更新。",
-                    "tab5"=>"下载并校验固件后，打开升级工具；仍需在 TAB5 上确认安装。",
-                    _=>"需要通过 USB 升级。打开刷机工具后，先完整备份，再确认刷机。"};
+                    "bridge"=>"自动校验、安装并重新打开 AI-bot。Windows 可能请求授权。",
+                    "tab5"=>"校验后向 TAB5 发送升级请求。请保持连接和供电。",
+                    _=>"通过 USB 升级，写入前自动备份。请保持连接和供电。"};
         }
         string Summary(UpdateDevice d,ComponentUpdate? u,string? blocked)=>blocked switch {
             null=>UpdateService.IsLegacyEsp(d)?"可手动升级":"有更新",
@@ -189,11 +197,13 @@ internal sealed class UpdateCenterForm : Form
                 _operation.Token.ThrowIfCancellationRequested();
                 var current=capture().SingleOrDefault(d=>d.Id==target.Id);
                 if(!UpdateService.SameTarget(target,current,release))throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
-                cancel.Enabled=false;state.Text=target.Component=="tab5"?"校验通过，正在准备设备升级；仍需在 TAB5 上确认安装。":"校验通过，正在打开安装工具…";
+                cancel.Enabled=false;state.Text=target.Component=="tab5"?"校验通过，正在准备 TAB5 升级…":"校验通过，正在打开安装工具…";
                 handedOff=true;
                 bool opened=await install(current,prepared);
                 if(!IsDisposed)state.Text=!opened?"安装包已下载，尚未安装。":
-                    target.Component=="tab5"?"已交给 TAB5 升级工具。请在设备上确认安装，并在升级工具中核验启动。":"已交给安装工具。完成后重新检查运行版本。";
+                    target.Component=="tab5"?(Tab5Service.SupportsRemoteOta(target.Version)?
+                        "已发送 TAB5 升级请求，请查看设备响应和启动核验结果。":"已提供固件。请在 TAB5 的「设置 → 固件升级」确认。"):
+                    "已交给安装工具。完成后重新检查运行版本。";
             }catch(OperationCanceledException){if(!IsDisposed)state.Text=handedOff?"操作已取消，已校验的下载文件保留。":"下载已取消；已下载部分会保留，下次可继续。未安装或刷写。";}
             catch(Exception ex){if(!IsDisposed)state.Text="更新未继续："+ex.Message;}
             finally{_operation?.Dispose();_operation=null;_busy=false;if(!IsDisposed){cancel.Enabled=false;cancel.Visible=false;check.Enabled=true;progress.Visible=false;RefreshRows();}}

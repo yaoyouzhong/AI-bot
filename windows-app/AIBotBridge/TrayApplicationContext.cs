@@ -511,6 +511,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private UpdateDevice[] UpdateDevices()=>[new("bridge","电脑端 AI-bot",Application.ProductVersion.Split('+')[0],"运行中",true,"bridge","打开安装程序"),.._devices.Snapshot.Devices.Select(d=>{
         return UpdateDevice.From(d,_services.View(d));
     })];
+    private string? _installAfterExit;
+
     private async Task<bool> InstallUpdateAsync(UpdateDevice target,PreparedUpdate prepared) {
         prepared.VerifyUnchanged();
         if(_changingDevices||(target.Component=="bridge"?(_deviceOperationBusy||_services.Busy):target.Component=="esp8266"?(_deviceOperationBusy||_serial.FlashBusy):_tab5?.Busy==true))throw new InvalidOperationException("请先结束正在进行的设备操作。");
@@ -518,9 +520,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if(!UpdateService.SameTarget(target,current,prepared.Release))
             throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
         if(target.Component=="bridge") {
-            if(MessageBox.Show(_updatesForm,"安装程序已校验。现在打开安装程序更新电脑端？","更新电脑端",MessageBoxButtons.OKCancel)!=DialogResult.OK)return false;
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(prepared.File){UseShellExecute=true});
-            return true;
+            string executable=Application.ExecutablePath;
+            if(!DesktopUpdate.IsInstalled(executable)) {
+                using var installer=System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(prepared.File){UseShellExecute=true});
+                return installer is not null;
+            }
+            _installAfterExit=prepared.File;
+            ExitThread();
+            return _exiting;
         }
         var device=_devices.Snapshot.Devices.Single(d=>d.Id==target.Id);
         if(target.Component=="tab5") {
@@ -528,6 +535,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if(_tab5Form is not null&&!_tab5Form.IsDisposed){_tab5Form.Close();if(!_tab5Form.IsDisposed&&_tab5Form.Visible)throw new InvalidOperationException("请先结束 TAB5 窗口中的操作。");}
             _tab5.OfferOta(prepared.Tab5);
             _tab5Form=DeviceWindow(device,new Tab5ConnectionForm(_tab5,loadNetworks:false,showUpgrade:true),"连接设置");PresentPanel("device:"+device.Id+":tab5",_tab5Form);
+            if(Tab5Service.SupportsRemoteOta(target.Version))
+                await _tab5.StartOtaAsync(_shutdown.Token);
         } else {
             if(UpdateService.IsLegacyEsp(target)&&MessageBox.Show(_updatesForm,
                 $"小屏固件未上报版本，无法判断 {prepared.Release.Version} 是否比当前版本更新，也可能是同版本或更旧版本。\n\n继续后将打开 USB 刷机工具，先完整备份，再由你点击开始刷机。是否继续？",
@@ -535,7 +544,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if(!UpdateService.SameTarget(target,UpdateDevices().SingleOrDefault(d=>d.Id==target.Id),prepared.Release))
                 throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
             _deviceOperationBusy=true;
-            try{string key="device:"+device.Id+":flash";if(_panels.Activate(key))throw new InvalidOperationException("请先关闭已有的小屏升级窗口，再准备此更新包。");using var form=DeviceWindow(device,new FirmwareFlashForm(preferredPort:_serial.PortName,preparedFirmware:prepared.File,bridgeRunning:true,expectedUsbIdentity:device.UsbIdentity),"固件升级");await ShowPanelAsync(key,form);}
+            try{string key="device:"+device.Id+":flash";if(_panels.Activate(key))throw new InvalidOperationException("请先关闭已有的小屏升级窗口，再准备此更新包。");using var form=DeviceWindow(device,new FirmwareFlashForm(preferredPort:_serial.PortName,preparedFirmware:prepared.File,bridgeRunning:true,expectedUsbIdentity:device.UsbIdentity,
+                startAutomatically:!UpdateService.IsLegacyEsp(target)&&target.Online&&_serial.PortName is not null&&device.UsbIdentity is not null),"固件升级");await ShowPanelAsync(key,form);}
             finally{_deviceOperationBusy=false;}
         }
         return true;
@@ -717,8 +727,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     protected override async void ExitThreadCore()
     {
+        string? update=_installAfterExit;_installAfterExit=null;
         if(_exiting||_updatesForm?.ShowActiveGalleryInstall()==true)return;
         if(!ClosePanels())return;
+        if(update is not null) {
+            try {DesktopUpdate.StartAfterExit(update,Application.ExecutablePath);}
+            catch(Exception ex){MessageBox.Show(_center,ex.Message,"升级未继续");return;}
+        }
         _exiting=true;
         _healthGuard?.BeginExit();
         _timer.Stop();
