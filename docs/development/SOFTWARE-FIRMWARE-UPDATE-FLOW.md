@@ -12,13 +12,20 @@
 - Windows 和 macOS 使用同一按钮授权升级，分别调用原生安装链路。2026-11-19，用户确认 Mac 桥接和固件一键升级合入本地主干，固件模拟测试通过，真机刷写验收后补。Windows 代码保留在 `codex/software-firmware-update-flow`，待 Windows 原生验收后合入。正式发布仍待单独确认。
 - TAB5 沿用已支持的电脑端升级请求、草稿保存与启动核验。ESP8266 沿用 USB 备份、写入和校验。Mac 读取已有 USB 回执和已认证 LAN 状态报告里的固件版本。无协议字段或固件版本改动。
 - Windows 安装版在旧进程退出后运行安装器并重启桥接，便携版打开安装器。Mac 校验 App 标识、版本和签名，同卷替换并重启，受保护的位置提供已校验 App 的手动入口。
-- Windows 验收分支为 `codex/windows-software-firmware-update-flow`，基于已包含 Mac 改动的 `main` 提交 `3a7f6e3`。Windows 源码与原开发分支一致。验收覆盖原生界面、安装包覆盖升级、便携版入口，以及 TAB5 和 ESP8266 的真机升级。
+- Windows 验收分支为 `codex/windows-software-firmware-update-flow`，基于已推送 GitHub 的 Mac 主干提交 `3a7f6e3`。Windows 源码与原开发分支一致。
 
 | 用户行为 | macOS 实现与验证 | Windows 实现与验证 |
 | --- | --- | --- |
 | 卡片提示与说明 | `MacTab5Window`、`MacBridgeActionCard`、`MacUpdateNotesView`。已完成浅色、深色、默认和最小尺寸的原生离屏目视检查。检查了箭头随更新数消失、说明只显示所选组件和图库入口。 | `DeviceCenterForm`、`DeviceActionButton`、`UpdateCenterForm`。已完成 Release 交叉构建，卡片和说明回归已纳入现有自测。待 Windows 原生渲染和 DPI 检查。 |
 | 桌面安装和重启 | `MacDesktopUpdate`。已完成隔离签名包替换、重启以及日常 0.6.25 覆盖安装。公开旧包升级后的权限兼容性另验。 | `DesktopUpdate`、`TrayApplicationContext`。已完成 Release 交叉构建，待已安装旧版更新、便携版入口、安装失败及系统授权验收。 |
 | TAB5 和 ESP8266 | `MacUpdateWindow`、`MacFirmwareFlashWindow`。原生按钮、下载、SHA-256 校验、升级交接以及模拟设备的写入和回执均通过。TAB5 和 ESP8266 真机刷写待验。 | `TrayApplicationContext.InstallUpdateAsync`、`FirmwareFlashForm`。复用旧版本和设备变化防护、TAB5 升级与小屏 USB 身份验证。待 Windows 真机验收。 |
+
+### Windows 接手验收（2026-11-19）
+
+- Mac 交接给 Windows 的源码提交为 `5003fe5d34e41b42b78da60302eb56349711076c`。Windows 无需改动 Mac 的签名与权限流程。版本、设备协议和固件源码沿用原值。
+- 代码及 macOS 上的 Windows Release 交叉构建已完成，0 警告、0 错误。Windows 原生验收待补。实际安装包、候选摘要和发布负责人待确定。正式发布须另行授权。
+- Windows 端取得该提交后，先运行原生 Release 构建、`--status-once`、`--self-test-device-center-style` 和 `--self-test-update-ui`，并检查常用 DPI 下的徽标和分组说明。两项界面自测均需指定本地输出目录。
+- 原生验收用实际 Windows 包覆盖已安装版本，确认一键下载校验、安装与自动重启、原配对和设置读回；另查安装失败后的恢复与便携版入口。TAB5 真机核对草稿保存、自动开始和启动核验；ESP8266 真机核对 USB 完整备份、刷写校验、重连与原轮播设置恢复。将结果及候选 SHA-256 补记在本页。
 
 ## 构建与验收记录
 
