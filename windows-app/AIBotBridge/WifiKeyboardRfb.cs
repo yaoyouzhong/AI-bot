@@ -1,7 +1,11 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Security.Principal;
+using Microsoft.Win32.SafeHandles;
 
 namespace AIBotBridge;
 
@@ -11,6 +15,35 @@ internal sealed class WifiKeyboardRfb(Stream stream, IDisposable? owner = null) 
 {
     internal static Task<WifiKeyboardRfb> ConnectAsync(CancellationToken token)=>ConnectAsync(token,true);
     internal static async Task<WifiKeyboardRfb> ConnectAsync(CancellationToken token,bool initialize)
+    {
+        using var identity=WindowsIdentity.GetCurrent(TokenAccessLevels.Query|TokenAccessLevels.Duplicate|TokenAccessLevels.Impersonate);
+        if(identity.IsSystem)throw new IOException("keyboard_requires_ordinary_bridge");
+        if(!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))
+            return await ConnectCoreAsync(token,initialize);
+
+        // The installer or tray may be elevated. Use the same user's DPAPI
+        // context with administrator access and privileges removed for RFB.
+        using var restricted=RestrictAdministrator(identity.AccessToken);
+        return await WindowsIdentity.RunImpersonatedAsync(restricted,()=>ConnectCoreAsync(token,initialize));
+    }
+
+    private static SafeAccessTokenHandle RestrictAdministrator(SafeAccessTokenHandle token)
+    {
+        var administrators=new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid,null);
+        byte[] sid=new byte[administrators.BinaryLength];
+        administrators.GetBinaryForm(sid,0);
+        nint buffer=Marshal.AllocHGlobal(sid.Length);
+        try {
+            Marshal.Copy(sid,0,buffer,sid.Length);
+            var disabled=new SidAndAttributes{Sid=buffer};
+            const uint disableMaxPrivilege=1;
+            if(!CreateRestrictedToken(token,disableMaxPrivilege,1,ref disabled,0,0,0,0,out var restricted))
+                throw new IOException("keyboard_restricted_token_unavailable",new Win32Exception(Marshal.GetLastPInvokeError()));
+            return restricted;
+        }finally{Marshal.FreeHGlobal(buffer);}
+    }
+
+    private static async Task<WifiKeyboardRfb> ConnectCoreAsync(CancellationToken token,bool initialize)
     {
         var settings = WifiKeyboardSettings.Load();
         var tcp = new TcpClient(AddressFamily.InterNetwork) { NoDelay = true };
@@ -93,4 +126,11 @@ internal sealed class WifiKeyboardRfb(Stream stream, IDisposable? owner = null) 
     }
 
     public void Dispose() { stream.Dispose(); owner?.Dispose(); }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SidAndAttributes { internal nint Sid;internal uint Attributes; }
+    [DllImport("advapi32.dll",SetLastError=true)]
+    [return:MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CreateRestrictedToken(SafeAccessTokenHandle existing,uint flags,uint disabledCount,
+        ref SidAndAttributes disabled,uint deletedCount,nint deleted,uint restrictedCount,nint sids,out SafeAccessTokenHandle token);
 }

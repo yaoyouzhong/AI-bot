@@ -146,23 +146,18 @@ internal static class TightVncSelfTest
     internal static async Task SandboxAsync(string directory,bool testRollback=true,bool keepInstalled=false) {
         if(Environment.UserName!="WDAGUtilityAccount"||!Directory.Exists(@"C:\Users\WDAGUtilityAccount"))throw new InvalidOperationException("Real installation test is restricted to Windows Sandbox.");
         if(TightVncMachine.Inspect(TightVncPackage.Sid).Kind!=TightVncKind.Missing)throw new InvalidOperationException("Sandbox must start without TightVNC.");
-        Directory.CreateDirectory(directory);var access=keepInstalled?new WifiKeyboardAccessStore():new WifiKeyboardAccessStore(Path.Combine(directory,"synthetic-component-access.dat"));
+        Directory.CreateDirectory(directory);var access=new WifiKeyboardAccessStore();
         string sentinel=Path.Combine(directory,"synthetic-windows-pin-sentinel.txt");File.WriteAllText(sentinel,"unchanged synthetic fixture");
         var controller=new TightVncController(access){CanEdit=()=>true};bool injectedCheck=false;
         void Trace(string phase,object value)=>File.WriteAllText(Path.Combine(directory,phase+".json"),JsonSerializer.Serialize(value));
         if(testRollback) {
+            var productionCheck=controller.Check;
             controller.Check=_=>{injectedCheck=true;throw new IOException("Synthetic post-install check failure");};
             var rollback=await controller.ChangeAsync("install","",CancellationToken.None);
+            controller.Check=productionCheck;
             Trace("rollback",new{result=rollback,injectedCheck,state=TightVncMachine.Inspect(TightVncPackage.Sid)});
             Require(injectedCheck&&!rollback.Ok&&!access.Exists&&TightVncMachine.Inspect(TightVncPackage.Sid).Kind==TightVncKind.Missing,"Real failed install did not roll back");
         }
-        controller.Check=async ct=> {
-            var stored=access.Read();
-            try{using var tcp=new TcpClient(AddressFamily.InterNetwork){NoDelay=true};await tcp.ConnectAsync(IPAddress.Loopback,5900,ct);
-                if(!WifiKeyboardSettings.TrustedPeer(tcp,out string reason)){File.WriteAllText(Path.Combine(directory,"peer-diagnostic.txt"),reason);throw new IOException("Installed peer rejected: "+reason);}
-                using var rfb=new WifiKeyboardRfb(tcp.GetStream());await rfb.HandshakeAsync(stored.Password,ct,initialize:false);}
-            finally{CryptographicOperations.ZeroMemory(stored.Password);}
-        };
         var install=await controller.ChangeAsync("install","",CancellationToken.None);
         var ready=TightVncMachine.Inspect(TightVncPackage.Sid);
         Trace("install",new{result=install,state=ready,enabled=access.Enabled});

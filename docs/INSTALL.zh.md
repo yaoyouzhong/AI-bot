@@ -35,9 +35,9 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 
 ### Windows 安装
 
-1. 运行 Windows 安装器，通常保留默认位置。安装器未签名，请先确认文件来自本项目下载入口。已有用户先正常退出桥接，再安装到原位置。
+1. 运行 Windows 安装器，通常保留默认位置。安装器未签名，请先确认文件来自本项目下载入口。覆盖升级时选择原安装位置，向导会自动请求正在运行的 AI-bot 正常退出，并在安装完成后重新启动。
 2. 按“检查运行环境”页继续。缺少 .NET 8 桌面运行时或 WebView2 时会联网补装，已有组件会跳过；下载慢时查看下载进度，失败可按提示重试。
-3. 安装器按既定流程尝试配置电脑解锁组件，可能请求管理员许可。取消或配置失败时会显示“AI-bot 已安装，解锁配置尚未完成”；这不等于设备连接失败，解锁可稍后在 **TAB5 → 电脑控制 → 一键解锁设置** 中保存并重试。这里无需填写 Windows PIN 或密码。
+3. 首次安装会尝试配置电脑解锁组件，可能请求管理员许可。取消或配置失败时，仍可启动 AI-bot，并在 **TAB5 → 电脑控制 → 一键解锁设置** 中保存并重试。覆盖升级保留已有解锁设置。安装向导无需填写 Windows PIN 或密码。
 4. 启动 AI-bot。没有设备时会自动打开设备中心；窗口关闭后，点右下角托盘 AI-bot 图标即可再次打开。已有小屏时单击可能打开预览，可右键选择 **设备中心**。
 
 如果安装器下载运行环境很慢，可先从微软下载并安装 [Windows .NET 8 桌面运行时 x64](https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/8.0.31/windowsdesktop-runtime-8.0.31-win-x64.exe)，再重新运行 AI-bot 安装器；已检测到的组件会跳过。这是当前安装器使用的同一版本，不能用普通 .NET Runtime 或 ASP.NET Runtime 代替桌面运行时。
@@ -126,7 +126,7 @@ TAB5 的 **设置 → 存储与缓存** 独立显示 TF 卡状态。默认使用
 
 Windows **电脑控制 → 一键解锁设置** 在同一页设置开关、登录方式与凭据；保存时检查并补齐所需组件。明确选择 PIN 或密码，数字密码不等于 PIN；凭据仅在自己的电脑中填写。Wi-Fi 解锁使用随安装包提供的 TightVNC 组件，组件密码由程序生成并加密保存，不要求手动输入 TightVNC 密码。已有不兼容组件会停止接入并提示，不覆盖原配置。
 
-Windows Computer Control → One-click Unlock Settings uses one page for the switch, explicit PIN/password type and credentials. Saving checks the required components; setup also attempts their configuration. The bundled Wi-Fi component generates and protects its own password. An incomplete unlock setup does not mean USB device registration failed. Incompatible existing components are preserved.
+Windows Computer Control → One-click Unlock Settings uses one page for the switch, explicit PIN/password type and credentials. Saving checks the required components. First-time installation also attempts their configuration, and upgrades keep existing unlock settings. The bundled Wi-Fi component generates and protects its own password. An incomplete unlock setup does not mean USB device registration failed. Incompatible existing components are preserved.
 
 ![TAB5 独立的存储与缓存设置，默认使用设备缓存](assets/screens/tab5-settings-storage.png)
 
@@ -194,7 +194,7 @@ TAB5 需要无线时，在 **连接设置 → Wi-Fi** 保存网络并确认有�
 
 Current downloads are Windows and Apple Silicon Mac bridge 0.6.26, TAB5 0.2.322-ui, and ESP8266 0.5.8. Install the desktop app first. Model accounts, speech, wireless access and artwork packs can be configured after the USB connection works.
 
-1. **Install the app.** On Windows, keep the default installation path unless needed. Setup downloads missing .NET 8 Desktop Runtime / WebView2 components and skips existing ones. It also attempts the previously documented unlock-component setup, which may require administrator approval. “App installed, unlock setup incomplete” is separate from device connectivity; retry unlock setup later in Computer Control. On Mac, extract the ZIP into Applications; the current Apple Silicon app is ad-hoc signed and not notarized. Follow [Apple's opening guidance](https://support.apple.com/102445) and grant only the permissions requested by the features you use. Intel is unverified.
+1. **Install the app.** On Windows, keep the default installation path unless needed. For an upgrade, keep the current path. Setup closes a running AI-bot gracefully and starts it again after installing. Setup downloads missing .NET 8 Desktop Runtime / WebView2 components and skips existing ones. First-time installation attempts to configure the unlock components and may request administrator approval. If setup cannot configure unlock, you can still start AI-bot and retry in Computer Control. Upgrades keep existing unlock settings. On Mac, extract the ZIP into Applications. The current Apple Silicon app is ad-hoc signed and not notarized. Follow [Apple's opening guidance](https://support.apple.com/102445) and grant only the permissions requested by the features you use. Intel is unverified.
 2. **Connect with a USB data cable.** A powered screen alone does not prove USB connectivity. Open Device Center → My Devices → Add, choose the hardware and refresh ports. Select your own device; if several ports are unclear, unplug/reconnect that device and refresh.
 3. **Choose by the device's current system.** A device already running AI-bot can use Verify and Add directly; TAB5 completes USB pairing in this step. Factory TAB5 devices use the first-install ZIP, enter download mode, back up/install, restart and check boot, then return to Add and verify. The completion button returns to Add Device. ESP8266 uses its own firmware ZIP. Do not use first installation to fix an ordinary connection failure.
 4. **Check the complete result.** The registered device must appear online, show a live clock and respond to display changes. An installer exit code or successful write alone is insufficient. Preserve TAB5 display settings; restoring automatic cycling is an ESP8266-only deployment step.
@@ -215,7 +215,7 @@ When the guide opens Accessibility (Device Control and Data Access on some syste
 
 Windows 与 Apple Silicon Mac 桥接均为 **0.6.18**；TAB5 固件为 **0.2.318-ui**，ESP8266 保持 **0.5.8**。从[完整下载中心](../DOWNLOADS.md)取得对应附件。要使用 0.6.18 的完整对话改进，建议先更新电脑桥接，再升级 TAB5；已经安装同一份固件的设备无需重刷。
 
-Windows 升级前正常退出托盘；Mac 正常退出后替换应用，保留设置、配对及草稿。公开的 Mac ZIP 使用临时签名（ad hoc）、未经公证，系统权限仍按 macOS 要求处理。TAB5 底部选择 **对话 → Codex／Claude → 项目／会话**，总览可直接进入当前会话；受支持的 Claude Code 会话在桥接确认目标及权限后可操作；其他外部会话仍只读。需要批准的工具请求在电脑上确认。屏保在 **设置 → 屏幕声音**选择“Codex萌宠”或“Claude萌宠”。Windows 系统语音识别依赖已安装的微软识别器，识别文字应检查后再发送。
+Windows 安装器会自动退出并重启正在运行的桥接；Mac 正常退出后替换应用。升级保留设置、配对及草稿。公开的 Mac ZIP 使用临时签名（ad hoc）、未经公证，系统权限仍按 macOS 要求处理。TAB5 底部选择 **对话 → Codex／Claude → 项目／会话**，总览可直接进入当前会话；受支持的 Claude Code 会话在桥接确认目标及权限后可操作；其他外部会话仍只读。需要批准的工具请求在电脑上确认。屏保在 **设置 → 屏幕声音**选择“Codex萌宠”或“Claude萌宠”。Windows 系统语音识别依赖已安装的微软识别器，识别文字应检查后再发送。
 
 Desktop **0.6.18** is available for Windows x64 and Apple Silicon Mac, paired with independent TAB5 **0.2.318-ui**; ESP8266 remains **0.5.8**. For all the Dialogue improvements in 0.6.18, update the desktop bridge first, then TAB5. Quit before replacing the app and preserve settings, pairing and drafts; an identical firmware image needs no repeat flash. The public Mac ZIP uses an ad-hoc signature and is not notarized. Select Dialogue, client, project and conversation on TAB5; supported Claude Code sessions can be controlled once the bridge verifies the target and permissions. Other external sessions remain read-only. Approve tool requests on the computer when prompted. Companion savers are selected under Settings → Screen/Sound. Review recognized text before sending.
 
