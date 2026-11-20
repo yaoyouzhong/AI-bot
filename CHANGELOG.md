@@ -6,13 +6,22 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.26 - 2026-11-20
 
-This release updates the Windows and Mac bridges. TAB5 and ESP8266 remain on their current firmware versions.
+This release updates the Windows and Apple Silicon Mac bridges. TAB5 and ESP8266 remain on their current firmware versions.
 
-- **Update center.** Open Device Center → Bridge Settings → Software/Firmware. The card shows a green arrow and a count when updates are available. Select an item to read its release notes in the same window.
-- **Windows bridge upgrades.** One-Click Update closes the installed bridge, installs the update, and restarts AI-bot while preserving settings and computer unlock configuration. Portable copies open the installer.
-- **Mac bridge upgrades.** Cancel a download and resume it later. After verification, the bridge replaces the app in a writable location and restarts. When manual installation is needed, Finder shows the verified app.
-- **Start a device upgrade from your computer.** Supported TAB5 devices save drafts before updating and verify the boot afterward. ESP8266 devices with a confirmed USB identity and firmware version are backed up before flashing and verification. Follow the prompts for manual upgrades on older or unrecognized devices.
-- **ESP8266 version and package discovery.** Mac can read the small display’s reported firmware version over USB or authenticated Wi-Fi. Both bridges recognize compact ESP8266 flash bundles with a dedicated SHA-256 checksum on the unified release page.
+### Windows
+
+- **One-click update for installed copies.** One-Click Update closes the bridge, installs the new version, and restarts AI-bot while keeping your settings and computer unlock configuration. Portable copies open the installer.
+
+### Apple Silicon Mac
+
+- **One-click bridge update.** One-Click Update replaces the app and restarts it when the bridge has write permission. If you need to replace it manually, Finder shows the verified app.
+- **See the small display’s current version.** The update window can read the ESP8266 firmware version over USB or authenticated Wi-Fi.
+
+### Both platforms
+
+- **Update indicator and release notes.** The Software/Firmware card in Bridge Settings shows a green arrow when updates are available. Select an item in the update window to read its release notes.
+- **Start a device upgrade from your computer.** One-Click Update under Software/Firmware can start an upgrade on supported TAB5 devices or on a USB-connected ESP8266 display whose identity and firmware version have been confirmed. For other devices, follow the prompts to upgrade manually.
+- **Compact flash bundles.** The update window recognizes compact ESP8266 flash bundles with a checksum file on the unified release page.
 
 ## 0.6.25 - 2026-11-17
 
