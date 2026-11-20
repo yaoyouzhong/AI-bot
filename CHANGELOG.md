@@ -2,10 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.6.27 - 2026-11-20
 
-- **Windows release notes.** View All Release Notes opens the published GitHub notes by default and falls back to the bundled notes when offline or when no published notes are available.
-- **Windows installation.** Setup automatically closes a running bridge and starts it again after upgrading. Fixed the Wi-Fi unlock check when Setup is launched as administrator. Updates keep existing unlock settings.
+### Windows
+
+- **Automatic restart after an upgrade.** The installer closes a running AI-bot safely and starts it again when the upgrade finishes. It pauses the upgrade if flashing is in progress or AI-bot cannot close safely.
+- **Wi-Fi unlock during setup.** Fixed the connection-check warning when running the installer as administrator. Upgrades keep existing unlock settings.
+- **Release notes.** View All Release Notes shows the published GitHub notes by default and uses the bundled notes when offline.
 
 ## 0.6.26 - 2026-11-20
 
