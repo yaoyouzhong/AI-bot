@@ -65,17 +65,16 @@ internal sealed class AddDeviceForm : Form
         var install=DeviceCenterForm.Button("首次安装固件…",()=>{});install.Name="first-install-device";
         install.Click+=async(_,_)=>{try{
             if(preview)return;
-            if(((Choice)kind.SelectedItem!).Kind==HardwareKind.Tab5){
-                using var service=new Tab5Service{AllowUnregisteredInstall=true};
-                using var form=new Tab5InstallForm(service,returnToAdd:true);
-                if(form.ShowDialog(this)==DialogResult.OK&&form.VerifiedDevice is {} verified){
-                    verifiedBootIdentity=verified.Identity;
-                    Refresh();
-                    await AddAsync(verified);
-                    return;
-                }
+            var model=((Choice)kind.SelectedItem!).Kind;
+            using var service=model==HardwareKind.Tab5?new Tab5Service{AllowUnregisteredInstall=true}:null;
+            string? expected=model==HardwareKind.Esp8266?(ports.SelectedItem as FlashUsbDevice)?.Identity:null;
+            using var form=new FirstInstallForm(model,service,selectedIdentity:expected);
+            if(form.ShowDialog(this)==DialogResult.OK&&form.VerifiedDevice is {} verified){
+                verifiedBootIdentity=verified.Identity;
+                Refresh();
+                await AddAsync(verified,form.VerifiedEsp);
+                return;
             }
-            else {using var form=new FirmwareFlashForm(preferredPort:(ports.SelectedItem as FlashUsbDevice)?.Port,bridgeRunning:true,expectedUsbIdentity:(ports.SelectedItem as FlashUsbDevice)?.Identity);form.Text="新设备 · ESP8266 · 首次安装";form.ShowDialog(this);}
             Refresh();
         }catch(Exception ex){status.Text=ex.Message;}};
         var routes=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,ColumnCount=2,RowCount=4,Margin=new(0,12,0,0)};
@@ -102,7 +101,7 @@ internal sealed class AddDeviceForm : Form
         ports.SelectedIndexChanged+=(_,_)=>{add.Enabled=!_busy&&ports.SelectedItem is FlashUsbDevice;if(add.Enabled)status.Text="已选择 USB 设备。";};
         ports.SelectionChangeCommitted+=(_,_)=>verifiedBootIdentity=null;
         kind.SelectedIndexChanged+=(_,_)=>{verifiedBootIdentity=null;install.Text=((Choice)kind.SelectedItem!).Kind==HardwareKind.Tab5?"TAB5 首次安装…":"ESP8266 首次安装…";Refresh();};
-        async Task AddAsync(FlashUsbDevice device) {
+        async Task AddAsync(FlashUsbDevice device,UsbDeviceInfo? verifiedEsp=null) {
             if(_busy||preview)return;var selected=(Choice)kind.SelectedItem!;
             if(registry.Devices.Any(d=>d.Kind==selected.Kind)){status.Text="此型号已添加，请在设备中心管理现有设备。";return;}
             _busy=true;add.Enabled=refresh.Enabled=kind.Enabled=ports.Enabled=install.Enabled=false;status.Text="正在验证设备…";
@@ -119,7 +118,7 @@ internal sealed class AddDeviceForm : Form
                     }
                     id=service.PairedId;
                 }
-                else espId=(await DeviceProbe.VerifyEspAsync(device,timeout.Token)).DeviceId;
+                else espId=(verifiedEsp??await DeviceProbe.VerifyEspAsync(device,timeout.Token)).DeviceId;
                 Added=DeviceRegistryStore.Create(selected.Kind,DeviceRegistryStore.Model(selected.Kind),id) with {UsbIdentity=device.Identity,EspDeviceId=EspUsbRecovery.ValidId(espId)?espId:null};DialogResult=DialogResult.OK;
             }catch(Exception ex){status.Text=ex is OperationCanceledException?"验证已取消或超时，未添加设备。":ex.Message;}
             finally{_busy=false;if(!IsDisposed){refresh.Enabled=kind.Enabled=ports.Enabled=install.Enabled=true;add.Enabled=ports.SelectedItem is FlashUsbDevice;}}

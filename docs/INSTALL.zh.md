@@ -63,7 +63,7 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 ## 2. 按硬件刷机（选一条）
 
 <a id="esp8266"></a>
-### A. ESP8266：首次安装或更新 · 4 步
+### A. ESP8266：首次安装 · 3 步
 
 准备 USB 数据线，设备须为支持的 ESP8266 / ESP-12S、240×240 ST7789 小屏；其他板卡先核对[引脚配置](../esp8266/platformio.ini)。
 
@@ -71,13 +71,13 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 
 **Cable note:** The compact display's included power cable does not carry data. Use a USB data cable for flashing and USB bridge connections; a lit screen alone does not mean the computer can detect it.
 
-1. **连接并打开刷机。** 插 USB；新设备在“添加”里选 **ESP8266 小屏 → ESP8266 首次安装…**。已有设备选中小屏：Windows 0.6.24 起使用 **管理 → 手动刷机…**，旧版 Windows 使用 **管理… → 固件升级**。关闭其他串口工具，保持 AI-bot 桥接运行。
-2. **选择文件并刷入。** 点 **选择文件**，直接选下载的 ESP8266 固件 ZIP，无需解压；确认设备后点 **开始刷机**。工具自动先备份，再写入和回读校验；过程中保持供电与连接。
+1. **连接小屏。** 在 **添加** 里选 **ESP8266 小屏 → ESP8266 首次安装…**，插上 USB 数据线。窗口会自动检测。
+2. **安装 AI-bot。** 点 **安装 AI-bot**，程序会下载并校验固件。在 **确认写入固件** 中核对目标设备。保持连接，等到 **写入校验通过**。
+3. **验证并添加。** 等小屏显示 AI-bot，点 **验证并添加**。设备中心显示 **在线** 且 USB **已连接** 即可。
 
-![图 3：ESP8266 刷机；先“选择文件”，再“开始刷机”](assets/screens/firmware-flasher.png)
+![图 3：小屏连接后点「安装 AI-bot」](assets/screens/esp-first-install.png)
 
-3. **看到完成后添加。** 提示“刷机完成”后关闭窗口；新设备回“添加”刷新，点 **验证并添加**；已有设备等待 USB 恢复。失败不要当作成功，按[排错](#troubleshooting)处理。
-4. **检查屏幕并收尾。** 在设备中心打开 **显示设置**，确认实体屏能更新、切页；恢复自动显示与循环展示，保留原页面、顺序和间隔。
+已有设备可从 **桥接设置 → 软件固件** 检查更新。要安装手头的固件，可选中小屏并打开 **管理 → 手动刷机…**，选择对应 ZIP 后点 **开始刷机**。刷机后小屏恢复自动显示与循环展示，并保留原页面、顺序和间隔。
 
 <a id="tab5-first"></a>
 ### B. TAB5：从出厂系统首次安装 · 3 步
@@ -85,7 +85,7 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 使用 **USB-C 数据接口**连接电脑。首次安装会替换 P4 原固件与设置，工具先完整备份；保留备份以便恢复。已有 AI-bot 的设备使用下方升级路线。
 
 1. **连接 TAB5。** “添加”里选 **M5Stack TAB5 → TAB5 首次安装…**。连接 USB-C，长按 RESET 约 2 秒，内部绿灯快闪时松开。程序会自动检测设备，只有需要区分时才请你选择端口。[进入下载模式的官方说明](https://docs.m5stack.com/zh_CN/guide/tab5/restore_factory)
-2. **安装 AI-bot。** 点 **安装 AI-bot**，程序会下载并校验官方固件。在 **确认 TAB5 写入** 中核对设备和版本后确认。保持连接，等到 **写入校验通过**。
+2. **安装 AI-bot。** 点 **安装 AI-bot**，程序会下载并校验官方固件。在 **确认写入固件** 中核对设备和版本后确认。保持连接，等到 **写入校验通过**。
 3. **重启并添加。** 短按 RESET，等屏幕显示 AI-bot，再点 **验证并添加**。程序会验证启动并完成 USB 配对。设备中心显示 **在线** 且 USB **已连接** 即可。
 
 ![图 4：检测到 USB 设备后，点「安装 AI-bot」](assets/screens/tab5-first-install.png)
@@ -198,7 +198,7 @@ Current downloads are Windows bridge 0.6.27, Apple Silicon Mac bridge 0.6.26, TA
 
 1. **Install the app.** On Windows, keep the default installation path unless needed. For an upgrade, keep the current path. Setup closes a running AI-bot gracefully and starts it again after installing. Setup downloads missing .NET 8 Desktop Runtime / WebView2 components and skips existing ones. First-time installation attempts to configure the unlock components and may request administrator approval. If setup cannot configure unlock, you can still start AI-bot and retry in Computer Control. Upgrades keep existing unlock settings. On Mac, extract the ZIP into Applications. The current Apple Silicon app is ad-hoc signed and not notarized. Follow [Apple's opening guidance](https://support.apple.com/102445) and grant only the permissions requested by the features you use. Intel is unverified.
 2. **Connect with a USB data cable.** On Windows, Device Center opens on first launch. Choose **Add Your First Device**, select the model and confirm your USB device. Refresh the list if the device is missing. On Mac, open Device Center from the menu bar and choose **Add Device**.
-3. **Use the device screen to choose a path.** If the device shows AI-bot, select **Verify and Add** on Windows. For a factory TAB5, connect USB and hold RESET until the green light flashes quickly. Select **Install AI-bot** and confirm the write. Windows downloads and verifies the firmware and backs up the factory system. When the write passes verification, press RESET briefly and select **Verify and Add**. Windows checks startup and pairs the device over USB. An ESP8266 uses its own firmware ZIP. [Illustrated steps for both devices](FIRST-INSTALL.zh.md#windows-first-device)
+3. **Use the device screen to choose a path.** If the device shows AI-bot, select **Verify and Add** on Windows. For a factory device, open **First Install** and connect USB. For TAB5, hold RESET until the green light flashes quickly. Select **Install AI-bot** and confirm the write. Windows downloads and verifies the matching firmware and backs up the existing firmware. After verification, press RESET briefly on TAB5 or wait for the ESP8266 screen to start. Select **Verify and Add** when the screen shows AI-bot. [Illustrated steps for both devices](FIRST-INSTALL.zh.md#windows-first-device)
 4. **Check the result.** The device appears in Device Center as online, USB shows as connected, and the clock on the device updates.
 
 For later TAB5 updates, extract the upgrade ZIP and select `aibot_tab5.bin` with its adjacent notes file. Start the upgrade, wait for restart and verify boot. Existing paired settings and artwork stay in place. Firmware ZIPs for the two hardware types are not interchangeable; GitHub Source code archives are not firmware packages.

@@ -245,8 +245,9 @@ internal static class DeviceCenterSelfTest
                 Check(viewport.ClientRectangle.Contains(viewport.RectangleToClient(input.RectangleToScreen(input.ClientRectangle))),"USB and model inputs must remain visible at minimum size");
         }
         using var service=new Tab5Service(new Tab5PairingStore(Path.Combine(directory,"onboarding-unused-pairing.dat")));
-        foreach(bool restart in new[]{false,true})using(var form=new Tab5InstallForm(service,preview:true,returnToAdd:true,previewRestart:restart)) {
-            string name=restart?"onboarding-first-install-restart":"onboarding-first-install";
+        foreach(var hardware in new[]{HardwareKind.Tab5,HardwareKind.Esp8266})
+        foreach(bool restart in new[]{false,true})using(var form=new FirstInstallForm(hardware,hardware==HardwareKind.Tab5?service:null,preview:true,previewRestart:restart)) {
+            string name="onboarding-"+(hardware==HardwareKind.Tab5?"":"esp-")+"first-install"+(restart?"-restart":"");
             Capture(form,directory,name);
             void CheckPhase() {
                 form.Show();Application.DoEvents();
@@ -262,10 +263,10 @@ internal static class DeviceCenterSelfTest
             form.Hide();form.Size=form.MinimumSize;Capture(form,directory,name+"-minimum");
             CheckPhase();
         }
-        using(var form=new Tab5InstallForm(service,preview:true)) Capture(form,directory,"maintenance-first-install");
-        FlashUsbDevice[] tab5Ports=[];
-        service.UsbDevices=()=>tab5Ports;
-        using(var form=new Tab5InstallForm(service,returnToAdd:true)) {
+        using(var form=new FirstInstallForm(HardwareKind.Tab5,service,preview:true,returnToAdd:false)) Capture(form,directory,"maintenance-first-install");
+        foreach(var hardware in new[]{HardwareKind.Tab5,HardwareKind.Esp8266}) {
+            FlashUsbDevice[] usbPorts=[];
+            using var form=new FirstInstallForm(hardware,hardware==HardwareKind.Tab5?service:null,discover:()=>usbPorts);
             form.ShowInTaskbar=false;form.StartPosition=FormStartPosition.Manual;form.Location=new(-30000,-30000);
             form.Show();
             var button=(Button)form.AcceptButton!;
@@ -279,9 +280,11 @@ internal static class DeviceCenterSelfTest
             }
             Expect(false,false);
             var tab5=new FlashUsbDevice("COM7",@"USB\VID_303A&PID_1001\FIRST","TAB5 (COM7)");
-            tab5Ports=[tab5];Expect(true,false);
-            tab5Ports=[tab5,new("COM8",@"USB\VID_303A&PID_1001\SECOND","TAB5 (COM8)")];Expect(false,true);
-            tab5Ports=[];Expect(false,false);
+            var esp=new FlashUsbDevice("COM8",@"USB\VID_1A86&PID_7523\FIRST","CH340 (COM8)");
+            var sameModel=hardware==HardwareKind.Tab5?tab5:esp;
+            usbPorts=[tab5,esp];Expect(true,false);
+            usbPorts=[sameModel,sameModel with {Port="COM9",Identity=sameModel.Identity+"-2",Name="USB (COM9)"}];Expect(false,true);
+            usbPorts=[];Expect(false,false);
         }
     }
     private static void CheckDataSettings(DeviceRegistryStore store,string directory) {

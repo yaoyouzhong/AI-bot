@@ -136,7 +136,7 @@ internal static class Tab5InstallSelfTest
     internal static void Capture(string directory) {
         AppPaths.BeginPublicSelfTest(); Directory.CreateDirectory(directory);
         using var service = new Tab5Service(new Tab5PairingStore(Path.Combine(directory, "unused-pairing.dat")));
-        using var form = new Tab5InstallForm(service, preview: true);
+        using var form = new FirstInstallForm(HardwareKind.Tab5, service, preview: true, returnToAdd: false);
         form.ShowInTaskbar = false; form.Show(); Application.DoEvents();
         IEnumerable<Control> Children(Control c) { foreach (Control child in c.Controls) { yield return child; foreach (var inner in Children(child)) yield return inner; } }
         foreach (string size in new[] { "normal", "minimum" }) {
