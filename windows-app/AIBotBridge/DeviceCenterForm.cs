@@ -91,9 +91,9 @@ internal sealed class DeviceCenterForm : Form
     private void Render() {
         _detail.SuspendLayout();_detail.Controls.Remove(_health);_detail.Controls.Remove(_connection);_detail.Controls.Remove(_transport);Clear(_detail);_actions.Clear();_manage.Items.Clear();
         if(Selected is not { } d) {
-            Heading(_detail,"连接你的第一台设备");Note(_detail,"用 USB 数据线连接 TAB5 或 ESP8266 小屏。");
+            Heading(_detail,"连接第一台设备");Note(_detail,"先用 USB 数据线把 TAB5 或 ESP8266 小屏接到电脑。");
             _detail.Controls.Add(Button("添加第一台设备",_add,true));
-            Note(_detail,"已有 AI-bot：直接验证。\n出厂设备：先安装固件。");
+            Note(_detail,"看设备屏幕选择下一步。屏幕已显示 AI-bot 就直接添加。\n出厂设备要先备份并安装 AI-bot 固件。");
         } else {
             var heading=new TableLayoutPanel{AutoSize=true,ColumnCount=2,RowCount=1,Margin=new Padding(0,0,0,6)};
             heading.ColumnStyles.Add(new(SizeType.Percent,100));heading.ColumnStyles.Add(new(SizeType.AutoSize));heading.RowStyles.Add(new(SizeType.AutoSize));
