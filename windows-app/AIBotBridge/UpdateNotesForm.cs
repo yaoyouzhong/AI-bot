@@ -41,28 +41,47 @@ internal sealed class UpdateNotesForm : Form
         string notes=string.Join("\n",sections.GetValueOrDefault(component+":"+version)??(sections.Count==0?lines:[])).Trim();
         return notes.Length==0?"暂无更新说明。":notes;
     }
-    internal UpdateNotesForm(IReadOnlyDictionary<string,ComponentUpdate> published,UpdateDevice[] devices,string selected) {
+    internal UpdateNotesForm(IReadOnlyDictionary<string,ComponentUpdate>? published,UpdateDevice[] devices,string selected,
+        Func<Task<IReadOnlyDictionary<string,ComponentUpdate>?>>? readPublished=null) {
         Text="AI-bot · 全部更新说明";Font=SettingsWindow.BodyFont();BackColor=Color.White;
         AutoScaleDimensions=new(96,96);AutoScaleMode=AutoScaleMode.Dpi;ClientSize=new(860,620);MinimumSize=new(640,460);
         var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=3};
         root.ColumnStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));root.RowStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));Controls.Add(root);
         root.Controls.Add(new Label{Text="更新说明",Font=SettingsWindow.TitleFont(),AutoSize=true,Margin=new(0,0,0,16)},0,0);
         var tabs=new TabControl{Name="notes-components",Dock=DockStyle.Fill};root.Controls.Add(tabs,0,1);
+        Action<IReadOnlyDictionary<string,ComponentUpdate>?>? showNotes=null;
         foreach(var (component,title) in new[]{("bridge","电脑桥接"),("tab5","TAB5 固件"),("esp8266","小屏固件")}) {
-            var local=Bundled(component);published.TryGetValue(component,out var release);
+            var local=Bundled(component);
             string current=devices.FirstOrDefault(d=>d.Component==component)?.Version??"未连接";
             var tab=new TabPage(title){Name=component,BackColor=Color.White,Padding=new(12)};tabs.TabPages.Add(tab);
             var layout=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=3};layout.ColumnStyles.Add(new(SizeType.Percent,100));layout.RowStyles.Add(new(SizeType.AutoSize));layout.RowStyles.Add(new(SizeType.AutoSize));layout.RowStyles.Add(new(SizeType.Percent,100));tab.Controls.Add(layout);
-            layout.Controls.Add(new Label{Text=$"当前运行：{current}     最新发布：{release?.Version??"未查询到"}",AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,4,0,12),ForeColor=Color.FromArgb(88,101,119)},0,0);
+            var version=new Label{Text=$"当前运行：{current}     最新发布：查询中…",AutoSize=true,Dock=DockStyle.Fill,Margin=new(0,4,0,12),ForeColor=Color.FromArgb(88,101,119)};
+            layout.Controls.Add(version,0,0);
             var source=new ComboBox{Name="notes-source",DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Top,Margin=new(0,0,0,12)};
-            source.Items.Add(new Source(local.Version+(current==local.Version?" · 本地版本说明":" · 随包版本说明"),local.Notes));
-            if(release is not null)source.Items.Add(new Source(release.Version+" · 已发布版本说明",release.Notes));
             layout.Controls.Add(source,0,1);
             var view=new MarkdownNotesView{Dock=DockStyle.Fill};layout.Controls.Add(view,0,2);
-            source.SelectedIndexChanged+=(_,_)=>view.SetNotes(((Source)source.SelectedItem!).Notes);
-            source.SelectedIndex=current==local.Version?0:release is null?0:1;
+            source.SelectedIndexChanged+=(_,_)=>{if(source.SelectedItem is Source notes)view.SetNotes(notes.Notes);};
+            void ShowCatalog(IReadOnlyDictionary<string,ComponentUpdate>? catalog) {
+                var release=catalog?.GetValueOrDefault(component);
+                version.Text=$"当前运行：{current}     最新发布：{release?.Version??"未查询到"}";
+                source.Items.Add(new Source(local.Version+(current==local.Version?" · 本地版本说明":" · 随包版本说明"),local.Notes));
+                if(release is not null&&!string.IsNullOrWhiteSpace(release.Notes)&&release.Notes.Trim()!="暂无更新说明。")
+                    source.Items.Add(new Source(release.Version+" · 已发布版本说明",release.Notes));
+                source.SelectedIndex=source.Items.Count-1;
+                source.Enabled=true;
+            }
+            if(readPublished is null)ShowCatalog(published);
+            else {
+                source.Enabled=false;
+                view.SetNotes("正在读取 GitHub 发布说明…");
+                showNotes+=ShowCatalog;
+            }
             if(component==selected)tabs.SelectedTab=tab;
         }
+        if(readPublished is not null)Shown+=async(_,_)=>{
+            var catalog=await readPublished();
+            if(!IsDisposed&&Visible)showNotes?.Invoke(catalog);
+        };
         var close=new Button{Text="关闭",AutoSize=true,Anchor=AnchorStyles.Right,Margin=new(0,14,0,0),DialogResult=DialogResult.Cancel};SettingsWindow.StyleButton(close);root.Controls.Add(close,0,2);CancelButton=close;
         SettingsWindow.FitScreen(this);
     }

@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- **Windows release notes.** View All Release Notes opens the published GitHub notes by default and falls back to the bundled notes when offline or when no published notes are available.
+
 ## 0.6.26 - 2026-11-20
 
 This release updates the Windows and Apple Silicon Mac bridges. TAB5 and ESP8266 remain on their current firmware versions.
