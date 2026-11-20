@@ -2,98 +2,154 @@ namespace AIBotBridge;
 
 internal sealed class Tab5InstallForm : Form
 {
+    private const string WriteVerified = "写入校验通过，原固件已备份。";
     private readonly Tab5Service _service;
     private readonly bool _preview;
     private readonly bool _returnToAdd;
-    private readonly ComboBox _ports = new() { DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Name" };
-    private readonly Label _package = new() { AutoSize = true, Text = "尚未选择首次安装 ZIP 包" };
-    private readonly Label _status = new() { AutoSize = true, Dock = DockStyle.Fill, Text = "连接 TAB5 并进入下载模式，然后刷新设备。" };
-    private readonly Label _backup = new() { AutoSize = true, Visible = false };
-    private readonly Button _refresh = Button("刷新设备"), _choose = Button("选择安装包…"), _install = Button("备份并安装", true),
-        _restore = Button("恢复原固件…"), _check = Button("检查启动"), _done = Button("进入 USB 配对"), _cancel = Button("关闭");
+    private readonly ComboBox _ports = new() { DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Name", AccessibleName = "目标 TAB5 USB 端口", Margin = new(0, 0, 0, 12) };
+    private readonly Label _heading = new() { AutoSize = true, Margin = new(0, 0, 0, 8), Font = SettingsWindow.TitleFont() };
+    private readonly Label _instruction = new() { AutoSize = true, Margin = new(0, 0, 0, 12) };
+    private readonly Label _usbStatus = new() { AutoSize = true, ForeColor = SettingsWindow.Muted, Margin = new(0, 0, 0, 8) };
+    private readonly Label _status = new() { AutoSize = true, Visible = false, Margin = new(0, 2, 0, 4) };
+    private readonly Label _backup = new() { AutoSize = true, Visible = false, ForeColor = SettingsWindow.Muted, Margin = new(0, 4, 0, 8) };
+    private readonly Button _install = Button("安装 AI-bot", true), _check = Button("检查启动", true),
+        _done = Button("进入 USB 配对", true), _cancel = Button("关闭");
+    private readonly LinkLabel _local = new() { Text = "使用本地 ZIP…", AutoSize = true, Margin = new(0, 4, 16, 2) };
+    private readonly LinkLabel _restore = new() { Text = "恢复备份…", AutoSize = true, Margin = new(0, 4, 8, 2) };
+    private readonly FlowLayoutPanel _options;
+    private readonly System.Windows.Forms.Timer _scan = new() { Interval = 1200 };
     private readonly ProgressBar _progress = new() { Dock = DockStyle.Fill, Height = 8, Visible = false, Style = ProgressBarStyle.Marquee };
     private CancellationTokenSource? _operation;
-    private string? _zip, _mac, _version, _elfSha;
-    private bool _busy, _writing;
+    private string? _mac, _version, _elfSha, _selectedIdentity;
+    private bool _busy, _writing, _downloadFailed, _hasRecoveryBackup;
+    private FlashUsbDevice[] _devices = [];
     private string _stageText = "";
     private int _lastPercent = -1;
     internal FlashUsbDevice? VerifiedDevice { get; private set; }
 
-    internal Tab5InstallForm(Tab5Service service, bool preview = false, bool returnToAdd = false)
+    internal Tab5InstallForm(Tab5Service service, bool preview = false, bool returnToAdd = false, bool previewRestart = false)
     {
-        _service = service; _preview = preview; _returnToAdd=returnToAdd;
-        if(returnToAdd){_check.Text="检查启动并返回";_done.Visible=false;}
+        _service = service; _preview = preview; _returnToAdd = returnToAdd;
+        if (returnToAdd) _check.Text = "验证并添加";
+        if (!preview && returnToAdd) {
+            try { _hasRecoveryBackup = Directory.EnumerateFiles(FirmwareFlasher.BackupDirectory, "tab5-*.bin.json").Any(); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        if (preview && previewRestart) { _mac = "preview"; _status.Text = WriteVerified; _status.Visible = true; }
         Text = "TAB5 首次安装"; Font = SettingsWindow.BodyFont();
         AutoScaleDimensions = new SizeF(96, 96); AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(700, 690); MinimumSize = new Size(600, 550); StartPosition = FormStartPosition.CenterParent;
+        ClientSize = new Size(516, 300); MinimumSize = new Size(465, 354); StartPosition = FormStartPosition.CenterParent;
+        MinimizeBox = MaximizeBox = false;
         BackColor = Color.White;
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24), ColumnCount = 1, RowCount = 4 };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(20, 18, 20, 16), ColumnCount = 1, RowCount = 3 };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         Controls.Add(layout);
-        var content = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true };
+        var content = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Margin = Padding.Empty };
         layout.Controls.Add(content, 0, 0); SettingsWindow.FitFlow(content);
-        void Note(string text, bool heading = false) {
-            content.Controls.Add(new Label { Text = text, AutoSize = true, Margin = new Padding(0, 4, 0, 8),
-                Font = heading ? new Font(Font, FontStyle.Bold) : Font });
-        }
-        Note("1 连接并进入下载模式", true);
-        Note("连接 USB-C 数据线，长按 RESET 约 2 秒，绿灯快闪后松开。刷新后只选目标 TAB5。");
-        content.Controls.Add(_ports); content.Controls.Add(Row(_refresh));
-        Note("2 选择完整安装包", true);
-        content.Controls.Add(_package); content.Controls.Add(Row(_choose));
-        Note("直接选择 TAB5 首刷 ZIP，工具会先备份原固件。");
-        content.Controls.Add(Row(_install, _restore));
-        _status.Margin = new Padding(0, 8, 0, 8); layout.Controls.Add(_status, 0, 1);
-        _backup.Margin = new Padding(0, 4, 0, 8); _backup.ForeColor = Color.FromArgb(80, 95, 110); content.Controls.Add(_backup);
-        layout.Controls.Add(_progress, 0, 2); layout.Controls.Add(Row(_check, _done, _cancel), 0, 3);
-        _refresh.Click += (_, _) => RefreshDevices();
-        _choose.Click += (_, _) => {
-            using var pick = new OpenFileDialog { Title = "选择 TAB5 首次安装包", Filter = "TAB5 首次安装包 (*.zip)|*.zip" };
-            if (pick.ShowDialog(this) == DialogResult.OK) { _zip = pick.FileName; _package.Text = Path.GetFileName(_zip); UpdateButtons(); }
+        _options = Row(FlowDirection.LeftToRight, _local, _restore);
+        content.Controls.AddRange([_heading, _instruction, _usbStatus, _ports, _status, _backup, _options]);
+        layout.Controls.Add(_progress, 0, 1);
+        layout.Controls.Add(Row(FlowDirection.RightToLeft, _install, _check, _done, _cancel), 0, 2);
+        _ports.SelectionChangeCommitted += (_, _) => {
+            _selectedIdentity = (_ports.SelectedItem as FlashUsbDevice)?.Identity;
+            UpdateUsbStatus();
+            UpdateButtons();
         };
-        _ports.SelectedIndexChanged += (_, _) => UpdateButtons();
-        _install.Click += async (_, _) => await RunInstallAsync(null);
-        _restore.Click += async (_, _) => {
+        _install.Click += async (_, _) => await RunInstallAsync(null, null);
+        _local.LinkClicked += async (_, _) => {
+            using var pick = new OpenFileDialog { Title = "选择 TAB5 首次安装包", Filter = "TAB5 首次安装包 (*.zip)|*.zip" };
+            if (pick.ShowDialog(this) == DialogResult.OK) await RunInstallAsync(pick.FileName, null);
+        };
+        _restore.LinkClicked += async (_, _) => {
             using var pick = new OpenFileDialog { Title = "选择本工具保存的原固件备份记录", Filter = "TAB5 备份记录 (*.bin.json)|*.bin.json", InitialDirectory = FirmwareFlasher.BackupDirectory };
-            if (pick.ShowDialog(this) == DialogResult.OK) await RunInstallAsync(pick.FileName);
+            if (pick.ShowDialog(this) == DialogResult.OK) await RunInstallAsync(null, pick.FileName);
         };
         _check.Click += async (_, _) => await CheckBootAsync();
         _done.Click += (_, _) => { DialogResult = DialogResult.OK; Close(); };
         _cancel.Click += (_, _) => { if (_busy) _operation?.Cancel(); else Close(); };
         FormClosing += (_, e) => { if (_busy) { e.Cancel = true; if (!_writing) _operation?.Cancel(); } };
-        SettingsWindow.AddTitle(layout,"首次安装");RefreshDevices(); SettingsWindow.FitScreen(this);
+        _scan.Tick += (_, _) => RefreshDevices();
+        Shown += (_, _) => { if (!_preview) _scan.Start(); };
+        CancelButton = _cancel;
+        RefreshDevices();
+        SettingsWindow.FitScreen(this);
     }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _scan.Dispose();
+        base.Dispose(disposing);
+    }
+
     private static Button Button(string text, bool primary = false) { var b = new Button { Text = text }; SettingsWindow.StyleButton(b, primary); return b; }
-    private static FlowLayoutPanel Row(params Control[] controls) {
-        var row = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Dock = DockStyle.Fill, Margin = new Padding(0, 5, 0, 7) };
-        foreach (var c in controls) { c.Margin = new Padding(0, 0, 8, 2); row.Controls.Add(c); } return row;
+    private static FlowLayoutPanel Row(FlowDirection direction, params Control[] controls) {
+        var row = new FlowLayoutPanel { AutoSize = true, WrapContents = false, FlowDirection = direction, Dock = DockStyle.Fill, Margin = new Padding(0, 6, 0, 0) };
+        foreach (var control in controls) {
+            if (control is Button) control.Margin = new Padding(8, 0, 0, 0);
+            row.Controls.Add(control);
+        }
+        return row;
     }
-    private void RefreshDevices() {
+
+    private void RefreshDevices(bool reselection = false)
+    {
+        if (_busy || _ports.DroppedDown) return;
         try {
-            var selected = (_ports.SelectedItem as FlashUsbDevice)?.Identity;
-            _ports.DataSource = _preview ? new[] { new FlashUsbDevice("COM7", "preview", "TAB5 USB 下载端口 (COM7)") } :
-                FlashDeviceDiscovery.Read().Where(d => d.Identity.Contains("VID_303A", StringComparison.OrdinalIgnoreCase)).ToArray();
-            _ports.SelectedIndex = _ports.Items.Count==1&&(selected is null||_mac is not null)?0:-1;
-            for (int i = 0; i < _ports.Items.Count; i++) if ((_ports.Items[i] as FlashUsbDevice)?.Identity == selected) _ports.SelectedIndex = i;
-            if (_ports.Items.Count == 0) _status.Text = "未发现设备，请检查数据线和下载模式后刷新。";
-            else if(_mac is null) _status.Text = _ports.SelectedItem is null?"请选择目标 TAB5 的下载端口。":"已选中 USB 设备，请确认 TAB5 已进入下载模式。";
-        } catch (Exception ex) { _status.Text = ex.Message; }
+            var devices = _preview ? [new FlashUsbDevice("COM7", @"USB\VID_303A&PID_1001\PREVIEW", "TAB5 USB (COM7)")] :
+                _service.UsbDevices().Where(d => d.Identity.Contains("VID_303A", StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (reselection || !_devices.SequenceEqual(devices)) {
+                _devices = devices;
+                _ports.DataSource = devices;
+                int selected = Array.FindIndex(devices, d => d.Identity.Equals(_selectedIdentity, StringComparison.OrdinalIgnoreCase));
+                _ports.SelectedIndex = selected >= 0 ? selected : (_selectedIdentity is null && devices.Length == 1 ? 0 : -1);
+            }
+            UpdateUsbStatus();
+        } catch (Exception ex) {
+            _devices = [];
+            _ports.DataSource = null;
+            _usbStatus.Text = "USB 检测失败，正在重试。 " + ex.Message;
+        }
         UpdateButtons();
     }
+
+    private void UpdateUsbStatus()
+    {
+        _usbStatus.Text = _ports.SelectedItem is FlashUsbDevice device ? $"已检测到 USB 设备（{device.Port}）" :
+            _devices.Length == 0 ? "正在检测 USB 设备…" : "请选择这台 TAB5 的 USB 端口。";
+    }
+
     private void UpdateButtons() {
         bool device = _ports.SelectedItem is FlashUsbDevice;
-        _ports.Enabled = _refresh.Enabled = _choose.Enabled = !_busy;
-        _install.Enabled = !_preview && !_busy && device && _zip is not null;
+        bool restart = _mac is not null;
+        bool complete = VerifiedDevice is not null;
+        _heading.Text = complete ? "启动检查通过" : restart ? "重启 TAB5" : _busy ? "安装 TAB5" : "连接 TAB5";
+        _instruction.Visible = !_busy && !complete;
+        _instruction.Text = restart ? "短按 RESET。\n等屏幕显示 AI-bot。" : "接好 USB-C 数据线。\n长按 RESET，绿灯快闪时松开。";
+        _usbStatus.Visible = !_busy && !complete;
+        _ports.Visible = !_busy && !complete && (_devices.Length > 1 || _devices.Length == 1 && !device);
+        _install.Visible = !restart && !complete;
+        _install.Enabled = !_busy && device;
+        bool showLocal = !_busy && !restart && (!_returnToAdd || _downloadFailed);
+        bool showRestore = !_busy && (!_returnToAdd || !restart && _hasRecoveryBackup);
+        _options.Visible = showLocal || showRestore;
+        _local.Visible = showLocal;
+        _local.Enabled = !_preview && device;
+        _restore.Visible = showRestore;
         _restore.Enabled = !_preview && !_busy && device;
-        _check.Enabled = !_preview && !_busy && device && _mac is not null;
+        _check.Visible = restart && !complete;
+        _check.Enabled = !_busy && device && restart;
+        _done.Visible = !_returnToAdd && complete;
         _done.Enabled = !_busy && VerifiedDevice is not null;
+        AcceptButton = complete ? _done : restart ? _check : _install;
         _cancel.Enabled = !_writing; _cancel.Text = _busy ? "取消准备" : "关闭"; _progress.Visible = _busy;
     }
     private void Stage(string text) {
         if (IsDisposed) return;
         if (InvokeRequired) { BeginInvoke(() => Stage(text)); return; }
         _stageText = text; _lastPercent = -1; _status.Text = text;
+        _status.Visible = true;
         _progress.Style = ProgressBarStyle.Marquee;
     }
     private async Task<string> RunToolAsync(string executable, string[] args, CancellationToken token) {
@@ -113,19 +169,36 @@ internal sealed class Tab5InstallForm : Form
         try { return await FirmwareFlasher.RunProcessAsync(executable, args, Report, token); }
         catch (IOException ex) { lock (tail) throw new IOException("刷机工具未完成：" + string.Join("\n", tail) + "\n" + ex.Message, ex); }
     }
-    private async Task RunInstallAsync(string? backupRecord) {
+    private async Task RunInstallAsync(string? packagePath, string? backupRecord) {
         if (_busy || _preview || _ports.SelectedItem is not FlashUsbDevice device) return;
         bool restore = backupRecord is not null;
+        bool download = packagePath is null && !restore;
         string directory = Path.Combine(FirmwareFlasher.CacheDirectory, "tab5-install-" + Guid.NewGuid().ToString("N"));
         Tab5Installer? installer = null;
         _busy = true; VerifiedDevice = null; _mac = _version = _elfSha = null; _operation = new(); UpdateButtons();
         try {
+            if (download) {
+                Stage("正在下载官方首刷包…");
+                Directory.CreateDirectory(directory);
+                packagePath = Path.Combine(directory, UpdateService.Tab5FirstInstallAsset);
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_operation.Token);
+                timeout.CancelAfter(TimeSpan.FromSeconds(90));
+                try {
+                    using var updater = new UpdateService();
+                    await updater.DownloadTab5FirstInstallAsync(packagePath, timeout.Token);
+                    _downloadFailed = false;
+                } catch (Exception ex) when (ex is not OperationCanceledException || !_operation.IsCancellationRequested) {
+                    _downloadFailed = true;
+                    Stage("下载失败，可以重试或使用本地首刷 ZIP。未写入设备。");
+                    return;
+                }
+            }
             Stage("正在校验安装材料…");
-            Tab5InstallPackage? package = restore ? null : await Task.Run(() => Tab5InstallPackage.Load(_zip!, directory), _operation.Token);
+            Tab5InstallPackage? package = restore ? null : await Task.Run(() => Tab5InstallPackage.Load(packagePath!, directory), _operation.Token);
             if (restore) await Task.Run(() => Tab5Installer.ReadBackup(backupRecord!), _operation.Token);
             _operation.Token.ThrowIfCancellationRequested();
             string action = restore ? "恢复原固件备份" : $"安装 AI-bot TAB5 {package!.Manifest.Version}";
-            if (MessageBox.Show(this, $"将在 {device.Name} 上{action}。\n\n先备份并核验整片闪存，再替换全部 P4 固件及设置。写入期间不能取消，请保持供电和连接。\n\n确认实物为 TAB5 后继续。", "确认 TAB5 写入", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) {
+            if (MessageBox.Show(this, $"{action}（{device.Port}）\n\n电脑会先备份，再替换 TAB5 的固件和设置。写入时请保持连接。\n\n请确认这台设备是你的 TAB5。", "确认 TAB5 写入", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.OK) {
                 Stage("已取消，未写入设备。"); return;
             }
             using var tool = await FirmwareFlasher.PrepareToolAsync(Stage, _operation.Token);
@@ -139,27 +212,29 @@ internal sealed class Tab5InstallForm : Form
                 }, _operation.Token);
                 if (!restore) {
                     _mac = installer.DeviceMac; _version = package!.Manifest.Version;
+                    _selectedIdentity = null;
                     byte[] app = File.ReadAllBytes(Path.Combine(directory, "application.bin"));
                     _elfSha = Convert.ToHexString(app.AsSpan(176, 32)).ToLowerInvariant();
                 }
-                Stage(restore ? "备份恢复并校验通过。请短按 RESET，检查原系统是否正常启动。" : $"写入校验通过。请短按 RESET，刷新并选择启动后的 USB 端口，再点“{_check.Text}”。");
+                Stage(restore ? "备份恢复并校验通过。请短按 RESET，检查原系统是否正常启动。" : WriteVerified);
             } finally { await lease.ReleaseAsync(false); }
         } catch (OperationCanceledException) { Stage(_writing ? "写入流程已结束，但桥接恢复未确认。请检查启动或用备份恢复。" : "已取消准备，未开始写入。重新操作前请再次进入下载模式。"); }
-        catch (Exception ex) { Stage(($"未完成：{ex.Message}\n") + (_writing ? "请保持连接，重新进入下载模式后，可用“恢复原固件”恢复下方备份。" : "本次未开始写入。")); }
+        catch (Exception ex) { Stage(($"未完成：{ex.Message}\n") + (_writing ? "请保持连接，重新进入下载模式后使用「恢复备份」。" : "本次未开始写入。")); }
         finally {
             if (installer?.BackupPath is string path) {
+                _hasRecoveryBackup |= installer.BackupVerified;
                 _backup.Text = installer.BackupVerified
-                    ? "本次备份：" + path + "\n恢复请选择同目录的 .bin.json。备份可能包含设备设置，请保留在本机。"
+                    ? "备份已保存到本机：" + path
                     : "备份未完成或校验失败。本次未开始写入，请重新备份后再试。";
-                _backup.Visible = true;
+                _backup.Visible = _mac is null || !_returnToAdd;
             }
             _writing = _busy = false; _operation?.Dispose(); _operation = null;
             try { FirmwareFlasher.CleanupTemporaryDirectory(directory, "tab5-install-"); } catch (IOException) { }
-            UpdateButtons();
+            RefreshDevices(reselection: _mac is not null);
         }
     }
     private async Task CheckBootAsync() {
-        if (_busy || _mac is null || _ports.SelectedItem is not FlashUsbDevice device) return;
+        if (_busy || _preview || _mac is null || _ports.SelectedItem is not FlashUsbDevice device) return;
         _busy = true; VerifiedDevice = null; _operation = new(); UpdateButtons();
         try {
             Stage("正在核对设备、固件指纹和界面心跳…");

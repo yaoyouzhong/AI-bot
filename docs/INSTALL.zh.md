@@ -27,7 +27,7 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 | TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/AI-bot-tab5-0.2.322-ui-first-install.zip) |
 | TAB5 已安装 AI-bot，更新固件 | [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/AI-bot-tab5-0.2.322-ui-upgrade.zip) |
 
-**TAB5 首刷也是 0.2.322-ui，无需先刷旧版。** 首刷包直接选择 ZIP；升级包先解压，再选里面的 `aibot_tab5.bin`，同目录保留 `aibot_tab5.bin.notes.json`。两种硬件的固件不可互换；GitHub 的 Source code 不是刷机文件。
+**TAB5 首刷版本是 0.2.322-ui。** Windows 首刷会自动下载。手动首刷可直接选择 ZIP；升级包先解压，再选里面的 `aibot_tab5.bin`，同目录保留 `aibot_tab5.bin.notes.json`。两种硬件的固件不可互换；GitHub 的 Source code 不是刷机文件。
 
 桥接、ESP8266 和 TAB5 分别更新，版本号可以不同；以后只升级更新说明要求的部分，无需每次一起刷机。
 
@@ -80,17 +80,17 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 4. **检查屏幕并收尾。** 在设备中心打开 **显示设置**，确认实体屏能更新、切页；恢复自动显示与循环展示，保留原页面、顺序和间隔。
 
 <a id="tab5-first"></a>
-### B. TAB5：从出厂系统首次安装 · 4 步
+### B. TAB5：从出厂系统首次安装 · 3 步
 
 使用 **USB-C 数据接口**连接电脑。首次安装会替换 P4 原固件与设置，工具先完整备份；保留备份以便恢复。已有 AI-bot 的设备使用下方升级路线。
 
-1. **进入安装窗口与下载模式。** “添加”里选 **M5Stack TAB5 → TAB5 首次安装…**。连接 USB-C，长按 RESET 约 2 秒，内部绿灯快速闪烁后松开；点 **刷新设备**，选择这台 TAB5 的端口。[进入下载模式的官方说明](https://docs.m5stack.com/zh_CN/guide/tab5/restore_factory)。
-2. **选择首刷 ZIP 并安装。** 点 **选择安装包…**，选 `AI-bot-tab5-0.2.322-ui-first-install.zip`，点 **备份并安装**。在 **确认 TAB5 写入** 中核对设备和版本后确认。等待备份、写入和校验结束，保持连接。
+1. **连接 TAB5。** “添加”里选 **M5Stack TAB5 → TAB5 首次安装…**。连接 USB-C，长按 RESET 约 2 秒，内部绿灯快闪时松开。程序会自动检测设备，只有需要区分时才请你选择端口。[进入下载模式的官方说明](https://docs.m5stack.com/zh_CN/guide/tab5/restore_factory)
+2. **安装 AI-bot。** 点 **安装 AI-bot**，程序会下载并校验官方固件。在 **确认 TAB5 写入** 中核对设备和版本后确认。保持连接，等到 **写入校验通过**。
+3. **重启并添加。** 短按 RESET，等屏幕显示 AI-bot，再点 **验证并添加**。程序会验证启动并完成 USB 配对。设备中心显示 **在线** 且 USB **已连接** 即可。
 
-![图 4：TAB5 首次安装；上方选端口，中间选 ZIP 并安装，下方检查启动](assets/screens/tab5-first-install.png)
+![图 4：检测到 USB 设备后，点「安装 AI-bot」](assets/screens/tab5-first-install.png)
 
-3. **重启并检查。** 提示 **写入校验通过** 后短按 RESET，等屏幕显示 AI-bot。点 **刷新设备**，确认启动端口，点 **检查启动并返回**。检查通过后会自动回到添加窗口并选中刚核验的设备，再点 **验证并添加**。重启后端口号可能改变。
-4. **添加并确认数据。** 回“添加”刷新，选重启后的 TAB5，点 **验证并添加**，此操作会完成 USB 验证与配对。确认实体屏、触摸和数据更新；需要重新配对时使用 **连接设置 → USB 配对 → 刷新设备 → 配对**。旧版桥接中的入口名为「连接升级」。保留 TAB5 当前展示设置，无需启用轮播；Wi-Fi 可稍后配置。
+下载失败可以重试，或点 **使用本地 ZIP…**，选择下载中心的 TAB5 首刷 ZIP。需要重新配对时，进入 **连接设置 → USB 配对**。
 
 ![图 5：TAB5 USB 配对；若尚未配对，选择本机端口后点“配对”](assets/screens/tab5-usb-pairing.png)
 
@@ -164,12 +164,12 @@ TAB5 需要无线时，在 **连接设置 → Wi-Fi** 保存网络并确认有�
 
 | 问题 | 处理 |
 | --- | --- |
-| 找不到设备 | 换 USB 数据线或接口；TAB5 首刷先进入下载模式，再刷新。ESP8266 确认缺驱动时安装 [WCH 官方驱动](https://www.wch.cn/downloads/CH341SER_EXE.html) |
+| 找不到设备 | 换 USB 数据线或接口；TAB5 首刷先进入下载模式，程序会自动检测。ESP8266 确认缺驱动时安装 [WCH 官方驱动](https://www.wch.cn/downloads/CH341SER_EXE.html) |
 | 文件选不了 | 核对路线：ESP8266 选自己的 ZIP；TAB5 首刷选首刷 ZIP；TAB5 升级选解压后的 BIN |
 | 端口占用 | 关闭其他串口工具；使用内置刷机时保持桥接运行，由工具释放 USB |
 | 备份、写入或校验失败 | 保留错误与备份，确认设备仍能启动，不强行跳过检查 |
 | TAB5 重启后找不到 | 刷新并选择重启后的端口，再检查启动；不要重新首刷 |
-| TAB5 首刷后需恢复原系统 | 重新进入下载模式，在首次安装窗口点 **恢复原固件…**，选同一台设备的 `.bin.json` 备份记录；校验通过后短按 RESET 检查原系统 |
+| TAB5 首刷后需恢复原系统 | 重新进入下载模式，在首次安装窗口点 **恢复备份…**，选同一台设备的 `.bin.json` 备份记录；校验通过后短按 RESET 检查原系统 |
 | 已连接但无数据 | 确认设备已添加、USB 配对成功与桥接正在运行 |
 | 安装器下载运行环境失败 | 保留错误信息，检查能否访问微软下载服务；重试安装会跳过已安装组件。单位电脑的管理员许可需由管理员处理 |
 | 安装完成但提示解锁配置未完成 | 可以先添加设备、检查显示；需要解锁时在“电脑控制 → 一键解锁设置”保存并处理组件提示 |
@@ -198,7 +198,7 @@ Current downloads are Windows bridge 0.6.27, Apple Silicon Mac bridge 0.6.26, TA
 
 1. **Install the app.** On Windows, keep the default installation path unless needed. For an upgrade, keep the current path. Setup closes a running AI-bot gracefully and starts it again after installing. Setup downloads missing .NET 8 Desktop Runtime / WebView2 components and skips existing ones. First-time installation attempts to configure the unlock components and may request administrator approval. If setup cannot configure unlock, you can still start AI-bot and retry in Computer Control. Upgrades keep existing unlock settings. On Mac, extract the ZIP into Applications. The current Apple Silicon app is ad-hoc signed and not notarized. Follow [Apple's opening guidance](https://support.apple.com/102445) and grant only the permissions requested by the features you use. Intel is unverified.
 2. **Connect with a USB data cable.** On Windows, Device Center opens on first launch. Choose **Add Your First Device**, select the model and confirm your USB device. Refresh the list if the device is missing. On Mac, open Device Center from the menu bar and choose **Add Device**.
-3. **Use the device screen to choose a path.** If the device shows AI-bot, use **Verify and Add** on Windows. This also pairs TAB5 over USB. A factory TAB5 needs its first-install ZIP and download mode. Back up and install the firmware, reset the tablet, then choose **Check Boot and Return**. Windows returns to Add Device and selects the verified unit so you can finish adding it. An ESP8266 needs its own firmware ZIP. [Illustrated steps for both devices](FIRST-INSTALL.zh.md#windows-first-device)
+3. **Use the device screen to choose a path.** If the device shows AI-bot, select **Verify and Add** on Windows. For a factory TAB5, connect USB and hold RESET until the green light flashes quickly. Select **Install AI-bot** and confirm the write. Windows downloads and verifies the firmware and backs up the factory system. When the write passes verification, press RESET briefly and select **Verify and Add**. Windows checks startup and pairs the device over USB. An ESP8266 uses its own firmware ZIP. [Illustrated steps for both devices](FIRST-INSTALL.zh.md#windows-first-device)
 4. **Check the result.** The device appears in Device Center as online, USB shows as connected, and the clock on the device updates.
 
 For later TAB5 updates, extract the upgrade ZIP and select `aibot_tab5.bin` with its adjacent notes file. Start the upgrade, wait for restart and verify boot. Existing paired settings and artwork stay in place. Firmware ZIPs for the two hardware types are not interchangeable; GitHub Source code archives are not firmware packages.

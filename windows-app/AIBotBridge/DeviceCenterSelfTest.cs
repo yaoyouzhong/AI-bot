@@ -245,10 +245,43 @@ internal static class DeviceCenterSelfTest
                 Check(viewport.ClientRectangle.Contains(viewport.RectangleToClient(input.RectangleToScreen(input.ClientRectangle))),"USB and model inputs must remain visible at minimum size");
         }
         using var service=new Tab5Service(new Tab5PairingStore(Path.Combine(directory,"onboarding-unused-pairing.dat")));
-        foreach(bool fromAdd in new[]{false,true})using(var form=new Tab5InstallForm(service,preview:true,returnToAdd:fromAdd)) {
-            Capture(form,directory,fromAdd?"onboarding-first-install":"maintenance-first-install");
-            Check(Descendants(form).OfType<Button>().Any(b=>b.Text==(fromAdd?"检查启动并返回":"进入 USB 配对")&&!b.Enabled),"First-install completion must match its caller and remain gated by verified boot");
-            Check(!Descendants(form).OfType<CheckBox>().Any(),"First installation should request write confirmation once");
+        foreach(bool restart in new[]{false,true})using(var form=new Tab5InstallForm(service,preview:true,returnToAdd:true,previewRestart:restart)) {
+            string name=restart?"onboarding-first-install-restart":"onboarding-first-install";
+            Capture(form,directory,name);
+            void CheckPhase() {
+                form.Show();Application.DoEvents();
+                Check(Descendants(form).OfType<Button>().Where(b=>b.Visible).Select(b=>b.Text)
+                    .SequenceEqual(new[]{restart?"验证并添加":"安装 AI-bot","关闭"}),"First install must present one next action per phase");
+                Check(!Descendants(form).Any(c=>c.Visible&&c is ComboBox or LinkLabel or CheckBox),
+                    "First-install participants with one detected device should not need port, file or recovery options");
+                var viewport=Descendants(form).OfType<FlowLayoutPanel>().Single(p=>p.AutoScroll);
+                Check(!viewport.HorizontalScroll.Visible&&!viewport.VerticalScroll.Visible,
+                    "Default first-install instructions and status should fit without scrolling");
+            }
+            CheckPhase();
+            form.Hide();form.Size=form.MinimumSize;Capture(form,directory,name+"-minimum");
+            CheckPhase();
+        }
+        using(var form=new Tab5InstallForm(service,preview:true)) Capture(form,directory,"maintenance-first-install");
+        FlashUsbDevice[] tab5Ports=[];
+        service.UsbDevices=()=>tab5Ports;
+        using(var form=new Tab5InstallForm(service,returnToAdd:true)) {
+            form.ShowInTaskbar=false;form.StartPosition=FormStartPosition.Manual;form.Location=new(-30000,-30000);
+            form.Show();
+            var button=(Button)form.AcceptButton!;
+            var ports=Descendants(form).OfType<ComboBox>().Single();
+            void Expect(bool ready,bool choose) {
+                var deadline=Environment.TickCount64+3000;
+                while((button.Enabled!=ready||ports.Visible!=choose)&&Environment.TickCount64<deadline) {
+                    Application.DoEvents();Thread.Sleep(20);
+                }
+                Check(button.Enabled==ready&&ports.Visible==choose,"First-install port detection should update without manual refresh");
+            }
+            Expect(false,false);
+            var tab5=new FlashUsbDevice("COM7",@"USB\VID_303A&PID_1001\FIRST","TAB5 (COM7)");
+            tab5Ports=[tab5];Expect(true,false);
+            tab5Ports=[tab5,new("COM8",@"USB\VID_303A&PID_1001\SECOND","TAB5 (COM8)")];Expect(false,true);
+            tab5Ports=[];Expect(false,false);
         }
     }
     private static void CheckDataSettings(DeviceRegistryStore store,string directory) {

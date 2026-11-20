@@ -112,6 +112,18 @@ internal sealed class UpdateService : IDisposable
         }
         if(total>0&&received!=total||expected>0&&received!=expected)throw new IOException("下载未完成，请重试。");
     }
+    internal const string Tab5FirstInstallVersion = "0.2.322-ui";
+    internal const string Tab5FirstInstallAsset = "AI-bot-tab5-" + Tab5FirstInstallVersion + "-first-install.zip";
+
+    internal async Task DownloadTab5FirstInstallAsync(string file, CancellationToken token)
+    {
+        const string expectedSha256 = "6e790a4ffa05211bd5419af5a5f2a2d0961d547aab73061ae0714c4cfb9aae07";
+        var url = new Uri($"https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v{Tab5FirstInstallVersion}/{Tab5FirstInstallAsset}");
+        await using (var output = new FileStream(file, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, true))
+            await TransferAsync(url, output, Tab5InstallPackage.MaximumZipBytes, 0, null, token);
+        if (!await Task.Run(() => FirmwareFlasher.MatchesHash(file, expectedSha256), token))
+            throw new InvalidDataException("官方首刷包校验失败，请重试。");
+    }
     private sealed record PackageDownloadIdentity(int Schema,string Component,string Version,string Name,long Size,string Sha256);
     internal async Task<PreparedUpdate> DownloadAsync(ComponentUpdate update,string bridgeVersion,IProgress<int>? progress,CancellationToken token) {
         token.ThrowIfCancellationRequested();

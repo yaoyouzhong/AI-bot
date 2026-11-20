@@ -14,6 +14,7 @@ internal sealed record Tab5InstallManifest(int Format, string Kind, string Chip,
 internal sealed record Tab5InstallPackage(Tab5InstallManifest Manifest, string ImagePath, string Directory)
 {
     internal const int FlashSize = 0x1000000;
+    internal const int MaximumZipBytes = 32 * 1024 * 1024;
     internal static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
     private static readonly (string Name, int Offset, int Maximum)[] Layout = [
         ("bootloader.bin", 0x2000, 0x6000), ("partition-table.bin", 0x8000, 0x1000),
@@ -21,7 +22,7 @@ internal sealed record Tab5InstallPackage(Tab5InstallManifest Manifest, string I
 
     internal static Tab5InstallPackage Load(string zipPath, string directory)
     {
-        if (new FileInfo(zipPath).Length > 32 * 1024 * 1024) throw new IOException("首次安装包过大。");
+        if (new FileInfo(zipPath).Length > MaximumZipBytes) throw new IOException("首次安装包过大。");
         using var zip = ZipFile.OpenRead(zipPath);
         if (zip.Entries.Count > 2048 || zip.Entries.GroupBy(e => e.FullName, StringComparer.OrdinalIgnoreCase).Any(g => g.Count() != 1) ||
             zip.Entries.Any(e => e.FullName.Contains('\\') || e.FullName.StartsWith('/') || e.FullName.Contains(':') || e.FullName.Split('/').Contains("..")))
