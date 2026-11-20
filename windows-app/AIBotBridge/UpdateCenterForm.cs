@@ -177,7 +177,17 @@ internal sealed class UpdateCenterForm : Form
             catch(Exception ex){if(!IsDisposed)state.Text="检查未完成："+ex.Message;}
             finally{_busy=false;if(!IsDisposed){check.Enabled=true;CatalogChanged();}}
         };
-        notes.Click+=(_,_)=>{using var dialog=new UpdateNotesForm(service.Available,capture(),Selected()?.Device?.Component??"bridge");dialog.ShowDialog(this);};
+        async Task<IReadOnlyDictionary<string,ComponentUpdate>?> ReadPublishedNotes() {
+            var token=_stop.Token;
+            try {
+                await service.CheckAsync(token);
+                return service.Available;
+            }catch(Exception) when(service.Error is not null||token.IsCancellationRequested){return null;}
+        }
+        notes.Click+=(_,_)=>{
+            using var dialog=new UpdateNotesForm(null,capture(),Selected()?.Device?.Component??"bridge",ReadPublishedNotes);
+            dialog.ShowDialog(this);
+        };
         cancel.Click+=(_,_)=>_operation?.Cancel();
         download.Click+=async(_,_)=>{
             if(_busy)return;

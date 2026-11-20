@@ -28,7 +28,9 @@ internal static class UpdateNotesSelfTest
                 tabs.SelectedTab=tab;Application.DoEvents();
                 var source=(ComboBox)tab.Controls.Find("notes-source",true).Single();
                 var view=tab.Controls.OfType<TableLayoutPanel>().Single().Controls.OfType<MarkdownNotesView>().Single();
-                if(source.Items.Count!=2||source.SelectedIndex!=0||!source.Text.Contains("本地版本"))throw new Exception("Local and published notes are not distinguished");
+                if(source.Items.Count!=2||source.SelectedIndex!=1||!source.Text.Contains("已发布版本")||
+                    !source.Items[0]!.ToString()!.Contains("本地版本")||view.Controls[0].Text!="功能更新")
+                    throw new Exception("Published notes are not displayed by default, or the bundled source is missing");
                 for(int choice=0;choice<2;choice++) {
                     source.SelectedIndex=choice;Application.DoEvents();
                     var labels=view.Controls.OfType<LinkLabel>().ToArray();
@@ -45,7 +47,12 @@ internal static class UpdateNotesSelfTest
         }
         using var unknown=new UpdateNotesForm(published,[],"esp8266");
         var unknownTabs=(TabControl)unknown.Controls.Find("notes-components",true).Single();
-        foreach(TabPage tab in unknownTabs.TabPages)if(((ComboBox)tab.Controls.Find("notes-source",true).Single()).SelectedIndex!=1)throw new Exception("Unknown installed version labeled as local");
-        Console.WriteLine("UPDATE_NOTES_OK three component resources, local/published/unknown version distinction, readable headings/lists/downloads/links, descriptions first, 100/150/200 percent and minimum-size captures; no browser or installation");
+        foreach(TabPage tab in unknownTabs.TabPages)if(((ComboBox)tab.Controls.Find("notes-source",true).Single()).SelectedIndex!=1)throw new Exception("Unknown installed version did not default to published notes");
+        published["bridge"]=published["bridge"] with {Notes="  "};
+        using var emptyBody=new UpdateNotesForm(published,devices,"bridge");
+        var fallback=(ComboBox)emptyBody.Controls.Find("notes-source",true).First();
+        if(fallback.Items.Count!=1||fallback.SelectedItem is not UpdateNotesForm.Source bundled||bundled.Notes!=bundles[0].Notes)
+            throw new Exception("Missing published body did not fall back to bundled notes");
+        Console.WriteLine("UPDATE_NOTES_OK published default, bundled fallback, three component resources, readable headings/lists/downloads/links, descriptions first, 100/150/200 percent and minimum-size captures; no browser or installation");
     }
 }

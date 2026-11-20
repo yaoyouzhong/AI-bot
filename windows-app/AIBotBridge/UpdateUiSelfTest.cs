@@ -19,10 +19,13 @@ internal static class UpdateUiSelfTest
         string installedPath=Path.Combine(GalleryPack.Root,"painting","PACK.json");
         Directory.CreateDirectory(Path.GetDirectoryName(installedPath)!);
         File.WriteAllText(installedPath,JsonSerializer.Serialize(new GalleryPackManifest(1,"2026.10.01","painting",1,1,[]),JsonDefaults.Options));
-        var handler=new UpdateSelfTest.Handler();bool hold=false;int catalogRequests=0;var waiting=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler=new UpdateSelfTest.Handler();bool hold=false,catalogOffline=false;int catalogRequests=0;var waiting=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         handler.Reply=async(request,token)=>{
             string path=request.RequestUri!.AbsolutePath;
-            if(request.RequestUri.Host=="api.github.com")Interlocked.Increment(ref catalogRequests);
+            if(request.RequestUri.Host=="api.github.com"){
+                Interlocked.Increment(ref catalogRequests);
+                if(Volatile.Read(ref catalogOffline))throw new HttpRequestException("Simulated offline release catalog");
+            }
             if(hold&&path.EndsWith("SHA256SUMS.txt"))await waiting.Task.WaitAsync(token);
             byte[] data=path.EndsWith("SHA256SUMS.txt")
                 ?Encoding.UTF8.GetBytes(path.Contains("/bridge-v")?installerHash+"  "+installerName+"\n":hash+"  "+name+"\n")
@@ -121,6 +124,30 @@ internal static class UpdateUiSelfTest
         if(handoffs!=2)throw new Exception("Removed device still received update");
         Select(devices[0].Name);await Wait(()=>!action.Visible);
         if(action.Enabled||requirement.Visible||!notes.Enabled)throw new Exception("Equal version advertises an upgrade or repeats status");
+        foreach(bool offline in new[]{false,true,false}) {
+            Volatile.Write(ref catalogOffline,offline);
+            int before=Volatile.Read(ref catalogRequests);
+            Exception? notesFailure=null;bool opened=false;
+            form.BeginInvoke(async ()=>{
+                if(Application.OpenForms.OfType<UpdateNotesForm>().SingleOrDefault() is not {} dialog)return;
+                dialog.Location=form.Location;
+                opened=true;
+                try {
+                    var source=(ComboBox)dialog.Controls.Find("notes-source",true).First();
+                    await Wait(()=>source.Enabled);
+                    var displayed=(UpdateNotesForm.Source)source.SelectedItem!;
+                    var expected=offline?UpdateNotesForm.Bundled("bridge").Notes:service.Available["bridge"].Notes;
+                    if(displayed.Notes!=expected||displayed.Caption.EndsWith("已发布版本说明")!=!offline||
+                        Volatile.Read(ref catalogRequests)!=before+1)
+                        throw new Exception("The notes link did not refresh GitHub or fall back to the bundled body when offline");
+                }catch(Exception ex){notesFailure=ex;}
+                finally{dialog.Close();}
+            });
+            typeof(Control).GetMethod("InvokeOnClick",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(notes,[notes,EventArgs.Empty]);
+            if(notesFailure is not null)throw notesFailure;
+            if(!opened)throw new Exception("All Release Notes link did not open its dialog");
+        }
         foreach(int index in new[]{0,1}) {
             devices[index]=devices[index] with {Version=index==0?"99.0.0":"99.0.0-ui"};
             Select(devices[index].Name);await Wait(()=>grid.CurrentRow?.Cells[3].Value?.ToString()=="版本较新"&&!action.Visible&&notes.Text=="查看全部更新说明");
