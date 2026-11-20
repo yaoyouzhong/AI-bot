@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - **Automatic restart after an upgrade.** The installer closes a running AI-bot safely and starts it again when the upgrade finishes. It pauses the upgrade if flashing is in progress or AI-bot cannot close safely.
 - **Wi-Fi unlock during setup.** Fixed the connection-check warning when running the installer as administrator. Upgrades keep existing unlock settings.
-- **Add your first device.** Choose a model and follow the path shown for the device's current firmware. Windows setup for a factory TAB5 detects USB and downloads the official firmware. After restarting the TAB5, click **Verify and add** to check startup and pair the device. The illustrated guide shows all three steps.
+- **Add your first device.** Windows uses the same three-step setup for a factory TAB5 or ESP8266. Connect USB and select **Install AI-bot** to download, back up and install. When AI-bot appears on the screen, select **Verify and add**. The illustrated guide shows the steps for both devices.
 - **Release notes.** View All Release Notes shows the published GitHub notes by default and uses the bundled notes when offline.
 
 ## 0.6.26 - 2026-11-20

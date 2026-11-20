@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -15,6 +16,7 @@ internal sealed class FirmwareFlasher
     internal static string CacheDirectory => Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI-bot", "flash-tools");
     internal static string BackupDirectory => Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AI-bot", "device-backups");
     internal delegate Task<string> Runner(string[] arguments, CancellationToken cancellation);
+    internal delegate Task<string> ToolRunner(string executable, string[] arguments, CancellationToken cancellation);
     private readonly Runner _run;
     private readonly Action<string> _stage;
 
@@ -75,6 +77,64 @@ internal sealed class FirmwareFlasher
         if (input.Length is < 1024 or > 4 * 1024 * 1024 || input.ReadByte() != 0xE9)
             throw new IOException("不是有效的 ESP8266 固件文件。请选择本项目的固件包或 firmware.bin。");
         return target;
+    }
+
+    internal static async Task<(string Backup, bool BridgeResumed)> RunUsbAsync(FlashUsbDevice device, string? package, bool bridgeRunning,
+        bool requireCurrentFirmware, Action<string> stage, ToolRunner run, Action writing, Action<string> log,
+        CancellationToken token)
+    {
+        bool backupOnly = package is null;
+        using var bridge = new Mutex(false, @"Local\AIBotBridge.Instance." + WindowsIdentity.GetCurrent().User!.Value);
+        FlashUsbLease? lease = null;
+        bool ownsBridge = false, touchedDevice = false, writeStarted = false, succeeded = false;
+        var work = Path.Combine(CacheDirectory, "firmware-" + Guid.NewGuid().ToString("N"));
+        try {
+            string firmware = backupOnly ? "" : PrepareFirmware(package!, work);
+            using var tool = await PrepareToolAsync(stage, token);
+            // The modal runs on the resident bridge's mutex-owning thread.
+            if (!bridgeRunning) {
+                try { ownsBridge = bridge.WaitOne(0); }
+                catch (AbandonedMutexException) { ownsBridge = true; }
+            }
+            if (!ownsBridge) {
+                stage("正在连接设备…");
+                lease = await FlashUsbLease.AcquireAsync(token);
+            }
+            var flasher = new FirmwareFlasher(async (args, cancellation) => {
+                FlashDeviceSelection.RequireSame(device, await Task.Run(FlashDeviceDiscovery.Read, cancellation));
+                if (args.Contains("--port")) touchedDevice = true;
+                return await run(tool.Executable, args, cancellation);
+            }, stage);
+            string backup = await flasher.ExecuteAsync(device.Port, firmware, BackupDirectory, backupOnly,
+                () => { writeStarted = true; writing(); }, token, requireCurrentFirmware);
+            if (!backupOnly && !BridgeSettings.Load().SaveEditable(new Dictionary<string, string> {
+                ["display_mode"] = "auto", ["display_cycle_enabled"] = "1"
+            }, out var error)) throw new IOException("固件已写入并校验，但恢复自动轮播失败：" + error);
+            succeeded = true;
+            return (backup, lease is not null);
+        } finally {
+            if (touchedDevice && !writeStarted && !succeeded) {
+                // A cancelled read may skip esptool's normal RTS reset.
+                try {
+                    await Task.Run(() => {
+                        FlashDeviceSelection.RequireSame(device, FlashDeviceDiscovery.Read());
+                        using var serial = new System.IO.Ports.SerialPort(device.Port, 460800) { DtrEnable = false, RtsEnable = false };
+                        serial.Open(); serial.RtsEnable = true; Thread.Sleep(100); serial.RtsEnable = false;
+                    });
+                    log("已复位小屏，正在恢复连接。");
+                } catch (Exception ex) { log("自动复位未完成，请拔下 USB 后重新插入：" + ex.Message); }
+            }
+            if (ownsBridge) bridge.ReleaseMutex();
+            try {
+                if (lease is not null) await lease.ReleaseAsync(succeeded && !backupOnly);
+            } catch (Exception ex) {
+                throw new IOException("USB 恢复未确认，请检查桥接中的设备连接。", ex);
+            } finally {
+                lease?.Dispose();
+                try { CleanupTemporaryDirectory(work, "firmware-"); }
+                catch (IOException ex) { log("临时文件清理未完成：" + ex.Message); }
+            }
+        }
     }
 
     internal async Task<string> ExecuteAsync(string port, string firmware, string backupDirectory,

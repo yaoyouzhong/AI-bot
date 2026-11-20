@@ -2,9 +2,9 @@
 
 ## 2026-11-20 Windows 0.6.27 首台设备
 
-`first-device-start.png`、`add-device.png`、`tab5-first-install.png`、`tab5-first-install-restart.png` 和 `first-device-added.png` 来自本轮 Windows Release 程序的 `--self-test-onboarding` 原生 WinForms 隔离渲染。保留原始像素，使用演示端口和设备。五张图展示首次入口、两条添加路线、TAB5 安装和重启提示、添加完成。摘要登记于 `licenses/materials.json`。原有宣传视频仍用于演示设备接入，首次安装步骤以新版图文指南为准。
+`first-device-start.png`、`add-device.png`、`tab5-first-install*.png`、`esp-first-install*.png` 和 `first-device-added.png` 来自本轮 Windows Release 程序的 `--self-test-onboarding` 原生 WinForms 隔离渲染。保留原始像素，使用演示端口和设备。七张图展示首次入口、两条添加路线、两种设备的首刷及启动提示、添加完成。摘要登记于 `licenses/materials.json`。原有宣传视频仍用于演示设备接入，首次安装步骤以新版图文指南为准。
 
-These five Windows 0.6.27 screenshots are unedited native WinForms captures from `--self-test-onboarding`, with synthetic USB ports and device status. They show the first-device entry point, both onboarding paths, the TAB5 install and restart prompts, and the resulting device view. Hashes are registered in `licenses/materials.json`. The existing overview video remains an introduction, and the illustrated guide documents the current steps.
+These seven Windows 0.6.27 screenshots are unedited native WinForms captures from `--self-test-onboarding`, with synthetic USB ports and device status. They show the first-device entry point, both onboarding paths, the install and startup prompts for TAB5 and ESP8266, and the resulting device view. Hashes are registered in `licenses/materials.json`. The existing overview video remains an introduction, and the illustrated guide documents the current steps.
 
 
 ## 2026-11-05 TAB5 .318 操作按钮（发布准备）

@@ -184,7 +184,7 @@ internal static class DeviceCenterSelfTest
                 continue;
             }
             var choices=Descendants(add).OfType<ComboBox>().First();Check(choices.Items.Count==2-registered.Length,"Already registered model offered for addition");
-            if(registered.Length==1)Check(Descendants(add).OfType<Button>().Any(b=>b.Text==(registered[0].Kind==HardwareKind.Tab5?"ESP8266 首次安装…":"TAB5 首次安装…")),"First installation missing for unregistered model");
+            if(registered.Length==1)Check(Descendants(add).OfType<Button>().Any(b=>b.Name=="first-install-device"&&b.Text=="在设备上安装 AI-bot"),"First installation missing for unregistered model");
         }
         CheckAddDiscovery(directory);
         using(var shared=new SettingsForm(BridgeSettings.CreatePublicSelfTestSettings(),false)){Capture(shared,directory,"shared-settings");Check(!Descendants(shared).OfType<Label>().Any(l=>l.Text.Contains("屏保")||l.Text.StartsWith("串口")),"Legacy fields exposed in shared settings");}
@@ -199,11 +199,16 @@ internal static class DeviceCenterSelfTest
         using var center=new DeviceCenterForm(store,_=>new(true,"在线","当前通道：USB","0.2.322-ui",Usb:"已连接",Wifi:"未连接",Bluetooth:"未连接",Transport:"USB"),(_,_)=>{},(_,_)=>Task.CompletedTask,()=>addRequested=true,_=>{});
         Capture(center,directory,"first-device-start");
         center.Show();Application.DoEvents();
+        Check(!Descendants(center).Single(c=>c.Name=="add-device").Visible,"The empty device center should show one Add action");
+        Check(!Descendants(center).OfType<Label>().Any(l=>l.Visible&&l.Text.Contains("固件",StringComparison.Ordinal)),
+            "The empty device center should guide connection without asking users to identify firmware");
         Descendants(center).OfType<Button>().Single(b=>b.Text=="添加第一台设备").PerformClick();
         Check(addRequested,"The empty device center did not open the first-device action");
         var added=DeviceRegistryStore.Create(HardwareKind.Tab5,DeviceRegistryStore.Model(HardwareKind.Tab5),"001122aabbcc");
         store.Add(added);center.Reload();center.SelectDevice(added.Id);
         Capture(center,directory,"first-device-added");
+        center.Show();Application.DoEvents();
+        Check(Descendants(center).Single(c=>c.Name=="add-device").Visible,"The populated device list should restore Add");
         Console.WriteLine("ONBOARDING_OK selection/reconnect/scan-failure/caller-return/layout; isolated UI, no hardware pairing");
     }
     private static void CheckAddDiscovery(string directory) {
@@ -215,6 +220,7 @@ internal static class DeviceCenterSelfTest
             var ports=(ComboBox)form.Controls.Find("add-device-ports",true).Single();
             var add=(Button)form.Controls.Find("verify-add-device",true).Single();
             var install=(Button)form.Controls.Find("first-install-device",true).Single();
+            Check(add.Text=="连接装过 AI-bot 的设备"&&install.Text=="在设备上安装 AI-bot","Add Device should offer concrete actions");
             var refresh=Descendants(form).OfType<Button>().Single(b=>b.Text=="刷新设备");
             Check(!add.Enabled&&ports.SelectedItem is null,"Empty discovery must not offer verification");
             Check(install.Enabled,"Factory firmware cannot be required to pass AI-bot USB verification");
@@ -245,8 +251,9 @@ internal static class DeviceCenterSelfTest
                 Check(viewport.ClientRectangle.Contains(viewport.RectangleToClient(input.RectangleToScreen(input.ClientRectangle))),"USB and model inputs must remain visible at minimum size");
         }
         using var service=new Tab5Service(new Tab5PairingStore(Path.Combine(directory,"onboarding-unused-pairing.dat")));
-        foreach(bool restart in new[]{false,true})using(var form=new Tab5InstallForm(service,preview:true,returnToAdd:true,previewRestart:restart)) {
-            string name=restart?"onboarding-first-install-restart":"onboarding-first-install";
+        foreach(var hardware in new[]{HardwareKind.Tab5,HardwareKind.Esp8266})
+        foreach(bool restart in new[]{false,true})using(var form=new FirstInstallForm(hardware,hardware==HardwareKind.Tab5?service:null,preview:true,previewRestart:restart)) {
+            string name="onboarding-"+(hardware==HardwareKind.Tab5?"":"esp-")+"first-install"+(restart?"-restart":"");
             Capture(form,directory,name);
             void CheckPhase() {
                 form.Show();Application.DoEvents();
@@ -262,10 +269,10 @@ internal static class DeviceCenterSelfTest
             form.Hide();form.Size=form.MinimumSize;Capture(form,directory,name+"-minimum");
             CheckPhase();
         }
-        using(var form=new Tab5InstallForm(service,preview:true)) Capture(form,directory,"maintenance-first-install");
-        FlashUsbDevice[] tab5Ports=[];
-        service.UsbDevices=()=>tab5Ports;
-        using(var form=new Tab5InstallForm(service,returnToAdd:true)) {
+        using(var form=new FirstInstallForm(HardwareKind.Tab5,service,preview:true,returnToAdd:false)) Capture(form,directory,"maintenance-first-install");
+        foreach(var hardware in new[]{HardwareKind.Tab5,HardwareKind.Esp8266}) {
+            FlashUsbDevice[] usbPorts=[];
+            using var form=new FirstInstallForm(hardware,hardware==HardwareKind.Tab5?service:null,discover:()=>usbPorts);
             form.ShowInTaskbar=false;form.StartPosition=FormStartPosition.Manual;form.Location=new(-30000,-30000);
             form.Show();
             var button=(Button)form.AcceptButton!;
@@ -279,9 +286,11 @@ internal static class DeviceCenterSelfTest
             }
             Expect(false,false);
             var tab5=new FlashUsbDevice("COM7",@"USB\VID_303A&PID_1001\FIRST","TAB5 (COM7)");
-            tab5Ports=[tab5];Expect(true,false);
-            tab5Ports=[tab5,new("COM8",@"USB\VID_303A&PID_1001\SECOND","TAB5 (COM8)")];Expect(false,true);
-            tab5Ports=[];Expect(false,false);
+            var esp=new FlashUsbDevice("COM8",@"USB\VID_1A86&PID_7523\FIRST","CH340 (COM8)");
+            var sameModel=hardware==HardwareKind.Tab5?tab5:esp;
+            usbPorts=[tab5,esp];Expect(true,false);
+            usbPorts=[sameModel,sameModel with {Port="COM9",Identity=sameModel.Identity+"-2",Name="USB (COM9)"}];Expect(false,true);
+            usbPorts=[];Expect(false,false);
         }
     }
     private static void CheckDataSettings(DeviceRegistryStore store,string directory) {

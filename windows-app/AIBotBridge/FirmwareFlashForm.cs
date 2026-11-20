@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Security.Principal;
 using System.Text.RegularExpressions;
 
 namespace AIBotBridge;
@@ -222,40 +221,17 @@ internal sealed class FirmwareFlashForm : Form
     private async Task RunAsync(bool backupOnly)
     {
         if (_preview || _busy || _selection.Selected is not { } selected) return;
-        var port = selected.Port;
         _busy = true; _writing = false; _log.Clear(); _progress.Visible = true;
         LastSucceeded = false;
         using var cancellation = new CancellationTokenSource(); _cancelSource = cancellation;
         UpdateButtons();
-        using var bridge = new Mutex(false, @"Local\AIBotBridge.Instance." + WindowsIdentity.GetCurrent().User!.Value);
-        var ownsBridge = false; var touchedDevice = false;
-        FlashUsbLease? usbLease = null;
-        var work = Path.Combine(FirmwareFlasher.CacheDirectory, "firmware-" + Guid.NewGuid().ToString("N"));
         void Stage(string text) { _stageText = text; _lastProgressPercent = -1; _status.Text = text; _status.ForeColor = Color.DimGray; _progress.Value = 0; _progress.Style = ProgressBarStyle.Marquee; Log(text); }
         try
         {
-            var firmware = backupOnly ? "" : FirmwareFlasher.PrepareFirmware(_firmwarePath, work);
-            using var tool = await FirmwareFlasher.PrepareToolAsync(Stage, cancellation.Token);
-            bool Claim() { try { return bridge.WaitOne(0); } catch (AbandonedMutexException) { return true; } }
-            // A resident modal shares the mutex-owning UI thread: WaitOne would
-            // re-enter that mutex and incorrectly skip releasing the serial port.
-            ownsBridge = !_bridgeRunning && Claim();
-            if (!ownsBridge)
-            {
-                Stage("正在连接设备…");
-                usbLease = await FlashUsbLease.AcquireAsync(cancellation.Token);
-            }
-            var flasher = new FirmwareFlasher(async (args, token) => {
-                FlashDeviceSelection.RequireSame(selected, await Task.Run(FlashDeviceDiscovery.Read, token));
-                if (args.Contains("--port")) touchedDevice = true;
-                return await FirmwareFlasher.RunProcessAsync(tool.Executable, args, Log, token);
-            }, Stage);
-            var backup = await flasher.ExecuteAsync(port, firmware, FirmwareFlasher.BackupDirectory, backupOnly,
-                () => { _writing = true; UpdateButtons(); }, cancellation.Token, _acceptance);
-            if (!backupOnly && !BridgeSettings.Load().SaveEditable(new Dictionary<string, string> {
-                ["display_mode"] = "auto", ["display_cycle_enabled"] = "1"
-            }, out var error)) throw new IOException("固件已写入并校验，但恢复自动轮播失败：" + error);
-            _status.Text = backupOnly ? "备份完成" : usbLease is not null ? "刷机完成，小屏正在重新连接" : "刷机完成，请启动桥接连接小屏";
+            var (backup, resumed) = await FirmwareFlasher.RunUsbAsync(selected, backupOnly ? null : _firmwarePath, _bridgeRunning, _acceptance,
+                Stage, (exe, args, token) => FirmwareFlasher.RunProcessAsync(exe, args, Log, token),
+                () => { _writing = true; UpdateButtons(); }, Log, cancellation.Token);
+            _status.Text = backupOnly ? "备份完成" : resumed ? "刷机完成，小屏正在重新连接" : "刷机完成，请启动桥接连接小屏";
             _status.ForeColor = Color.FromArgb(18, 116, 94);
             Log("备份保存到：" + backup);
             _progress.Style = ProgressBarStyle.Continuous; _progress.Value = 100;
@@ -265,31 +241,9 @@ internal sealed class FirmwareFlashForm : Form
         catch (Exception ex) { _status.Text = "操作未完成：" + ex.Message; Log(ex.Message); }
         finally
         {
-            if ((ownsBridge || usbLease is not null) && touchedDevice && !_writing && !LastSucceeded)
-            {
-                // A killed read process cannot run esptool's normal RTS reset.
-                // Reset only after read/check failures, never after a partial write.
-                try {
-                    await Task.Run(() => {
-                        FlashDeviceSelection.RequireSame(selected, FlashDeviceDiscovery.Read());
-                        using var serial = new System.IO.Ports.SerialPort(port, 460800) { DtrEnable = false, RtsEnable = false };
-                        serial.Open(); serial.RtsEnable = true; Thread.Sleep(100); serial.RtsEnable = false;
-                    });
-                    Log("已复位小屏，正在恢复连接。");
-                } catch (Exception ex) { Log("自动复位未完成，请拔下 USB 后重新插入：" + ex.Message); }
-            }
-            if (ownsBridge) bridge.ReleaseMutex();
-            if (usbLease is not null)
-            {
-                try { await usbLease.ReleaseAsync(LastSucceeded && !backupOnly); }
-                catch (Exception ex) { LastSucceeded = false; _status.Text = "USB 恢复未确认，请检查桥接中的设备连接"; Log(ex.Message); }
-                finally { usbLease.Dispose(); }
-            }
             _busy = false; _writing = false; _cancelSource = null;
             if (_progress.Style == ProgressBarStyle.Marquee) { _progress.Style = ProgressBarStyle.Continuous; _progress.Value = 0; }
             UpdateButtons();
-            // Only this operation's copied firmware is temporary; never delete backups.
-            try { FirmwareFlasher.CleanupTemporaryDirectory(work, "firmware-"); } catch (IOException ex) { Log("临时文件清理未完成：" + ex.Message); }
             if (_acceptance && _evidencePath is not null)
             {
                 // Let queued tool-output callbacks reach the log before recording it.
