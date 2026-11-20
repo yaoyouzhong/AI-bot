@@ -391,9 +391,9 @@ Mac 的麦克风、语音识别、蓝牙和辅助功能等权限按实际使用�
 图库在更新窗口的“屏保图库”中导入 ZIP，软件升级保留图库。“浏览作品”支持往期查找、标题／作者／拼音搜索、键盘循环翻页、高清缩放与独立阅读；[高清完整包](GALLERY-HD.md)无需预装标准版。左侧列表切换作品，图片下方翻页；全屏支持滚轮缩放和拖动，右键或 Ctrl+0 还原。目录和安装说明在“更多”菜单。**桥接设置 → 配置迁移**提供备份、预览与选择恢复；配置、配对资料和设备原固件备份留在本地，不作为公开素材发布。
 
 <details>
-<summary>展开软件与固件更新窗口</summary>
+<summary>展开软件与固件更新窗口（0.6.8 历史示例）</summary>
 
-<a href="assets/screens/update-center.png"><img src="assets/screens/update-center.png" width="720" alt="统一更新：分别查看电脑端和两类固件的版本及说明"></a>
+<a href="assets/screens/update-center.png"><img src="assets/screens/update-center.png" width="720" alt="0.6.8 更新窗口，使用隔离演示数据"></a>
 
 </details>
 

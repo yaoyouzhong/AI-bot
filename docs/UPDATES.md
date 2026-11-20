@@ -1,10 +1,10 @@
 # 软件与固件更新 / Software and firmware updates
 
-本页对应 Windows 桥接 0.6.25 和 Mac 桥接 0.6.24。Windows 从托盘打开设备中心，Mac 从菜单栏打开。检查更新统一从「设备中心 → 桥接设置 → 软件固件」进入。旧版 v0.5.0 用户先更新电脑应用。
+本页对应 Windows 和 Mac 桥接 0.6.26。Windows 从托盘打开设备中心，Mac 从菜单栏打开。检查更新统一从「设备中心 → 桥接设置 → 软件固件」进入。旧版 v0.5.0 用户先更新电脑应用。
 
 [完整下载中心](../DOWNLOADS.md)集中提供 Windows / Mac 桥接、ESP8266 固件、TAB5 首刷与升级包、书法和名画图库。桥接 0.6.10 的「完整下载与安装说明」链接也指向此处。
 
-## 一键升级（未发布） / One-Click Update (unreleased)
+## 0.6.26 一键升级 / One-Click Update in 0.6.26
 
 有更新时，「桥接设置 → 软件固件」卡片显示绿圆底白色上箭头和更新数量。在版本表选中软件或固件，表格下方显示对应版本的更新说明。点「一键升级」一次开始下载、校验和安装。下载中可以取消，重试时可沿用已下载的数据。
 
@@ -19,8 +19,8 @@ When updates are available, the Software/Firmware card shows a white up arrow on
 
 1. 打开「设备中心 → 桥接设置 → 软件固件」。列表显示电脑软件、已添加设备的固件和屏保图库，可查看版本及更新状态。
 2. 点「检查更新」，选择要更新的一行，查看「所选更新说明」。设备版本来自已连接设备，不能根据电脑端版本猜测。支持版本上报的小屏按真实固件版本判断更新。
-3. 点「下载并安装电脑端」或「下载并准备升级」。程序自动选对应包并核对 SHA-256。下载可以取消，校验失败不会进入安装。
-4. 电脑端确认后打开安装程序；ESP8266 进入已有的小屏刷机窗口，连接 USB 后先备份再写入；TAB5 在设备「设置 → 固件升级」确认安装，桥接收到传输完成信号后自动等待设备重启，核对运行镜像指纹和启动分区。需要重新读取时，在升级窗口点「核验启动」。电脑端、两种硬件的版本号无需一致，也无需一起升级。
+3. 从 0.6.26 起，点「一键升级」。旧版使用「下载并安装电脑端」或「下载并准备升级」，再按界面提示操作。程序自动选择适用包并核对 SHA-256。下载可以取消，校验通过后才进入安装。
+4. 桥接更新后，确认运行版本。设备更新后，等设备重启并重新连接。TAB5 可在升级窗口点「核验启动」，检查运行镜像与启动分区。电脑端和两种固件各自按需更新。
 
 勾选「自动检查并提醒」后，程序启动约 30 秒开始检查，成功后每 24 小时再检查；失败约 1 小时后重试。每个设备的同一版本只提醒一次，遵守静默时段。点击提醒会选中对应项目。Windows 合并提醒多项更新时，会打开第一项。手动检查始终可用。设备已添加、启用且成功读取当前版本时，才参与更新判断。
 
@@ -49,7 +49,7 @@ TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备�
 
 The [complete download center](../DOWNLOADS.en.md) lists both desktop apps, ESP8266 firmware, TAB5 first-install/upgrade packages and both artwork collections. Bridge 0.6.10's manual-download link opens this center.
 
-This describes Windows bridge 0.6.25 and Mac bridge 0.6.24. Open Device Center from the Windows tray or the Mac menu bar. Go to Bridge Settings → Software/Firmware to check for updates, read the notes, and download the right package. v0.5.0 users need to update the desktop app first. The bridge verifies SHA-256, package identity, and compatibility before it opens the installation tool. Confirm the Windows installer, use the ESP8266 USB backup and flash tool, or confirm installation on TAB5. After transfer, the bridge waits for TAB5 to restart and checks the firmware fingerprint and boot partition. Click Verify Boot in the upgrade window to check again. Use the first-install package from Device Center for a first flash and the upgrade package for a TAB5 that already runs AI-bot. Each component can be updated independently.
+This guide covers Windows and Mac bridge 0.6.26. Open Device Center from the Windows tray or Mac menu bar, then go to Bridge Settings → Software/Firmware. Check for updates and select an item to read its notes. Starting with 0.6.26, choose One-Click Update. On earlier versions, choose the download action and follow the installer or device prompts. The bridge verifies SHA-256, package identity, and compatibility before installing. After updating, check the running version and reconnect the device if needed. For TAB5, use Verify Boot to check the running image and boot partition again. Use the first-install package from Device Center for a first flash and the upgrade package for a TAB5 that already runs AI-bot. Each component can be updated independently.
 
 Optional automatic checks start about 30 seconds after launch and repeat daily after success, retrying failures after an hour. Notifications respect quiet hours and appear once per device and version. Click to open the relevant item. A grouped Windows notification opens the first item. Automatic checks only look for updates. When a check fails, the bridge keeps the last successful results. Manual checking is always available. Use the installer, boot check, and physical display to confirm the update after download.
 

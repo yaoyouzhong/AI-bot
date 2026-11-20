@@ -15,6 +15,8 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 
 0.6.24 继续使用此版。日历与图库段落展示实际效果；新版入口见[更新说明](RELEASE-0.6.24.md)。 / Release 0.6.24 retains this film. The calendar and artwork scenes preview those features. See the [release notes](RELEASE-0.6.24.md#english) for the current menu paths.
 
+0.6.26 继续用这版影片介绍项目。软件和固件的操作以[一键升级说明](UPDATES.md)为准。 / Release 0.6.26 retains this film as the project overview. For the current update controls, see the [One-Click Update guide](UPDATES.md#english).
+
 - 莫奈《睡莲》 / Claude Monet, *Water Lilies (Agapanthus)*，克利夫兰艺术博物馆 / Cleveland Museum of Art，1960.81，CC0。[馆藏 / Collection record](https://www.clevelandart.org/art/1960.81)
 - 蘇軾〈北宋蘇東坡書黃州寒食詩　卷〉 / Su Shi, *The Cold Food Observance*，國立故宮博物院（台北） / National Palace Museum, Taipei，購書001001N000000000，[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。影片展示高清图像第一段及放大局部。 / The video shows the first section of the HD image and a zoomed detail. [館藏與圖像授權 / Collection and image license](https://digitalarchive.npm.gov.tw/opendata/Pub/Detail/14714?dep=P&mode=full)
 

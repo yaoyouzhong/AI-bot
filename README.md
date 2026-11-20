@@ -4,11 +4,11 @@
 
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
-[下载与搭配](#下载与搭配) · [宣传视频](#宣传视频) · [完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.25) · [English](README.en.md)
+[下载与搭配](#下载与搭配) · [宣传视频](#宣传视频) · [完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.26) · [English](README.en.md)
 
 **源码：** [Windows 桥接](windows-app/) · [Mac 桥接](mac-app/) · [TAB5 大屏固件](tab5/) · [ESP8266 小屏固件](esp8266/)
 
-**本次更新**　Windows **0.6.25** 改善 TAB5 状态与音乐刷新、天气定位授权和额度登录。[桥接更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.25) · [安装指南](docs/INSTALL.zh.md)
+**本次更新**　Windows 和 Mac 桥接 **0.6.26** 新增「一键升级」，选中软件或固件即可查看对应版本说明并启动升级。[桥接更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.26) · [安装指南](docs/INSTALL.zh.md)
 
 **TAB5 0.2.322-ui** 在应用页新增日历入口，改善总览和图库传输。[固件更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.322-ui)
 
@@ -172,13 +172,13 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 2. **添加自己的设备。** 准备 USB 数据线，按[首次安装图文](docs/FIRST-INSTALL.zh.md)完成首次刷机、添加和配对；已经安装 AI-bot 的设备可直接验证并添加。
 3. **选择想看的内容。** 配置账号、日常信息和轮播页面；TAB5 艺术屏保需先导入对应图库，图片同步时保持电脑与桥接运行。
 
-以后从 Windows「设备中心 → 桥接设置 → 软件固件」打开「**软件与固件更新**」查看三个组件各自的更新明细、下载并校验，再按提示安装。启用「自动检查并提醒」后会通知新版本，安装仍由你确认。图库按需单独下载与导入。[完整更新步骤](docs/UPDATES.md)
+Windows 和 Mac 都可从「设备中心 → 桥接设置 → 软件固件」查看版本和更新说明。选中项目，点「一键升级」开始下载、校验与安装。启用「自动检查并提醒」后可收到新版通知。图库按需单独下载与导入。[完整更新步骤](docs/UPDATES.md)
 
 [首次添加设备短片](docs/ONBOARDING_VIDEO.md)：Windows 接入入口与 Mac USB 配对路径。
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.25) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.26) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](tab5/) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)

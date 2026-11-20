@@ -6,10 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ## 0.6.26 - 2026-11-20
 
-This update covers Windows and Mac.
+This release updates the Windows and Mac bridges. TAB5 and ESP8266 remain on their current firmware versions.
 
-- **Software and firmware on Mac.** The settings card shows a white up arrow on a green circle alongside the update count. Select an item to read its release notes. One-Click Update downloads and verifies the package, installs and restarts the desktop app, starts the update on supported TAB5 devices, or backs up and flashes an identified USB-connected ESP8266.
-- **Software and firmware on Windows.** The update card shows the green upgrade badge, and selecting an item displays its release notes. One-Click Update installs and restarts the installed bridge, opens the installer for portable copies, and starts updates for supported TAB5 and identified USB-connected ESP8266 devices.
+- **Update center.** Open Device Center → Bridge Settings → Software/Firmware. The card shows a green arrow and a count when updates are available. Select an item to read its release notes in the same window.
+- **Windows bridge upgrades.** One-Click Update closes the installed bridge, installs the update, and restarts AI-bot while preserving settings and computer unlock configuration. Portable copies open the installer.
+- **Mac bridge upgrades.** Cancel a download and resume it later. After verification, the bridge replaces the app in a writable location and restarts. When manual installation is needed, Finder shows the verified app.
+- **Start a device upgrade from your computer.** Supported TAB5 devices save drafts before updating and verify the boot afterward. ESP8266 devices with a confirmed USB identity and firmware version are backed up before flashing and verification. Follow the prompts for manual upgrades on older or unrecognized devices.
+- **ESP8266 version and package discovery.** Mac can read the small display’s reported firmware version over USB or authenticated Wi-Fi. Both bridges recognize compact ESP8266 flash bundles with a dedicated SHA-256 checksum on the unified release page.
 
 ## 0.6.25 - 2026-11-17
 

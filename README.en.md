@@ -4,11 +4,11 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.25) · [简体中文](README.md)
+[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.26) · [简体中文](README.md)
 
 **Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
-**This update**　Windows **0.6.25** improves TAB5 status and music updates, weather location permission, and quota sign-in. [Bridge release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.25) · [Installation guide](docs/INSTALL.zh.md)
+**This update**　Windows and Mac bridge **0.6.26** adds One-Click Update. Select a software or firmware item to read its release notes and start the update. [Bridge release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.26) · [Installation guide](docs/INSTALL.zh.md)
 
 **TAB5 0.2.322-ui** adds Calendar to the app grid and improves the overview and artwork transfers. [Firmware release](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.322-ui)
 
@@ -172,11 +172,11 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 2. **Add your device.** Use a USB data cable and follow the [illustrated first-install guide](docs/FIRST-INSTALL.zh.md) for initial flashing, registration and pairing. Devices already running AI-bot can be verified and added directly.
 3. **Choose what to display.** Configure accounts, everyday information and cycling pages. Import a collection before using its TAB5 art screensaver; keep the computer and bridge running during initial synchronization. Completed TF libraries remain available offline.
 
-For later updates, open Windows Device Center → Bridge Settings → Software/Firmware to reach **Software and Firmware Updates** to read each component's notes, download and verify its package, then follow the installation prompts. Enable automatic checks for new-version notifications; installation still requires your confirmation. Download and import artwork collections separately as needed. [Full update steps](docs/UPDATES.md)
+On Windows or Mac, open Device Center → Bridge Settings → Software/Firmware to see versions and release notes. Select an item and click One-Click Update to download, verify, and install it. Enable automatic checks for new-version notifications. Download and import artwork collections separately as needed. [Full update steps](docs/UPDATES.md)
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.25) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.26) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](tab5/) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)
