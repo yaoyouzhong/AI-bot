@@ -18,6 +18,7 @@ internal sealed class DeviceCenterForm : Form
     private readonly TabControl _pages=new(){Dock=DockStyle.Fill,Padding=new(18,9)};
     private readonly ListBox _list=new(){Dock=DockStyle.Fill,DisplayMember="Name",IntegralHeight=false,BorderStyle=BorderStyle.None,DrawMode=DrawMode.OwnerDrawFixed,ItemHeight=36};
     private readonly TableLayoutPanel _deviceLayout=new(){Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Margin=Padding.Empty};
+    private readonly TableLayoutPanel _deviceSidebar=new(){Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Padding=new Padding(8),BackColor=Color.FromArgb(243,246,249),Margin=new Padding(0,0,12,0)};
     private readonly FlowLayoutPanel _detail=Column();
     private readonly FlowLayoutPanel _accounts=Column();
     private readonly FlowLayoutPanel _bridge=Column();
@@ -52,7 +53,7 @@ internal sealed class DeviceCenterForm : Form
         body.ColumnStyles.Add(new(SizeType.Percent,100));body.RowStyles.Add(new(SizeType.Percent,100));body.RowStyles.Add(new(SizeType.AutoSize));
         var split=_deviceLayout;
         split.ColumnStyles.Add(new(SizeType.Absolute,184));split.ColumnStyles.Add(new(SizeType.Percent,100));split.RowStyles.Add(new(SizeType.Percent,100));
-        var sidebar=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Padding=new Padding(8),BackColor=Color.FromArgb(243,246,249),Margin=new Padding(0,0,12,0)};
+        var sidebar=_deviceSidebar;
         sidebar.ColumnStyles.Add(new(SizeType.Percent,100));sidebar.RowStyles.Add(new(SizeType.Percent,100));sidebar.RowStyles.Add(new(SizeType.AutoSize));
         _list.BackColor=sidebar.BackColor;sidebar.Controls.Add(_list,0,0);
         _addButton=Button("＋ 添加",_add,true);_addButton.Name="add-device";_addButton.Dock=DockStyle.Fill;sidebar.Controls.Add(_addButton,0,1);
@@ -89,11 +90,14 @@ internal sealed class DeviceCenterForm : Form
         Render();RenderShared();RenderLegacy();
     }
     private void Render() {
+        bool hasDevices=_list.Items.Count>0;
+        _deviceSidebar.Visible=hasDevices;
+        if(!hasDevices)_deviceLayout.ColumnStyles[0].Width=0;
+        else if(_deviceLayout.ColumnStyles[0].Width==0)_deviceLayout.ColumnStyles[0].Width=184;
         _detail.SuspendLayout();_detail.Controls.Remove(_health);_detail.Controls.Remove(_connection);_detail.Controls.Remove(_transport);Clear(_detail);_actions.Clear();_manage.Items.Clear();
         if(Selected is not { } d) {
-            Heading(_detail,"连接第一台设备");Note(_detail,"先用 USB 数据线把 TAB5 或 ESP8266 小屏接到电脑。");
+            Heading(_detail,"连接第一台设备");Note(_detail,"用 USB 数据线把设备接到电脑。");
             _detail.Controls.Add(Button("添加第一台设备",_add,true));
-            Note(_detail,"看设备屏幕选择下一步。屏幕已显示 AI-bot 就直接添加。\n出厂设备要先备份并安装 AI-bot 固件。");
         } else {
             var heading=new TableLayoutPanel{AutoSize=true,ColumnCount=2,RowCount=1,Margin=new Padding(0,0,0,6)};
             heading.ColumnStyles.Add(new(SizeType.Percent,100));heading.ColumnStyles.Add(new(SizeType.AutoSize));heading.RowStyles.Add(new(SizeType.AutoSize));

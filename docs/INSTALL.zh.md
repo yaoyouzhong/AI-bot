@@ -45,7 +45,7 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 <a id="connect"></a>
 ### 第一次连接设备
 
-![图 1：第一次启动后的设备中心，右侧显示“添加第一台设备”](assets/screens/first-device-start.png)
+![图 1：第一次启动后的设备中心，显示 USB 接线提示和「添加第一台设备」](assets/screens/first-device-start.png)
 
 1. 用支持数据传输的 USB 线连接设备；屏幕亮起只说明有供电。TAB5 使用 USB-C 数据接口。
 2. 在设备中心点 **添加第一台设备**，选型号并看设备屏幕。已显示 AI-bot 时，确认 USB 设备后点 **验证并添加**。只有一个可选 USB 设备时会自动选中，找不到时再点 **刷新设备**。
@@ -54,7 +54,7 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 
 当前支持每种型号一台。验证超时、列表为空或只有供电时，先按[排错表](#troubleshooting)检查，不通过再次首刷修复普通连接问题。
 
-![图 2：添加设备；选择型号，出厂设备点“首次安装…”，已有固件点“验证并添加”](assets/screens/add-device.png)
+![图 2：选择型号，看设备屏幕是否显示 AI-bot，再继续添加](assets/screens/add-device.png)
 
 [跟着图文完成首次添加](FIRST-INSTALL.zh.md#windows-first-device)
 

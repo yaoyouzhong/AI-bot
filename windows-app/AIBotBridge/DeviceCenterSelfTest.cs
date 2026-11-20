@@ -199,11 +199,16 @@ internal static class DeviceCenterSelfTest
         using var center=new DeviceCenterForm(store,_=>new(true,"在线","当前通道：USB","0.2.322-ui",Usb:"已连接",Wifi:"未连接",Bluetooth:"未连接",Transport:"USB"),(_,_)=>{},(_,_)=>Task.CompletedTask,()=>addRequested=true,_=>{});
         Capture(center,directory,"first-device-start");
         center.Show();Application.DoEvents();
+        Check(!Descendants(center).Single(c=>c.Name=="add-device").Visible,"The empty device center should show one Add action");
+        Check(!Descendants(center).OfType<Label>().Any(l=>l.Visible&&l.Text.Contains("固件",StringComparison.Ordinal)),
+            "The empty device center should guide connection without asking users to identify firmware");
         Descendants(center).OfType<Button>().Single(b=>b.Text=="添加第一台设备").PerformClick();
         Check(addRequested,"The empty device center did not open the first-device action");
         var added=DeviceRegistryStore.Create(HardwareKind.Tab5,DeviceRegistryStore.Model(HardwareKind.Tab5),"001122aabbcc");
         store.Add(added);center.Reload();center.SelectDevice(added.Id);
         Capture(center,directory,"first-device-added");
+        center.Show();Application.DoEvents();
+        Check(Descendants(center).Single(c=>c.Name=="add-device").Visible,"The populated device list should restore Add");
         Console.WriteLine("ONBOARDING_OK selection/reconnect/scan-failure/caller-return/layout; isolated UI, no hardware pairing");
     }
     private static void CheckAddDiscovery(string directory) {

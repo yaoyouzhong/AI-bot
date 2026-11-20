@@ -30,8 +30,8 @@ internal sealed class AddDeviceForm : Form
             AcceptButton=close;CancelButton=close;SettingsWindow.FitScreen(this);ResumeLayout(true);return;
         }
         Controls.Remove(panel);panel.Padding=panel.Margin=Padding.Empty;
-        var layout=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=4,Padding=new Padding(20)};
-        layout.ColumnStyles.Add(new(SizeType.Percent,100));layout.RowStyles.Add(new(SizeType.Percent,100));layout.RowStyles.Add(new(SizeType.AutoSize));layout.RowStyles.Add(new(SizeType.AutoSize));layout.RowStyles.Add(new(SizeType.AutoSize));
+        var layout=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,Padding=new Padding(20)};
+        layout.ColumnStyles.Add(new(SizeType.Percent,100));layout.RowStyles.Add(new(SizeType.Percent,100));layout.RowStyles.Add(new(SizeType.AutoSize));
         Controls.Add(layout);layout.Controls.Add(panel,0,0);
         panel.Controls.Add(new Label{Text="用 USB 数据线连接设备，再选择型号。",AutoSize=true,ForeColor=SettingsWindow.Muted,Margin=new(0,4,0,8)});
         kind.Items.AddRange(choices.Cast<object>().ToArray());kind.SelectedIndex=0;
@@ -42,7 +42,8 @@ internal sealed class AddDeviceForm : Form
         var ports=new ComboBox{Name="add-device-ports",DropDownStyle=ComboBoxStyle.DropDownList,DisplayMember="Name",Anchor=AnchorStyles.Left|AnchorStyles.Right,Margin=Padding.Empty};
         var portRow=new TableLayoutPanel{AutoSize=true,ColumnCount=2,RowCount=1,Margin=Padding.Empty};
         portRow.ColumnStyles.Add(new(SizeType.Percent,100));portRow.ColumnStyles.Add(new(SizeType.AutoSize));portRow.RowStyles.Add(new(SizeType.AutoSize));portRow.Controls.Add(ports,0,0);Field("USB 设备",portRow);
-        var status=new Label{Name="add-device-status",AutoSize=true,Dock=DockStyle.Fill,ForeColor=SettingsWindow.Muted,Margin=new(0,8,0,4)};
+        var status=new Label{Name="add-device-status",AutoSize=true,Visible=false,ForeColor=SettingsWindow.Muted,Margin=new(0,8,0,4)};
+        status.TextChanged+=(_,_)=>status.Visible=status.Text.Length>0;
         var add=DeviceCenterForm.Button("验证并添加",()=>{},true);add.Name="verify-add-device";
         string? verifiedBootIdentity=null;
         void Refresh(){
@@ -57,7 +58,7 @@ internal sealed class AddDeviceForm : Form
                 if(verifiedBootIdentity is not null)
                     status.Text=previous>=0?"启动检查通过。请点「验证并添加」。":"启动检查通过。请重新连接刚安装的 TAB5，再点「刷新设备」。";
                 else status.Text=devices.Length==0?"未找到 USB 设备。请接好数据线，再点「刷新设备」。":
-                    ports.SelectedItem is null?"请选择这台设备的 USB 端口。不确定时可拔插后刷新。":"已选中 USB 设备。";
+                    ports.SelectedItem is null?"请选择这台设备的 USB 端口。不确定时可拔插后刷新。":"";
             }catch(Exception ex){ports.DataSource=Array.Empty<FlashUsbDevice>();status.Text="扫描失败，请重试："+ex.Message;}
             add.Enabled=ports.SelectedItem is FlashUsbDevice;
         }
@@ -77,28 +78,27 @@ internal sealed class AddDeviceForm : Form
             }
             Refresh();
         }catch(Exception ex){status.Text=ex.Message;}};
-        var routes=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,ColumnCount=2,RowCount=4,Margin=new(0,12,0,0)};
+        var routes=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,ColumnCount=2,RowCount=3,Margin=new(0,12,0,0)};
         routes.ColumnStyles.Add(new(SizeType.Percent,50));routes.ColumnStyles.Add(new(SizeType.Percent,50));
         for(int row=0;row<routes.RowCount;row++)routes.RowStyles.Add(new(SizeType.AutoSize));
-        var next=new Label{Text="看设备屏幕，选择下一步",AutoSize=true,Font=SettingsWindow.SectionFont(),Margin=new(0,0,0,12)};
+        var next=new Label{Text="设备屏幕上有 AI-bot 吗？",AutoSize=true,Font=SettingsWindow.SectionFont(),Margin=new(0,0,0,12)};
         routes.Controls.Add(next,0,0);routes.SetColumnSpan(next,2);
-        foreach(var (column,title,help,button) in new[]{
-            (0,"屏幕已显示 AI-bot","验证 USB 设备并添加。",add),
-            (1,"设备还是出厂状态","先备份和刷机，重启后再添加。",install)}){
-            routes.Controls.Add(new Label{Text=title,AutoSize=true,Font=SettingsWindow.SectionFont(),Margin=new(0,0,12,4)},column,1);
-            routes.Controls.Add(new Label{Text=help,AutoSize=true,ForeColor=SettingsWindow.Muted,Margin=new(0,0,12,8)},column,2);
-            button.Anchor=AnchorStyles.Left;button.Margin=new(0,0,12,0);routes.Controls.Add(button,column,3);
+        foreach(var (column,title,button) in new[]{
+            (0,"有，显示 AI-bot",add),
+            (1,"没有显示 AI-bot",install)}){
+            routes.Controls.Add(new Label{Text=title,AutoSize=true,ForeColor=SettingsWindow.Muted,Margin=new(0,0,12,8)},column,1);
+            button.Anchor=AnchorStyles.Left;button.Margin=new(0,0,12,0);routes.Controls.Add(button,column,2);
         }
-        layout.Controls.Add(status,0,1);
-        layout.Controls.Add(routes,0,2);
+        panel.Controls.Add(status);
+        panel.Controls.Add(routes);
         var guide=new LinkLabel{Text="首次添加图文指南与固件下载",AutoSize=true,Margin=new(0,12,0,8)};
         guide.LinkClicked+=(_,_)=>{try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/yaoyouzhong/AI-bot/blob/main/docs/FIRST-INSTALL.zh.md#windows-first-device"){UseShellExecute=true});}catch(Exception ex){status.Text="无法打开安装指南："+ex.Message;}};
         var actionsFooter=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Margin=Padding.Empty};
         actionsFooter.Margin=new(0,12,0,0);
         actionsFooter.ColumnStyles.Add(new(SizeType.Percent,100));actionsFooter.ColumnStyles.Add(new(SizeType.AutoSize));actionsFooter.RowStyles.Add(new(SizeType.AutoSize));
         guide.Anchor=AnchorStyles.Left;guide.Margin=Padding.Empty;actionsFooter.Controls.Add(guide,0,0);
-        var closeButton=DeviceCenterForm.Button("关闭",()=>Close());closeButton.Anchor=AnchorStyles.Right;actionsFooter.Controls.Add(closeButton,1,0);layout.Controls.Add(actionsFooter,0,3);CancelButton=closeButton;
-        ports.SelectedIndexChanged+=(_,_)=>{add.Enabled=!_busy&&ports.SelectedItem is FlashUsbDevice;if(add.Enabled)status.Text="已选择 USB 设备。";};
+        var closeButton=DeviceCenterForm.Button("关闭",()=>Close());closeButton.Anchor=AnchorStyles.Right;actionsFooter.Controls.Add(closeButton,1,0);layout.Controls.Add(actionsFooter,0,1);CancelButton=closeButton;
+        ports.SelectedIndexChanged+=(_,_)=>{add.Enabled=!_busy&&ports.SelectedItem is FlashUsbDevice;if(add.Enabled)status.Text="";};
         ports.SelectionChangeCommitted+=(_,_)=>verifiedBootIdentity=null;
         kind.SelectedIndexChanged+=(_,_)=>{verifiedBootIdentity=null;install.Text=((Choice)kind.SelectedItem!).Kind==HardwareKind.Tab5?"TAB5 首次安装…":"ESP8266 首次安装…";Refresh();};
         async Task AddAsync(FlashUsbDevice device,UsbDeviceInfo? verifiedEsp=null) {
