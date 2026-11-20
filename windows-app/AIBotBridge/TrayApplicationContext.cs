@@ -125,7 +125,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _timer.Tick += (_, _) =>
         {
             using var timing=new Tab5UiWorkTiming("tray");
-            if(_exitSignal.WaitOne(0)){ExitThread();return;}
+            if(_exitSignal.WaitOne(0)){
+                if(!_changingDevices&&!_deviceOperationBusy&&!_serial.FlashBusy&&!_services.Busy)ExitThread();
+                return;
+            }
             while (_flashActions.TryDequeue(out var action)) action();
             timing.Step("actions");
             _healthGuard?.Pulse(_runtime.Health.Snapshot,_runtime.MonitorExpected,_runtime.Health.Options.Enabled,_runtime.FaultedCollectors+_services.FaultedServices,_services.FaultSources|(_runtime.FaultedCollectors>0?RuntimeFaultSource.Collectors:0));
