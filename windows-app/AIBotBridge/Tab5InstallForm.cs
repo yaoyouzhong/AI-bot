@@ -8,21 +8,21 @@ internal sealed class Tab5InstallForm : Form
     private readonly ComboBox _ports = new() { DropDownStyle = ComboBoxStyle.DropDownList, DisplayMember = "Name" };
     private readonly Label _package = new() { AutoSize = true, Text = "尚未选择首次安装 ZIP 包" };
     private readonly Label _status = new() { AutoSize = true, Dock = DockStyle.Fill, Text = "连接 TAB5 并进入下载模式，然后刷新设备。" };
-    private readonly Label _backup = new() { AutoSize = true, Text = "原固件备份会保留在本机，不上传。" };
-    private readonly CheckBox _confirm = new() { AutoSize = true, Text = "确认是 TAB5，允许替换原固件及设置。" };
+    private readonly Label _backup = new() { AutoSize = true, Visible = false };
     private readonly Button _refresh = Button("刷新设备"), _choose = Button("选择安装包…"), _install = Button("备份并安装", true),
         _restore = Button("恢复原固件…"), _check = Button("检查启动"), _done = Button("进入 USB 配对"), _cancel = Button("关闭");
     private readonly ProgressBar _progress = new() { Dock = DockStyle.Fill, Height = 8, Visible = false, Style = ProgressBarStyle.Marquee };
     private CancellationTokenSource? _operation;
     private string? _zip, _mac, _version, _elfSha;
-    private bool _busy, _writing, _verified;
+    private bool _busy, _writing;
     private string _stageText = "";
     private int _lastPercent = -1;
+    internal FlashUsbDevice? VerifiedDevice { get; private set; }
 
     internal Tab5InstallForm(Tab5Service service, bool preview = false, bool returnToAdd = false)
     {
         _service = service; _preview = preview; _returnToAdd=returnToAdd;
-        if(returnToAdd)_done.Text="返回添加设备";
+        if(returnToAdd){_check.Text="检查启动并返回";_done.Visible=false;}
         Text = "TAB5 首次安装"; Font = SettingsWindow.BodyFont();
         AutoScaleDimensions = new SizeF(96, 96); AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(700, 690); MinimumSize = new Size(600, 550); StartPosition = FormStartPosition.CenterParent;
@@ -33,9 +33,8 @@ internal sealed class Tab5InstallForm : Form
         Controls.Add(layout);
         var content = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true };
         layout.Controls.Add(content, 0, 0); SettingsWindow.FitFlow(content);
-        content.SizeChanged += (_, _) => _confirm.MaximumSize = new Size(Math.Max(100, content.Width - SystemInformation.VerticalScrollBarWidth - 12), 0);
         void Note(string text, bool heading = false) {
-            content.Controls.Add(new Label { Text = text, AutoSize = true, Margin = new Padding(0, 4, 0, 10),
+            content.Controls.Add(new Label { Text = text, AutoSize = true, Margin = new Padding(0, 4, 0, 8),
                 Font = heading ? new Font(Font, FontStyle.Bold) : Font });
         }
         Note("1 连接并进入下载模式", true);
@@ -43,11 +42,8 @@ internal sealed class Tab5InstallForm : Form
         content.Controls.Add(_ports); content.Controls.Add(Row(_refresh));
         Note("2 选择完整安装包", true);
         content.Controls.Add(_package); content.Controls.Add(Row(_choose));
-        Note("出厂设备使用首刷 ZIP；已有 AI-bot 请用“固件升级”。");
-        content.Controls.Add(_confirm); content.Controls.Add(Row(_install, _restore));
-        Note("3 重启、检查并配对", true);
-        Note("写入校验后短按 RESET，刷新并选择启动端口，再检查启动。"+
-            (returnToAdd?"通过后返回“验证并添加”。":"通过后进入 USB 配对。"));
+        Note("直接选择 TAB5 首刷 ZIP，工具会先备份原固件。");
+        content.Controls.Add(Row(_install, _restore));
         _status.Margin = new Padding(0, 8, 0, 8); layout.Controls.Add(_status, 0, 1);
         _backup.Margin = new Padding(0, 4, 0, 8); _backup.ForeColor = Color.FromArgb(80, 95, 110); content.Controls.Add(_backup);
         layout.Controls.Add(_progress, 0, 2); layout.Controls.Add(Row(_check, _done, _cancel), 0, 3);
@@ -56,7 +52,7 @@ internal sealed class Tab5InstallForm : Form
             using var pick = new OpenFileDialog { Title = "选择 TAB5 首次安装包", Filter = "TAB5 首次安装包 (*.zip)|*.zip" };
             if (pick.ShowDialog(this) == DialogResult.OK) { _zip = pick.FileName; _package.Text = Path.GetFileName(_zip); UpdateButtons(); }
         };
-        _confirm.CheckedChanged += (_, _) => UpdateButtons(); _ports.SelectedIndexChanged += (_, _) => UpdateButtons();
+        _ports.SelectedIndexChanged += (_, _) => UpdateButtons();
         _install.Click += async (_, _) => await RunInstallAsync(null);
         _restore.Click += async (_, _) => {
             using var pick = new OpenFileDialog { Title = "选择本工具保存的原固件备份记录", Filter = "TAB5 备份记录 (*.bin.json)|*.bin.json", InitialDirectory = FirmwareFlasher.BackupDirectory };
@@ -78,19 +74,20 @@ internal sealed class Tab5InstallForm : Form
             var selected = (_ports.SelectedItem as FlashUsbDevice)?.Identity;
             _ports.DataSource = _preview ? new[] { new FlashUsbDevice("COM7", "preview", "TAB5 USB 下载端口 (COM7)") } :
                 FlashDeviceDiscovery.Read().Where(d => d.Identity.Contains("VID_303A", StringComparison.OrdinalIgnoreCase)).ToArray();
-            _ports.SelectedIndex = -1;
+            _ports.SelectedIndex = _ports.Items.Count==1&&(selected is null||_mac is not null)?0:-1;
             for (int i = 0; i < _ports.Items.Count; i++) if ((_ports.Items[i] as FlashUsbDevice)?.Identity == selected) _ports.SelectedIndex = i;
             if (_ports.Items.Count == 0) _status.Text = "未发现设备，请检查数据线和下载模式后刷新。";
+            else if(_mac is null) _status.Text = _ports.SelectedItem is null?"请选择目标 TAB5 的下载端口。":"已选中 USB 设备，请确认 TAB5 已进入下载模式。";
         } catch (Exception ex) { _status.Text = ex.Message; }
         UpdateButtons();
     }
     private void UpdateButtons() {
         bool device = _ports.SelectedItem is FlashUsbDevice;
-        _ports.Enabled = _refresh.Enabled = _choose.Enabled = _confirm.Enabled = !_busy;
-        _install.Enabled = !_preview && !_busy && device && _zip is not null && _confirm.Checked;
+        _ports.Enabled = _refresh.Enabled = _choose.Enabled = !_busy;
+        _install.Enabled = !_preview && !_busy && device && _zip is not null;
         _restore.Enabled = !_preview && !_busy && device;
         _check.Enabled = !_preview && !_busy && device && _mac is not null;
-        _done.Enabled = !_busy && _verified;
+        _done.Enabled = !_busy && VerifiedDevice is not null;
         _cancel.Enabled = !_writing; _cancel.Text = _busy ? "取消准备" : "关闭"; _progress.Visible = _busy;
     }
     private void Stage(string text) {
@@ -121,7 +118,7 @@ internal sealed class Tab5InstallForm : Form
         bool restore = backupRecord is not null;
         string directory = Path.Combine(FirmwareFlasher.CacheDirectory, "tab5-install-" + Guid.NewGuid().ToString("N"));
         Tab5Installer? installer = null;
-        _busy = true; _verified = false; _mac = _version = _elfSha = null; _operation = new(); UpdateButtons();
+        _busy = true; VerifiedDevice = null; _mac = _version = _elfSha = null; _operation = new(); UpdateButtons();
         try {
             Stage("正在校验安装材料…");
             Tab5InstallPackage? package = restore ? null : await Task.Run(() => Tab5InstallPackage.Load(_zip!, directory), _operation.Token);
@@ -145,14 +142,17 @@ internal sealed class Tab5InstallForm : Form
                     byte[] app = File.ReadAllBytes(Path.Combine(directory, "application.bin"));
                     _elfSha = Convert.ToHexString(app.AsSpan(176, 32)).ToLowerInvariant();
                 }
-                Stage(restore ? "备份恢复并校验通过。请短按 RESET，检查原系统是否正常启动。" : "写入校验通过。请短按 RESET，刷新并选择启动后的 USB 端口，再点“检查启动”。");
+                Stage(restore ? "备份恢复并校验通过。请短按 RESET，检查原系统是否正常启动。" : $"写入校验通过。请短按 RESET，刷新并选择启动后的 USB 端口，再点“{_check.Text}”。");
             } finally { await lease.ReleaseAsync(false); }
         } catch (OperationCanceledException) { Stage(_writing ? "写入流程已结束，但桥接恢复未确认。请检查启动或用备份恢复。" : "已取消准备，未开始写入。重新操作前请再次进入下载模式。"); }
         catch (Exception ex) { Stage(($"未完成：{ex.Message}\n") + (_writing ? "请保持连接，重新进入下载模式后，可用“恢复原固件”恢复下方备份。" : "本次未开始写入。")); }
         finally {
-            if (installer?.BackupPath is string path) _backup.Text = installer.BackupVerified
-                ? "本次备份：" + path + "\n恢复请选择同目录的 .bin.json；请勿上传备份，其中可能含设备设置。"
-                : "备份未完成或未通过校验，本次未开始写入；未完成的备份不用于恢复。";
+            if (installer?.BackupPath is string path) {
+                _backup.Text = installer.BackupVerified
+                    ? "本次备份：" + path + "\n恢复请选择同目录的 .bin.json。备份可能包含设备设置，请保留在本机。"
+                    : "备份未完成或校验失败。本次未开始写入，请重新备份后再试。";
+                _backup.Visible = true;
+            }
             _writing = _busy = false; _operation?.Dispose(); _operation = null;
             try { FirmwareFlasher.CleanupTemporaryDirectory(directory, "tab5-install-"); } catch (IOException) { }
             UpdateButtons();
@@ -160,15 +160,16 @@ internal sealed class Tab5InstallForm : Form
     }
     private async Task CheckBootAsync() {
         if (_busy || _mac is null || _ports.SelectedItem is not FlashUsbDevice device) return;
-        _busy = true; _verified = false; _operation = new(); UpdateButtons();
+        _busy = true; VerifiedDevice = null; _operation = new(); UpdateButtons();
         try {
             Stage("正在核对设备、固件指纹和界面心跳…");
             using var lease = await FlashUsbLease.AcquireAsync(_operation.Token);
             try { await _service.CheckInstalledUsbAsync(device, _mac, _version!, _elfSha!, _operation.Token); }
             finally { await lease.ReleaseAsync(false); }
-            _verified = true; Stage(_returnToAdd?"启动检查通过，请返回“验证并添加”。":"启动检查通过，请进入 USB 配对。");
+            VerifiedDevice = device; Stage(_returnToAdd?"启动检查通过。":"启动检查通过，请进入 USB 配对。");
         } catch (OperationCanceledException) { Stage("启动检查已取消，尚未确认设备运行。"); }
         catch (Exception ex) { Stage("启动未确认：" + ex.Message); }
         finally { _busy = false; _operation?.Dispose(); _operation = null; UpdateButtons(); }
+        if(_returnToAdd&&VerifiedDevice is not null){DialogResult=DialogResult.OK;Close();}
     }
 }

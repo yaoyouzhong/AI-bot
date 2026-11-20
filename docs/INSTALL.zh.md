@@ -2,7 +2,7 @@
 
 第一次安装？请先按[首次安装图文指南](FIRST-INSTALL.zh.md)逐步操作。
 
-适用于 **Windows 和 Mac 桥接 0.6.26、TAB5 0.2.322-ui、ESP8266 0.5.8**，说明更新于 2026-11-20。Windows 与 Apple Silicon Mac 均支持两类设备。
+适用于 **Windows 桥接 0.6.27、Mac 桥接 0.6.26、TAB5 0.2.322-ui、ESP8266 0.5.8**，说明更新于 2026-11-20。Windows 与 Apple Silicon Mac 均支持两类设备。
 
 **先安装电脑应用，再按设备当前系统选择路线。** 第一次只需完成 USB 接入、添加设备和屏幕检查；模型账号、语音、Wi-Fi 和图库都可稍后设置。
 
@@ -21,7 +21,7 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 
 | 你要做什么 | 下载什么 |
 | --- | --- |
-| Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.26/AI-bot-bridge-v0.6.26-windows-x64-setup.exe) |
+| Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.27/AI-bot-bridge-v0.6.27-windows-x64-setup.exe) |
 | Mac 安装应用（macOS 13+、M 系列芯片） | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.26/AI-bot-bridge-v0.6.26-macos-arm64.zip) |
 | ESP8266 首刷或更新 | [ESP8266 精简刷机 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) |
 | TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/AI-bot-tab5-0.2.322-ui-first-install.zip) |
@@ -45,16 +45,18 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 <a id="connect"></a>
 ### 第一次连接设备
 
-![图 1：设备中心；添加新设备从“添加”开始，已有设备先在列表中选中](assets/screens/device-center.png)
+![图 1：第一次启动后的设备中心，右侧显示“添加第一台设备”](assets/screens/first-device-start.png)
 
 1. 用支持数据传输的 USB 线连接设备；屏幕亮起只说明有供电。TAB5 使用 USB-C 数据接口。
-2. 点 **我的设备 → 添加**（空列表也可点“添加第一台设备”），选择型号，点 **刷新设备**，核对端口和设备名称。多个端口不确定时，可拔插这台设备后再次刷新。
-3. **已有 AI-bot 界面：** 点 **验证并添加**。TAB5 会同时完成 USB 配对；ESP8266 会验证小屏身份。**仍是出厂系统：** 使用下面对应的首次安装路线，完成后再返回添加。
-4. 在设备中心确认这台设备已出现、状态在线，再检查实体屏幕有画面、时钟持续更新，切换显示页面能响应。做到这里才算首次接入完成；不要求先登录所有模型账号。
+2. 在设备中心点 **添加第一台设备**，选型号并看设备屏幕。已显示 AI-bot 时，确认 USB 设备后点 **验证并添加**。只有一个可选 USB 设备时会自动选中，找不到时再点 **刷新设备**。
+3. 设备仍是出厂状态时，点右侧对应型号的 **首次安装…**。先备份、刷入 AI-bot，再重启并回到 **验证并添加**。TAB5 会在验证时完成 USB 配对，ESP8266 会验证小屏身份。
+4. 在设备中心确认选中了刚添加的设备，状态显示 **在线** 和 **USB 已连接**。实体屏幕出现 AI-bot 界面、时钟开始更新后，即可开始使用。首次接入可只用 USB。
 
 当前支持每种型号一台。验证超时、列表为空或只有供电时，先按[排错表](#troubleshooting)检查，不通过再次首刷修复普通连接问题。
 
 ![图 2：添加设备；选择型号，出厂设备点“首次安装…”，已有固件点“验证并添加”](assets/screens/add-device.png)
+
+[跟着图文完成首次添加](FIRST-INSTALL.zh.md#windows-first-device)
 
 <sub>截图来自当前原生 Windows 程序，使用隔离演示数据；端口号仅为示例，操作时选择自己的设备。</sub>
 
@@ -83,11 +85,11 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 使用 **USB-C 数据接口**连接电脑。首次安装会替换 P4 原固件与设置，工具先完整备份；保留备份以便恢复。已有 AI-bot 的设备使用下方升级路线。
 
 1. **进入安装窗口与下载模式。** “添加”里选 **M5Stack TAB5 → TAB5 首次安装…**。连接 USB-C，长按 RESET 约 2 秒，内部绿灯快速闪烁后松开；点 **刷新设备**，选择这台 TAB5 的端口。[进入下载模式的官方说明](https://docs.m5stack.com/zh_CN/guide/tab5/restore_factory)。
-2. **选择首刷 ZIP 并安装。** 点 **选择安装包…**，选 `AI-bot-tab5-0.2.322-ui-first-install.zip`，勾选“确认是 TAB5，允许替换原固件及设置”，点 **备份并安装**。按提示确认设备；等待备份、写入、校验结束，不拔线。
+2. **选择首刷 ZIP 并安装。** 点 **选择安装包…**，选 `AI-bot-tab5-0.2.322-ui-first-install.zip`，点 **备份并安装**。在 **确认 TAB5 写入** 中核对设备和版本后确认。等待备份、写入和校验结束，保持连接。
 
 ![图 4：TAB5 首次安装；上方选端口，中间选 ZIP 并安装，下方检查启动](assets/screens/tab5-first-install.png)
 
-3. **重启并检查。** 提示“写入校验通过”后短按 RESET，等待屏幕启动；点 **刷新设备**，重新选择启动后的端口，再点 **检查启动**。检查通过后点底部“返回添加设备”，再完成验证并添加。端口号变化属于正常情况。
+3. **重启并检查。** 提示 **写入校验通过** 后短按 RESET，等屏幕显示 AI-bot。点 **刷新设备**，确认启动端口，点 **检查启动并返回**。检查通过后会自动回到添加窗口并选中刚核验的设备，再点 **验证并添加**。重启后端口号可能改变。
 4. **添加并确认数据。** 回“添加”刷新，选重启后的 TAB5，点 **验证并添加**，此操作会完成 USB 验证与配对。确认实体屏、触摸和数据更新；需要重新配对时使用 **连接设置 → USB 配对 → 刷新设备 → 配对**。旧版桥接中的入口名为「连接升级」。保留 TAB5 当前展示设置，无需启用轮播；Wi-Fi 可稍后配置。
 
 ![图 5：TAB5 USB 配对；若尚未配对，选择本机端口后点“配对”](assets/screens/tab5-usb-pairing.png)
@@ -176,7 +178,7 @@ TAB5 需要无线时，在 **连接设置 → Wi-Fi** 保存网络并确认有�
 
 备份保存在 `%LOCALAPPDATA%\AI-bot\device-backups\`，TAB5 的 `.bin` 和 `.bin.json` 一起保留；备份可能包含私人设置，不公开上传。USB 偶发中断仍有历史记录，失败先保留错误，不把重试成功理解为已修复。
 
-需要核对下载完整性时，使用对应组件发布页的 SHA-256 清单：[Windows 和 Mac 桥接](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.26/SHA256SUMS.txt)、[TAB5](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/SHA256SUMS.txt)、[名画与书法](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt)、[ESP8266 精简包](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256)。[发布说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.26) · [TAB5 开发者源码](../tab5/) · [许可范围](TAB5-LICENSE-SCOPE.md)
+使用对应发布页的 SHA-256 清单核对下载完整性。[Windows 桥接](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.27/SHA256SUMS.txt) · [Mac 桥接](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.26/SHA256SUMS.txt) · [TAB5](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/SHA256SUMS.txt) · [名画与书法](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.20/SHA256SUMS.txt) · [ESP8266 精简包](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) · [TAB5 开发者源码](../tab5/) · [许可范围](TAB5-LICENSE-SCOPE.md)
 
 ## 日常功能与更新说明
 
@@ -188,22 +190,22 @@ TAB5 需要无线时，在 **连接设置 → Wi-Fi** 保存网络并确认有�
 - **日程：** 在设备中心或 TAB5 应用页管理，最多 16 项；离线修改在重连后同步。
 - **图库：** 名画与书法各 366 件，按需选择[标准图库](GALLERY-PACKS.md)或[高清完整版](GALLERY-HD.md)，同类无需重复安装。Windows 0.6.24 起可在[软件固件 → 屏保图库 → 管理图库…](UPDATES.md#windows-0624)下载或导入；设备卡片的「屏保图库」用于浏览。字库已在固件中，不必单独下载。
 
-后续版本变化见[当前发布说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.26)与[更新日志](../CHANGELOG.zh.md)；界面示例见[截图说明](SCREENSHOTS.md)。安装步骤以本文当前路线为准。
+后续版本变化见[当前发布说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.27)与[更新日志](../CHANGELOG.zh.md)。界面示例见[截图说明](SCREENSHOTS.md)。
 
 ## English quick start
 
-Current downloads are Windows and Apple Silicon Mac bridge 0.6.26, TAB5 0.2.322-ui, and ESP8266 0.5.8. Install the desktop app first. Model accounts, speech, wireless access and artwork packs can be configured after the USB connection works.
+Current downloads are Windows bridge 0.6.27, Apple Silicon Mac bridge 0.6.26, TAB5 0.2.322-ui, and ESP8266 0.5.8. Install the desktop app first. Model accounts, speech, wireless access and artwork packs can be configured after the USB connection works.
 
 1. **Install the app.** On Windows, keep the default installation path unless needed. For an upgrade, keep the current path. Setup closes a running AI-bot gracefully and starts it again after installing. Setup downloads missing .NET 8 Desktop Runtime / WebView2 components and skips existing ones. First-time installation attempts to configure the unlock components and may request administrator approval. If setup cannot configure unlock, you can still start AI-bot and retry in Computer Control. Upgrades keep existing unlock settings. On Mac, extract the ZIP into Applications. The current Apple Silicon app is ad-hoc signed and not notarized. Follow [Apple's opening guidance](https://support.apple.com/102445) and grant only the permissions requested by the features you use. Intel is unverified.
-2. **Connect with a USB data cable.** A powered screen alone does not prove USB connectivity. Open Device Center → My Devices → Add, choose the hardware and refresh ports. Select your own device; if several ports are unclear, unplug/reconnect that device and refresh.
-3. **Choose by the device's current system.** A device already running AI-bot can use Verify and Add directly; TAB5 completes USB pairing in this step. Factory TAB5 devices use the first-install ZIP, enter download mode, back up/install, restart and check boot, then return to Add and verify. The completion button returns to Add Device. ESP8266 uses its own firmware ZIP. Do not use first installation to fix an ordinary connection failure.
-4. **Check the complete result.** The registered device must appear online, show a live clock and respond to display changes. An installer exit code or successful write alone is insufficient. Preserve TAB5 display settings; restoring automatic cycling is an ESP8266-only deployment step.
+2. **Connect with a USB data cable.** On Windows, Device Center opens on first launch. Choose **Add Your First Device**, select the model and confirm your USB device. Refresh the list if the device is missing. On Mac, open Device Center from the menu bar and choose **Add Device**.
+3. **Use the device screen to choose a path.** If the device shows AI-bot, use **Verify and Add** on Windows. This also pairs TAB5 over USB. A factory TAB5 needs its first-install ZIP and download mode. Back up and install the firmware, reset the tablet, then choose **Check Boot and Return**. Windows returns to Add Device and selects the verified unit so you can finish adding it. An ESP8266 needs its own firmware ZIP. [Illustrated steps for both devices](FIRST-INSTALL.zh.md#windows-first-device)
+4. **Check the result.** The device appears in Device Center as online, USB shows as connected, and the clock on the device updates.
 
 For later TAB5 updates, extract the upgrade ZIP and select `aibot_tab5.bin` with its adjacent notes file. Start the upgrade, wait for restart and verify boot. Existing paired settings and artwork stay in place. Firmware ZIPs for the two hardware types are not interchangeable; GitHub Source code archives are not firmware packages.
 
 If no USB device appears, check the data cable, port and appropriate driver. If pairing times out, confirm the device has booted AI-bot and close competing serial tools. For a slow prerequisite download, install the [same Microsoft .NET 8 Desktop Runtime x64](https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/8.0.31/windowsdesktop-runtime-8.0.31-win-x64.exe) separately, then rerun setup; detected components are skipped. The ordinary .NET and ASP.NET runtimes do not replace the desktop runtime. Missing model quota requires account authorization, not reflashing. Keep original firmware backups private in `%LOCALAPPDATA%\AI-bot\device-backups\`.
 
-Optional sources are configured from Account Data or the selected device: speech, computer controls, agenda and [artwork packs](GALLERY-PACKS.md). Standard and complete HD editions contain the corresponding previews and guides; app upgrades preserve installed packs. See [release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.26), [updates](UPDATES.md) and [screenshots](SCREENSHOTS.md) for ongoing features.
+Optional sources are configured from Account Data or the selected device: speech, computer controls, agenda and [artwork packs](GALLERY-PACKS.md). Standard and complete HD editions contain the corresponding previews and guides; app upgrades preserve installed packs. See [release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.27), [updates](UPDATES.md) and [screenshots](SCREENSHOTS.md) for ongoing features.
 
 On a fresh install, Mac guides you through location, speech recognition, microphone, notifications, Bluetooth, local network, and applicable Automation permissions at first launch. Terminal Automation can be requested before TAB5 is paired. Reopen the guide under **Device Center → Bridge Settings → System Permissions**.
 

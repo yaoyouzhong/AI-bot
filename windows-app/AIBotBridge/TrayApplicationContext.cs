@@ -250,7 +250,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         try{
         using var dialog=new AddDeviceForm(_devices.Snapshot);
         if(dialog.ShowDialog(SettingsWindow.DialogOwner(_center))!=DialogResult.OK||dialog.Added is not {} device)return;
-        try{_devices.Add(device);await _services.ApplyAsync(_devices.Snapshot);await UpdateDemandAsync();RebuildMenu();}
+        try{_devices.Add(device);await _services.ApplyAsync(_devices.Snapshot);await UpdateDemandAsync();RebuildMenu();if(_center is {IsDisposed:false})_center.SelectDevice(device.Id);}
         catch(Exception ex){_devices.Remove(device.Id);await _services.ApplyAsync(_devices.Snapshot);MessageBox.Show(ex.Message,"设备添加未完成");RebuildMenu();}
         }catch(Exception ex){MessageBox.Show(ex.Message,"添加设备未完成");}finally{_changingDevices=false;}
     }

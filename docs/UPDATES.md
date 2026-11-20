@@ -1,8 +1,14 @@
 # 软件与固件更新 / Software and firmware updates
 
-本页对应 Windows 和 Mac 桥接 0.6.26。Windows 从托盘打开设备中心，Mac 从菜单栏打开。检查更新统一从「设备中心 → 桥接设置 → 软件固件」进入。旧版 v0.5.0 用户先更新电脑应用。
+本页对应 Windows 桥接 0.6.27 和 Mac 桥接 0.6.26。Windows 从托盘打开设备中心，Mac 从菜单栏打开。检查更新统一从「设备中心 → 桥接设置 → 软件固件」进入。旧版 v0.5.0 用户先更新电脑应用。
 
 [完整下载中心](../DOWNLOADS.md)集中提供 Windows / Mac 桥接、ESP8266 固件、TAB5 首刷与升级包、书法和名画图库。桥接 0.6.10 的「完整下载与安装说明」链接也指向此处。
+
+## Windows 0.6.27 安装与首次接入 / Setup and first device
+
+Windows 安装器会请求正在运行的 AI-bot 正常退出，安装完成后自动重启。刷机中或暂时无法退出时，按安装器提示处理后重试。第一次添加设备时，看设备屏幕选择直接添加或先安装 AI-bot 固件。[首次安装图文指南](FIRST-INSTALL.zh.md#windows-first-device)
+
+Windows Setup closes a running AI-bot and starts it again after the upgrade. If the bridge cannot close safely or a flash is in progress, follow the installer prompt before retrying. First-time setup guides you to add a device already showing AI-bot or install AI-bot firmware on a factory device. [Illustrated guide](FIRST-INSTALL.zh.md#windows-first-device)
 
 ## 0.6.26 一键升级 / One-Click Update in 0.6.26
 
@@ -49,7 +55,7 @@ TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备�
 
 The [complete download center](../DOWNLOADS.en.md) lists both desktop apps, ESP8266 firmware, TAB5 first-install/upgrade packages and both artwork collections. Bridge 0.6.10's manual-download link opens this center.
 
-This guide covers Windows and Mac bridge 0.6.26. Open Device Center from the Windows tray or Mac menu bar, then go to Bridge Settings → Software/Firmware. Check for updates and select an item to read its notes. Starting with 0.6.26, choose One-Click Update. On earlier versions, choose the download action and follow the installer or device prompts. The bridge verifies SHA-256, package identity, and compatibility before installing. After updating, check the running version and reconnect the device if needed. For TAB5, use Verify Boot to check the running image and boot partition again. Use the first-install package from Device Center for a first flash and the upgrade package for a TAB5 that already runs AI-bot. Each component can be updated independently.
+This guide covers Windows bridge 0.6.27 and Mac bridge 0.6.26. Open Device Center from the Windows tray or Mac menu bar, then go to Bridge Settings → Software/Firmware. Check for updates and select an item to read its notes. Starting with 0.6.26, choose One-Click Update. On earlier versions, choose the download action and follow the installer or device prompts. The bridge verifies SHA-256, package identity, and compatibility before installing. After updating, check the running version and reconnect the device if needed. For TAB5, use Verify Boot to check the running image and boot partition again. Use the first-install package from Device Center for a first flash and the upgrade package for a TAB5 that already runs AI-bot. Each component can be updated independently.
 
 Optional automatic checks start about 30 seconds after launch and repeat daily after success, retrying failures after an hour. Notifications respect quiet hours and appear once per device and version. Click to open the relevant item. A grouped Windows notification opens the first item. Automatic checks only look for updates. When a check fails, the bridge keeps the last successful results. Manual checking is always available. Use the installer, boot check, and physical display to confirm the update after download.
 

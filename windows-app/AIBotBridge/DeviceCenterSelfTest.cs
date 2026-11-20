@@ -193,6 +193,17 @@ internal static class DeviceCenterSelfTest
     }
     internal static void RunOnboarding(string directory) {
         AppPaths.BeginPublicSelfTest();Directory.CreateDirectory(directory);CheckAddDiscovery(directory);
+        var store=new DeviceRegistryStore(Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"onboarding-guide-devices.json"));
+        store.Migrate(null,false,false);
+        bool addRequested=false;
+        using var center=new DeviceCenterForm(store,_=>new(true,"在线","当前通道：USB","0.2.322-ui",Usb:"已连接",Wifi:"未连接",Bluetooth:"未连接",Transport:"USB"),(_,_)=>{},(_,_)=>Task.CompletedTask,()=>addRequested=true,_=>{});
+        Capture(center,directory,"first-device-start");
+        center.Show();Application.DoEvents();
+        Descendants(center).OfType<Button>().Single(b=>b.Text=="添加第一台设备").PerformClick();
+        Check(addRequested,"The empty device center did not open the first-device action");
+        var added=DeviceRegistryStore.Create(HardwareKind.Tab5,DeviceRegistryStore.Model(HardwareKind.Tab5),"001122aabbcc");
+        store.Add(added);center.Reload();center.SelectDevice(added.Id);
+        Capture(center,directory,"first-device-added");
         Console.WriteLine("ONBOARDING_OK selection/reconnect/scan-failure/caller-return/layout; isolated UI, no hardware pairing");
     }
     private static void CheckAddDiscovery(string directory) {
@@ -203,8 +214,10 @@ internal static class DeviceCenterSelfTest
             Capture(form,directory,"onboarding-no-usb");form.Show();Application.DoEvents();
             var ports=(ComboBox)form.Controls.Find("add-device-ports",true).Single();
             var add=(Button)form.Controls.Find("verify-add-device",true).Single();
+            var install=(Button)form.Controls.Find("first-install-device",true).Single();
             var refresh=Descendants(form).OfType<Button>().Single(b=>b.Text=="刷新设备");
             Check(!add.Enabled&&ports.SelectedItem is null,"Empty discovery must not offer verification");
+            Check(install.Enabled,"Factory firmware cannot be required to pass AI-bot USB verification");
             devices=[first,second];refresh.PerformClick();
             Check(ports.SelectedItem is null&&!add.Enabled,"Multiple devices must require an explicit selection");
             ports.SelectedIndex=1;Check(add.Enabled,"Explicit device selection must enable verification");
@@ -218,17 +231,24 @@ internal static class DeviceCenterSelfTest
             fail=false;devices=[first,new("COM9",@"USB\VID_1A86&PID_7523\ESP","ESP (COM9)")];refresh.PerformClick();
             Check(ports.Items.Count==1&&add.Enabled,"Model filtering must exclude unrelated USB devices");
             add.PerformClick();Check(form.Added is null,"Preview must never pair a real device");
+            Capture(form,directory,"onboarding-usb-ready");
         }
         foreach(float scale in new[]{1F,1.25F,1.5F,2F})using(var form=new AddDeviceForm(new(1,true,false,false,[]),preview:true)) {
             form.Scale(new SizeF(scale,scale));Capture(form,directory,$"onboarding-{scale:0.00}");
             form.Size=form.MinimumSize;Capture(form,directory,$"onboarding-{scale:0.00}-minimum");
             foreach(var control in new[]{form.Controls.Find("add-device-status",true).Single(),form.Controls.Find("verify-add-device",true).Single(),form.Controls.Find("first-install-device",true).Single(),(Control)form.CancelButton!})
                 Check(form.ClientRectangle.Contains(form.RectangleToClient(control.RectangleToScreen(control.ClientRectangle))),"Onboarding routes/status/close must remain visible at minimum size");
+            var model=form.Controls.Find("add-device-model",true).Single();
+            var port=form.Controls.Find("add-device-ports",true).Single();
+            var viewport=Descendants(form).OfType<FlowLayoutPanel>().Single();
+            foreach(var input in new[]{model,port})
+                Check(viewport.ClientRectangle.Contains(viewport.RectangleToClient(input.RectangleToScreen(input.ClientRectangle))),"USB and model inputs must remain visible at minimum size");
         }
         using var service=new Tab5Service(new Tab5PairingStore(Path.Combine(directory,"onboarding-unused-pairing.dat")));
         foreach(bool fromAdd in new[]{false,true})using(var form=new Tab5InstallForm(service,preview:true,returnToAdd:fromAdd)) {
             Capture(form,directory,fromAdd?"onboarding-first-install":"maintenance-first-install");
-            Check(Descendants(form).OfType<Button>().Any(b=>b.Text==(fromAdd?"返回添加设备":"进入 USB 配对")&&!b.Enabled),"First-install completion must match its caller and remain gated by verified boot");
+            Check(Descendants(form).OfType<Button>().Any(b=>b.Text==(fromAdd?"检查启动并返回":"进入 USB 配对")&&!b.Enabled),"First-install completion must match its caller and remain gated by verified boot");
+            Check(!Descendants(form).OfType<CheckBox>().Any(),"First installation should request write confirmation once");
         }
     }
     private static void CheckDataSettings(DeviceRegistryStore store,string directory) {

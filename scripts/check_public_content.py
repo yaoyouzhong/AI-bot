@@ -114,6 +114,8 @@ REVIEWED_DOC_NAMES = frozenset({
     'device-center-accounts.png',
     'device-center-bridge.png',
     'add-device.png',
+    'first-device-start.png',
+    'first-device-added.png',
     'tab5-first-install.png',
     'tab5-upgrade.png',
     'tab5-transfer-test.png',
