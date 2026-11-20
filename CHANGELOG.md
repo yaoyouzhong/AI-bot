@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 - **Windows release notes.** View All Release Notes opens the published GitHub notes by default and falls back to the bundled notes when offline or when no published notes are available.
+- **Windows installation.** Fixed the Wi-Fi unlock check when Setup is launched as administrator. Updates keep existing unlock settings, including when you run the installer manually over an existing installation.
 
 ## 0.6.26 - 2026-11-20
 

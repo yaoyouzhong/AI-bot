@@ -522,7 +522,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if(target.Component=="bridge") {
             string executable=Application.ExecutablePath;
             if(!DesktopUpdate.IsInstalled(executable)) {
-                using var installer=System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(prepared.File){UseShellExecute=true});
+                var start=new System.Diagnostics.ProcessStartInfo(prepared.File){UseShellExecute=true};
+                start.ArgumentList.Add("/AIBOTUPDATE=1");
+                using var installer=System.Diagnostics.Process.Start(start);
                 return installer is not null;
             }
             _installAfterExit=prepared;

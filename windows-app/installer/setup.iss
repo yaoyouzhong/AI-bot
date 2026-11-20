@@ -105,7 +105,7 @@ SetupFileCorrupt=安装文件损坏，请重新下载安装包。
 ConfirmUninstall=确定卸载 %1 吗？用户设置和微软运行组件会保留。
 UninstallStatusLabel=正在卸载 AI-bot…
 UninstalledAll=%1 已卸载，用户设置和公共运行组件已保留。
-WelcomeLabel2=安装程序将补齐运行环境，并默认安装和配置 USB、蓝牙及 Wi-Fi 解锁所需组件，无需分别选择。Windows 可能请求管理员许可。%n%n已有的 .NET 8 桌面运行时和 WebView2 会自动跳过。缺少运行环境时需要联网下载。%n%n升级前请从右下角托盘正常退出 AI-bot。用户设置、账号数据和设备固件不会被清除。
+WelcomeLabel2=安装程序会补齐缺少的 .NET 8 桌面运行时和 WebView2，需要联网时会提示。%n%n首次安装会尝试配置 USB、蓝牙和 Wi-Fi 解锁，Windows 可能请求管理员许可。覆盖安装会保留已有解锁设置。%n%n手动升级前请从右下角托盘退出 AI-bot。用户设置、账号数据和设备固件都会保留。
 FinishedLabel=AI-bot 已安装。启动后请在右下角托盘查找图标：左键打开镜像，右键打开菜单。
 
 [Tasks]
@@ -132,11 +132,13 @@ Filename: "{app}\AIBotBridge.exe"; Description: "启动 AI-bot（在右下角托
 const
   DesktopKey = 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App';
   WebViewKey = 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
+  UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{8B24B155-4218-4B40-AD4A-6185901D351B}_is1';
 var
   DependencyPage: TOutputMsgWizardPage;
   DownloadPage: TDownloadWizardPage;
   RuntimeRestartRequired: Boolean;
-  UnlockSetupComplete: Boolean;
+  PreserveUnlockSettings: Boolean;
+  UnlockSetupIncomplete: Boolean;
 
 function IsDesktop8Version(Value: String): Boolean;
 begin
@@ -228,30 +230,46 @@ end;
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = DependencyPage.ID then DependencyPage.MsgLabel.Caption := DependencyStatus;
-  if (CurPageID = wpFinished) and not UnlockSetupComplete then begin
+  if (CurPageID = wpFinished) and UnlockSetupIncomplete then begin
     WizardForm.FinishedHeadingLabel.Caption := 'AI-bot 已安装，解锁配置尚未完成';
     WizardForm.FinishedLabel.Caption := '请启动 AI-bot，在一键解锁页面点击保存完成配置。USB／蓝牙和 Wi-Fi 全部检查通过后才会显示设置完成。';
   end;
 end;
 
-function AutomaticBridgeUpdate: Boolean;
+function BridgeUpdateRequested: Boolean;
 begin
-  Result := WizardSilent and (ExpandConstant('{param:AIBOTUPDATE|}') = '1');
+  Result := ExpandConstant('{param:AIBOTUPDATE|}') = '1';
+end;
+
+function ExistingBridgeInstallation: Boolean;
+var InstallDirectory: String;
+begin
+  Result := False;
+  if RegQueryStringValue(HKCU64, UninstallKey, 'InstallLocation', InstallDirectory) then
+    if InstallDirectory <> '' then
+      Result := FileExists(AddBackslash(InstallDirectory) + 'AIBotBridge.exe');
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
-var Code: Integer;
+var Code: Integer; Started: Boolean;
 begin
-  if (CurStep = ssPostInstall) and AutomaticBridgeUpdate then
-    Log('Preserving existing computer unlock configuration during automatic bridge upgrade.');
-  if (CurStep = ssPostInstall) and not AutomaticBridgeUpdate then begin
-    WizardForm.StatusLabel.Caption := '正在默认配置电脑解锁，请完成 Windows 管理员确认…';
-    UnlockSetupComplete := ExecAsOriginalUser(ExpandConstant('{app}\AIBotBridge.exe'),
-      '--complete-unlock-setup', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code);
-    UnlockSetupComplete := UnlockSetupComplete and (Code = 0);
-    if not UnlockSetupComplete then Log('Computer unlock setup incomplete; do not report all transports ready.');
+  { Inspect the previous installation before Setup updates its registration. }
+  if CurStep = ssInstall then
+    PreserveUnlockSettings := BridgeUpdateRequested or ExistingBridgeInstallation;
+  if CurStep = ssPostInstall then begin
+    if PreserveUnlockSettings then
+      Log('Preserving existing computer unlock configuration during bridge upgrade.')
+    else begin
+      Log('Configuring computer unlock components during first installation.');
+      WizardForm.StatusLabel.Caption := '正在默认配置电脑解锁，请完成 Windows 管理员确认…';
+      Started := ExecAsOriginalUser(ExpandConstant('{app}\AIBotBridge.exe'),
+        '--complete-unlock-setup', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code);
+      UnlockSetupIncomplete := not Started or (Code <> 0);
+      if UnlockSetupIncomplete then Log('Computer unlock setup incomplete; do not report all transports ready.')
+      else Log('Computer unlock setup completed.');
+    end;
   end;
-  if (CurStep = ssDone) and AutomaticBridgeUpdate and not RuntimeRestartRequired then begin
+  if (CurStep = ssDone) and WizardSilent and BridgeUpdateRequested and not RuntimeRestartRequired then begin
     if Exec(ExpandConstant('{app}\AIBotBridge.exe'), '', ExpandConstant('{app}'),
        SW_HIDE, ewNoWait, Code) then
       Log('Automatic bridge restart requested.')
