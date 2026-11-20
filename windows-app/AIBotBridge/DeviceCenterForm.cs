@@ -96,7 +96,7 @@ internal sealed class DeviceCenterForm : Form
         else if(_deviceLayout.ColumnStyles[0].Width==0)_deviceLayout.ColumnStyles[0].Width=184;
         _detail.SuspendLayout();_detail.Controls.Remove(_health);_detail.Controls.Remove(_connection);_detail.Controls.Remove(_transport);Clear(_detail);_actions.Clear();_manage.Items.Clear();
         if(Selected is not { } d) {
-            Heading(_detail,"连接第一台设备");Note(_detail,"用 USB 数据线把设备接到电脑。");
+            Heading(_detail,"用 USB 数据线把设备接到电脑。");
             _detail.Controls.Add(Button("添加第一台设备",_add,true));
         } else {
             var heading=new TableLayoutPanel{AutoSize=true,ColumnCount=2,RowCount=1,Margin=new Padding(0,0,0,6)};

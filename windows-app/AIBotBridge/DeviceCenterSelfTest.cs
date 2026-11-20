@@ -184,7 +184,7 @@ internal static class DeviceCenterSelfTest
                 continue;
             }
             var choices=Descendants(add).OfType<ComboBox>().First();Check(choices.Items.Count==2-registered.Length,"Already registered model offered for addition");
-            if(registered.Length==1)Check(Descendants(add).OfType<Button>().Any(b=>b.Text==(registered[0].Kind==HardwareKind.Tab5?"ESP8266 首次安装…":"TAB5 首次安装…")),"First installation missing for unregistered model");
+            if(registered.Length==1)Check(Descendants(add).OfType<Button>().Any(b=>b.Name=="first-install-device"&&b.Text=="在设备上安装 AI-bot"),"First installation missing for unregistered model");
         }
         CheckAddDiscovery(directory);
         using(var shared=new SettingsForm(BridgeSettings.CreatePublicSelfTestSettings(),false)){Capture(shared,directory,"shared-settings");Check(!Descendants(shared).OfType<Label>().Any(l=>l.Text.Contains("屏保")||l.Text.StartsWith("串口")),"Legacy fields exposed in shared settings");}
@@ -220,6 +220,7 @@ internal static class DeviceCenterSelfTest
             var ports=(ComboBox)form.Controls.Find("add-device-ports",true).Single();
             var add=(Button)form.Controls.Find("verify-add-device",true).Single();
             var install=(Button)form.Controls.Find("first-install-device",true).Single();
+            Check(add.Text=="连接装过 AI-bot 的设备"&&install.Text=="在设备上安装 AI-bot","Add Device should offer concrete actions");
             var refresh=Descendants(form).OfType<Button>().Single(b=>b.Text=="刷新设备");
             Check(!add.Enabled&&ports.SelectedItem is null,"Empty discovery must not offer verification");
             Check(install.Enabled,"Factory firmware cannot be required to pass AI-bot USB verification");
