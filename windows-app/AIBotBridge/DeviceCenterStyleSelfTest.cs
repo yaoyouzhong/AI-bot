@@ -61,7 +61,8 @@ internal static class DeviceCenterStyleSelfTest
                 ("about",()=>new AboutForm(),null),
                 ("pet-gallery",()=>new PetGalleryForm(_=>{},load:false),null),
                 ("esp-flash",()=>new FirmwareFlashForm(preview:true),null),
-                ("tab5-install",()=>new Tab5InstallForm(tab5,preview:true),null)
+                ("tab5-install",()=>new Tab5InstallForm(tab5,preview:true),null),
+                ("tab5-install-restart",()=>new Tab5InstallForm(tab5,preview:true,returnToAdd:true,previewRestart:true),null)
             };
             foreach(int index in Enumerable.Range(0,4)) {int selected=index;pages.Add(("tab5-connection-"+index,()=>new Tab5ConnectionForm(tab5,loadNetworks:false),f=>Descendants(f).OfType<TabControl>().Single().SelectedIndex=selected));}
             var pairingStore=new Tab5PairingStore(Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"style-fixtures","remote-pair.dat"));
@@ -148,6 +149,12 @@ internal static class DeviceCenterStyleSelfTest
                     viewport.AutoScrollPosition=Point.Empty;await Task.Delay(20);Application.DoEvents();
                 }
                 Check(form.BackColor==Color.White,"Non-white window: "+page.Name);
+                if(page.Name=="tab5-install-restart") {
+                    var viewport=Descendants(form).OfType<FlowLayoutPanel>().Single(p=>p.AutoScroll);
+                    Check(!viewport.HorizontalScroll.Visible&&!viewport.VerticalScroll.Visible&&
+                        viewport.Controls.Cast<Control>().Where(c=>c.Visible).All(c=>viewport.ClientRectangle.Contains(c.Bounds)),
+                        "TAB5 restart instructions or verified-write status clipped: "+name);
+                }
                 if(page.Name=="esp-connection") {
                     var saver=form.Controls.Find("esp-screensaver-minutes",true).Single();
                     var footer=((Button)form.AcceptButton!).Parent!;

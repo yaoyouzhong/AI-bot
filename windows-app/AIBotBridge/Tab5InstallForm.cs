@@ -127,8 +127,9 @@ internal sealed class Tab5InstallForm : Form
         _heading.Text = complete ? "启动检查通过" : restart ? "重启 TAB5" : _busy ? "安装 TAB5" : "连接 TAB5";
         _instruction.Visible = !_busy && !complete;
         _instruction.Text = restart ? "短按 RESET。\n等屏幕显示 AI-bot。" : "接好 USB-C 数据线。\n长按 RESET，绿灯快闪时松开。";
-        _usbStatus.Visible = !_busy && !complete;
-        _ports.Visible = !_busy && !complete && (_devices.Length > 1 || _devices.Length == 1 && !device);
+        bool needsPortChoice = _devices.Length > 1 || _devices.Length == 1 && !device;
+        _usbStatus.Visible = !_busy && !complete && (!restart || !device || needsPortChoice);
+        _ports.Visible = !_busy && !complete && needsPortChoice;
         _install.Visible = !restart && !complete;
         _install.Enabled = !_busy && device;
         bool showLocal = !_busy && !restart && (!_returnToAdd || _downloadFailed);
