@@ -234,18 +234,24 @@ begin
   end;
 end;
 
+function AutomaticBridgeUpdate: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:AIBOTUPDATE|}') = '1');
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var Code: Integer;
 begin
-  if CurStep = ssPostInstall then begin
+  if (CurStep = ssPostInstall) and AutomaticBridgeUpdate then
+    Log('Preserving existing computer unlock configuration during automatic bridge upgrade.');
+  if (CurStep = ssPostInstall) and not AutomaticBridgeUpdate then begin
     WizardForm.StatusLabel.Caption := '正在默认配置电脑解锁，请完成 Windows 管理员确认…';
     UnlockSetupComplete := ExecAsOriginalUser(ExpandConstant('{app}\AIBotBridge.exe'),
       '--complete-unlock-setup', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code);
     UnlockSetupComplete := UnlockSetupComplete and (Code = 0);
     if not UnlockSetupComplete then Log('Computer unlock setup incomplete; do not report all transports ready.');
   end;
-  if (CurStep = ssDone) and WizardSilent and
-     (ExpandConstant('{param:AIBOTUPDATE|}') = '1') and not RuntimeRestartRequired then begin
+  if (CurStep = ssDone) and AutomaticBridgeUpdate and not RuntimeRestartRequired then begin
     if Exec(ExpandConstant('{app}\AIBotBridge.exe'), '', ExpandConstant('{app}'),
        SW_HIDE, ewNoWait, Code) then
       Log('Automatic bridge restart requested.')
