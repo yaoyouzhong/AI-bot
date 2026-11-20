@@ -511,7 +511,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private UpdateDevice[] UpdateDevices()=>[new("bridge","电脑端 AI-bot",Application.ProductVersion.Split('+')[0],"运行中",true,"bridge","打开安装程序"),.._devices.Snapshot.Devices.Select(d=>{
         return UpdateDevice.From(d,_services.View(d));
     })];
-    private string? _installAfterExit;
+    private PreparedUpdate? _installAfterExit;
 
     private async Task<bool> InstallUpdateAsync(UpdateDevice target,PreparedUpdate prepared) {
         prepared.VerifyUnchanged();
@@ -525,7 +525,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 using var installer=System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(prepared.File){UseShellExecute=true});
                 return installer is not null;
             }
-            _installAfterExit=prepared.File;
+            _installAfterExit=prepared;
             ExitThread();
             return _exiting;
         }
@@ -727,7 +727,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     protected override async void ExitThreadCore()
     {
-        string? update=_installAfterExit;_installAfterExit=null;
+        PreparedUpdate? update=_installAfterExit;_installAfterExit=null;
         if(_exiting||_updatesForm?.ShowActiveGalleryInstall()==true)return;
         if(!ClosePanels())return;
         if(update is not null) {

@@ -67,6 +67,23 @@ internal static class BridgeInstallation
         else directory.Create(Acl(owner));
     }
     private static void SetOwner(FileInfo file){var acl=file.GetAccessControl();acl.SetOwner(new SecurityIdentifier("S-1-5-32-544"));file.SetAccessControl(acl);}
+    internal static string StageDesktopUpdate(PreparedUpdate package,string executable){
+        string owner=BridgeElevation.Owner;
+        if(!BridgeElevation.IsAdministrator||!TrustedExecutable(executable,owner))throw new UnauthorizedAccessException("Protected administrator bridge required");
+        string directory=Path.Combine(Root,".desktop-update-"+Guid.NewGuid().ToString("N"));
+        DirectoryProtected(directory,owner);
+        string installer=Path.Combine(directory,"setup.exe");
+        try {
+            File.Copy(package.File,installer);
+            SetOwner(new(installer));
+            if(!FirmwareFlasher.MatchesHash(installer,package.Sha256))throw new IOException("下载文件已改变，请重新下载。");
+            return installer;
+        }catch{
+            File.Delete(installer);
+            Directory.Delete(directory);
+            throw;
+        }
+    }
     internal static string Configure(){
         AppProfileGuard.EnsureDesktopProfile();if(!BridgeElevation.IsAdministrator)throw new UnauthorizedAccessException("bridge_administrator_required");
         string owner=BridgeElevation.Owner,source=AppContext.BaseDirectory;

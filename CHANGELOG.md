@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.6.26 - 2026-11-20
+
+This update covers Windows and Mac.
+
 - **Software and firmware on Mac.** The settings card shows a white up arrow on a green circle alongside the update count. Select an item to read its release notes. One-Click Update downloads and verifies the package, installs and restarts the desktop app, starts the update on supported TAB5 devices, or backs up and flashes an identified USB-connected ESP8266.
 - **Software and firmware on Windows.** The update card shows the green upgrade badge, and selecting an item displays its release notes. One-Click Update installs and restarts the installed bridge, opens the installer for portable copies, and starts updates for supported TAB5 and identified USB-connected ESP8266 devices.
 
