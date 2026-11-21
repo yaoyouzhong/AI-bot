@@ -91,12 +91,12 @@ enum MacTab5UIValidation {
         }
         let catalog = try JSONSerialization.data(withJSONObject: [
             release("gallery-test", ["AI-bot-gallery-painting-standard-2026.11.17.zip", "AI-bot-gallery-calligraphy-standard-2026.11.17.zip"]),
-            release("v9.0.0", ["AI-bot-esp8266-9.0.0-firmware.zip", "AI-bot-bridge-v9.0.0-macos-arm64.zip"], body: """
+            release("v9.0.0", ["AI-bot-esp8266-9.0.0-firmware.zip", "AI-bot-bridge-v0.0.0-macos-arm64.zip"], body: """
                 ## 下载
 
                 - [完整下载中心](https://github.com/yaoyouzhong/AI-bot)
 
-                ## 桌面桥接 9.0.0
+                ## 桌面桥接 0.0.0
 
                 - 测试用电脑端说明。
 
@@ -118,6 +118,11 @@ enum MacTab5UIValidation {
                 <!-- Published metadata -->
                 """)
         ])
+        let newCatalog = try JSONSerialization.data(withJSONObject: [
+            release("v9.1.0", ["AI-bot-esp8266-9.1.0-firmware.zip"], body: "测试用新版说明。")
+        ])
+        var catalogNow = Date(), catalogRequests = 0
+        var catalogOffline = false, catalogPaused = false, catalogResult = catalog
         var espUpdate = MacUpdateWindow.ESPConnection()
         let targetID = "esp8266-001122334455", targetPort = "/dev/cu.usbserial-test"
         let espPayload = root.appendingPathComponent("esp-payload")
@@ -134,7 +139,13 @@ enum MacTab5UIValidation {
                     throw MacTab5LocalError.invalid("Downloaded update did not bind the selected target")
                 }
                 handedOff += 1
-            }, installDesktop: { _, _ in throw MacTab5Error.unavailable }, catalogPage: { _ in catalog },
+            }, installDesktop: { _, _ in throw MacTab5Error.unavailable }, now: { catalogNow },
+            catalogPage: { _ in
+                catalogRequests += 1
+                if catalogPaused { try await Task.sleep(nanoseconds: 5_000_000_000) }
+                if catalogOffline { throw MacTab5LocalError.invalid("测试网络不可用。") }
+                return catalogResult
+            },
             downloadPackage: { release, _ in
                 guard release.category == "esp8266" else { throw MacTab5Error.invalidPacket }
                 if changeWhileDownloading { espUpdate.id = "esp8266-112233445566" }
@@ -164,8 +175,10 @@ enum MacTab5UIValidation {
             if name == "updates" {
                 let controls = descendants(content).compactMap({ $0 as? NSButton })
                 updates.open(component: "esp8266")
+                updates.open(component: "esp8266")
                 try pump { !updates.busy }
                 guard let table = descendants(content).compactMap({ $0 as? MacSettingsTable }).first,
+                      catalogRequests == 1,
                       table.rows.count == 4,
                       table.rows.first == ["屏保图库", "已安装 2 套", "2 套新版", "有更新"], updates.availableUpdateCount == 1,
                       table.rows.indices.contains(table.selectedRow), table.rows[table.selectedRow] == ["ESP8266 小屏", "连接设备后查看", "9.0.0", "—"] else {
@@ -212,6 +225,51 @@ enum MacTab5UIValidation {
                       descendants(managerContent).compactMap({ $0 as? NSButton }).contains(where: { $0.title == "安装图库包…" })
                 else { throw MacTab5LocalError.invalid("Gallery update did not open the manager") }
                 try render(managerContent, to: output.appendingPathComponent("updates-gallery-manager.png")); manager.close()
+                catalogNow.addTimeInterval(299)
+                updates.open(component: "esp8266")
+                guard !updates.busy, catalogRequests == 1 else { throw MacTab5LocalError.invalid("Reopening queried a fresh catalog") }
+                let cachedRows = table.rows
+                catalogNow.addTimeInterval(1)
+                catalogOffline = true
+                updates.open(component: "esp8266")
+                guard updates.busy, table.rows == cachedRows,
+                      let checkButton = controls.first(where: { $0.title == "检查更新" }), !checkButton.isEnabled,
+                      let cancel = controls.first(where: { $0.title == "取消检查" && !$0.isHidden }),
+                      let receipt = descendants(content).compactMap({ $0 as? NSTextField })
+                        .first(where: { $0.stringValue == "正在读取正式发布记录…" }) else {
+                    throw MacTab5LocalError.invalid("Refreshing did not preserve the catalog or show progress")
+                }
+                try validateSettings(window, name: "updates-refreshing", output: output)
+                try pump { !updates.busy }
+                guard catalogRequests == 2, checkButton.isEnabled, table.rows == cachedRows,
+                      receipt.stringValue == "检查未完成，保留上次结果：测试网络不可用。" else {
+                    throw MacTab5LocalError.invalid("Offline refresh discarded the catalog or hid the error")
+                }
+                try validateSettings(window, name: "updates-offline", output: output)
+                catalogNow.addTimeInterval(59)
+                updates.open(component: "esp8266")
+                guard !updates.busy, catalogRequests == 2 else { throw MacTab5LocalError.invalid("Refresh retried before failure backoff elapsed") }
+                catalogNow.addTimeInterval(1)
+                catalogOffline = false
+                catalogPaused = true
+                updates.open(component: "esp8266")
+                try pump { catalogRequests == 3 }
+                cancel.performClick(nil)
+                try pump { !updates.busy }
+                guard table.rows == cachedRows, receipt.stringValue == "已取消检查更新。" else {
+                    throw MacTab5LocalError.invalid("Cancelled refresh changed the cached catalog")
+                }
+                catalogPaused = false
+                catalogResult = newCatalog
+                updates.open(component: "esp8266")
+                try pump { !updates.busy }
+                guard catalogRequests == 4, table.rows.indices.contains(table.selectedRow),
+                      table.rows[table.selectedRow] == ["ESP8266 小屏", "9.0.0", "9.1.0", "有更新"] else {
+                    throw MacTab5LocalError.invalid("Reopening after cancellation did not refresh or maintain selection")
+                }
+                checkButton.performClick(nil)
+                try pump { !updates.busy }
+                guard catalogRequests == 5 else { throw MacTab5LocalError.invalid("The manual refresh did not bypass a fresh catalog") }
             }
             if name == "quota-history" {
                 guard let range = descendants(content).compactMap({ $0 as? NSPopUpButton })

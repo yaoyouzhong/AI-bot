@@ -28,9 +28,9 @@ When updates are available, the Software/Firmware card shows a white up arrow on
 3. 从 0.6.26 起，点「一键升级」。旧版使用「下载并安装电脑端」或「下载并准备升级」，再按界面提示操作。程序自动选择适用包并核对 SHA-256。下载可以取消，校验通过后才进入安装。
 4. 桥接更新后，确认运行版本。设备更新后，等设备重启并重新连接。TAB5 可在升级窗口点「核验启动」，检查运行镜像与启动分区。电脑端和两种固件各自按需更新。
 
-勾选「自动检查并提醒」后，程序启动约 30 秒开始检查。Windows 0.6.27 和 Mac 0.6.26 在检查成功后每 24 小时再查，失败约 1 小时后重试。每个设备的同一版本只提醒一次，并遵守静默时段。点击提醒会选中对应项目，Windows 合并提醒多项更新时会打开第一项。手动检查始终可用。设备已添加、启用且成功读取当前版本时，才参与更新判断。
+勾选「自动检查并提醒」可开启后台检查。已发布的 Windows 0.6.27 启动约 30 秒后开始检查，成功后每 24 小时再查，失败约 1 小时后重试。已发布的 Mac 0.6.26 在启动授权检查结束后开始检查，之后每 6 小时再查。同一更新版本只提醒一次。Windows 提醒遵守静默时段，合并提醒多项更新时会打开第一项。点击提醒可选中对应项目。设备已添加、启用且成功读取当前版本时，才参与更新判断。
 
-Windows 开发版把后台检查间隔缩短到 1 小时，失败约 15 分钟后重试。打开「软件固件」时，如果没有结果或上次成功检查已过 5 分钟，程序会自动刷新。遇到查询失败，页面仍显示上次成功结果，1 分钟后再次打开可自动重试。
+Windows 和 Mac 开发版首次后台检查约在启动后 30 秒进行，Mac 从启动授权检查结束后计时。之后成功约 1 小时再查，失败约 15 分钟后重试。打开「软件固件」时，首次查询或上次成功检查已过 5 分钟会自动刷新。查询失败时页面保留上次成功结果，1 分钟后再次打开可自动重试。「检查更新」可直接刷新。
 
 0.6.2 修复：已连接的旧版 ESP8266 如果未上报固件版本，显示「版本未知（旧固件未上报）」，可以点「手动准备小屏升级」。这不表示发现了更新，不触发自动更新提醒。下载并校验最新正式固件包后，程序会说明无法排除同版本或降级，由用户确认进入 USB 刷机工具；仍需连接该小屏并点击开始刷机，先完整备份，再写入和校验。离线、版本上报无效、下载期间设备或版本改变都会阻止继续。新版固件通过 USB 和已认证的 Wi-Fi 请求上报自身版本。0.6.1 及更早的安装包不包含此修复。
 
@@ -59,9 +59,9 @@ The [complete download center](../DOWNLOADS.en.md) lists both desktop apps, ESP8
 
 This guide covers Windows bridge 0.6.27 and Mac bridge 0.6.26. Open Device Center from the Windows tray or Mac menu bar, then go to Bridge Settings → Software/Firmware. Check for updates and select an item to read its notes. Starting with 0.6.26, choose One-Click Update. On earlier versions, choose the download action and follow the installer or device prompts. The bridge verifies SHA-256, package identity, and compatibility before installing. After updating, check the running version and reconnect the device if needed. For TAB5, use Verify Boot to check the running image and boot partition again. Use the first-install package from Device Center for a first flash and the upgrade package for a TAB5 that already runs AI-bot. Each component can be updated independently.
 
-Optional automatic checks start about 30 seconds after launch. Windows 0.6.27 and Mac 0.6.26 repeat checks daily after success and retry after an hour on failure. Notifications respect quiet hours and appear once per device and version. Click to open the relevant item. A grouped Windows notification opens the first item. Automatic checks only look for updates. Manual checking is always available. Use the installer, boot check, and physical display to confirm the update after download.
+Enable Check Automatically and Notify to run background checks. Windows 0.6.27 starts about 30 seconds after launch, checks daily after success, and retries after about an hour on failure. Mac 0.6.26 starts after the launch permission review and checks again every six hours. Each update version is announced once. Windows notifications respect quiet hours. Click a notification to open the relevant item. A grouped Windows notification opens the first item. Automatic checks only look for updates. Use the installer, boot check, and physical display to confirm the update after download.
 
-The Windows development build checks hourly and retries after about 15 minutes on failure. Opening Software/Firmware refreshes the catalog when there are no results or the previous successful check is at least five minutes old. The window keeps the last successful results through an error and can retry when reopened a minute later.
+The Windows and Mac development builds start background checks after about 30 seconds. On Mac, the delay starts when the launch permission review finishes. After a successful check, the bridge checks again in about an hour. It retries after about 15 minutes on failure. Opening Software/Firmware starts the first check or refreshes a catalog that is at least five minutes old. The window keeps the last successful results through an error and can retry when reopened a minute later. Use Check for Updates to refresh immediately.
 
 0.6.2 fix: connected legacy ESP8266 devices that omit their firmware version offer a clearly labeled manual preparation action. This does not assert that a newer version exists and never generates an automatic update notification. After downloading and verifying the latest stable package, the user must acknowledge that the version cannot be compared and may be equal or older. The existing USB tool still requires an explicit start, complete backup, write and verification, bound to the selected screen's USB identity when available. Offline devices, malformed versions and target/version changes block continuation. New firmware reports its component version over USB and authenticated Wi-Fi requests. The 0.6.1 and earlier installers do not include this fix.
 
