@@ -21,7 +21,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private BridgeStatusForm? _statusForm;
     private UpdateCenterForm? _updatesForm;
     private readonly UpdateService _updates=new();
-    private DateTimeOffset _nextUpdateCheck=DateTimeOffset.UtcNow.AddSeconds(30),_nextUpdateNotice;
+    private readonly DateTimeOffset _firstUpdateCheck=DateTimeOffset.UtcNow.AddSeconds(30);
+    private DateTimeOffset _nextUpdateNotice;
     private bool _checkingUpdates,_updateBalloon;
     private string? _updateBalloonDevice;
     private bool _healthBalloon;
@@ -562,11 +563,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var preference=UpdateReminder.Read();if(!preference.Automatic)return;
         _checkingUpdates=true;
         try {
-            if(DateTimeOffset.UtcNow>=_nextUpdateCheck) {
-                _nextUpdateCheck=DateTimeOffset.UtcNow.AddHours(1);
-                await _updates.CheckAsync(_shutdown.Token);
-                _nextUpdateCheck=DateTimeOffset.UtcNow.AddHours(24);
-            }
+            if(DateTimeOffset.UtcNow>=_firstUpdateCheck&&_updates.IsCheckDue(UpdateCheckTrigger.Background))
+                await _updates.CheckAsync(_shutdown.Token,UpdateCheckTrigger.Background);
             if(_exiting||_notifications.Options.IsQuiet(DateTime.Now))return;
             preference=UpdateReminder.Read();if(!preference.Automatic)return;
             var devices=UpdateDevices();var keys=UpdateReminder.Pending(devices,_updates.Available,preference);if(keys.Length==0)return;
@@ -581,7 +579,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _weatherBalloon=false;_healthBalloon=false;_updateBalloon=true;
             _icon.ShowBalloonTip(10000,"AI-bot 有可用更新",description+"。点击查看更新。",ToolTipIcon.Info);
         }catch(Exception ex) when(ex is HttpRequestException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or OperationCanceledException or KeyNotFoundException){
-            // Query errors remain visible in the update center; retry in one hour.
+            // Query errors remain visible in the update center.
         }finally{_checkingUpdates=false;}
     }
     private void ShowUpdates(string? deviceId=null) {

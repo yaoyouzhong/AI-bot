@@ -12,6 +12,12 @@ internal static class UpdateSelfTest
         internal Func<HttpRequestMessage,CancellationToken,Task<HttpResponseMessage>> Reply=(_,_)=>Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent("[]")});
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token)=>Reply(request,token);
     }
+    internal sealed class Clock : TimeProvider
+    {
+        private DateTimeOffset _now=new(2026,11,21,0,0,0,TimeSpan.Zero);
+        public override DateTimeOffset GetUtcNow()=>_now;
+        internal void Advance(TimeSpan elapsed)=>_now+=elapsed;
+    }
     private static void Check(bool ok,string why){if(!ok)throw new InvalidOperationException(why);}
     private static async Task Reject(Func<Task> action) {
         try{await action();}catch(Exception ex) when(ex is IOException or InvalidDataException or ArgumentException or OperationCanceledException or HttpRequestException){return;}
@@ -31,6 +37,7 @@ internal static class UpdateSelfTest
     }
     internal static async Task RunAsync() {
         ComponentUpdateSelfTest.Run();
+        await CheckCadenceAsync();
         byte[] image=new byte[2048];image[0]=0xe9;
         byte[] zip=Zip(new(){["VERSION"]="0.6.0\n"u8.ToArray(),["firmware.bin"]=image,["COMPONENT.json"]="{\"component\":\"esp8266\",\"version\":\"0.6.0\",\"protocolVersion\":1}"u8.ToArray()});
         string name="AI-bot-esp8266-0.6.0-flash.zip",hash=Convert.ToHexString(SHA256.HashData(zip)).ToLowerInvariant();
@@ -70,5 +77,58 @@ internal static class UpdateSelfTest
         handler.Reply=(_,_)=>Task.FromResult(new HttpResponseMessage(HttpStatusCode.Redirect){Headers={Location=new Uri("https://example.org/redirect")}});
         await Reject(async()=>await service.DownloadAsync(release,"0.5.1",null,default));
         Console.WriteLine("UNIFIED_UPDATE_OK metadata, trusted URLs, exact hash/download, cancellation, corruption cleanup, stale catalog, device/version gates, minimum bridge, reminder persistence; no device write");
+    }
+
+    private static async Task CheckCadenceAsync()
+    {
+        var clock=new Clock();
+        var handler=new Handler();
+        var release=new byte[]{1};
+        const string name="AI-bot-bridge-v0.6.27-windows-x64-setup.exe";
+        var published=JsonSerializer.Serialize(new[]{Release("bridge","0.6.27",name,release,productTag:"v0.6.27")});
+        bool offline=false,newVersion=false;
+        int requests=0;
+        var firstResponse=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        handler.Reply=async(_,token)=>{
+            requests++;
+            await firstResponse.Task.WaitAsync(token);
+            return new HttpResponseMessage(offline?HttpStatusCode.ServiceUnavailable:HttpStatusCode.OK)
+                {Content=new StringContent(newVersion?published:"[]")};
+        };
+        using var service=new UpdateService(handler,clock);
+        var background=service.CheckAsync(default,UpdateCheckTrigger.Background);
+        var foreground=service.CheckAsync(default,UpdateCheckTrigger.Foreground);
+        firstResponse.SetResult();
+        await Task.WhenAll(background,foreground);
+        Check(requests==1,"Opening the page during a background check should share the resulting catalog");
+        clock.Advance(TimeSpan.FromMinutes(5)-TimeSpan.FromSeconds(1));
+        await service.CheckAsync(default,UpdateCheckTrigger.Foreground);
+        Check(requests==1,"Opening the page should reuse a fresh catalog");
+        clock.Advance(TimeSpan.FromSeconds(1));
+        Check(service.IsCheckDue(UpdateCheckTrigger.Foreground)&&!service.IsCheckDue(UpdateCheckTrigger.Background),
+            "Opening the page must refresh before the next background check");
+        await service.CheckAsync(default,UpdateCheckTrigger.Foreground);
+        Check(requests==2,"Opening the page with an old catalog must query GitHub");
+        clock.Advance(TimeSpan.FromMinutes(59));
+        await service.CheckAsync(default,UpdateCheckTrigger.Background);
+        Check(requests==2,"Background should wait one hour from the latest successful check");
+        clock.Advance(TimeSpan.FromMinutes(1));
+        offline=true;
+        await Reject(()=>service.CheckAsync(default,UpdateCheckTrigger.Background));
+        Check(requests==3&&service.Error is not null&&!service.IsCheckDue(UpdateCheckTrigger.Foreground),
+            "An offline attempt must back off without discarding the last successful result");
+        clock.Advance(TimeSpan.FromMinutes(1));
+        Check(service.IsCheckDue(UpdateCheckTrigger.Foreground)&&!service.IsCheckDue(UpdateCheckTrigger.Background),
+            "Reopening the page must allow earlier recovery from a failed background check");
+        clock.Advance(TimeSpan.FromMinutes(14));
+        offline=false;
+        newVersion=true;
+        await service.CheckAsync(default,UpdateCheckTrigger.Background);
+        var installed=new UpdateDevice("bridge","AI-bot","0.6.26","运行中",true,"bridge","打开安装程序");
+        Check(requests==4&&service.Error is null&&UpdateReminder.Pending([installed],service.Available,new()).SequenceEqual(["bridge:0.6.27"]),
+            "Background must recover after fifteen minutes and report the new release");
+        await service.CheckAsync(default);
+        Check(requests==5,"Manual check must bypass the cache");
+        Console.WriteLine("UPDATE_CHECK_CADENCE_OK cache, hourly background, offline retry, manual refresh");
     }
 }
