@@ -1,6 +1,6 @@
 # 跨平台交接模板
 
-复制为对应日期的交接记录；本模板不是验收结果。遵循[统一开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md)。
+Windows 或 Mac 功能改动的 PR 应在同一个 PR 中新增或更新 `docs/development/` 下的 `*-HANDOFF-*.md`，例如 `WINDOWS-UPDATE-HANDOFF-YYYYMMDD.md`。写明另一端是否需要对齐。需要时列出共同的预期行为、验收方法和接收端下一步。无需对齐时写明核对依据。发起端完成适用测试、CI 和审核后可合入，另一端待对齐的事项在合入后跟进。遵循[统一开发发布流程](../DESKTOP-DEVELOPMENT-RELEASE.md)。
 
 ## 范围和源码身份
 
