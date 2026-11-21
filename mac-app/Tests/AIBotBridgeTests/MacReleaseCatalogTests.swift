@@ -3,6 +3,34 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacReleaseCatalogTests: XCTestCase {
+    func testUpdateCheckCadenceSharesTheLatestAttemptAcrossTriggers() {
+        let start = Date(timeIntervalSince1970: 1_000)
+        var cadence = MacUpdateCheckCadence()
+        XCTAssertTrue(cadence.isDue(.foreground, at: start))
+        XCTAssertTrue(cadence.isDue(.background, at: start))
+
+        cadence.record(at: start, succeeded: true)
+        XCTAssertTrue(cadence.isDue(.manual, at: start))
+        XCTAssertFalse(cadence.isDue(.foreground, at: start.addingTimeInterval(299)))
+        let foregroundRefresh = start.addingTimeInterval(300)
+        XCTAssertTrue(cadence.isDue(.foreground, at: foregroundRefresh))
+        cadence.record(at: foregroundRefresh, succeeded: true)
+        XCTAssertFalse(cadence.isDue(.background, at: foregroundRefresh.addingTimeInterval(3_599)))
+
+        let failure = foregroundRefresh.addingTimeInterval(3_600)
+        XCTAssertTrue(cadence.isDue(.background, at: failure))
+        cadence.record(at: failure, succeeded: false)
+        XCTAssertTrue(cadence.isDue(.manual, at: failure))
+        XCTAssertFalse(cadence.isDue(.foreground, at: failure.addingTimeInterval(59)))
+        XCTAssertTrue(cadence.isDue(.foreground, at: failure.addingTimeInterval(60)))
+        XCTAssertFalse(cadence.isDue(.background, at: failure.addingTimeInterval(899)))
+        let recovery = failure.addingTimeInterval(900)
+        XCTAssertTrue(cadence.isDue(.background, at: recovery))
+        cadence.record(at: recovery, succeeded: true)
+        XCTAssertFalse(cadence.isDue(.foreground, at: recovery.addingTimeInterval(60)))
+        XCTAssertFalse(cadence.isDue(.background, at: recovery.addingTimeInterval(900)))
+    }
+
     func testProductPageAndIndependentBridgeTag() throws {
         func release(_ tag: String, _ names: [String]) -> [String: Any] {
             ["tag_name": tag, "draft": false, "prerelease": false, "assets": names.map {

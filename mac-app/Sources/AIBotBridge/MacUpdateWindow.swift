@@ -64,6 +64,28 @@ final class MacUpdateRedirects: NSObject, URLSessionTaskDelegate {
     static func allowed(_ url: URL) -> Bool { url.scheme == "https" && (url.port == nil || url.port == 443) && url.user == nil && url.password == nil && ["api.github.com","github.com","release-assets.githubusercontent.com","objects.githubusercontent.com"].contains(url.host ?? "") }
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(request.url.map(Self.allowed) == true ? request:nil) }
 }
+
+struct MacUpdateCheckCadence {
+    enum Trigger { case manual, foreground, background }
+
+    private var lastAttempt: (time: Date, succeeded: Bool)?
+
+    func isDue(_ trigger: Trigger, at now: Date) -> Bool {
+        guard trigger != .manual, let lastAttempt else { return true }
+        let delay: TimeInterval
+        if trigger == .foreground {
+            delay = lastAttempt.succeeded ? 5 * 60 : 60
+        } else {
+            delay = lastAttempt.succeeded ? 60 * 60 : 15 * 60
+        }
+        return now.timeIntervalSince(lastAttempt.time) >= delay
+    }
+
+    mutating func record(at time: Date, succeeded: Bool) {
+        lastAttempt = (time, succeeded)
+    }
+}
+
 private final class MacUpdateTableHeader: NSTableHeaderView {
     override func draw(_ dirtyRect: NSRect) {
         NSColor.windowBackgroundColor.setFill()
@@ -159,6 +181,8 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
     }
     private let session: URLSession
     private let catalogPage: ((Int) async throws -> Data)?
+    private let now: () -> Date
+    private var checkCadence = MacUpdateCheckCadence()
     private(set) var busy = false
     private var canCancel = false
     static let automaticKey = "bridge_automatic_updates"
@@ -171,10 +195,12 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
          espConnection: @escaping () -> ESPConnection = { .init() },
          upgradeTools: @escaping () throws -> Void, espTools: @escaping (URL, String, String?) throws -> Void,
          installDesktop: @escaping (URL, String) throws -> Void,
+         now: @escaping () -> Date = Date.init,
          catalogPage: ((Int) async throws -> Data)? = nil,
          downloadPackage: ((MacGalleryRelease, @escaping (Double) -> Void) async throws -> URL)? = nil) {
         self.tab5 = tab5; self.registry = registry; self.espConnection = espConnection
         self.upgradeTools = upgradeTools; self.espTools = espTools; self.installDesktop = installDesktop; self.catalogPage = catalogPage
+        self.now = now
         if let downloadPackage { self.downloadPackage = downloadPackage }
         else {
             let downloader = MacGalleryDownloader()
@@ -187,7 +213,7 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
         super.init(window:MacBridgeSettingsStyle.window("软件固件",width:800,height:640,minimumHeight:570)); window?.delegate = self
         let page = MacBridgeSettingsPage(); page.stack.spacing = 10; page.heading("软件固件")
         automatic.state = UserDefaults.standard.bool(forKey:Self.automaticKey) ? .on:.off; automatic.target = self; automatic.action = #selector(changeAutomatic)
-        checkButton = MacSettingsButton("检查更新") { [weak self] in self?.check() }
+        checkButton = MacSettingsButton("检查更新") { [weak self] in self?.check(.manual) }
         page.add(MacBridgeSettingsStyle.row([checkButton,automatic])); page.add(table)
         table.table.rowHeight = 32
         table.table.headerView = MacUpdateTableHeader(frame: NSRect(x: 0, y: 0, width: 0, height: 26))
@@ -212,16 +238,17 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
         focusAvailableAfterCheck = requested == nil && !checked
         refreshRows(select: requested ?? (busy ? selectedComponent : firstAvailableItem))
         MacSettingsControls.open(self)
-        if !checked { check() }
+        check(.foreground)
     }
     func startAutomaticChecks() {
         guard automaticTimer == nil else { return }
-        automaticTimer = Timer.scheduledTimer(withTimeInterval:21600,repeats:true) { [weak self] _ in if UserDefaults.standard.bool(forKey:Self.automaticKey) { self?.check() } }
-        if UserDefaults.standard.bool(forKey:Self.automaticKey) { check() }
+        automaticTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            if UserDefaults.standard.bool(forKey: Self.automaticKey) { self?.check(.background) }
+        }
     }
     @objc private func changeAutomatic() {
         UserDefaults.standard.set(automatic.state == .on,forKey:Self.automaticKey)
-        if automatic.state == .on { UNUserNotificationCenter.current().requestAuthorization(options:[.alert]) { _,_ in }; check() }
+        if automatic.state == .on { UNUserNotificationCenter.current().requestAuthorization(options:[.alert]) { _,_ in } }
     }
     private func controls() {
         let key = selectedComponent ?? ""
@@ -306,47 +333,63 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
         for try await byte in stream { try Task.checkCancellation(); guard data.count < maximum else { throw MacTab5LocalError.invalid("下载文件超过限制。") }; data.append(byte) }
         guard expected == nil || Int64(data.count) == expected else { throw MacTab5LocalError.invalid("下载大小与发布记录不一致。") }; return data
     }
-    private func check() {
-        guard !busy else { return }; busy = true; canCancel = true; controls(); status.stringValue = "正在读取正式发布记录…"
-        operation = Task { [weak self] in guard let self else { return }; do {
-            var result: [String:MacComponentRelease] = [:], complete = false
-            var galleryResult: [String:MacGalleryRelease] = [:]
-            for page in 1...10 {
-                let data: Data
-                if let catalogPage = self.catalogPage { data = try await catalogPage(page) }
-                else { data = try await self.bytes(URL(string:"https://api.github.com/repos/yaoyouzhong/AI-bot/releases?per_page=100&page=\(page)")!,maximum:2*1024*1024) }
-                let (releases,count) = try MacReleaseCatalog.parse(data)
-                MacGalleryRelease.merge(try MacGalleryRelease.parse(data).0, into: &galleryResult)
-                for r in releases {
-                    if let previous = result[r.component], !MacReleaseCatalog.prefers(r, over: previous) { continue }
-                    result[r.component] = r
-                }
-                if count < 100 { complete = true; break }
+    private func check(_ trigger: MacUpdateCheckCadence.Trigger) {
+        guard !busy, checkCadence.isDue(trigger, at: now()) else { return }
+        busy = true; canCancel = true; controls(); status.stringValue = "正在读取正式发布记录…"
+        operation = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                busy = false
+                canCancel = false
+                controls()
             }
-            guard complete else { throw MacTab5LocalError.invalid("发布记录超过查询范围。") }
-            await MainActor.run {
-                self.releases = result
-                self.galleryReleases = galleryResult
-                self.checked = true
-                let available = self.availableComponents
-                self.refreshRows(select: self.focusAvailableAfterCheck ? self.firstAvailableItem : nil)
-                self.focusAvailableAfterCheck = false
-                self.status.stringValue = "已检查更新。"
-                if self.catalogPage == nil, UserDefaults.standard.bool(forKey: Self.automaticKey), Bundle.main.bundleIdentifier != nil {
-                    for component in available {
+            do {
+                var result: [String:MacComponentRelease] = [:], complete = false
+                var galleryResult: [String:MacGalleryRelease] = [:]
+                for page in 1...10 {
+                    let data: Data
+                    if let catalogPage { data = try await catalogPage(page) }
+                    else { data = try await bytes(URL(string:"https://api.github.com/repos/yaoyouzhong/AI-bot/releases?per_page=100&page=\(page)")!,maximum:2*1024*1024) }
+                    try Task.checkCancellation()
+                    let (releases,count) = try MacReleaseCatalog.parse(data)
+                    MacGalleryRelease.merge(try MacGalleryRelease.parse(data).0, into: &galleryResult)
+                    for release in releases {
+                        if let previous = result[release.component], !MacReleaseCatalog.prefers(release, over: previous) { continue }
+                        result[release.component] = release
+                    }
+                    if count < 100 { complete = true; break }
+                }
+                guard complete else { throw MacTab5LocalError.invalid("发布记录超过查询范围。") }
+                checkCadence.record(at: now(), succeeded: true)
+                releases = result
+                galleryReleases = galleryResult
+                checked = true
+                refreshRows(select: focusAvailableAfterCheck ? firstAvailableItem : nil)
+                focusAvailableAfterCheck = false
+                status.stringValue = "已检查更新。"
+                if catalogPage == nil, UserDefaults.standard.bool(forKey: Self.automaticKey), Bundle.main.bundleIdentifier != nil {
+                    for component in availableComponents {
                         guard let release = result[component] else { continue }
                         let key = "update_notified_" + component
                         guard UserDefaults.standard.string(forKey: key) != release.version else { continue }
                         let notice = UNMutableNotificationContent()
                         notice.title = "AI-bot 有可用更新"
-                        notice.body = "\(self.componentNames[component] ?? component)：\(self.current(component)) → \(release.version)。点击查看更新。"
+                        notice.body = "\(componentNames[component] ?? component)：\(current(component)) → \(release.version)。点击查看更新。"
                         UNUserNotificationCenter.current().add(.init(identifier: key, content: notice, trigger: nil)) { error in
                             if error == nil { UserDefaults.standard.set(release.version, forKey: key) }
                         }
                     }
                 }
+            } catch {
+                if Task.isCancelled || error is CancellationError {
+                    status.stringValue = "已取消检查更新。"
+                } else {
+                    checkCadence.record(at: now(), succeeded: false)
+                    let message = checked ? "检查未完成，保留上次结果：" : "检查未完成："
+                    status.stringValue = message + error.localizedDescription
+                }
             }
-        } catch { await MainActor.run { self.status.stringValue = Task.isCancelled ? "已取消检查更新。" : "检查未完成，保留上次结果：" + error.localizedDescription } }; await MainActor.run { self.busy = false; self.canCancel = false; self.controls(); self.progress.isHidden = true } }
+        }
     }
     private func download() {
         guard !busy, let key = selectedComponent else { return }
