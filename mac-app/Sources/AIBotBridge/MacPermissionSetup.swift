@@ -189,16 +189,13 @@ enum MacPermissionSetup {
     static func request(_ step: Step, state: State) async {
         guard !Task.isCancelled, state.needsPermission else { return }
         if state == .settings {
-            if step == .accessibility, !AXIsProcessTrusted() {
-                // Ask macOS to register the app, then open the required pane even
-                // when macOS doesn't present its own alert.
+            if step == .accessibility {
+                guard !AXIsProcessTrusted() else { return }
+                // Register this running app, including after an upgrade. Opening
+                // Settings alone can leave the previous build's entry selected.
                 _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
-                openSettings(step)
-                // The checklist refreshes while Settings is open. Don't
-                // hold the request queue waiting for a system toggle.
-            } else {
-                openSettings(step)
             }
+            openSettings(step)
             return
         }
         switch step {
@@ -228,6 +225,7 @@ enum MacPermissionSetup {
         case .localNetwork:
             LocalNetworkIdentity.preparePrivacyPrompt()
         case .accessibility:
+            guard AXIsProcessTrusted(), !CGPreflightPostEventAccess() else { return }
             _ = CGRequestPostEventAccess()
         case .bluetooth:
             return

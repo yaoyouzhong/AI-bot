@@ -89,9 +89,7 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
             run { [weak self] in
                 guard let self else { return }
                 await MacPermissionSetup.runInitial(steps: steps, mode: mode, state: self.readState) { step, state in
-                    // On upgrade, go straight to Settings. The OS's separate
-                    // invitation to open Settings can remain after access is granted.
-                    await self.perform(step, state, promptForAccessibility: mode == .firstLaunch)
+                    await self.perform(step, state)
                 }
             }
         } else { refresh() }
@@ -143,7 +141,7 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
             case (.accessibility, .settings):
                 row.status.stringValue = "当前 App 未授权"
                 row.detail.stringValue = "开关已开时，请核对系统设置里选中的是当前 App。"
-                row.button.title = "打开系统设置…"
+                row.button.title = "授权当前 App…"
             case (.accessibility, .request):
                 row.status.stringValue = "已授权，输入待确认"
                 row.detail.stringValue = "确认输入权限后，设备即可操作 Mac 上的应用。"
@@ -196,14 +194,10 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
         }
     }
 
-    private func perform(_ step: Step, _ state: State, promptForAccessibility: Bool = true) async {
+    private func perform(_ step: Step, _ state: State) async {
         if step == .accessibility, state == .settings { followUpAccessibilityRequest = true }
         display(states, active: step)
-        if step == .accessibility, state == .settings, !promptForAccessibility {
-            MacPermissionSetup.openSettings(step)
-        } else {
-            await request(step, state)
-        }
+        await request(step, state)
         guard !Task.isCancelled else { return }
         var next = states
         next[step] = await readState(step)
@@ -217,12 +211,7 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
             guard let self else { return }
             let state = await self.readState(step)
             guard !Task.isCancelled, state.needsPermission else { return }
-            // A manual click opens Settings in one step, even if macOS no longer
-            // shows its Accessibility prompt for this app.
-            if state == .settings, step == .accessibility {
-                self.followUpAccessibilityRequest = true
-                MacPermissionSetup.openSettings(step)
-            } else { await self.perform(step, state) }
+            await self.perform(step, state)
         }
     }
     @objc private func revealCurrentApp() {

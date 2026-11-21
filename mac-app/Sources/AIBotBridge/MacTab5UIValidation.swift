@@ -575,6 +575,7 @@ enum MacTab5UIValidation {
         updated[.accessibility] = .settings
         setup.display(updated)
         guard button(.accessibility)?.isEnabled == true,
+              button(.accessibility)?.title == "授权当前 App…",
               reveal?.isHidden == false,
               buttons.contains(where: { $0.title == "稍后完成" && $0.isEnabled }),
               status(.accessibility) == "当前 App 未授权"
