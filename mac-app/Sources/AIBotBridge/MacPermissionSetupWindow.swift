@@ -12,7 +12,7 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
     private let revealAppButton = NSButton(title: "在 Finder 中显示当前 App", target: nil, action: nil)
     private let subtitle = MacBridgeSettingsStyle.note("")
     private let progress = MacBridgeSettingsStyle.note("")
-    private var rows: [Step: (view: NSView, status: NSTextField, button: NSButton)] = [:]
+    private var rows: [Step: (view: NSView, detail: NSTextField, status: NSTextField, button: NSButton)] = [:]
     private var visibleSteps = Step.allCases
     private var notificationRequestPending = false
     private var followUpAccessibilityRequest = false
@@ -34,12 +34,13 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
         configurePresentation()
         for (index, step) in Step.allCases.enumerated() {
             let status = MacBridgeSettingsStyle.note("")
+            status.identifier = .init("permission-status-\(step)")
+            let detail = MacBridgeSettingsStyle.note(step.detail)
             let button = NSButton(title: "授权…", target: self, action: #selector(allow(_:)))
             button.tag = index
             button.identifier = .init("permission-\(step)")
             style(button)
-            let labels = NSStackView(views: [MacBridgeSettingsStyle.label(step.title, weight: .semibold),
-                                            MacBridgeSettingsStyle.note(step.detail)])
+            let labels = NSStackView(views: [MacBridgeSettingsStyle.label(step.title, weight: .semibold), detail])
             labels.orientation = .vertical
             labels.alignment = .leading
             labels.spacing = 3
@@ -50,7 +51,7 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
             page.add(row)
             labels.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.53).isActive = true
             status.widthAnchor.constraint(equalToConstant: 112).isActive = true
-            rows[step] = (row, status, button)
+            rows[step] = (row, detail, status, button)
         }
         style(closeButton)
         closeButton.target = self; closeButton.action = #selector(dismiss)
@@ -138,12 +139,32 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
         for (step, row) in rows {
             let state = states[step] ?? .checking
             let retry = step == .notifications && state == .request && notificationRequestPending
-            row.status.stringValue = active == step ? (step == .accessibility ? "请在系统设置中开启" : "请确认系统提示") :
-                (retry ? "尚未收到系统确认" :
-                    step == .localNetwork && state == .settings ? "由系统管理" :
-                    step == .accessibility && state.needsPermission ? "权限未生效" : state.caption)
-            row.button.title = retry ? "重试通知授权…" :
-                state == .openApp ? "打开并授权…" : state == .settings ? "打开系统设置…" : "授权…"
+            switch (step, state) {
+            case (.accessibility, .settings):
+                row.status.stringValue = "当前 App 未授权"
+                row.detail.stringValue = "开关已开时，请核对系统设置里选中的是当前 App。"
+                row.button.title = "打开系统设置…"
+            case (.accessibility, .request):
+                row.status.stringValue = "已授权，输入待确认"
+                row.detail.stringValue = "确认输入权限后，设备即可操作 Mac 上的应用。"
+                row.button.title = "确认输入权限…"
+            case (.accessibility, _):
+                row.status.stringValue = state.caption
+                row.detail.stringValue = step.detail
+                row.button.title = "授权…"
+            case (.systemEvents, .openApp):
+                row.status.stringValue = active == step ? "正在检查" : "待检查授权"
+                row.button.title = "检查并授权…"
+            case (.systemEvents, .request):
+                row.status.stringValue = active == step ? "请确认系统提示" : state.caption
+                row.button.title = "授权系统事件…"
+            default:
+                row.status.stringValue = active == step ? "请确认系统提示" :
+                    retry ? "尚未收到系统确认" :
+                    step == .localNetwork && state == .settings ? "由系统管理" : state.caption
+                row.button.title = retry ? "重试通知授权…" :
+                    state == .openApp ? "打开并授权…" : state == .settings ? "打开系统设置…" : "授权…"
+            }
             row.button.setAccessibilityLabel(row.button.title + " " + step.title)
             row.button.isHidden = !state.needsPermission
             row.button.isEnabled = state.needsPermission && requestTask == nil

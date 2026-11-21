@@ -233,7 +233,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             var states: [MacPermissionSetup.Step: MacPermissionSetup.State] = [:]
             for step in MacPermissionSetup.Step.allCases {
                 states[step] = await MacPermissionSetup.state(step, enabled: self.permissionEnabled,
-                                                              startSystemEvents: mode == .upgrade)
+                                                              startSystemEvents: true)
             }
             let steps = MacPermissionSetup.pendingSteps(states, mode: mode)
             // Do not repeat the automatic review after "Finish Later" or

@@ -26,10 +26,10 @@ enum MacPermissionSetup {
         Step.allCases.filter { step in
             let state = states[step] ?? .checking
             guard state.needsPermission else { return false }
-            // A stopped Automation target and Local Network don't have a
-            // definite status from a read-only check. System Events is a
-            // background system helper and can be started just for preflight.
-            return mode == .firstLaunch || (state != .openApp && step != .localNetwork)
+            guard mode == .upgrade else { return true }
+            // System Events is a background helper. Retry if it stopped or
+            // wasn't ready during preflight. Don't open other apps on upgrade.
+            return step != .localNetwork && (state != .openApp || step == .systemEvents)
         }
     }
 
@@ -81,7 +81,7 @@ enum MacPermissionSetup {
             case .terminal: return "可提前授权；配对 TAB5 后才能操作 Claude Code 会话。"
             case .music, .spotify: return "显示播放状态，并支持从 TAB5 控制播放。"
             case .systemEvents: return "允许从 TAB5 锁定 Mac。"
-            case .accessibility: return "部分 macOS 显示为「设备控制和数据访问」。开关已开但未生效时，核对当前 App 后关闭再开启；仍无效则移除旧条目，再添加当前 App。"
+            case .accessibility: return "允许从设备操作 Mac 上的应用。"
             }
         }
         var target: String? {
@@ -234,7 +234,9 @@ enum MacPermissionSetup {
         default:
             guard let id = step.target else { return }
             var target = running(id)
-            if target == nil, state == .openApp { target = await startAutomationTarget(id) }
+            if target == nil, state == .openApp || step == .systemEvents {
+                target = await startAutomationTarget(id)
+            }
             guard let target, !Task.isCancelled else { return }
             let status = await preflightAutomation(target, waitForLaunch: true)
             if !Task.isCancelled, status == OSStatus(errAEEventWouldRequireUserConsent) {

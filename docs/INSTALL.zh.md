@@ -146,7 +146,7 @@ TAB5 需要无线时，在 **连接设置 → Wi-Fi** 保存网络并确认有�
 **辅助功能和升级：** 从 0.6.23 起，新版首次打开时只提示已启用功能中缺失的权限；已有授权不再弹。开启电脑控制时也会检查「系统事件自动化」。系统权限由 macOS 确认；明确关闭的功能设置会保留。
 
 1. 在引导中点“打开系统设置…”，到“隐私与安全性 → 辅助功能”（部分系统名称为“设备控制和数据访问”）允许 **AI-bot Bridge**。
-2. 如果系统开关已开但引导显示「权限未生效」，用「在 Finder 中显示当前 App」核对副本。关开仍无效时，移除旧条目，用「＋」添加当前 App 并开启。引导也可稍后完成。
+2. 系统开关已开但引导显示「当前 App 未授权」时，点「在 Finder 中显示当前 App」核对系统设置里的副本。若系统仍列着旧副本，移除旧条目并用「＋」添加当前 App。显示「已授权，输入待确认」时，点「确认输入权限…」并按 macOS 提示操作。引导也可稍后完成。
 3. 覆盖升级后，macOS 可能要求重新确认系统权限，或访问钥匙串中的 **“AI-bot Bridge 资料”**。确认提示来自刚安装的 AI-bot 后，再按需允许。钥匙串访问与辅助功能等系统权限分别确认。
 
 升级前正常退出桥接；需要备份时用 ZIP 或“应用程序”外的独立目录，不把改名的旧 `.app` 留在“应用程序”中。[0.6.23 验收范围](RELEASE-0.6.23.md) · [旧版授权说明短片](MAC-AUTHORIZATION-VIDEO.md)
@@ -200,6 +200,8 @@ Current downloads are Windows bridge 0.6.28, Apple Silicon Mac bridge 0.6.28, TA
 2. **Connect with a USB data cable.** On Windows, Device Center opens on first launch. Choose **Add Your First Device**, select the model and confirm your USB device. Refresh the list if the device is missing. On Mac, open Device Center from the menu bar and choose **Add Device**.
 3. **Choose the next action.** If AI-bot is already installed on the device, select **Connect a device with AI-bot** on Windows. If AI-bot is installed only on the computer, select **Install AI-bot on the device**. Connect USB. For TAB5, hold RESET until the green light flashes quickly. Select **Install AI-bot** and confirm the write. After verification, press RESET briefly on TAB5 or wait for the ESP8266 to start. Select **Verify and Add** when the device is ready. [Illustrated steps for both devices](FIRST-INSTALL.zh.md#windows-first-device)
 4. **Check the result.** The device appears in Device Center as online, USB shows as connected, and the clock on the device updates.
+
+On Mac, open System Permissions from Device Center → Bridge Settings. If the current app needs Accessibility access, use the Finder button to identify the copy you are running. If Accessibility is granted and input still needs confirmation, use the input permissions button and follow the macOS prompt.
 
 For later TAB5 updates, extract the upgrade ZIP and select `aibot_tab5.bin` with its adjacent notes file. Start the upgrade, wait for restart and verify boot. Existing paired settings and artwork stay in place. Firmware ZIPs for the two hardware types are not interchangeable; GitHub Source code archives are not firmware packages.
 

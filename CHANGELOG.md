@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
 - **See updates sooner.** With automatic checks enabled, the bridge checks every hour after a successful check and retries about 15 minutes after a failure.
 - **Refresh when opening Software/Firmware.** The page checks for updates if it has no results or its last successful check is at least five minutes old. If a check fails, the page keeps the last successful results.
 
+### Mac
+
+- **Grant System Events and Accessibility separately.** The bridge checks and requests System Events access as needed on first launch and after upgrades. System Permissions also shows whether the current app has Accessibility access and whether input needs confirmation.
+
 ## 0.6.27 - 2026-11-20
 
 ### Windows
