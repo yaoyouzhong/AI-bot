@@ -16,6 +16,7 @@ internal sealed class UpdateCenterForm : Form
     private readonly System.Windows.Forms.Timer _timer=new(){Interval=2000};
     private CancellationTokenSource? _operation;
     private readonly Action _refreshRows;
+    private readonly Func<UpdateCheckTrigger,Task> _checkCatalog;
     private bool _disposed,_busy;
     private bool _prioritizeUpdates,_focusPending;
     private string? _focusId;
@@ -32,6 +33,7 @@ internal sealed class UpdateCenterForm : Form
         _focusPending=true;
         _focusId=deviceId;
         _refreshRows();
+        if(Visible)_=_checkCatalog(UpdateCheckTrigger.Foreground);
     }
     internal UpdateCenterForm(Func<UpdateDevice[]> capture,Func<UpdateDevice,PreparedUpdate,Task<bool>> install,UpdateService service) {
         SuspendLayout();
@@ -171,12 +173,15 @@ internal sealed class UpdateCenterForm : Form
         service.Changed+=CatalogChanged;FormClosed+=(_,_)=>service.Changed-=CatalogChanged;
         automatic.CheckedChanged+=(_,_)=>{try{UserPreferenceFile.Write("updates.json",UpdateReminder.Read() with {Automatic=automatic.Checked});}catch(Exception ex){state.Text="提醒设置未保存："+ex.Message;}};
         grid.CurrentCellChanged+=(_,_)=>{if(!refreshing&&IsHandleCreated)BeginInvoke((Action)(()=>{if(!IsDisposed)Buttons();}));};
-        check.Click+=async(_,_)=>{
+        async Task CheckCatalogAsync(UpdateCheckTrigger trigger) {
+            if(_busy||_disposed||!service.IsCheckDue(trigger))return;
             _busy=true;check.Enabled=false;Buttons();state.Text="正在查询软件、固件和图库的正式更新…";
-            try{await service.CheckAsync(_stop.Token);}
+            try{await service.CheckAsync(_stop.Token,trigger);}
             catch(Exception ex){if(!IsDisposed)state.Text="检查未完成："+ex.Message;}
             finally{_busy=false;if(!IsDisposed){check.Enabled=true;CatalogChanged();}}
-        };
+        }
+        _checkCatalog=CheckCatalogAsync;
+        check.Click+=async(_,_)=>await CheckCatalogAsync(UpdateCheckTrigger.Manual);
         async Task<IReadOnlyDictionary<string,ComponentUpdate>?> ReadPublishedNotes() {
             var token=_stop.Token;
             try {
@@ -219,7 +224,7 @@ internal sealed class UpdateCenterForm : Form
             finally{_operation?.Dispose();_operation=null;_busy=false;if(!IsDisposed){cancel.Enabled=false;cancel.Visible=false;check.Enabled=true;progress.Visible=false;RefreshRows();}}
         };
         site.LinkClicked+=(_,_)=>{try{Process.Start(new ProcessStartInfo("https://github.com/yaoyouzhong/AI-bot/blob/main/DOWNLOADS.md"){UseShellExecute=true});}catch(Exception ex){state.Text=ex.Message;}};
-        Shown+=(_,_)=>{CatalogChanged();_timer.Start();if(service.CheckedAt is null)check.PerformClick();};_timer.Tick+=(_,_)=>RefreshRows();
+        Shown+=async(_,_)=>{CatalogChanged();_timer.Start();await CheckCatalogAsync(UpdateCheckTrigger.Foreground);};_timer.Tick+=(_,_)=>RefreshRows();
         FormClosing+=(_,_)=>{_operation?.Cancel();_stop.Cancel();};SettingsWindow.FitScreen(this);
         ResumeLayout(true);
     }

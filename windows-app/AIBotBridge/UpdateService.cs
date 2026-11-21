@@ -13,24 +13,40 @@ internal sealed record PreparedUpdate(ComponentUpdate Release,string File,string
     }
 }
 
+internal enum UpdateCheckTrigger { Manual, Foreground, Background }
+
 // Public release metadata and files only. No device writes or installer launches.
 internal sealed class UpdateService : IDisposable
 {
     private readonly HttpClient _http;
+    private readonly TimeProvider _clock;
     private readonly SemaphoreSlim _query=new(1,1);
+    private DateTimeOffset? _failedAt;
     internal IReadOnlyDictionary<string,ComponentUpdate> Available {get;private set;}=new Dictionary<string,ComponentUpdate>();
     internal IReadOnlyDictionary<string,GalleryUpdate> Galleries {get;private set;}=new Dictionary<string,GalleryUpdate>();
     internal DateTimeOffset? CheckedAt {get;private set;}
     internal string? Error {get;private set;}
     internal event Action? Changed;
     internal event Action<string>? TransferTrace;
-    internal UpdateService(HttpMessageHandler? handler=null) {
+    internal UpdateService(HttpMessageHandler? handler=null,TimeProvider? clock=null) {
+        _clock=clock??TimeProvider.System;
         _http=new(handler??new HttpClientHandler{AllowAutoRedirect=false}){Timeout=TimeSpan.FromMinutes(10)};
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("AI-bot/"+Application.ProductVersion.Split('+')[0]);
     }
-    internal async Task CheckAsync(CancellationToken cancellation) {
+    internal bool IsCheckDue(UpdateCheckTrigger trigger) {
+        if(trigger==UpdateCheckTrigger.Manual)return true;
+        bool foreground=trigger==UpdateCheckTrigger.Foreground;
+        var delay=_failedAt is null
+            ? (foreground?TimeSpan.FromMinutes(5):TimeSpan.FromHours(1))
+            : (foreground?TimeSpan.FromMinutes(1):TimeSpan.FromMinutes(15));
+        return (_failedAt??CheckedAt) is not {} last||_clock.GetUtcNow()-last>=delay;
+    }
+
+    internal async Task CheckAsync(CancellationToken cancellation,UpdateCheckTrigger trigger=UpdateCheckTrigger.Manual) {
         await _query.WaitAsync(cancellation);
         try {
+            // A check that already refreshed the shared catalog also satisfies a queued automatic check.
+            if(!IsCheckDue(trigger))return;
             using var deadline=CancellationTokenSource.CreateLinkedTokenSource(cancellation);deadline.CancelAfter(TimeSpan.FromSeconds(45));
             var next=new Dictionary<string,ComponentUpdate>(StringComparer.Ordinal);
             var galleries=new Dictionary<string,GalleryUpdate>(StringComparer.Ordinal);
@@ -41,11 +57,12 @@ internal sealed class UpdateService : IDisposable
                     if(!next.TryGetValue(item.Key,out var old)||ComponentUpdateCatalog.Prefer(item.Value,old))next[item.Key]=item.Value;
                 foreach(var item in GalleryUpdateCatalog.Read(doc.RootElement))
                     if(!galleries.TryGetValue(item.Key,out var old)||item.Value.Number>old.Number)galleries[item.Key]=item.Value;
-                if(doc.RootElement.GetArrayLength()<100){Available=next;Galleries=galleries;CheckedAt=DateTimeOffset.UtcNow;Error=null;Changed?.Invoke();return;}
+                if(doc.RootElement.GetArrayLength()<100){Available=next;Galleries=galleries;CheckedAt=_clock.GetUtcNow();_failedAt=null;Error=null;Changed?.Invoke();return;}
             }
             throw new InvalidDataException("发布记录超过查询范围，请稍后重试。");
         }
-        catch(Exception ex){Error=ex is OperationCanceledException?"检查已取消或超时":ex.Message;Changed?.Invoke();throw;}
+        catch(OperationCanceledException) when(cancellation.IsCancellationRequested){throw;}
+        catch(Exception ex){_failedAt=_clock.GetUtcNow();Error=ex is OperationCanceledException?"检查超时":ex.Message;Changed?.Invoke();throw;}
         finally{_query.Release();}
     }
     internal static string? Blocked(UpdateDevice device,ComponentUpdate? release) {

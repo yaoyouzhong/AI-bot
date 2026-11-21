@@ -32,7 +32,8 @@ internal static class UpdateUiSelfTest
                 :path.EndsWith(".zip")?package:path.EndsWith(".exe")?installer:Encoding.UTF8.GetBytes(releases);
             return new(HttpStatusCode.OK){Content=new ByteArrayContent(data)};
         };
-        using var service=new UpdateService(handler);
+        var clock=new UpdateSelfTest.Clock();
+        using var service=new UpdateService(handler,clock);
         var (manager,esp)=EspUpdateSelfTest.Fixture();EspUpdateSelfTest.Usb(manager,"0.5.0");
         UpdateDevice[] devices=[new("bridge","电脑端 AI-bot","0.5.1","运行中",true,"bridge","安装程序"),new("tab","M5Stack TAB5","0.2.131-ui","在线",true,"upgrade-tab5","在设备上确认安装"),UpdateDevice.From(esp,manager.View(esp))];
         int handoffs=0;string? target=null;
@@ -46,6 +47,14 @@ internal static class UpdateUiSelfTest
         // pumping can uninstall the WinForms synchronization context between awaits.
         form.Shown+=async(_,_)=>{try {
         await Wait(()=>service.CheckedAt is not null);
+        var checkButton=(Button)form.Controls.Find("check",true).Single();
+        int requestsBeforeFocus=Volatile.Read(ref catalogRequests);
+        form.FocusUpdate(null);
+        if(Volatile.Read(ref catalogRequests)!=requestsBeforeFocus)throw new Exception("Fresh catalog was fetched again on opening");
+        clock.Advance(TimeSpan.FromMinutes(5));
+        form.FocusUpdate(null);
+        await Wait(()=>Volatile.Read(ref catalogRequests)>requestsBeforeFocus&&checkButton.Enabled);
+        if(Volatile.Read(ref catalogRequests)!=requestsBeforeFocus+1)throw new Exception("Opening with a stale catalog did not check exactly once");
         string? SelectedName()=>grid.CurrentRow?.Cells[0].Value?.ToString();
         devices[0]=devices[0] with {Version="0.5.0"};
         using(var focused=new UpdateCenterForm(()=>devices,(_,_)=>Task.FromResult(true),service)){
