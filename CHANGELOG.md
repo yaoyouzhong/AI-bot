@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.28 - 2026-11-21
+
+### Windows and Apple Silicon Mac
+
+- **See updates sooner.** With automatic checks enabled, the bridge checks every hour after a successful check and retries about 15 minutes after a failure.
+- **Refresh when opening Software/Firmware.** The page checks for updates if it has no results or its last successful check is at least five minutes old. If a check fails, the page keeps the last successful results.
+
 ## 0.6.27 - 2026-11-20
 
 ### Windows
