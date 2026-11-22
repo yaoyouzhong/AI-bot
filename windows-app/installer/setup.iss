@@ -117,9 +117,9 @@ Filename: "{app}\AIBotBridge.exe"; Parameters: "--configure-login-helper uninsta
 Filename: "{app}\AIBotBridge.exe"; Parameters: "--tightvnc-uninstall-prompt"; Flags: runhidden; RunOnceId: "TightVNC-component-removal"
 
 [Files]
-Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; A missing WebView2 runtime must be installable before unpacking the bridge.
 Source: "{#DependencyDir}\webview2-bootstrapper.exe"; Flags: dontcopy
-Source: "prepare_bridge_upgrade.ps1"; Flags: dontcopy
+Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: solidbreak ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{userprograms}\AI-bot"; Filename: "{app}\AIBotBridge.exe"
@@ -136,6 +136,7 @@ const
   UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{8B24B155-4218-4B40-AD4A-6185901D351B}_is1';
 var
   DependencyPage: TOutputMsgWizardPage;
+  BridgeWaitingPage: TOutputMarqueeProgressWizardPage;
   DownloadPage: TDownloadWizardPage;
   RuntimeRestartRequired: Boolean;
   PreserveUnlockSettings: Boolean;
@@ -331,16 +332,15 @@ begin
   Result := True;
 end;
 
+#include "bridge_shutdown.iss"
+
 function PrepareBridgeUpgrade: String;
 var Code: Integer;
 begin
   Result := '';
   WizardForm.StatusLabel.Caption := '正在检查 AI-bot 是否需要退出…';
-  ExtractTemporaryFile('prepare_bridge_upgrade.ps1');
-  if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-    '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\prepare_bridge_upgrade.ps1') + '"',
-    '', SW_HIDE, ewWaitUntilTerminated, Code) then
-    Code := 4;
+  Log('Checking for an active bridge or flash operation.');
+  Code := RequestBridgeShutdown;
   Log('Bridge shutdown check returned ' + IntToStr(Code) + '.');
   case Code of
     0: ;
