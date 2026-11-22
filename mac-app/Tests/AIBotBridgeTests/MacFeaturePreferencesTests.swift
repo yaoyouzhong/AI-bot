@@ -1,4 +1,5 @@
 import XCTest
+import CoreLocation
 @testable import AIBotBridge
 
 final class MacFeaturePreferencesTests: XCTestCase {
@@ -14,6 +15,18 @@ final class MacFeaturePreferencesTests: XCTestCase {
             requested.append(step)
         })
         XCTAssertEqual(requested, [.location, .notifications, .terminal, .music, .systemEvents, .localNetwork, .accessibility])
+    }
+
+    @MainActor func testConflictingAccessibilityCopyIsVisibleWithoutRequestingConsent() async {
+        for mode in [MacPermissionSetup.LaunchMode.firstLaunch, .upgrade] {
+            let steps = MacPermissionSetup.pendingSteps([.accessibility: .conflictingCopy, .systemEvents: .request], mode: mode)
+            XCTAssertTrue(steps.contains(.accessibility))
+            var requested: [MacPermissionSetup.Step] = []
+            await MacPermissionSetup.runInitial(steps: steps, mode: mode,
+                state: { $0 == .accessibility ? .conflictingCopy : .request },
+                request: { step, _ in requested.append(step) })
+            XCTAssertEqual(requested, [.systemEvents])
+        }
     }
 
     @MainActor func testPermissionReviewRunsOncePerVersionIncludingLegacyInstalls() {
@@ -95,6 +108,20 @@ final class MacFeaturePreferencesTests: XCTestCase {
             }, settle: {})
             XCTAssertEqual(attempts, 2)
         }
+    }
+
+    @MainActor func testUndecidedWeatherLocationDoesNotBlockLaterPermissions() async {
+        typealias Step = MacPermissionSetup.Step
+        let states: [Step: MacPermissionSetup.State] = [.location: .request, .systemEvents: .request, .accessibility: .settings]
+        var requested: [Step] = []
+        await MacPermissionSetup.runInitial(steps: [.location, .systemEvents, .accessibility], mode: .upgrade,
+            state: { states[$0] ?? .unused }, request: { step, _ in
+                if step == .location {
+                    await MacPermissionSetup.waitForLocationDecision(status: { .notDetermined }, settle: {})
+                }
+                requested.append(step)
+            })
+        XCTAssertEqual(requested, [.location, .systemEvents, .accessibility])
     }
 
     @MainActor func testCancellingGuideStopsAfterCurrentPrompt() async {

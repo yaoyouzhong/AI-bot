@@ -238,7 +238,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             let steps = MacPermissionSetup.pendingSteps(states, mode: mode)
             // Do not repeat the automatic review after "Finish Later" or
             // a denial. The full checklist remains available on demand.
-            UserDefaults.standard.set(version, forKey: MacPermissionSetup.checkedVersionKey)
+            // A temporary copy must not consume the installed version’s review.
+            if states[.accessibility] != .conflictingCopy {
+                UserDefaults.standard.set(version, forKey: MacPermissionSetup.checkedVersionKey)
+            }
             if !steps.isEmpty {
                 let window = self.permissionWindow()
                 window.onIdle = { [weak self] in self?.finishInitialPermissions() }
@@ -283,7 +286,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         return window
     }
 
-    @MainActor private func openPermissionSetup() { permissionWindow().open() }
+    @MainActor @objc private func openPermissionSetup() {
+        let controller = permissionWindow()
+        if !controller.resumeIfOpen() { controller.open() }
+    }
 
     func applicationWillTerminate(_ notification: Notification) {
         timer?.invalidate()
@@ -313,8 +319,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         guard !MacDoubaoSpeech.hasActiveSession else { return false }
-        openTab5()
+        Task { @MainActor [weak self] in self?.resumePermissionsOrOpenDeviceCenter() }
         return false
+    }
+
+    @MainActor private func resumePermissionsOrOpenDeviceCenter() {
+        if permissionSetupWindow?.resumeIfOpen() != true { openTab5() }
     }
 
     private func configureApplicationMenu() {
@@ -338,6 +348,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         windowMenu.delegate = self
         windowMenu.addItem(NSMenuItem(title: "关闭窗口", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
         windowMenu.addItem(item("设备中心…", #selector(openTab5)))
+        windowMenu.addItem(item("系统授权…", #selector(openPermissionSetup)))
         windowItem.submenu = windowMenu
         menu.addItem(windowItem)
         NSApp.mainMenu = menu
@@ -407,7 +418,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
 
     private func buildMenu() -> NSMenu {
-        MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
+        let menu = MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
             guard let self, let current = self.devices.device(device.kind), current.id == device.id, current.enabled else { return }
             if action == "mirror" {
                 if device.kind == "esp8266" { self.openMirror() }
@@ -428,6 +439,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             if action == "devices" { self?.openTab5() }
             else if action == "exit" { self?.quit() }
         })
+        menu.insertItem(item("系统授权…", #selector(openPermissionSetup)), at: max(0, menu.items.count - 1))
+        return menu
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
@@ -636,7 +649,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         guard ids.indices.contains(sender.indexOfSelectedItem) else { return }
         UserDefaults.standard.set(ids[sender.indexOfSelectedItem],forKey:"weather_animation"); updateTitle()
     }
-    @objc private func statusClicked(){guard let button=statusItem.button else{return};if NSApp.currentEvent?.type == .rightMouseUp {buildMenu().popUp(positioning:nil,at:NSPoint(x:0,y:button.bounds.minY),in:button)}else{openTab5()}}
+    @objc private func statusClicked() {
+        guard let button = statusItem.button else { return }
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            buildMenu().popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY), in: button)
+        } else {
+            Task { @MainActor [weak self] in self?.resumePermissionsOrOpenDeviceCenter() }
+        }
+    }
     @objc private func openMirror() {
         guard let button=statusItem.button else{return}
         if mirror == nil { mirror=MacMirrorWindow(anchor:button,capture:{[weak self] in self?.reader.capture(extras:self?.dataStore.snapshot() ?? .empty) ?? SessionActivityReader().capture()},resources:{[weak self] in self?.resourceSnapshot() ?? []},select:{[weak self] mode in self?.selectMode(mode)},brightness:{[weak self] level in self?.serial?.sendBrightness(level) ?? false}) }

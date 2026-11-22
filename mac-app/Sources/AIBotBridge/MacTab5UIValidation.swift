@@ -570,9 +570,9 @@ enum MacTab5UIValidation {
               terminal.isHiddenOrHasHiddenAncestor, !location.isHiddenOrHasHiddenAncestor,
               button(.notifications)?.isHiddenOrHasHiddenAncestor == false else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions-upgrade", output: output)
-        setup.configurePresentation()
         var updated = Dictionary(uniqueKeysWithValues: Step.allCases.map { ($0, State.allowed) })
         updated[.accessibility] = .settings
+        setup.configurePresentation(mode: .upgrade, steps: [.accessibility])
         setup.display(updated)
         guard button(.accessibility)?.isEnabled == true,
               button(.accessibility)?.title == "授权当前 App…",
@@ -581,6 +581,11 @@ enum MacTab5UIValidation {
               status(.accessibility) == "当前 App 未授权"
         else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions-accessibility", output: output)
+        updated[.accessibility] = .conflictingCopy
+        setup.display(updated)
+        guard status(.accessibility) == "请先完成安装", button(.accessibility)?.isHidden == true,
+              reveal?.isHidden == false else { throw MacTab5Error.unconfirmed }
+        try validateSettings(window, name: "system-permissions-install", output: output)
         updated[.accessibility] = .request
         updated[.systemEvents] = .openApp
         setup.configurePresentation(mode: .upgrade, steps: MacPermissionSetup.pendingSteps(updated, mode: .upgrade))

@@ -108,6 +108,19 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
         requestTask?.cancel()
     }
 
+    func windowDidBecomeKey(_ notification: Notification) {
+        refresh()
+    }
+
+    func resumeIfOpen() -> Bool {
+        guard let window, window.isVisible || window.isMiniaturized else { return false }
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        refresh()
+        return true
+    }
+
     private func refresh() {
         guard refreshTask == nil, requestTask == nil else { return }
         refreshTask = Task { [weak self] in
@@ -138,9 +151,12 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
             let state = states[step] ?? .checking
             let retry = step == .notifications && state == .request && notificationRequestPending
             switch (step, state) {
+            case (.accessibility, .conflictingCopy):
+                row.status.stringValue = state.caption
+                row.detail.stringValue = "「应用程序」中还有另一份桥接。请先安装要用的版本，从那里启动后再授权。"
             case (.accessibility, .settings):
                 row.status.stringValue = "当前 App 未授权"
-                row.detail.stringValue = "开关已开时，请核对系统设置里选中的是当前 App。"
+                row.detail.stringValue = "在系统设置的「辅助功能」中开启桥接。若已开启仍未生效，用「−」仅移除列表里的旧条目，再用「＋」添加下方 Finder 按钮显示的 App。返回此页可查看结果。"
                 row.button.title = "授权当前 App…"
             case (.accessibility, .request):
                 row.status.stringValue = "已授权，输入待确认"
@@ -167,10 +183,10 @@ final class MacPermissionSetupWindow: NSWindowController, NSWindowDelegate {
             row.button.isHidden = !state.needsPermission
             row.button.isEnabled = state.needsPermission && requestTask == nil
         }
-        let pending = visibleSteps.filter { $0 != .localNetwork && states[$0]?.needsPermission == true }.count
+        let pending = visibleSteps.filter { $0 != .localNetwork && states[$0]?.needsAttention == true }.count
         progress.stringValue = active.map { "正在处理：\($0.title)" } ?? (pending == 0 ? "已检查当前可用的权限。" : "还有 \(pending) 项可处理。")
         closeButton.title = pending == 0 && active == nil ? "完成" : "稍后完成"
-        revealAppButton.isHidden = !visibleSteps.contains(.accessibility) || states[.accessibility] != .settings
+        revealAppButton.isHidden = !visibleSteps.contains(.accessibility) || (states[.accessibility] != .settings && states[.accessibility] != .conflictingCopy)
             || (active != nil && active != .accessibility)
         page.needsLayout = true
         if let active, let row = rows[active]?.view {

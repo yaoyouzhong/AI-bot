@@ -90,7 +90,7 @@ enum MacClaudeWindowPermissions {
     }
 
     static func configure(completion: @escaping () -> Void) {
-        if !AXIsProcessTrusted() {
+        if !AXIsProcessTrusted(), !MacAccessibilityInstallation.hasConflictingCopy() {
             _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
                 NSWorkspace.shared.open(url)
