@@ -206,6 +206,10 @@ internal sealed class UpdateCenterForm : Form
             }
             var target=Selected()?.Device;var release=Release(target);
             if(target is null||release is null||UpdateService.PreparationBlocked(target,release) is not null)return;
+            if (target.Component == "bridge") {
+                using var confirmation = new DesktopUpgradeConfirmation(target.Version, release.Version);
+                if (confirmation.ShowDialog(this) != DialogResult.OK) return;
+            }
             bool handedOff=false;_operation=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);_busy=true;check.Enabled=false;cancel.Enabled=true;cancel.Visible=true;progress.Value=0;progress.Visible=true;Buttons();state.Text="正在下载并校验 "+target.Name+" 的更新…";
             try {
                 var prepared=await service.DownloadAsync(release,Application.ProductVersion.Split('+')[0],new Progress<int>(value=>{if(!IsDisposed)progress.Value=Math.Clamp(value,0,100);}),_operation.Token);

@@ -49,17 +49,146 @@ internal static class ConfigurationBackup
 }
 internal sealed class ConfigurationBackupForm : Form
 {
-    internal ConfigurationBackupForm(Action restored) {
-        Text="AI-bot · 配置迁移";Font=SettingsWindow.BodyFont();AutoScaleMode=AutoScaleMode.Dpi;AutoScaleDimensions=new(96,96);ClientSize=new(680,410);MinimumSize=new(580,340);
-        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=4};root.RowStyles.Add(new(SizeType.AutoSize));root.RowStyles.Add(new(SizeType.AutoSize));root.RowStyles.Add(new(SizeType.Percent,100));root.RowStyles.Add(new(SizeType.AutoSize));root.ColumnStyles.Add(new(SizeType.Percent,100));Controls.Add(root);
-        root.Controls.Add(new Label{Text="备份内容：显示设置、自选股票、生日",AutoSize=true,Dock=DockStyle.Fill},0,0);
-        var actions=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};var export=new Button{Text="导出备份",AutoSize=true};var read=new Button{Text="打开备份",AutoSize=true};var restore=new Button{Text="恢复所选",AutoSize=true,Enabled=false};actions.Controls.AddRange([export,read]);root.Controls.Add(actions,0,1);
-        var grid=new DataGridView{Dock=DockStyle.Fill,AllowUserToAddRows=false,AllowUserToDeleteRows=false,RowHeadersVisible=false,AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.Fill,AutoSizeRowsMode=DataGridViewAutoSizeRowsMode.AllCells,BackgroundColor=Color.White};grid.DefaultCellStyle.WrapMode=DataGridViewTriState.True;grid.Columns.Add(new DataGridViewCheckBoxColumn{HeaderText="恢复",AutoSizeMode=DataGridViewAutoSizeColumnMode.ColumnHeader,MinimumWidth=64});foreach(string name in new[]{"项目","当前值","备份值"}){int i=grid.Columns.Add(name,name);grid.Columns[i].ReadOnly=true;}root.Controls.Add(grid,0,2);
-        var footer=new TableLayoutPanel{Dock=DockStyle.Fill,AutoSize=true,ColumnCount=2};footer.ColumnStyles.Add(new(SizeType.Percent,100));footer.ColumnStyles.Add(new(SizeType.AutoSize));
-        var state=new TextBox{ReadOnly=true,Multiline=true,Height=40,Dock=DockStyle.Fill,BorderStyle=BorderStyle.None,BackColor=Color.White};footer.Controls.Add(state,0,0);footer.Controls.Add(restore,1,0);root.Controls.Add(footer,0,3);ConfigurationArchive? archive=null;
-        export.Click+=(_,_)=>{using var dialog=new SaveFileDialog{Filter="配置备份 (*.json)|*.json",Title="导出配置（包含生日姓名）",FileName=$"AI-bot-settings-{DateTime.Now:yyyyMMdd-HHmmss}.json",OverwritePrompt=true};if(dialog.ShowDialog(this)!=DialogResult.OK)return;try{ConfigurationBackup.Export(dialog.FileName,ConfigurationBackup.Capture());state.Text="配置已导出。";}catch(Exception ex){state.Text=ex.Message;}};
-        read.Click+=(_,_)=>{using var dialog=new OpenFileDialog{Filter="配置备份 (*.json)|*.json"};if(dialog.ShowDialog(this)!=DialogResult.OK)return;archive=null;restore.Enabled=false;grid.Rows.Clear();try{archive=ConfigurationBackup.Read(dialog.FileName);var current=ConfigurationBackup.Capture();foreach(var p in archive.Settings){int row=grid.Rows.Add(false,ConfigurationBackup.Fields[p.Key],current.Settings.GetValueOrDefault(p.Key,""),p.Value);grid.Rows[row].Tag=p.Key;}int b=grid.Rows.Add(false,"生日列表",Describe(current.Birthdays),Describe(archive.Birthdays));grid.Rows[b].Tag="birthdays";state.Text=$"备份时间：{archive.CreatedAt.ToLocalTime():yyyy-MM-dd HH:mm}";restore.Enabled=true;}catch(Exception ex){archive=null;state.Text=ex.Message;}};
-        restore.Click+=(_,_)=>{if(archive is null)return;grid.EndEdit();var keys=grid.Rows.Cast<DataGridViewRow>().Where(r=>r.Cells[0].Value is true).Select(r=>(string)r.Tag!).ToArray();try{string backup=ConfigurationBackup.Restore(archive,keys.Where(k=>k!="birthdays").ToArray(),keys.Contains("birthdays"));restored();state.Text="所选配置已恢复。原配置备份："+backup;restore.Enabled=false;}catch(Exception ex){state.Text=ex.Message;}};SettingsWindow.StyleButton(restore,true);SettingsWindow.AddTitle(root,"配置迁移");SettingsWindow.FitScreen(this);
+    private readonly Action _restored;
+    private readonly TableLayoutPanel _home = new() { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Padding = new(20) };
+    private readonly TableLayoutPanel _review = new() { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new(16), Visible = false };
+    private readonly DataGridView _grid = new() { Dock = DockStyle.Fill, AllowUserToAddRows = false, AllowUserToDeleteRows = false,
+        RowHeadersVisible = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+        ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize, AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells };
+    private readonly Button _apply = new() { Text = "恢复所选", Enabled = false };
+    private readonly Label _selection = new() { AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = SettingsWindow.Muted };
+    private ConfigurationArchive? _archive;
+    private Size _homeSize, _homeMinimum;
+
+    internal ConfigurationBackupForm(Action restored)
+    {
+        _restored = restored;
+        Text = "AI-bot · 配置迁移";
+        Font = SettingsWindow.BodyFont();
+        AutoScaleDimensions = new(96, 96);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ClientSize = new(600, 290);
+        MinimumSize = SizeFromClientSize(new(460, 230));
+        _home.ColumnStyles.Add(new(SizeType.Percent, 100));
+        _home.Controls.Add(SettingsWindow.Title("备份与恢复"));
+        _home.Controls.Add(new Label { Text = "可迁移显示设置、自选股票和生日。", AutoSize = true,
+            ForeColor = SettingsWindow.Muted, Margin = new(0, 0, 0, 16) });
+        AddChoice("备份这台电脑", "把当前配置保存为文件。", "导出备份…", Export);
+        AddChoice("从备份恢复", "勾选要恢复的配置。", "打开备份…", ChooseBackup);
+        Controls.Add(_home);
+        Controls.Add(_review);
+
+        _review.ColumnStyles.Add(new(SizeType.Percent, 100));
+        _review.RowStyles.Add(new(SizeType.AutoSize));
+        _review.RowStyles.Add(new(SizeType.Percent, 100));
+        _review.RowStyles.Add(new(SizeType.AutoSize));
+        _review.Controls.Add(SettingsWindow.Title("选择要恢复的项目"), 0, 0);
+        _grid.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "选择", AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells,
+            MinimumWidth = 72, SortMode = DataGridViewColumnSortMode.NotSortable });
+        foreach (string column in new[] { "项目", "当前值", "备份值" })
+        {
+            var field = _grid.Columns[_grid.Columns.Add(column, column)];
+            field.ReadOnly = true;
+            field.SortMode = DataGridViewColumnSortMode.NotSortable;
+        }
+        _review.Controls.Add(_grid, 0, 1);
+        var footer = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 3, Margin = new(0, 12, 0, 0) };
+        footer.ColumnStyles.Add(new(SizeType.AutoSize)); footer.ColumnStyles.Add(new(SizeType.Percent, 100)); footer.ColumnStyles.Add(new(SizeType.AutoSize));
+        var back = new Button { Text = "返回" };
+        SettingsWindow.StyleButton(back);
+        SettingsWindow.StyleButton(_apply, true);
+        footer.Controls.Add(back, 0, 0); footer.Controls.Add(_selection, 1, 0); footer.Controls.Add(_apply, 2, 0);
+        _review.Controls.Add(footer, 0, 2);
+        _grid.CurrentCellDirtyStateChanged += (_, _) => { if (_grid.IsCurrentCellDirty) _grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
+        _grid.CellValueChanged += (_, _) => RefreshSelection();
+        back.Click += (_, _) => { ShowHome(); };
+        _apply.Click += (_, _) => Restore();
+        Shown += (_, _) => { if (_archive is null) ClientSize = new(ClientSize.Width, _home.GetPreferredSize(new(ClientSize.Width, 0)).Height); };
+        SettingsWindow.FitScreen(this);
     }
-    private static string Describe(Birthday[] values)=>values.Length==0?"无":string.Join("；",values.Select(b=>$"{b.Name} {b.Month}/{b.Day}{(b.Lunar?" 农历":"")}{(b.Leap?" 闰月":"")} 提前{b.RemindDays}天"));
+
+    private void AddChoice(string title, string description, string action, EventHandler handler)
+    {
+        var row = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, RowCount = 2,
+            Padding = new(14, 10, 14, 10), Margin = new(0, 0, 0, 8), BackColor = SettingsWindow.Surface };
+        row.ColumnStyles.Add(new(SizeType.Percent, 100)); row.ColumnStyles.Add(new(SizeType.AutoSize));
+        row.Controls.Add(new Label { Text = title, Font = SettingsWindow.SectionFont(), AutoSize = true }, 0, 0);
+        row.Controls.Add(new Label { Text = description, AutoSize = true, ForeColor = SettingsWindow.Muted, Dock = DockStyle.Fill }, 0, 1);
+        var button = new Button { Text = action, Anchor = AnchorStyles.Right };
+        SettingsWindow.StyleButton(button);
+        button.Click += handler;
+        row.Controls.Add(button, 1, 0); row.SetRowSpan(button, 2);
+        _home.Controls.Add(row);
+    }
+
+    private void Export(object? sender, EventArgs e)
+    {
+        using var dialog = new SaveFileDialog { Filter = "配置备份 (*.json)|*.json", Title = "导出配置（包含生日姓名）",
+            FileName = $"AI-bot-settings-{DateTime.Now:yyyyMMdd-HHmmss}.json", OverwritePrompt = true };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try { ConfigurationBackup.Export(dialog.FileName, ConfigurationBackup.Capture()); MessageBox.Show(this, "已保存备份文件。", "导出完成"); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "导出失败"); }
+    }
+
+    private void ChooseBackup(object? sender, EventArgs e)
+    {
+        using var dialog = new OpenFileDialog { Filter = "配置备份 (*.json)|*.json" };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try { ShowBackup(ConfigurationBackup.Read(dialog.FileName), ConfigurationBackup.Capture()); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "打开备份失败"); }
+    }
+
+    internal void ShowBackup(ConfigurationArchive backup, ConfigurationArchive current)
+    {
+        _archive = backup;
+        _grid.Rows.Clear();
+        foreach (var pair in backup.Settings)
+            _grid.Rows[_grid.Rows.Add(false, ConfigurationBackup.Fields[pair.Key], DisplayValue(pair.Key, current.Settings.GetValueOrDefault(pair.Key, "")), DisplayValue(pair.Key, pair.Value))].Tag = pair.Key;
+        _grid.Rows[_grid.Rows.Add(false, "生日列表", Describe(current.Birthdays), Describe(backup.Birthdays))].Tag = "birthdays";
+        _homeSize = Size;
+        _homeMinimum = MinimumSize;
+        var area = Screen.FromControl(this).WorkingArea;
+        var minimum = SizeFromClientSize(new Size(Math.Max(510, Font.Height * 22), Math.Max(360, Font.Height * 14)));
+        MinimumSize = new(Math.Min(minimum.Width, area.Width), Math.Min(minimum.Height, area.Height));
+        _home.Hide(); _review.Show();
+        Height = Math.Min(area.Height, Math.Max(Height, SizeFromClientSize(new Size(0, Font.Height * 18)).Height));
+        if (StartPosition != FormStartPosition.Manual) Location = new(Math.Clamp(Left, area.Left, Math.Max(area.Left, area.Right - Width)), Math.Clamp(Top, area.Top, Math.Max(area.Top, area.Bottom - Height)));
+        RefreshSelection();
+    }
+
+    private void ShowHome()
+    {
+        _review.Hide();
+        _home.Show();
+        _archive = null;
+        MinimumSize = _homeMinimum;
+        Size = _homeSize;
+    }
+
+    private void RefreshSelection()
+    {
+        int count = _grid.Rows.Cast<DataGridViewRow>().Count(row => row.Cells[0].Value is true);
+        _selection.Text = $"已选 {count} 项";
+        _apply.Enabled = count > 0;
+    }
+
+    private void Restore()
+    {
+        if (_archive is null) return;
+        _grid.EndEdit();
+        var keys = _grid.Rows.Cast<DataGridViewRow>().Where(r => r.Cells[0].Value is true).Select(r => (string)r.Tag!).ToArray();
+        if (keys.Length == 0) return;
+        try {
+            string backup = ConfigurationBackup.Restore(_archive, keys.Where(k => k != "birthdays").ToArray(), keys.Contains("birthdays"));
+            _restored();
+            MessageBox.Show(this, $"已恢复 {keys.Length} 项。原配置已备份到\n{backup}", "恢复完成");
+            ShowHome();
+        } catch (Exception ex) { MessageBox.Show(this, ex.Message, "恢复失败"); }
+    }
+
+    private static string DisplayValue(string key, string value) => key is "display_cycle_pages" or "stock_symbols" ? value.Replace(",", ", ") : value;
+
+    private static string Describe(Birthday[] values) => values.Length == 0 ? "无" : string.Join("；", values.Select(b =>
+        $"{b.Name} {b.Month}/{b.Day}{(b.Lunar ? " 农历" : "")}{(b.Leap ? " 闰月" : "")} 提前{b.RemindDays}天"));
 }

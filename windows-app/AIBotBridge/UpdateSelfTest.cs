@@ -35,9 +35,38 @@ internal static class UpdateSelfTest
             assets=new[]{new{name,browser_download_url=url??download+name,size=package.Length},
                 new{name=checksumName,browser_download_url=download+checksumName,size=100}}};
     }
+    private static async Task CheckDesktopDownloadAsync()
+    {
+        const string name = "AI-bot-bridge-v0.6.28-windows-x64-setup.exe";
+        byte[] bytes = new byte[32045638];
+        bytes[0] = (byte)'M'; bytes[1] = (byte)'Z';
+        string hash = Convert.ToHexString(SHA256.HashData(bytes));
+        string catalog = JsonSerializer.Serialize(new[] { Release("bridge","0.6.28",name,bytes,productTag:"v0.6.28") });
+        int ranges = 0;
+        var handler = new Handler();
+        handler.Reply = (request, _) => {
+            if (request.RequestUri!.Host == "api.github.com")
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(catalog) });
+            if (!request.RequestUri.AbsolutePath.EndsWith(name))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(hash + "  " + name) });
+            var range = request.Headers.Range!.Ranges.Single();
+            int start = checked((int)range.From!.Value), end = checked((int)range.To!.Value);
+            var result = new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = new ByteArrayContent(bytes, start, end-start+1) };
+            result.Content.Headers.ContentRange = new(start, end, bytes.Length);
+            ranges++;
+            return Task.FromResult(result);
+        };
+        using var service = new UpdateService(handler);
+        await service.CheckAsync(default);
+        var downloaded = await service.DownloadAsync(service.Available["bridge"], "0.6.27", null, default);
+        downloaded.VerifyUnchanged();
+        Check(ranges == 4, "Expected four requests for the 32 MB Windows installer");
+    }
+
     internal static async Task RunAsync() {
         ComponentUpdateSelfTest.Run();
         await CheckCadenceAsync();
+        await CheckDesktopDownloadAsync();
         byte[] image=new byte[2048];image[0]=0xe9;
         byte[] zip=Zip(new(){["VERSION"]="0.6.0\n"u8.ToArray(),["firmware.bin"]=image,["COMPONENT.json"]="{\"component\":\"esp8266\",\"version\":\"0.6.0\",\"protocolVersion\":1}"u8.ToArray()});
         string name="AI-bot-esp8266-0.6.0-flash.zip",hash=Convert.ToHexString(SHA256.HashData(zip)).ToLowerInvariant();

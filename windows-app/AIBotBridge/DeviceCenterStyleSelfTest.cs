@@ -57,7 +57,13 @@ internal static class DeviceCenterStyleSelfTest
                 ("updates",()=>new UpdateCenterForm(()=>devices,(_,_)=>Task.FromResult(true),updates),null),
                 ("art-gallery",()=>new GalleryPackForm(updates),null),
                 ("configuration-backup",()=>new ConfigurationBackupForm(()=>{}),null),
+                ("configuration-review",()=>new ConfigurationBackupForm(()=>{}),form=>{
+                    var current=ConfigurationBackup.Capture();
+                    var settings=new Dictionary<string,string>(current.Settings){["display_cycle_interval_seconds"]="60"};
+                    ((ConfigurationBackupForm)form).ShowBackup(current with {Settings=settings},current);
+                }),
                 ("notifications",()=>new NotificationSettingsForm(notifications),null),
+                ("notification-history",()=>new NotificationSettingsForm(notifications),form=>Descendants(form).OfType<TabControl>().Single().SelectedIndex=1),
                 ("about",()=>new AboutForm(),null),
                 ("pet-gallery",()=>new PetGalleryForm(_=>{},load:false),null),
                 ("esp-flash",()=>new FirmwareFlashForm(preview:true),null),
@@ -133,6 +139,31 @@ internal static class DeviceCenterStyleSelfTest
                     form.PerformLayout();await Task.Delay(30);Application.DoEvents();
                 }
                 string name=$"{page.Name}-{scale:0.0#}-{(minimum?"minimum":"normal")}";
+                if(page.Name=="notifications") {
+                    var quiet=Descendants(form).OfType<CheckBox>().Single(c=>c.Text=="勿扰时段");
+                    quiet.Checked=true;
+                    form.PerformLayout();
+                    foreach(var item in Descendants(form).Where(c=>c.Visible && c is CheckBox or DateTimePicker or Button)) {
+                        var bounds=item.RectangleToScreen(item.ClientRectangle);
+                        for(Control? parent=item.Parent;parent!=null;parent=parent.Parent) {
+                            var available=parent.RectangleToScreen(parent.ClientRectangle);
+                            available.Inflate(1,1);
+                            Check(available.Contains(bounds),"Notification option clipped: "+item.Text+" "+name);
+                        }
+                    }
+                    Check(!Descendants(form).OfType<ScrollableControl>().Any(c=>c.Visible && c.VerticalScroll.Visible),
+                        "Notification settings require vertical scrolling: "+name);
+                }
+                if(page.Name is "configuration-review" or "notification-history") {
+                    var grid=Descendants(form).OfType<DataGridView>().Single();
+                    Check(grid.DisplayedRowCount(false)>=1,"No fully visible record: "+name);
+                    if(page.Name=="configuration-review"){
+                        var apply=Descendants(form).OfType<Button>().Single(button=>button.Text=="恢复所选");
+                        Check(!apply.Enabled,"Restore enabled without selection: "+name);
+                        grid.Rows[0].Cells[0].Value=true;
+                        Check(apply.Enabled,"Selecting an item did not enable restore: "+name);
+                    }
+                }
                 if(page.Name is "devices" or "devices-work-area") {
                     var grid=Descendants(form).OfType<TableLayoutPanel>().Single(c=>c.Name=="device-actions"&&c.Visible);
                     var cards=grid.Controls.OfType<DeviceActionButton>().OrderBy(c=>grid.GetRow(c)).ThenBy(c=>grid.GetColumn(c)).ToArray();

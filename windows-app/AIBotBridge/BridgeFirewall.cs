@@ -47,10 +47,9 @@ internal sealed class BridgeFirewall : IDisposable
         (r.Interfaces is Array interfaces&&interfaces.Length!=0)||Restricted(r.ServiceName)||Restricted(r.LocalAppPackageId)||
         Restricted(r.LocalUserOwner)||Restricted(r.LocalUserAuthorizedList)||Restricted(r.RemoteUserAuthorizedList)||Restricted(r.RemoteMachineAuthorizedList)||(int)r.SecureFlags!=0);
 
-    internal static BridgeFirewall Prepare(string? previous,string target,string owner,int port){
+    internal static BridgeFirewall Prepare(string? previous,string target,int port){
         if(previous is null||previous.Equals(target,StringComparison.OrdinalIgnoreCase))return new();
-        if(BridgeInstallation.Read(previous,owner) is null||BridgeInstallation.Read(target,owner) is null)
-            throw new IOException("bridge_firewall_unverified_payload");
+        // Configure has verified both protected payloads before transferring any rule.
         dynamic policy=Com("HNetCfg.FwPolicy2"),rules=policy.Rules;
         var prior=new List<Rule>();var destination=new Dictionary<string,Rule>(StringComparer.OrdinalIgnoreCase);
         foreach(dynamic entry in rules){

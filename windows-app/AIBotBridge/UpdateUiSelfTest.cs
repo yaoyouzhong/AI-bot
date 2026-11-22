@@ -19,13 +19,14 @@ internal static class UpdateUiSelfTest
         string installedPath=Path.Combine(GalleryPack.Root,"painting","PACK.json");
         Directory.CreateDirectory(Path.GetDirectoryName(installedPath)!);
         File.WriteAllText(installedPath,JsonSerializer.Serialize(new GalleryPackManifest(1,"2026.10.01","painting",1,1,[]),JsonDefaults.Options));
-        var handler=new UpdateSelfTest.Handler();bool hold=false,catalogOffline=false;int catalogRequests=0;var waiting=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler=new UpdateSelfTest.Handler();bool hold=false,catalogOffline=false;int catalogRequests=0, packageRequests=0;var waiting=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         handler.Reply=async(request,token)=>{
             string path=request.RequestUri!.AbsolutePath;
             if(request.RequestUri.Host=="api.github.com"){
                 Interlocked.Increment(ref catalogRequests);
                 if(Volatile.Read(ref catalogOffline))throw new HttpRequestException("Simulated offline release catalog");
             }
+            if (request.RequestUri.Host!="api.github.com") Interlocked.Increment(ref packageRequests);
             if(hold&&path.EndsWith("SHA256SUMS.txt"))await waiting.Task.WaitAsync(token);
             byte[] data=path.EndsWith("SHA256SUMS.txt")
                 ?Encoding.UTF8.GetBytes(path.Contains("/bridge-v")?installerHash+"  "+installerName+"\n":hash+"  "+name+"\n")
@@ -106,7 +107,23 @@ internal static class UpdateUiSelfTest
         if(!openedGallery||target is not null)throw new Exception("Gallery action went to the device installer instead of gallery management");
         form.FocusUpdate("bridge");
         await Wait(()=>action.Enabled&&SelectedName()==devices[0].Name);
-        action.PerformClick();
+        void ConfirmDesktop(bool approve) {
+            form.BeginInvoke(() => {
+                var dialog=Application.OpenForms.OfType<DesktopUpgradeConfirmation>().Single();
+                if (!approve) {
+                    using var bitmap=new Bitmap(dialog.Width,dialog.Height);
+                    dialog.DrawToBitmap(bitmap,new(Point.Empty,dialog.Size));
+                    bitmap.Save(Path.Combine(directory,"desktop-upgrade-confirmation.png"));
+                }
+                ((Button)(approve ? dialog.AcceptButton! : dialog.CancelButton!)).PerformClick();
+            });
+            action.PerformClick();
+        }
+        int beforeCancel=Volatile.Read(ref packageRequests);
+        ConfirmDesktop(false);
+        if (target is not null || Volatile.Read(ref packageRequests)!=beforeCancel || !action.Enabled)
+            throw new Exception("Dismissing upgrade confirmation started an update");
+        ConfirmDesktop(true);
         await Wait(()=>state.Text=="安装包已下载，尚未安装。");
         if(target!="bridge"||handoffs!=0)throw new Exception("Cancelled installer reported as handed off");
         using(var capture=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(capture,new(Point.Empty,form.Size));capture.Save(Path.Combine(directory,"installer-cancelled.png"));}

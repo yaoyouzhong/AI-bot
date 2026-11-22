@@ -15,8 +15,9 @@ internal static class BridgeUpgrade
         if(!acquired)throw new IOException("bridge_upgrade_in_progress");
         try{
             string? previous=StartupRegistration.InstalledExecutable();
+            BridgeInstallation.Manifest? manifest=null;
             if(previous is not null){
-                var manifest=BridgeInstallation.Read(previous,owner)??throw new IOException("bridge_previous_installation_unverified");
+                manifest=BridgeInstallation.Read(previous,owner)??throw new IOException("bridge_previous_installation_unverified");
                 if(BridgeInstallation.MatchesSource(manifest)){StartupRegistration.StartInstalled(previous);return previous;}
             }
             bool restartPrevious=previous is not null&&StartupRegistration.IsRunning(previous);
@@ -29,7 +30,7 @@ internal static class BridgeUpgrade
                         Thread.Sleep(250);
                     }
                 }
-                string installed=BridgeInstallation.Configure();
+                string installed=BridgeInstallation.Configure(previous,manifest);
                 StartupRegistration.StartInstalled(installed);
                 Tab5LocalDiagnostics.Write("BRIDGE_UPGRADE stage=started");
                 return installed;

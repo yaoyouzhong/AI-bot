@@ -47,11 +47,15 @@ internal static class BridgeInstallation
             var manifest=JsonSerializer.Deserialize<Manifest>(File.ReadAllBytes(file.FullName));
             if(manifest is not {Version:1,Files:not null}||manifest.Owner!=owner||manifest.Files.Count is <4 or >10000||manifest.HttpPort is <1 or >65535||
                 Required.Any(r=>!manifest.Files.ContainsKey(r))||Path.GetFileName(directory).Substring(3,64)!=Identity(manifest.Files))return null;
+            var verifiedDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach(var pair in manifest.Files){
                 var item=new FileInfo(Resolve(directory,pair.Key));
                 if(!HelperContract.Trusted(item)||Hash(item.FullName)!=pair.Value)return null;
                 for(var parent=item.Directory;parent is not null&&!parent.FullName.Equals(directory,StringComparison.OrdinalIgnoreCase);parent=parent.Parent)
-                    if(!HelperContract.Trusted(parent))return null;
+                {
+                    if (!verifiedDirectories.Add(parent.FullName)) break;
+                    if (!HelperContract.Trusted(parent)) return null;
+                }
             }
             return manifest;
         }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException or JsonException or System.Security.SecurityException){return null;}
@@ -84,11 +88,22 @@ internal static class BridgeInstallation
             throw;
         }
     }
+    internal static bool IsCurrentPayload(Manifest manifest) =>
+        manifest.Files.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(
+            Payload(AppContext.BaseDirectory).Select(file => Path.GetRelativePath(AppContext.BaseDirectory, file)));
+
     internal static string Configure(){
-        AppProfileGuard.EnsureDesktopProfile();if(!BridgeElevation.IsAdministrator)throw new UnauthorizedAccessException("bridge_administrator_required");
-        string owner=BridgeElevation.Owner,source=AppContext.BaseDirectory;
+        AppProfileGuard.EnsureDesktopProfile();
+        if(!BridgeElevation.IsAdministrator)throw new UnauthorizedAccessException("bridge_administrator_required");
         string? previous=StartupRegistration.InstalledExecutable();
-        Manifest? previousManifest=previous is null?null:Read(previous,owner);
+        return Configure(previous, previous is null ? null : Read(previous,BridgeElevation.Owner));
+    }
+
+    internal static string Configure(string? previous, Manifest? previousManifest){
+        AppProfileGuard.EnsureDesktopProfile();if(!BridgeElevation.IsAdministrator)throw new UnauthorizedAccessException("bridge_administrator_required");
+        var elapsed=System.Diagnostics.Stopwatch.StartNew();
+        string owner=BridgeElevation.Owner,source=AppContext.BaseDirectory;
+        if (previous is not null && previousManifest is null) throw new IOException("bridge_previous_installation_unverified");
         var files=SourceFiles.Value;
         string directory=Path.Combine(Root,"v1-"+Identity(files)+"-"+owner),executable=Path.Combine(directory,"AIBotBridge.exe");
         DirectoryProtected(Root,owner);
@@ -119,8 +134,10 @@ internal static class BridgeInstallation
                 throw;
             }
         }
+        Tab5LocalDiagnostics.Write($"BRIDGE_UPGRADE stage=payload_prepared elapsedMs={elapsed.ElapsedMilliseconds}");
         var manifestRead=Read(executable,owner)??throw new IOException("bridge_install_verification_failed");
-        using var firewall=BridgeFirewall.Prepare(previous,executable,owner,manifestRead.HttpPort??BridgeFirewall.DefaultHttpPort);
+        Tab5LocalDiagnostics.Write($"BRIDGE_UPGRADE stage=payload_verified elapsedMs={elapsed.ElapsedMilliseconds}");
+        using var firewall=BridgeFirewall.Prepare(previous,executable,manifestRead.HttpPort??BridgeFirewall.DefaultHttpPort);
         StartupRegistration.ConfigureInstalled(executable);
         firewall.Commit();
         int cleanup=LegacyClaudeAdminCleanup.Remove();
