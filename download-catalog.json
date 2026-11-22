@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "downloads": {
     "windows": {
-      "version": "0.6.28",
-      "tag": "v0.6.28",
-      "file": "AI-bot-bridge-v0.6.28-windows-x64-setup.exe",
-      "size": 32045638,
-      "sha256": "de40d1b377285a22ecb9fd0990e53be84f828fd0c2b6dde504117ddf6631c3a1"
+      "version": "0.6.29",
+      "tag": "v0.6.29",
+      "file": "AI-bot-bridge-v0.6.29-windows-x64-setup.exe",
+      "size": 32069865,
+      "sha256": "0a737328c0a63dbe3cc56bb4e774c90c0054713aba1a2bca95da904f0856bc72"
     },
     "macos": {
       "version": "0.6.28",
