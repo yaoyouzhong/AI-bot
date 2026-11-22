@@ -554,7 +554,9 @@ enum MacTab5UIValidation {
         let setup = MacPermissionSetupWindow(readState: { pending[$0] ?? .unused }, request: { _, _ in })
         guard let window = setup.window, let content = window.contentView else { throw MacTab5Error.unavailable }
         let buttons = descendants(content).compactMap { $0 as? NSButton }
+        let labels = descendants(content).compactMap { $0 as? NSTextField }
         func button(_ step: Step) -> NSButton? { buttons.first { $0.identifier?.rawValue == "permission-\(step)" } }
+        func status(_ step: Step) -> String? { labels.first { $0.identifier?.rawValue == "permission-status-\(step)" }?.stringValue }
         setup.display(pending, active: .microphone)
         let reveal = buttons.first { $0.title == "在 Finder 中显示当前 App" }
         guard button(.terminal)?.title == "打开并授权…", button(.notifications)?.title == "打开系统设置…",
@@ -568,16 +570,39 @@ enum MacTab5UIValidation {
               terminal.isHiddenOrHasHiddenAncestor, !location.isHiddenOrHasHiddenAncestor,
               button(.notifications)?.isHiddenOrHasHiddenAncestor == false else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions-upgrade", output: output)
-        setup.configurePresentation()
-        setup.display(Dictionary(uniqueKeysWithValues: Step.allCases.map { ($0, $0 == .accessibility ? State.settings : .allowed) }))
+        var updated = Dictionary(uniqueKeysWithValues: Step.allCases.map { ($0, State.allowed) })
+        updated[.accessibility] = .settings
+        setup.configurePresentation(mode: .upgrade, steps: [.accessibility])
+        setup.display(updated)
         guard button(.accessibility)?.isEnabled == true,
+              button(.accessibility)?.title == "授权当前 App…",
               reveal?.isHidden == false,
               buttons.contains(where: { $0.title == "稍后完成" && $0.isEnabled }),
-              descendants(content).compactMap({ $0 as? NSTextField }).contains(where: { $0.stringValue == "权限未生效" })
+              status(.accessibility) == "当前 App 未授权"
         else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions-accessibility", output: output)
-        setup.display(Dictionary(uniqueKeysWithValues: Step.allCases.map { ($0, State.allowed) }))
+        updated[.accessibility] = .conflictingCopy
+        setup.display(updated)
+        guard status(.accessibility) == "请先完成安装", button(.accessibility)?.isHidden == true,
+              reveal?.isHidden == false else { throw MacTab5Error.unconfirmed }
+        try validateSettings(window, name: "system-permissions-install", output: output)
+        updated[.accessibility] = .request
+        updated[.systemEvents] = .openApp
+        setup.configurePresentation(mode: .upgrade, steps: MacPermissionSetup.pendingSteps(updated, mode: .upgrade))
+        setup.display(updated)
+        guard status(.accessibility) == "已授权，输入待确认", button(.accessibility)?.title == "确认输入权限…",
+              status(.systemEvents) == "待检查授权", button(.systemEvents)?.title == "检查并授权…",
+              reveal?.isHidden == true else { throw MacTab5Error.unconfirmed }
+        try validateSettings(window, name: "system-permissions-input", output: output)
+        updated[.systemEvents] = .request
+        setup.display(updated)
+        guard status(.accessibility) == "已授权，输入待确认", button(.systemEvents)?.title == "授权系统事件…"
+        else { throw MacTab5Error.unconfirmed }
+        updated[.accessibility] = .allowed
+        updated[.systemEvents] = .allowed
+        setup.display(updated)
         guard Step.allCases.allSatisfy({ button($0)?.isHidden == true }),
+              status(.accessibility) == "已授权", status(.systemEvents) == "已授权",
               buttons.contains(where: { $0.title == "完成" }), reveal?.isHidden == true else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions-granted", output: output)
         window.close()

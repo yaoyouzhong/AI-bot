@@ -4,13 +4,39 @@ import AVFoundation
 import CoreBluetooth
 import CoreLocation
 import Darwin
+import Security
 import Speech
 import OSLog
 import UserNotifications
 
+enum MacAccessibilityInstallation {
+    static let installedApp = URL(fileURLWithPath: "/Applications/AIBotBridge.app", isDirectory: true)
+
+    static func hasConflictingCopy(current: URL = Bundle.main.bundleURL, installed: URL = installedApp) -> Bool {
+        guard current.resolvingSymlinksInPath().standardizedFileURL.path != installed.resolvingSymlinksInPath().standardizedFileURL.path,
+              let identifier = Bundle(url: current)?.bundleIdentifier,
+              Bundle(url: installed)?.bundleIdentifier == identifier,
+              let currentInfo = signingInfo(current), let flags = currentInfo[kSecCodeInfoFlags] as? NSNumber,
+              flags.uint32Value & SecCodeSignatureFlags.adhoc.rawValue != 0,
+              let currentHash = currentInfo[kSecCodeInfoUnique] as? Data,
+              let installedHash = signingInfo(installed)?[kSecCodeInfoUnique] as? Data else { return false }
+        return currentHash != installedHash
+    }
+
+    private static func signingInfo(_ url: URL) -> NSDictionary? {
+        var code: SecStaticCode?
+        var info: CFDictionary?
+        guard SecStaticCodeCreateWithPath(url as CFURL, [], &code) == errSecSuccess, let code,
+              SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess
+        else { return nil }
+        return info as NSDictionary?
+    }
+}
+
 @MainActor
 enum MacPermissionSetup {
     private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "AIBotBridge", category: "SystemPermissions")
+    private static var lastReportedAccessibility: State?
     static let checkedVersionKey = "automatic_system_permissions_reviewed_version"
 
     enum LaunchMode { case firstLaunch, upgrade }
@@ -25,21 +51,23 @@ enum MacPermissionSetup {
     static func pendingSteps(_ states: [Step: State], mode: LaunchMode) -> [Step] {
         Step.allCases.filter { step in
             let state = states[step] ?? .checking
-            guard state.needsPermission else { return false }
-            // A stopped Automation target and Local Network don't have a
-            // definite status from a read-only check. System Events is a
-            // background system helper and can be started just for preflight.
-            return mode == .firstLaunch || (state != .openApp && step != .localNetwork)
+            guard state.needsAttention else { return false }
+            guard mode == .upgrade else { return true }
+            // System Events is a background helper. Retry if it stopped or
+            // wasn't ready during preflight. Don't open other apps on upgrade.
+            return step != .localNetwork && (state != .openApp || step == .systemEvents)
         }
     }
 
     enum State: Equatable {
-        case unused, checking, request, settings, allowed, openApp, unavailable
+        case unused, checking, request, settings, allowed, openApp, unavailable, conflictingCopy
 
         var needsPermission: Bool { self == .request || self == .settings || self == .openApp }
+        var needsAttention: Bool { needsPermission || self == .conflictingCopy }
         var caption: String {
             switch self {
             case .unused: return "当前未使用"
+            case .conflictingCopy: return "请先完成安装"
             case .checking: return "正在检查"
             case .request: return "待授权"
             case .settings: return "请在系统设置中确认"
@@ -81,7 +109,7 @@ enum MacPermissionSetup {
             case .terminal: return "可提前授权；配对 TAB5 后才能操作 Claude Code 会话。"
             case .music, .spotify: return "显示播放状态，并支持从 TAB5 控制播放。"
             case .systemEvents: return "允许从 TAB5 锁定 Mac。"
-            case .accessibility: return "部分 macOS 显示为「设备控制和数据访问」。开关已开但未生效时，核对当前 App 后关闭再开启；仍无效则移除旧条目，再添加当前 App。"
+            case .accessibility: return "允许从设备操作 Mac 上的应用。"
             }
         }
         var target: String? {
@@ -148,8 +176,12 @@ enum MacPermissionSetup {
             if #available(macOS 15, *) { return .settings }
             return .unused
         case .accessibility:
-            guard AXIsProcessTrusted() else { return .settings }
-            return CGPreflightPostEventAccess() ? .allowed : .request
+            let status = accessibilityState()
+            if status != lastReportedAccessibility {
+                log.notice("Accessibility preflight: pid=\(ProcessInfo.processInfo.processIdentifier, privacy: .public) state=\(String(describing: status), privacy: .public)")
+                lastReportedAccessibility = status
+            }
+            return status
         default:
             guard let id = step.target else { return .unavailable }
             let checkSystemEvents = step == .systemEvents && startSystemEvents
@@ -188,25 +220,18 @@ enum MacPermissionSetup {
 
     static func request(_ step: Step, state: State) async {
         guard !Task.isCancelled, state.needsPermission else { return }
+        if step == .accessibility {
+            requestCurrentAccessibility(expected: state)
+            return
+        }
         if state == .settings {
-            if step == .accessibility, !AXIsProcessTrusted() {
-                // Ask macOS to register the app, then open the required pane even
-                // when macOS doesn't present its own alert.
-                _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
-                openSettings(step)
-                // The checklist refreshes while Settings is open. Don't
-                // hold the request queue waiting for a system toggle.
-            } else {
-                openSettings(step)
-            }
+            openSettings(step)
             return
         }
         switch step {
         case .location:
             MacWeatherLocation.shared.requestAuthorization()
-            while !Task.isCancelled, MacWeatherLocation.shared.authorizationStatus == .notDetermined {
-                try? await Task.sleep(for: .milliseconds(250))
-            }
+            await waitForLocationDecision(status: { MacWeatherLocation.shared.authorizationStatus })
         case .speech:
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 SFSpeechRecognizer.requestAuthorization { _ in continuation.resume() }
@@ -227,19 +252,58 @@ enum MacPermissionSetup {
             })
         case .localNetwork:
             LocalNetworkIdentity.preparePrivacyPrompt()
-        case .accessibility:
-            _ = CGRequestPostEventAccess()
-        case .bluetooth:
+        case .accessibility, .bluetooth:
             return
         default:
             guard let id = step.target else { return }
             var target = running(id)
-            if target == nil, state == .openApp { target = await startAutomationTarget(id) }
+            if target == nil, state == .openApp || step == .systemEvents {
+                target = await startAutomationTarget(id)
+            }
             guard let target, !Task.isCancelled else { return }
             let status = await preflightAutomation(target, waitForLaunch: true)
             if !Task.isCancelled, status == OSStatus(errAEEventWouldRequireUserConsent) {
                 _ = await automation(target, prompt: true)
             }
+        }
+    }
+
+    private static func accessibilityState() -> State {
+        guard AXIsProcessTrusted() else {
+            return MacAccessibilityInstallation.hasConflictingCopy() ? .conflictingCopy : .settings
+        }
+        return CGPreflightPostEventAccess() ? .allowed : .request
+    }
+
+    private static func requestCurrentAccessibility(expected: State) {
+        // The checklist may be stale by the time its button is pressed. Let
+        // the refresh handle transitions instead of prompting for a new state.
+        guard accessibilityState() == expected else { return }
+        let pid = ProcessInfo.processInfo.processIdentifier
+        switch expected {
+        case .settings:
+            log.notice("Accessibility native request: pid=\(pid, privacy: .public)")
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            // The invitation is asynchronous, and this result describes trust
+            // at the time of the call. Recheck live state after user action.
+            if !AXIsProcessTrustedWithOptions(options) { openSettings(.accessibility) }
+        case .request:
+            log.notice("PostEvent native request: pid=\(pid, privacy: .public)")
+            _ = CGRequestPostEventAccess()
+        default:
+            break
+        }
+    }
+
+    static func waitForLocationDecision(
+        status: () -> CLAuthorizationStatus,
+        settle: () async -> Void = { try? await Task.sleep(for: .milliseconds(250)) }
+    ) async {
+        // The system can leave Location undecided without displaying an alert.
+        // Keep it pending in the checklist instead of stalling later steps.
+        for _ in 0..<180 {
+            guard !Task.isCancelled, status() == .notDetermined else { return }
+            await settle()
         }
     }
 

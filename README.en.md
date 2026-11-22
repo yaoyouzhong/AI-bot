@@ -4,11 +4,11 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.27) · [简体中文](README.md)
+[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.28) · [简体中文](README.md)
 
 **Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
-**This update**　Windows bridge **0.6.27** closes and restarts automatically during an upgrade. To add your first device, use its screen to decide whether to add it directly or install AI-bot firmware first. [Bridge release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.27) · [Illustrated first install](docs/FIRST-INSTALL.zh.md)
+**This update**　Windows and Mac bridge **0.6.28** find software and firmware updates sooner. Enable automatic checks to look for updates every hour. Opening Software/Firmware also refreshes old results. [Bridge release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.28) · [Illustrated first install](docs/FIRST-INSTALL.zh.md)
 
 **TAB5 0.2.322-ui** adds Calendar to the app grid and improves the overview and artwork transfers. [Firmware release](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.322-ui)
 
@@ -176,7 +176,7 @@ On Windows or Mac, open Device Center → Bridge Settings → Software/Firmware 
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.27) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.28) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](tab5/) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

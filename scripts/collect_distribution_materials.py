@@ -17,6 +17,10 @@ import zipfile
 from component_versions import versions
 
 ROOT = Path(__file__).resolve().parents[1]
+HISTORICAL_TAB5_SOURCE = re.compile(
+    r"docs/development/(?:tab5-\d+(?:-r\d+)?-source/.+|tab5-[\d.]+-ui-source\.zip(?:\.sha256)?)",
+    re.IGNORECASE,
+)
 
 
 def filesystem_path(path: Path) -> Path:
@@ -49,8 +53,18 @@ def verify_evidence():
         path = ROOT / "licenses" / name
         if not path.is_file() or digest(path) != expected:
             raise ValueError(f"License evidence changed or missing: {name}")
+    inventory = ROOT / "SOURCE_FILES.sha256"
+    archive_members = None
     for name, expected in evidence.get("sourceAssets", {}).items():
-        data = (ROOT / name).read_bytes()
+        path = ROOT / name
+        # An extracted desktop archive omits historical firmware snapshots. A full checkout's
+        # registered artifacts and all files listed in the archive remain verifiable.
+        if HISTORICAL_TAB5_SOURCE.fullmatch(name) and not path.exists() and inventory.is_file():
+            if archive_members is None:
+                archive_members = {line.split("  ", 1)[1] for line in inventory.read_text(encoding="utf-8-sig").splitlines()}
+            if name not in archive_members:
+                continue
+        data = path.read_bytes()
         if Path(name).suffix == '.h':
             data = data.replace(b'\r\n', b'\n')
         if hashlib.sha256(data).hexdigest() != expected:
@@ -274,22 +288,27 @@ def archive_source(archive: Path):
         raise ValueError("Source archive already exists")
     inventory = ROOT / "SOURCE_FILES.sha256"
     entries = []
+    archived_inventory = []
     for line in inventory.read_text(encoding="utf-8-sig").splitlines():
         expected, name = line.split("  ", 1)
         path = (ROOT / name).resolve()
         if (Path(name).is_absolute() or '..' in Path(name).parts
                 or not path.is_relative_to(ROOT.resolve()) or (ROOT / name).is_symlink()):
             raise ValueError("Source path escaped snapshot")
+        # Standalone historical firmware snapshots already have their own archives.
+        if HISTORICAL_TAB5_SOURCE.fullmatch(name):
+            continue
         data = path.read_bytes()
         if hashlib.sha256(data).hexdigest() != expected:
             raise ValueError(f"Source changed since verification: {name}")
         if list(findings(name, data)):
             raise ValueError(f"Source archive contains disallowed material: {name}")
         entries.append((name, data))
+        archived_inventory.append(line + "\n")
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
         for name, data in entries:
             output.writestr(name, data)
-        output.write(inventory, "SOURCE_FILES.sha256")
+        output.writestr("SOURCE_FILES.sha256", "".join(archived_inventory))
     with zipfile.ZipFile(archive) as check:
         for name, data in entries:
             if check.read(name) != data:

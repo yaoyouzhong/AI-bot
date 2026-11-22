@@ -1,4 +1,5 @@
 import XCTest
+import CoreLocation
 @testable import AIBotBridge
 
 final class MacFeaturePreferencesTests: XCTestCase {
@@ -14,6 +15,18 @@ final class MacFeaturePreferencesTests: XCTestCase {
             requested.append(step)
         })
         XCTAssertEqual(requested, [.location, .notifications, .terminal, .music, .systemEvents, .localNetwork, .accessibility])
+    }
+
+    @MainActor func testConflictingAccessibilityCopyIsVisibleWithoutRequestingConsent() async {
+        for mode in [MacPermissionSetup.LaunchMode.firstLaunch, .upgrade] {
+            let steps = MacPermissionSetup.pendingSteps([.accessibility: .conflictingCopy, .systemEvents: .request], mode: mode)
+            XCTAssertTrue(steps.contains(.accessibility))
+            var requested: [MacPermissionSetup.Step] = []
+            await MacPermissionSetup.runInitial(steps: steps, mode: mode,
+                state: { $0 == .accessibility ? .conflictingCopy : .request },
+                request: { step, _ in requested.append(step) })
+            XCTAssertEqual(requested, [.systemEvents])
+        }
     }
 
     @MainActor func testPermissionReviewRunsOncePerVersionIncludingLegacyInstalls() {
@@ -36,7 +49,7 @@ final class MacFeaturePreferencesTests: XCTestCase {
         typealias State = MacPermissionSetup.State
         var states: [Step: State] = [.location: .request, .speech: .request, .microphone: .request,
             .notifications: .allowed, .bluetooth: .unused, .terminal: .allowed, .music: .settings,
-            .spotify: .unavailable, .systemEvents: .openApp, .localNetwork: .settings, .accessibility: .settings]
+            .spotify: .unavailable, .systemEvents: .allowed, .localNetwork: .settings, .accessibility: .settings]
         let steps = MacPermissionSetup.pendingSteps(states, mode: .upgrade)
         XCTAssertEqual(steps, [.location, .speech, .microphone, .music, .accessibility])
         // Permission may change while the previous system sheet is displayed.
@@ -49,15 +62,36 @@ final class MacFeaturePreferencesTests: XCTestCase {
             .terminal: .openApp], mode: .upgrade).isEmpty)
     }
 
-    @MainActor func testUpgradeOffersSystemEventsOnlyAfterActualPreflight() async {
+    @MainActor func testUpgradeRetriesAnUnavailableSystemEventsPreflight() async {
         typealias Step = MacPermissionSetup.Step
-        XCTAssertTrue(MacPermissionSetup.pendingSteps([.systemEvents: .openApp], mode: .upgrade).isEmpty)
+        typealias State = MacPermissionSetup.State
         XCTAssertTrue(MacPermissionSetup.pendingSteps([.systemEvents: .allowed], mode: .upgrade).isEmpty)
-        let steps = MacPermissionSetup.pendingSteps([.systemEvents: .request], mode: .upgrade)
-        var requested: [Step] = []
-        await MacPermissionSetup.runInitial(steps: steps, mode: .upgrade, state: { _ in .request },
-            request: { step, _ in requested.append(step) })
-        XCTAssertEqual(requested, [.systemEvents])
+        let steps = MacPermissionSetup.pendingSteps([.systemEvents: .openApp, .terminal: .openApp], mode: .upgrade)
+        XCTAssertEqual(steps, [.systemEvents])
+        for state in [State.openApp, .request, .allowed, .unavailable] {
+            var requested: [State] = []
+            await MacPermissionSetup.runInitial(steps: steps, mode: .upgrade, state: { _ in state },
+                request: { _, current in requested.append(current) })
+            XCTAssertEqual(requested, state == .openApp || state == .request ? [state] : [])
+        }
+    }
+
+    @MainActor func testSystemEventsAndAccessibilityAreRequestedIndependently() async {
+        typealias Step = MacPermissionSetup.Step
+        typealias State = MacPermissionSetup.State
+        let cases: [([Step: State], [Step])] = [
+            ([.systemEvents: .request, .accessibility: .settings], [.systemEvents, .accessibility]),
+            ([.systemEvents: .request, .accessibility: .allowed], [.systemEvents]),
+            ([.systemEvents: .allowed, .accessibility: .settings], [.accessibility]),
+        ]
+        for mode in [MacPermissionSetup.LaunchMode.firstLaunch, .upgrade] {
+            for (states, expected) in cases {
+                var requested: [Step] = []
+                await MacPermissionSetup.runInitial(steps: MacPermissionSetup.pendingSteps(states, mode: mode),
+                    mode: mode, state: { states[$0] ?? .unused }, request: { step, _ in requested.append(step) })
+                XCTAssertEqual(requested, expected)
+            }
+        }
     }
 
     @MainActor func testNotificationRequestRetriesOnlyWhileSystemHasNoDecision() async {
@@ -74,6 +108,20 @@ final class MacFeaturePreferencesTests: XCTestCase {
             }, settle: {})
             XCTAssertEqual(attempts, 2)
         }
+    }
+
+    @MainActor func testUndecidedWeatherLocationDoesNotBlockLaterPermissions() async {
+        typealias Step = MacPermissionSetup.Step
+        let states: [Step: MacPermissionSetup.State] = [.location: .request, .systemEvents: .request, .accessibility: .settings]
+        var requested: [Step] = []
+        await MacPermissionSetup.runInitial(steps: [.location, .systemEvents, .accessibility], mode: .upgrade,
+            state: { states[$0] ?? .unused }, request: { step, _ in
+                if step == .location {
+                    await MacPermissionSetup.waitForLocationDecision(status: { .notDetermined }, settle: {})
+                }
+                requested.append(step)
+            })
+        XCTAssertEqual(requested, [.location, .systemEvents, .accessibility])
     }
 
     @MainActor func testCancellingGuideStopsAfterCurrentPrompt() async {
