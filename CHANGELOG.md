@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.29 - 2026-11-22
+
+### Windows
+
+- **Faster upgrades.** Setup closes the old bridge more quickly and brings AI-bot back to the system tray.
+- **Choose when to install.** In **Software/Firmware**, One-Click Update downloads and checks the installer first. Choose **Install and restart** for a background installation or **Later** to reuse the verified installer next time. The first upgrade from an older bridge may still show installation progress.
+- **Clearer settings windows.** Desktop alerts separate settings from history, and configuration migration shows the current and backup values before you choose what to restore.
+
 ## 0.6.28 - 2026-11-22
 
 ### Windows and Apple Silicon Mac
