@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace AIBotBridge;
 
-internal sealed record UpdateAsset(string Name, Uri Url, long Size);
+internal sealed record UpdateAsset(string Name, Uri Url, long Size, string? Sha256=null);
 internal sealed record ComponentUpdate(string Component, string Version, Version Number, string Notes,
     UpdateAsset? Package=null, UpdateAsset? Checksums=null);
 
@@ -27,7 +27,10 @@ internal static class ComponentUpdateCatalog
            uri.Scheme!="https"||uri.Host!="github.com"||uri.Port!=443||uri.UserInfo!=""||uri.Query!=""||uri.Fragment!=""||
            uri.AbsolutePath!=$"/yaoyouzhong/AI-bot/releases/download/{Uri.EscapeDataString(tag)}/{Uri.EscapeDataString(file)}")return null;
         long size=item.TryGetProperty("size",out var bytes)&&bytes.TryGetInt64(out var length)?length:0;
-        return new(file,uri,size);
+        string? digest=item.TryGetProperty("digest",out var field) && field.ValueKind==JsonValueKind.String ? field.GetString() : null;
+        string? sha256=digest is { Length:71 } && digest.StartsWith("sha256:",StringComparison.OrdinalIgnoreCase)
+            && digest.AsSpan(7).IndexOfAnyExcept("0123456789abcdefABCDEF".AsSpan())<0 ? digest[7..].ToLowerInvariant() : null;
+        return new(file,uri,size,sha256);
     }
     internal static Dictionary<string, ComponentUpdate> Read(JsonElement releases)
     {

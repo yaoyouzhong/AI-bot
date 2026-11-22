@@ -28,12 +28,12 @@ internal static class UpdateSelfTest
             foreach(var pair in entries){using var stream=zip.CreateEntry(pair.Key).Open();stream.Write(pair.Value);}
         return memory.ToArray();
     }
-    internal static object Release(string component,string version,string name,byte[] package,string? url=null,string checksumName="SHA256SUMS.txt",string? productTag=null) {
+    internal static object Release(string component,string version,string name,byte[] package,string? url=null,string checksumName="SHA256SUMS.txt",string? productTag=null,string? digest=null) {
         string tag=productTag??component+"-v"+version;
         string download=$"https://github.com/yaoyouzhong/AI-bot/releases/download/{tag}/";
         return new {tag_name=tag,draft=false,prerelease=false,body="## 更新\n- 示例更新说明",
-            assets=new[]{new{name,browser_download_url=url??download+name,size=package.Length},
-                new{name=checksumName,browser_download_url=download+checksumName,size=100}}};
+            assets=new[]{new{name,browser_download_url=url??download+name,size=package.Length,digest},
+                new{name=checksumName,browser_download_url=download+checksumName,size=100,digest=(string?)null}}};
     }
     private static async Task CheckDesktopDownloadAsync()
     {
@@ -41,14 +41,16 @@ internal static class UpdateSelfTest
         byte[] bytes = new byte[32045638];
         bytes[0] = (byte)'M'; bytes[1] = (byte)'Z';
         string hash = Convert.ToHexString(SHA256.HashData(bytes));
-        string catalog = JsonSerializer.Serialize(new[] { Release("bridge","0.6.28",name,bytes,productTag:"v0.6.28") });
-        int ranges = 0;
+        string catalog = JsonSerializer.Serialize(new[] { Release("bridge","0.6.28",name,bytes,productTag:"v0.6.28",digest:"sha256:"+hash.ToLowerInvariant()) });
+        int ranges = 0, checksumRequests = 0;
         var handler = new Handler();
         handler.Reply = (request, _) => {
             if (request.RequestUri!.Host == "api.github.com")
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(catalog) });
-            if (!request.RequestUri.AbsolutePath.EndsWith(name))
+            if (!request.RequestUri.AbsolutePath.EndsWith(name)) {
+                checksumRequests++;
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(hash + "  " + name) });
+            }
             var range = request.Headers.Range!.Ranges.Single();
             int start = checked((int)range.From!.Value), end = checked((int)range.To!.Value);
             var result = new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = new ByteArrayContent(bytes, start, end-start+1) };
@@ -60,7 +62,15 @@ internal static class UpdateSelfTest
         await service.CheckAsync(default);
         var downloaded = await service.DownloadAsync(service.Available["bridge"], "0.6.27", null, default);
         downloaded.VerifyUnchanged();
-        Check(ranges == 4, "Expected four requests for the 32 MB Windows installer");
+        Check(ranges == 4 && checksumRequests==1, "Initial installer transfer or checksum verification failed");
+        using var reopened = new UpdateService(new Handler { Reply=handler.Reply });
+        await reopened.CheckAsync(default);
+        var cached=await reopened.DownloadAsync(reopened.Available["bridge"],"0.6.27",null,default);
+        Check(cached.File==downloaded.File && ranges==4 && checksumRequests==1, "Restart did not prefer the verified cached installer");
+        using(var changed=File.OpenWrite(cached.File)){changed.WriteByte(0);}
+        var repaired=await reopened.DownloadAsync(reopened.Available["bridge"],"0.6.27",null,default);
+        repaired.VerifyUnchanged();
+        Check(ranges==8 && checksumRequests==2, "Damaged installer was not downloaded and verified again");
     }
 
     internal static async Task RunAsync() {

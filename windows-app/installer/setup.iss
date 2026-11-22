@@ -212,7 +212,7 @@ begin
   if VerifiedDesktopFile then Exit;
   DownloadPage.Clear;
   DownloadPage.Add('{#DesktopUrl}', 'dotnet-desktop.exe', '{#DesktopSha256}');
-  DownloadPage.Show;
+  if not WizardSilent then DownloadPage.Show;
   try
     try
       DownloadPage.Download;
@@ -225,7 +225,7 @@ begin
         Result := '.NET 下载失败或文件校验未通过。请检查网络后重试。' + #13#10 + GetExceptionMessage;
     end;
   finally
-    DownloadPage.Hide;
+    if not WizardSilent then DownloadPage.Hide;
   end;
 end;
 
@@ -353,15 +353,21 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
-var Code: Integer;
+var Code, ShowMode: Integer; RuntimeArgs: String;
 begin
   Result := '';
   if not DesktopInstalled then begin
     Result := DownloadDesktop;
     if Result <> '' then Exit;
     WizardForm.StatusLabel.Caption := '正在安装 .NET 8 桌面运行时，请处理 Windows 权限提示…';
+    RuntimeArgs := '/install /passive /norestart';
+    ShowMode := SW_SHOWNORMAL;
+    if WizardSilent and BridgeUpdateRequested then begin
+      RuntimeArgs := '/install /quiet /norestart';
+      ShowMode := SW_HIDE;
+    end;
     if not ShellExec('runas', ExpandConstant('{tmp}\dotnet-desktop.exe'),
-      '/install /passive /norestart', '', SW_SHOWNORMAL, ewWaitUntilTerminated, Code) then begin
+      RuntimeArgs, '', ShowMode, ewWaitUntilTerminated, Code) then begin
       Result := '.NET 安装未能启动或管理员许可已取消。请允许安装，或联系管理员后重试。'; Exit;
     end;
     if (Code <> 0) and (Code <> 3010) and (Code <> 1641) then begin

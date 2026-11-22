@@ -72,8 +72,11 @@ internal sealed class BridgeFirewall : IDisposable
                 }
                 // INetFwRules.Add replaces an existing name; never overwrite
                 // an unrecognized administrator or enterprise rule.
-                foreach(dynamic entry in rules)if(string.Equals((string)entry.Name,name,StringComparison.OrdinalIgnoreCase))
-                    throw new IOException("bridge_firewall_rule_name_in_use");
+                try {
+                    if(rules.Item(name) is not null)throw new IOException("bridge_firewall_rule_name_in_use");
+                } catch(Exception ex) when(ex.HResult==unchecked((int)0x80070002)) {
+                    // No rule with this name. Other policy lookup errors abort migration.
+                }
                 dynamic rule=Com("HNetCfg.FwRule");
                 rule.Name=name;rule.Grouping=Group;rule.Description="Previously permitted AI-bot LAN traffic for the verified bridge version.";
                 rule.ApplicationName=target;rule.Direction=1;rule.Action=1;rule.Protocol=grant.Protocol;rule.LocalPorts=localPort;

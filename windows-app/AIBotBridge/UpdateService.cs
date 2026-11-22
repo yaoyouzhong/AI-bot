@@ -156,7 +156,12 @@ internal sealed class UpdateService : IDisposable
         var checks=update.Checksums??throw new InvalidDataException("缺少校验文件。");
         if(Path.GetFileName(asset.Name)!=asset.Name||asset.Size<=0||asset.Size>256L*1024*1024)
             throw new InvalidDataException("下载文件名或大小无效。");
-        string expected=ReadChecksum(Encoding.UTF8.GetString(await ReadAsync(checks.Url,256*1024,token)),asset.Name);
+        async Task<string> PublishedChecksum() =>
+            ReadChecksum(Encoding.UTF8.GetString(await ReadAsync(checks.Url,256*1024,token)),asset.Name);
+        // A digest received from the official release catalog identifies the verified disk cache
+        // across process restarts. Older releases use their published checksum list.
+        string? catalogHash=update.Component=="bridge" ? asset.Sha256 : null;
+        string expected=catalogHash ?? await PublishedChecksum();
         var identity=new PackageDownloadIdentity(1,update.Component,update.Version,asset.Name,asset.Size,expected);
         string metadata=JsonSerializer.Serialize(identity,JsonDefaults.Options);
         string key=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(metadata))).ToLowerInvariant();
@@ -178,6 +183,8 @@ internal sealed class UpdateService : IDisposable
             }
             File.Delete(file);
         }
+        if(catalogHash is not null && await PublishedChecksum()!=catalogHash)
+            throw new InvalidDataException("发布摘要与校验清单不一致，请重新检查更新。");
         await using(var output=new FileStream(partial,FileMode.OpenOrCreate,FileAccess.Write,FileShare.None,65536,true)) {
             if(output.Length>asset.Size)output.SetLength(0);
             progress?.Report((int)(output.Length*100/asset.Size));

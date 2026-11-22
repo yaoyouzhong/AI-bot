@@ -10,6 +10,10 @@ Windows 安装器会请求正在运行的 AI-bot 正常退出，安装完成后�
 
 Windows Setup closes a running AI-bot and starts it again after the upgrade. If the bridge cannot close safely or a flash is in progress, follow the installer prompt before retrying. First-time setup guides you to add a device already showing AI-bot or install AI-bot firmware on a factory device. [Illustrated guide](FIRST-INSTALL.zh.md#windows-first-device)
 
+如果下载后出现「安装新版 AI-bot？」窗口，点 **安装并重启** 即可在后台安装，完成后 AI-bot 会自动回到托盘。点 **稍后** 可继续使用，下一次点「一键升级」会先校验并复用已下载的同一版本安装包。
+
+If Windows asks whether to install the new version after the download, choose **Install and restart**. AI-bot installs in the background and returns to the system tray. Choose **Later** to keep working. The next update attempt checks the saved installer and reuses it if it still matches the release.
+
 ## 0.6.26 一键升级 / One-Click Update in 0.6.26
 
 有更新时，「桥接设置 → 软件固件」卡片显示绿圆底白色上箭头和更新数量。在版本表选中软件或固件，表格下方显示对应版本的更新说明。点「一键升级」一次开始下载、校验和安装。下载中可以取消，重试时可沿用已下载的数据。

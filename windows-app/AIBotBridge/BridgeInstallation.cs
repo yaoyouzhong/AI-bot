@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Principal;
@@ -92,6 +93,11 @@ internal static class BridgeInstallation
         manifest.Files.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(
             Payload(AppContext.BaseDirectory).Select(file => Path.GetRelativePath(AppContext.BaseDirectory, file)));
 
+    // Both names are inside administrator-owned, immutable version directories.
+    // Removal unlinks a name; published payload files are never edited in place.
+    [DllImport("kernel32.dll", EntryPoint="CreateHardLinkW", ExactSpelling=true, CharSet=CharSet.Unicode)]
+    private static extern bool CreateHardLink(string newName, string existingName, IntPtr reserved);
+
     internal static string Configure(){
         AppProfileGuard.EnsureDesktopProfile();
         if(!BridgeElevation.IsAdministrator)throw new UnauthorizedAccessException("bridge_administrator_required");
@@ -110,15 +116,23 @@ internal static class BridgeInstallation
         bool created=!Directory.Exists(directory);
         string destination=created?Path.Combine(Root,".install-"+Guid.NewGuid().ToString("N")):directory;
         DirectoryProtected(destination,owner);
+        int reused=0;
         if(created){
             try{
+            var preparedParents=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach(var pair in files){
                 string from=Resolve(source,pair.Key),to=Resolve(destination,pair.Key);var item=new FileInfo(from);
                 if(item.Attributes.HasFlag(FileAttributes.ReparsePoint))throw new IOException("bridge_payload_link");
                 for(var ancestor=item.Directory;ancestor is not null&&!ancestor.FullName.Equals(Path.TrimEndingDirectorySeparator(source),StringComparison.OrdinalIgnoreCase);ancestor=ancestor.Parent)
                     if(ancestor.Attributes.HasFlag(FileAttributes.ReparsePoint))throw new IOException("bridge_payload_link");
                 var parents=new Stack<string>();for(string? path=Path.GetDirectoryName(to);path is not null&&path!=destination;path=Path.GetDirectoryName(path))parents.Push(path);
-                foreach(string path in parents)DirectoryProtected(path,owner);
+                foreach(string path in parents)
+                    if(preparedParents.Add(path)) DirectoryProtected(path,owner);
+                if(previousManifest is not null && previousManifest.Files.TryGetValue(pair.Key,out var oldHash)
+                    && oldHash==pair.Value && CreateHardLink(to,Resolve(Path.GetDirectoryName(previous!)!,pair.Key),IntPtr.Zero)){
+                    reused++;
+                    continue;
+                }
                 File.Copy(from,to,false);SetOwner(new(to));if(Hash(to)!=pair.Value)throw new IOException("bridge_payload_changed");
             }
             int? port=int.TryParse(Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT"),out int configured)&&configured is >0 and <=65535?configured:previousManifest?.HttpPort;
@@ -134,7 +148,7 @@ internal static class BridgeInstallation
                 throw;
             }
         }
-        Tab5LocalDiagnostics.Write($"BRIDGE_UPGRADE stage=payload_prepared elapsedMs={elapsed.ElapsedMilliseconds}");
+        Tab5LocalDiagnostics.Write($"BRIDGE_UPGRADE stage=payload_prepared reusedFiles={reused} totalFiles={files.Count} elapsedMs={elapsed.ElapsedMilliseconds}");
         var manifestRead=Read(executable,owner)??throw new IOException("bridge_install_verification_failed");
         Tab5LocalDiagnostics.Write($"BRIDGE_UPGRADE stage=payload_verified elapsedMs={elapsed.ElapsedMilliseconds}");
         using var firewall=BridgeFirewall.Prepare(previous,executable,manifestRead.HttpPort??BridgeFirewall.DefaultHttpPort);

@@ -206,20 +206,31 @@ internal sealed class UpdateCenterForm : Form
             }
             var target=Selected()?.Device;var release=Release(target);
             if(target is null||release is null||UpdateService.PreparationBlocked(target,release) is not null)return;
-            if (target.Component == "bridge") {
-                using var confirmation = new DesktopUpgradeConfirmation(target.Version, release.Version);
-                if (confirmation.ShowDialog(this) != DialogResult.OK) return;
-            }
             bool handedOff=false;_operation=CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);_busy=true;check.Enabled=false;cancel.Enabled=true;cancel.Visible=true;progress.Value=0;progress.Visible=true;Buttons();state.Text="正在下载并校验 "+target.Name+" 的更新…";
             try {
                 var prepared=await service.DownloadAsync(release,Application.ProductVersion.Split('+')[0],new Progress<int>(value=>{if(!IsDisposed)progress.Value=Math.Clamp(value,0,100);}),_operation.Token);
                 _operation.Token.ThrowIfCancellationRequested();
                 var current=capture().SingleOrDefault(d=>d.Id==target.Id);
                 if(!UpdateService.SameTarget(target,current,release))throw new InvalidOperationException("设备或版本已改变，请重新检查更新。");
-                cancel.Enabled=false;state.Text=target.Component=="tab5"?"校验通过，正在准备 TAB5 升级…":"校验通过，正在打开安装工具…";
+                cancel.Enabled=false;
+                if (target.Component == "bridge") {
+                    state.Text="安装包已校验，等待确认安装。";
+                    using var confirmation=new DesktopUpgradeConfirmation(current.Version,release.Version);
+                    if (confirmation.ShowDialog(this)!=DialogResult.OK) {
+                        if(!IsDisposed)state.Text="已保留安装包，可稍后安装。";
+                        return;
+                    }
+                    _operation.Token.ThrowIfCancellationRequested();
+                }
+                state.Text=target.Component switch {
+                    "bridge"=>"正在后台安装，完成后 AI-bot 会自动重新打开。",
+                    "tab5"=>"校验通过，正在准备 TAB5 升级…",
+                    _=>"校验通过，正在打开安装工具…"
+                };
                 handedOff=true;
                 bool opened=await install(current,prepared);
                 if(!IsDisposed)state.Text=!opened?"安装包已下载，尚未安装。":
+                    target.Component=="bridge"?"正在后台安装，完成后 AI-bot 会自动重新打开。":
                     target.Component=="tab5"?(Tab5Service.SupportsRemoteOta(target.Version)?
                         "已发送 TAB5 升级请求，请查看设备响应和启动核验结果。":"已提供固件。请在 TAB5 的「设置 → 固件升级」确认。"):
                     "已交给安装工具。完成后重新检查运行版本。";
