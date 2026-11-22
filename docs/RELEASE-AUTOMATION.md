@@ -92,7 +92,7 @@ Component tags `bridge-vX.Y.Z`, `esp8266-vX.Y.Z`, and `tab5-vX.Y.Z-ui` identify 
 
 总页公开后自动刷新并验证 `download-catalog.json`、中英文下载中心及 README 下载块。自动核验实际公开下载大小和摘要。候选归档包含 `CANDIDATE.json`、`ACCEPTANCE.json`、便携包和完整桥接源码，发布包保留许可证、第三方声明和校验文件。发布闭环后的本地副本与长期验收记录按 [本地工作区保留与清理](WORKSPACE-RETENTION.md) 处理。
 
-桌面源码归档保留构建输入、许可证及源码清单。历史 TAB5 固件源码 ZIP、补丁叠加 ZIP 和对应校验文件继续从 Git 获取，桌面归档不再嵌套这些已有归档。已封存候选按原清单留证。
+桌面源码归档保留构建输入、许可证及源码清单。历史 TAB5 固件源码快照、补丁叠加 ZIP 和对应校验文件继续从 Git 获取。已封存候选按原清单留证。
 
 默认只更新本地生成文档。在已有推送授权内加 `--commit-closeout`，只暂存并提交这些指定生成文件，拒绝已有相关改动、非空暂存区、落后主干或会夹带其他本地提交的情况；不自动 rebase。Actions 的公开晋级使用此选项，串行执行以减少冲突。如果分支保护不允许机器人直接推送，公开状态和收尾失败会被分别记录；负责人按仓库现有合并方式处理生成文档，不重新构建或验收包。
 
@@ -134,7 +134,7 @@ Build and validate the desktop platforms in parallel. The release owner archives
 
 With explicit user approval, keep the accepted installation in place and record the running version, relevant permissions, and backup location. Restore the backup and verify the original app when acceptance fails.
 
-Desktop source archives retain build inputs, notices and the source inventory. Historical TAB5 source and overlay ZIPs and their sidecar checksums remain in Git. Existing sealed candidates retain their original manifests and bytes.
+Desktop source archives retain build inputs, notices and the source inventory. Historical TAB5 source snapshots, overlay ZIPs and their sidecar checksums remain in Git. Existing sealed candidates retain their original manifests and bytes.
 
 `release_pipeline.py promote` defaults to a local-only preflight. Both `promote` and `promote-set` create or resume one independently numbered product draft. The product page uses selected accepted packages and their checksums. `--publish` publishes it after verifying the staged assets, then refreshes the download metadata. Retries preserve the same reserved product number. Actions promotion retrieves the selected successful native candidate run. TAB5 retains separately validated local artifacts and corresponding source.
 

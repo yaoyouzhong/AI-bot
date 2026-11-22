@@ -12,7 +12,7 @@ from test_component_versions import ComponentVersionTests, ComponentPayloadTests
 
 
 class PackagingTests(unittest.TestCase):
-    def test_desktop_source_excludes_only_nested_historical_firmware_archives(self):
+    def test_desktop_source_excludes_historical_firmware_snapshots(self):
         import json
         import zipfile
         from unittest.mock import patch
@@ -27,34 +27,36 @@ class PackagingTests(unittest.TestCase):
                 'windows-app/Startup.cs': 'desktop source',
                 'mac-app/Package.swift': 'Mac source',
                 'docs/development/TAB5-CHANGELOG.zh.md': 'bridge build input',
-                'docs/development/tab5-318-source/README.md': 'archival reference',
+            }
+            history = {
+                'docs/development/tab5-279-source/src/main.cpp': 'historic unpacked source',
+                'docs/development/tab5-318-source/README.md': 'historic readme',
                 'docs/development/tab5-318-source/AI-bot-tab5-0.2.318-ui-source.zip': 'historic zip',
                 'docs/development/tab5-318-source/AI-bot-tab5-0.2.318-ui-source.zip.sha256': 'historic checksum',
                 'docs/development/tab5-318-r4-source/source-overlay.zip': 'historic overlay',
                 'docs/development/TAB5-0.2.89-ui-source.zip': 'historic legacy zip',
             }
-            for name, value in files.items():
+            for name, value in (files | history).items():
                 path = source / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(value.encode())
-            history = [name for name in files if name.endswith(('.zip', '.zip.sha256'))]
             (source / 'licenses').mkdir()
             evidence = {'files': {}, 'sourceAssets': {
-                name: materials.digest(source / name) for name in history + ['LICENSE']}}
+                name: materials.digest(source / name) for name in [*history, 'LICENSE']}}
             (source / 'licenses/materials.json').write_text(json.dumps(evidence), encoding='utf-8')
             files['licenses/materials.json'] = json.dumps(evidence)
             (source / 'SOURCE_FILES.sha256').write_text(''.join(
-                f'{materials.digest(source / name)}  {name}\n' for name in files), encoding='utf-8')
+                f'{materials.digest(source / name)}  {name}\n' for name in files | history), encoding='utf-8')
             archive = root / 'bridge-source.zip'
             with patch.object(materials, 'ROOT', source):
                 materials.verify_evidence()
                 materials.archive_source(archive)
             extracted = root / 'extracted'
             with zipfile.ZipFile(archive) as zipped:
-                self.assertEqual(set(zipped.namelist()), (set(files) - set(history)) | {'SOURCE_FILES.sha256'})
+                self.assertEqual(set(zipped.namelist()), set(files) | {'SOURCE_FILES.sha256'})
                 zipped.extractall(extracted)
             inventory = (extracted / 'SOURCE_FILES.sha256').read_text(encoding='utf-8').splitlines()
-            self.assertEqual(len(inventory), len(files) - len(history))
+            self.assertEqual(len(inventory), len(files))
             for entry in inventory:
                 digest, name = entry.split('  ', 1)
                 self.assertEqual(materials.digest(extracted / name), digest)

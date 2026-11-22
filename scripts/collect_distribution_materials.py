@@ -17,8 +17,8 @@ import zipfile
 from component_versions import versions
 
 ROOT = Path(__file__).resolve().parents[1]
-HISTORICAL_TAB5_ZIP = re.compile(
-    r"docs/development/(?:tab5-\d+(?:-r\d+)?-source/[^/]+|tab5-[\d.]+-ui-source)\.zip(?:\.sha256)?",
+HISTORICAL_TAB5_SOURCE = re.compile(
+    r"docs/development/(?:tab5-\d+(?:-r\d+)?-source/.+|tab5-[\d.]+-ui-source\.zip(?:\.sha256)?)",
     re.IGNORECASE,
 )
 
@@ -57,9 +57,9 @@ def verify_evidence():
     archive_members = None
     for name, expected in evidence.get("sourceAssets", {}).items():
         path = ROOT / name
-        # An extracted desktop archive may omit nested firmware ZIPs. A full checkout's
+        # An extracted desktop archive omits historical firmware snapshots. A full checkout's
         # registered artifacts and all files listed in the archive remain verifiable.
-        if HISTORICAL_TAB5_ZIP.fullmatch(name) and not path.exists() and inventory.is_file():
+        if HISTORICAL_TAB5_SOURCE.fullmatch(name) and not path.exists() and inventory.is_file():
             if archive_members is None:
                 archive_members = {line.split("  ", 1)[1] for line in inventory.read_text(encoding="utf-8-sig").splitlines()}
             if name not in archive_members:
@@ -296,7 +296,7 @@ def archive_source(archive: Path):
                 or not path.is_relative_to(ROOT.resolve()) or (ROOT / name).is_symlink()):
             raise ValueError("Source path escaped snapshot")
         # Standalone historical firmware snapshots already have their own archives.
-        if HISTORICAL_TAB5_ZIP.fullmatch(name):
+        if HISTORICAL_TAB5_SOURCE.fullmatch(name):
             continue
         data = path.read_bytes()
         if hashlib.sha256(data).hexdigest() != expected:
