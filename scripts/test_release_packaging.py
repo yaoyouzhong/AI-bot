@@ -12,6 +12,58 @@ from test_component_versions import ComponentVersionTests, ComponentPayloadTests
 
 
 class PackagingTests(unittest.TestCase):
+    def test_desktop_source_excludes_only_nested_historical_firmware_archives(self):
+        import json
+        import zipfile
+        from unittest.mock import patch
+        import collect_distribution_materials as materials
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / 'source'
+            source.mkdir()
+            files = {
+                'LICENSE': 'original license',
+                'windows-app/Startup.cs': 'desktop source',
+                'mac-app/Package.swift': 'Mac source',
+                'docs/development/TAB5-CHANGELOG.zh.md': 'bridge build input',
+                'docs/development/tab5-318-source/README.md': 'archival reference',
+                'docs/development/tab5-318-source/AI-bot-tab5-0.2.318-ui-source.zip': 'historic zip',
+                'docs/development/tab5-318-source/AI-bot-tab5-0.2.318-ui-source.zip.sha256': 'historic checksum',
+                'docs/development/tab5-318-r4-source/source-overlay.zip': 'historic overlay',
+                'docs/development/TAB5-0.2.89-ui-source.zip': 'historic legacy zip',
+            }
+            for name, value in files.items():
+                path = source / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(value.encode())
+            history = [name for name in files if name.endswith(('.zip', '.zip.sha256'))]
+            (source / 'licenses').mkdir()
+            evidence = {'files': {}, 'sourceAssets': {
+                name: materials.digest(source / name) for name in history + ['LICENSE']}}
+            (source / 'licenses/materials.json').write_text(json.dumps(evidence), encoding='utf-8')
+            files['licenses/materials.json'] = json.dumps(evidence)
+            (source / 'SOURCE_FILES.sha256').write_text(''.join(
+                f'{materials.digest(source / name)}  {name}\n' for name in files), encoding='utf-8')
+            archive = root / 'bridge-source.zip'
+            with patch.object(materials, 'ROOT', source):
+                materials.verify_evidence()
+                materials.archive_source(archive)
+            extracted = root / 'extracted'
+            with zipfile.ZipFile(archive) as zipped:
+                self.assertEqual(set(zipped.namelist()), (set(files) - set(history)) | {'SOURCE_FILES.sha256'})
+                zipped.extractall(extracted)
+            inventory = (extracted / 'SOURCE_FILES.sha256').read_text(encoding='utf-8').splitlines()
+            self.assertEqual(len(inventory), len(files) - len(history))
+            for entry in inventory:
+                digest, name = entry.split('  ', 1)
+                self.assertEqual(materials.digest(extracted / name), digest)
+            with patch.object(materials, 'ROOT', extracted):
+                materials.verify_evidence()
+                (extracted / 'LICENSE').unlink()
+                with self.assertRaises(FileNotFoundError):
+                    materials.verify_evidence()
+
     def test_project_publish_notices_are_registered(self):
         from collect_distribution_materials import verify_publish_notices, verify_evidence
         with tempfile.TemporaryDirectory() as temp:
