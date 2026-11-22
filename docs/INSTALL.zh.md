@@ -151,9 +151,9 @@ TAB5 需要无线时，在 **连接设置 → Wi-Fi** 保存网络并确认有�
 
 升级前正常退出桥接；需要备份时用 ZIP 或“应用程序”外的独立目录，不把改名的旧 `.app` 留在“应用程序”中。[0.6.23 验收范围](RELEASE-0.6.23.md) · [旧版授权说明短片](MAC-AUTHORIZATION-VIDEO.md)
 
-<a href="assets/screens/mac-direct-authorization.png"><img src="assets/screens/mac-direct-authorization.png" width="320" alt="Mac 0.6.15 原生应用授权引导，首次使用演示"></a>
+<a href="assets/screens/mac-system-permissions-0628.png"><img src="assets/screens/mac-system-permissions-0628.png" width="600" alt="Mac 0.6.28 系统授权页，显示授权当前 App 和在 Finder 中显示当前 App 的入口"></a>
 
-<sub>图为 0.6.15 的授权引导演示。0.6.28 的操作以本节步骤为准。</sub>
+<sub>Mac 0.6.28「系统授权」页，使用演示数据。</sub>
 
 从 Mac 菜单栏打开 AI-bot 设备中心。新增 TAB5 后自动进入“USB 配对”页，连接数据线、选择目标设备后配对。已有 AI-bot 的设备先通过 USB 添加／配对；出厂 ESP8266 使用 **小屏刷机…** 和小屏固件 ZIP，出厂 TAB5 使用首次安装入口和首刷 ZIP。已有 TAB5 更新时选择应用 BIN 及同目录说明文件，不使用首刷包。
 

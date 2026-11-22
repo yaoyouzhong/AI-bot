@@ -21,6 +21,8 @@
 
 `CANDIDATE.json` 的 `candidateId` 绑定源码、组件、平台、文件大小、SHA-256、说明及必要验收项；候选目录不再修改。下载并归档 Actions artifacts，记录批次 ID。重复装配同一候选可直接复用，不重建产品。
 
+桌面两端并行构建并验收。发布负责人下载一份封存归档，向验收端提供同一批次 ID、源码 SHA、候选 ID 和对应安装包摘要。只负责 Mac 实机验收时，从该批次下载 `candidate-macos-arm64`，核对 ZIP 的大小、SHA-256 和内嵌源码与封存清单一致即可。验收端已有匹配原包时直接复用，完整源码和其他平台附件由发布负责人归档。
+
 首次启用本流程后，新的候选源码应包含新版标签工作流。GitHub 的标签事件读取被打标签提交中的工作流；仅更新 main 不能改变旧提交的行为。脚本拒绝给仍带旧构建流程的历史源码创建新标签，避免意外重建；已存在且来源正确的正式标签仍可核对，不追溯重发历史版本。
 
 本地已有原生候选可用 `stamp`、`assemble --require-stamps` 汇集；仅在原生构建和回归确实成功后登记来源，不给未提交工作区补写假的源码 SHA。已有 `prepare_release_assets.py` 验证目录可用 `seal` 接入，不重新打包。TAB5 仍由独立工程构建，先用 `prepare_release_assets.py --component tab5 --tab5-source ...` 核对首刷、升级、实际镜像和源码，再用 `seal --tab5-source ...` 封存对应源码 ZIP。封存不刷机。
@@ -41,6 +43,8 @@ python scripts/release_pipeline.py status $candidate $acceptance
 同一原包和场景已经通过，就不因换会话、换机器传递、准备标签、上传重试或纯文档变动再验收。不要求每次重做旧公开版升级、配对、草稿解密、设备刷机或媒体编码。安装器、迁移、依赖或具体功能变化才补对应检查；不能复用覆盖不了该变化的结论。失败、缺项、错候选或文件变化会阻止晋级；工具不自动宣称真机通过。
 
 只需真实物理操作或必要账户时才让用户参与。自动化不得置顶或切换前台；安装验证可采用受控临时目录和后台启动，保存恢复安装登记及用户资料。同一路径受阻且没有新证据时换方法，不机械重试沙盒。
+
+用户明确同意保留原包时，验收通过后可直接保留该安装，记录正在运行的版本、关键权限与备份位置。验收失败时按备份恢复并核对原应用状态。
 
 ## 3. 一次执行原包发布
 
@@ -123,6 +127,10 @@ Release Assets contain installable or flashable packages and updater checksums. 
 ## English
 
 Use four steps: select changed scope and source, reuse or build native candidate packages once, record actual or justified reused acceptance once, then promote those exact bytes and close out. Four deliverables share three component version lines. Tag events validate metadata only. Candidate identities bind source, scope, notes and file hashes; altered packages or missing/failed acceptance block promotion. Record explicit baseline evidence and reasons when reusing unchanged-path results.
+
+Build and validate the desktop platforms in parallel. The release owner archives the sealed bundle and shares its run ID, source SHA, candidate ID, and package digests. A Mac acceptance station can download `candidate-macos-arm64` from the same run and compare the ZIP size, SHA-256 and embedded source with the frozen manifest. Reuse a matching local copy when available.
+
+With explicit user approval, keep the accepted installation in place and record the running version, relevant permissions, and backup location. Restore the backup and verify the original app when acceptance fails.
 
 `release_pipeline.py promote` defaults to a local-only preflight. Both `promote` and `promote-set` create or resume one independently numbered product draft. The product page uses selected accepted packages and their checksums. `--publish` publishes it after verifying the staged assets, then refreshes the download metadata. Retries preserve the same reserved product number. Actions promotion retrieves the selected successful native candidate run. TAB5 retains separately validated local artifacts and corresponding source.
 

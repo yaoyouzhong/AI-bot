@@ -31,6 +31,7 @@ REVIEWED_DOC_NAMES = frozenset({
     'mac-tab5-preview.png',
     'mac-direct-authorization.png',
     'mac-direct-authorization-upgrade.png',
+    'mac-system-permissions-0628.png',
     'esp8266-reset-text-057.png',
     'tab5-draft-clear-before-281.png',
     'tab5-draft-clear-empty-281.png',

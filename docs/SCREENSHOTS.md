@@ -1,5 +1,11 @@
 # 当前截图来源 / Screenshot provenance
 
+## 2026-11-22 Mac 0.6.28 系统授权
+
+`mac-system-permissions-0628.png`（1360×1300）来自正式 Mac 原包（源码 `78feeb086de91595326d21f3040e225f4a57b028`）的 `--self-test-tab5-ui` 原生 AppKit 渲染。图中为演示状态，展示「授权当前 App…」及 Finder 定位入口。原图未修改。摘要登记于 `licenses/materials.json`。
+
+The unedited native AppKit screenshot shows the Mac 0.6.28 System Permissions page with fixture data. It was captured from the accepted package by `--self-test-tab5-ui`. Its digest is registered in `licenses/materials.json`.
+
 ## 2026-11-20 Windows 0.6.27 首台设备
 
 `first-device-start.png`、`add-device.png`、`tab5-first-install*.png`、`esp-first-install*.png` 和 `first-device-added.png` 来自本轮 Windows Release 程序的 `--self-test-onboarding` 原生 WinForms 隔离渲染。保留原始像素，使用演示端口和设备。七张图展示首次入口、两条添加路线、两种设备的首刷及启动提示、添加完成。摘要登记于 `licenses/materials.json`。原有宣传视频仍用于演示设备接入，首次安装步骤以新版图文指南为准。
