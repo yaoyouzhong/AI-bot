@@ -92,6 +92,11 @@ internal static class StartupRegistration
         dynamic service=Connect();dynamic? task=FindTask(service.GetFolder("\\"));
         if(task is null||!Matches(task))return false;
         string path=(string)task!.Definition.Actions.Item(1).Path;
+        // Different assembly sizes rule out a match before either full inventory is read.
+        // A matching size still requires the complete protected manifest and source hashes.
+        var installedAssembly=new FileInfo(Path.ChangeExtension(path,".dll"));
+        var launchedAssembly=new FileInfo(Path.Combine(AppContext.BaseDirectory,"AIBotBridge.dll"));
+        if(!installedAssembly.Exists || !launchedAssembly.Exists || installedAssembly.Length!=launchedAssembly.Length)return false;
         if(BridgeInstallation.Read(path,UserSid) is not {} manifest||!BridgeInstallation.MatchesSource(manifest))return false;
         task!.Run(null);return true;
     }

@@ -7,6 +7,7 @@ namespace AIBotBridge;
 
 internal static class DesktopUpdate
 {
+    internal const string InstallerArguments = "/SP- /VERYSILENT /NORESTART /RESTARTEXITCODE=3010 /AIBOTUPDATE=1";
     private const string UninstallKey=@"Software\Microsoft\Windows\CurrentVersion\Uninstall\{8B24B155-4218-4B40-AD4A-6185901D351B}_is1";
 
     internal static bool IsInstalled(string executable)
@@ -33,7 +34,7 @@ internal static class DesktopUpdate
     {
         // Only the verified setup runs elevated, from an administrator-owned copy.
         string installer=BridgeInstallation.StageDesktopUpdate(package,executable);
-        const string script="""
+        const string script=$$"""
             $ErrorActionPreference = 'Stop'
             function Show-Status($message) {
                 Add-Type -AssemblyName PresentationFramework
@@ -46,7 +47,7 @@ internal static class DesktopUpdate
                     Show-Status 'AI-bot 未退出，请关闭正在操作的窗口后重试。'
                     exit 1
                 }
-                $setup = Start-Process -FilePath $env:AIBOT_UPGRADE_SETUP -ArgumentList '/SILENT /NORESTART /RESTARTEXITCODE=3010 /AIBOTUPDATE=1' -PassThru
+                $setup = Start-Process -FilePath $env:AIBOT_UPGRADE_SETUP -ArgumentList '{{InstallerArguments}} /SUPPRESSMSGBOXES' -PassThru
                 $setup.WaitForExit()
                 if ($setup.ExitCode -eq 0) { exit 0 }
                 if ($setup.ExitCode -eq 3010) {

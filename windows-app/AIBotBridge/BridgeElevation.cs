@@ -23,6 +23,16 @@ internal static class BridgeElevation
             if(arguments.Length==0&&!BridgeInstallation.TrustedExecutable(Environment.ProcessPath!,Owner)){
                 BridgeUpgrade.InstallAndStart();return false;
             }
+            // A task launched just after upgrade already has its protected payload and registration.
+            string current = Environment.ProcessPath!;
+            if (string.Equals(current, StartupRegistration.InstalledExecutable(), StringComparison.OrdinalIgnoreCase)
+                && BridgeInstallation.Read(current, Owner) is {} verified && BridgeInstallation.IsCurrentPayload(verified))
+            {
+                if (Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT") is null && verified.HttpPort is {} configuredPort)
+                    Environment.SetEnvironmentVariable("AIBOT_HTTP_PORT", configuredPort.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                _ = LegacyClaudeAdminCleanup.Remove();
+                return true;
+            }
             string path=BridgeInstallation.Configure();
             if(string.Equals(path,Environment.ProcessPath,StringComparison.OrdinalIgnoreCase)){
                 if(Environment.GetEnvironmentVariable("AIBOT_HTTP_PORT") is null&&BridgeInstallation.Read(path,Owner)?.HttpPort is {} port)

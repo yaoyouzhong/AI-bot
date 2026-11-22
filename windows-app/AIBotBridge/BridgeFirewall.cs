@@ -47,10 +47,9 @@ internal sealed class BridgeFirewall : IDisposable
         (r.Interfaces is Array interfaces&&interfaces.Length!=0)||Restricted(r.ServiceName)||Restricted(r.LocalAppPackageId)||
         Restricted(r.LocalUserOwner)||Restricted(r.LocalUserAuthorizedList)||Restricted(r.RemoteUserAuthorizedList)||Restricted(r.RemoteMachineAuthorizedList)||(int)r.SecureFlags!=0);
 
-    internal static BridgeFirewall Prepare(string? previous,string target,string owner,int port){
+    internal static BridgeFirewall Prepare(string? previous,string target,int port){
         if(previous is null||previous.Equals(target,StringComparison.OrdinalIgnoreCase))return new();
-        if(BridgeInstallation.Read(previous,owner) is null||BridgeInstallation.Read(target,owner) is null)
-            throw new IOException("bridge_firewall_unverified_payload");
+        // Configure has verified both protected payloads before transferring any rule.
         dynamic policy=Com("HNetCfg.FwPolicy2"),rules=policy.Rules;
         var prior=new List<Rule>();var destination=new Dictionary<string,Rule>(StringComparer.OrdinalIgnoreCase);
         foreach(dynamic entry in rules){
@@ -73,8 +72,11 @@ internal sealed class BridgeFirewall : IDisposable
                 }
                 // INetFwRules.Add replaces an existing name; never overwrite
                 // an unrecognized administrator or enterprise rule.
-                foreach(dynamic entry in rules)if(string.Equals((string)entry.Name,name,StringComparison.OrdinalIgnoreCase))
-                    throw new IOException("bridge_firewall_rule_name_in_use");
+                try {
+                    if(rules.Item(name) is not null)throw new IOException("bridge_firewall_rule_name_in_use");
+                } catch(Exception ex) when(ex.HResult==unchecked((int)0x80070002)) {
+                    // No rule with this name. Other policy lookup errors abort migration.
+                }
                 dynamic rule=Com("HNetCfg.FwRule");
                 rule.Name=name;rule.Grouping=Group;rule.Description="Previously permitted AI-bot LAN traffic for the verified bridge version.";
                 rule.ApplicationName=target;rule.Direction=1;rule.Action=1;rule.Protocol=grant.Protocol;rule.LocalPorts=localPort;

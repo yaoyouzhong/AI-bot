@@ -19,13 +19,14 @@ internal static class UpdateUiSelfTest
         string installedPath=Path.Combine(GalleryPack.Root,"painting","PACK.json");
         Directory.CreateDirectory(Path.GetDirectoryName(installedPath)!);
         File.WriteAllText(installedPath,JsonSerializer.Serialize(new GalleryPackManifest(1,"2026.10.01","painting",1,1,[]),JsonDefaults.Options));
-        var handler=new UpdateSelfTest.Handler();bool hold=false,catalogOffline=false;int catalogRequests=0;var waiting=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler=new UpdateSelfTest.Handler();bool hold=false,catalogOffline=false;int catalogRequests=0, installerRequests=0;var waiting=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         handler.Reply=async(request,token)=>{
             string path=request.RequestUri!.AbsolutePath;
             if(request.RequestUri.Host=="api.github.com"){
                 Interlocked.Increment(ref catalogRequests);
                 if(Volatile.Read(ref catalogOffline))throw new HttpRequestException("Simulated offline release catalog");
             }
+            if (path.EndsWith(installerName)) Interlocked.Increment(ref installerRequests);
             if(hold&&path.EndsWith("SHA256SUMS.txt"))await waiting.Task.WaitAsync(token);
             byte[] data=path.EndsWith("SHA256SUMS.txt")
                 ?Encoding.UTF8.GetBytes(path.Contains("/bridge-v")?installerHash+"  "+installerName+"\n":hash+"  "+name+"\n")
@@ -106,8 +107,31 @@ internal static class UpdateUiSelfTest
         if(!openedGallery||target is not null)throw new Exception("Gallery action went to the device installer instead of gallery management");
         form.FocusUpdate("bridge");
         await Wait(()=>action.Enabled&&SelectedName()==devices[0].Name);
-        action.PerformClick();
-        await Wait(()=>state.Text=="安装包已下载，尚未安装。");
+        async Task ConfirmDesktop(bool approve) {
+            int prompts=0;
+            using var timer=new System.Windows.Forms.Timer { Interval=25 };
+            timer.Tick+=(_,_)=>{
+                var dialog=Application.OpenForms.OfType<DesktopUpgradeConfirmation>().SingleOrDefault();
+                if(dialog is null)return;
+                prompts++;
+                if (!approve) {
+                    using var bitmap=new Bitmap(dialog.Width,dialog.Height);
+                    dialog.DrawToBitmap(bitmap,new(Point.Empty,dialog.Size));
+                    bitmap.Save(Path.Combine(directory,"desktop-upgrade-confirmation.png"));
+                }
+                ((Button)(approve ? dialog.AcceptButton! : dialog.CancelButton!)).PerformClick();
+            };
+            timer.Start();
+            action.PerformClick();
+            await Wait(()=>action.Enabled && prompts>0);
+            if(prompts!=1)throw new Exception("Expected exactly one installation confirmation");
+        }
+        await ConfirmDesktop(false);
+        if(target is not null || Volatile.Read(ref installerRequests)!=1 || state.Text!="已保留安装包，可稍后安装。")
+            throw new Exception("Deferring must retain the downloaded package and skip installation");
+        await ConfirmDesktop(true);
+        if(Volatile.Read(ref installerRequests)!=1 || state.Text!="安装包已下载，尚未安装。")
+            throw new Exception("Retry did not reuse the verified installer");
         if(target!="bridge"||handoffs!=0)throw new Exception("Cancelled installer reported as handed off");
         using(var capture=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(capture,new(Point.Empty,form.Size));capture.Save(Path.Combine(directory,"installer-cancelled.png"));}
         devices[0]=devices[0] with {Version="0.5.1"};

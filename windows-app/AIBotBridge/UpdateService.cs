@@ -156,7 +156,12 @@ internal sealed class UpdateService : IDisposable
         var checks=update.Checksums??throw new InvalidDataException("缺少校验文件。");
         if(Path.GetFileName(asset.Name)!=asset.Name||asset.Size<=0||asset.Size>256L*1024*1024)
             throw new InvalidDataException("下载文件名或大小无效。");
-        string expected=ReadChecksum(Encoding.UTF8.GetString(await ReadAsync(checks.Url,256*1024,token)),asset.Name);
+        async Task<string> PublishedChecksum() =>
+            ReadChecksum(Encoding.UTF8.GetString(await ReadAsync(checks.Url,256*1024,token)),asset.Name);
+        // A digest received from the official release catalog identifies the verified disk cache
+        // across process restarts. Older releases use their published checksum list.
+        string? catalogHash=update.Component=="bridge" ? asset.Sha256 : null;
+        string expected=catalogHash ?? await PublishedChecksum();
         var identity=new PackageDownloadIdentity(1,update.Component,update.Version,asset.Name,asset.Size,expected);
         string metadata=JsonSerializer.Serialize(identity,JsonDefaults.Options);
         string key=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(metadata))).ToLowerInvariant();
@@ -178,10 +183,12 @@ internal sealed class UpdateService : IDisposable
             }
             File.Delete(file);
         }
+        if(catalogHash is not null && await PublishedChecksum()!=catalogHash)
+            throw new InvalidDataException("发布摘要与校验清单不一致，请重新检查更新。");
         await using(var output=new FileStream(partial,FileMode.OpenOrCreate,FileAccess.Write,FileShare.None,65536,true)) {
             if(output.Length>asset.Size)output.SetLength(0);
             progress?.Report((int)(output.Length*100/asset.Size));
-            await TransferResumableAsync(asset,output,progress,token);
+            await TransferResumableAsync(asset,output,progress,token, chunkBytes: update.Component == "bridge" ? 8 * 1024 * 1024 : 2 * 1024 * 1024);
         }
         token.ThrowIfCancellationRequested();
         if(!await Task.Run(()=>FirmwareFlasher.MatchesHash(partial,expected),token)) {
@@ -235,11 +242,12 @@ internal sealed class UpdateService : IDisposable
         foreach(string path in new[]{file,file+".part",Path.Combine(directory,"DOWNLOAD.json"),Path.Combine(directory,"DOWNLOAD.json.tmp")})File.Delete(path);
         Directory.Delete(directory);
     }
-    private async Task TransferResumableAsync(UpdateAsset asset,Stream target,IProgress<int>? progress,CancellationToken token) {
+    private async Task TransferResumableAsync(UpdateAsset asset,Stream target,IProgress<int>? progress,CancellationToken token,int chunkBytes=2*1024*1024) {
         if(asset.Size<=4*1024*1024&&target.Length==0){await TransferAsync(asset.Url,target,2L*1024*1024*1024,asset.Size,progress,token);return;}
-        const int chunk=2*1024*1024;byte[] buffer=new byte[65536];long offset=target.Length;
+        byte[] buffer=new byte[65536];long offset=target.Length;
+        int lastPercent=-1;
         while(offset<asset.Size) {
-            long end=Math.Min(asset.Size-1,offset+chunk-1);
+            long end=Math.Min(asset.Size-1,offset+chunkBytes-1);
             for(int attempt=0;;attempt++) {
                 token.ThrowIfCancellationRequested();target.SetLength(offset);target.Position=offset;
                 try {
@@ -260,7 +268,8 @@ internal sealed class UpdateService : IDisposable
                         int count=await input.ReadAsync(buffer,deadline.Token);if(count==0)break;received+=count;
                         if(received>length)throw new InvalidDataException("下载分段内容超限。");
                         await target.WriteAsync(buffer.AsMemory(0,count),deadline.Token);
-                        progress?.Report((int)((offset+received)*100/asset.Size));
+                        int percent=(int)((offset+received)*100/asset.Size);
+                        if(percent!=lastPercent){progress?.Report(percent);lastPercent=percent;}
                     }
                     if(received!=length)throw new IOException("分段下载未完成。");
                     offset+=received;break;

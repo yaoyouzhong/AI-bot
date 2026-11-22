@@ -54,24 +54,115 @@ internal sealed class BridgeNotifications
 }
 internal sealed class NotificationSettingsForm : Form
 {
-    private readonly System.Windows.Forms.Timer _timer=new(){Interval=2000};
-    private bool _disposed;
-    internal NotificationSettingsForm(BridgeNotifications notifications) {
-        Text="AI-bot · 电脑提醒";Font=SettingsWindow.BodyFont();AutoScaleMode=AutoScaleMode.Dpi;AutoScaleDimensions=new(96,96);ClientSize=new(600,390);MinimumSize=new(540,330);
-        var root=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new(24),ColumnCount=1,RowCount=5};for(int i=0;i<5;i++)root.RowStyles.Add(new(i==3?SizeType.Percent:SizeType.AutoSize,i==3?100:0));root.ColumnStyles.Add(new(SizeType.Percent,100));Controls.Add(root);
-        var value=notifications.Options;var checks=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};
-        CheckBox Box(string text,bool selected){var box=new CheckBox{Text=text,Checked=selected,AutoSize=true};checks.Controls.Add(box);return box;}
-        var completion=Box("完成备用音",value.Completion);var attention=Box("等待操作",value.Attention);var quota=Box("额度异常",value.Quota);var health=Box("运行异常",value.Health);var sound=Box("提醒音",value.Sound);root.Controls.Add(checks,0,0);
-        var quiet=new CheckBox{Text="勿扰时段",Checked=value.Quiet,AutoSize=true};
-        DateTimePicker Time(int minute)=>new(){Format=DateTimePickerFormat.Custom,CustomFormat="HH:mm",ShowUpDown=true,Value=DateTime.Today.AddMinutes(minute),Width=90};
-        var start=Time(value.QuietStart);var end=Time(value.QuietEnd);var separator=new Label{Text="—",AutoSize=true};var hours=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill};hours.Controls.AddRange([quiet,start,separator,end]);root.Controls.Add(hours,0,1);
-        void QuietVisibility(){start.Visible=end.Visible=separator.Visible=quiet.Checked;}quiet.CheckedChanged+=(_,_)=>QuietVisibility();QuietVisibility();
-        var info=new Label{Text=notifications.Error??"提醒记录",AutoSize=true,Dock=DockStyle.Fill,ForeColor=Color.DimGray};root.Controls.Add(info,0,2);
-        var grid=new DataGridView{Dock=DockStyle.Fill,ReadOnly=true,AllowUserToAddRows=false,RowHeadersVisible=false,AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.Fill,BackgroundColor=Color.White};foreach(string column in new[]{"时间","提醒","处理"})grid.Columns.Add(column,column);root.Controls.Add(grid,0,3);
-        void RefreshHistory(){grid.Rows.Clear();foreach(var entry in notifications.History)grid.Rows.Add(entry.At.ToLocalTime().ToString("MM-dd HH:mm:ss"),entry.Title,entry.Outcome);}
-        var save=new Button{Text="保存",AutoSize=true,Anchor=AnchorStyles.Right};root.Controls.Add(save,0,4);
-        save.Click+=(_,_)=>{try{notifications.Save(new(completion.Checked,attention.Checked,quota.Checked,sound.Checked,quiet.Checked,start.Value.Hour*60+start.Value.Minute,end.Value.Hour*60+end.Value.Minute,health.Checked));info.Text="已保存";}catch(Exception ex){info.Text=ex.Message;}};
-        SettingsWindow.StyleButton(save,true);SettingsWindow.AddTitle(root,"提醒管理");Shown+=(_,_)=>{RefreshHistory();_timer.Start();};_timer.Tick+=(_,_)=>RefreshHistory();SettingsWindow.FitScreen(this);
+    private readonly System.Windows.Forms.Timer _timer = new() { Interval = 2000 };
+    internal NotificationSettingsForm(BridgeNotifications notifications)
+    {
+        Text = "AI-bot · 电脑提醒";
+        Font = SettingsWindow.BodyFont();
+        AutoScaleDimensions = new(96, 96);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ClientSize = new(580, 400);
+        MinimumSize = SizeFromClientSize(new(465, 320));
+        var tabs = new TabControl { Dock = DockStyle.Fill, Padding = new(14, 6) };
+        var settings = new TabPage("提醒设置") { BackColor = Color.White, Padding = new(16) };
+        var history = new TabPage("提醒记录") { BackColor = Color.White, Padding = new(8) };
+        tabs.TabPages.AddRange([settings, history]);
+        Padding = new(12);
+        Controls.Add(tabs);
+
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+        layout.ColumnStyles.Add(new(SizeType.Percent, 100));
+        layout.RowStyles.Add(new(SizeType.Percent, 100));
+        layout.RowStyles.Add(new(SizeType.AutoSize));
+        settings.Controls.Add(layout);
+        var viewport = new Panel { Dock = DockStyle.Fill };
+        var options = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2 };
+        options.ColumnStyles.Add(new(SizeType.Percent, 50));
+        options.ColumnStyles.Add(new(SizeType.Percent, 50));
+        viewport.Controls.Add(options);
+        layout.Controls.Add(viewport, 0, 0);
+
+        var value = notifications.Options;
+        Label Section(string title) => new() { Text = title, Font = SettingsWindow.SectionFont(), AutoSize = true, Margin = new(3, 4, 3, 6) };
+        CheckBox Toggle(string title, bool enabled) => new() { Text = title, Checked = enabled, AutoSize = true, Margin = new(3, 4, 3, 4) };
+        var types = Section("提醒内容");
+        options.Controls.Add(types, 0, 0); options.SetColumnSpan(types, 2);
+        var attention = Toggle("等待操作", value.Attention);
+        var quota = Toggle("额度异常", value.Quota);
+        var health = Toggle("运行异常", value.Health);
+        var completion = Toggle("完成备用音", value.Completion);
+        options.Controls.Add(attention, 0, 1); options.Controls.Add(quota, 1, 1);
+        options.Controls.Add(health, 0, 2); options.Controls.Add(completion, 1, 2);
+        var delivery = Section("声音与勿扰");
+        delivery.Margin = new(3, 14, 3, 6);
+        options.Controls.Add(delivery, 0, 3); options.SetColumnSpan(delivery, 2);
+        var sound = Toggle("提醒音", value.Sound);
+        var quiet = Toggle("勿扰时段", value.Quiet);
+        options.Controls.Add(sound, 0, 4);
+        DateTimePicker Time(int minute) => new() { Format = DateTimePickerFormat.Custom, CustomFormat = "HH:mm",
+            ShowUpDown = true, Value = DateTime.Today.AddMinutes(minute), Width = 92 };
+        var start = Time(value.QuietStart); var end = Time(value.QuietEnd);
+        var hours = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Dock = DockStyle.Fill };
+        hours.Controls.AddRange([quiet, start, new Label { Text = "至", AutoSize = true, Anchor = AnchorStyles.Left }, end]);
+        options.Controls.Add(hours, 0, 5); options.SetColumnSpan(hours, 2);
+        start.Enabled = end.Enabled = quiet.Checked;
+        quiet.CheckedChanged += (_, _) => start.Enabled = end.Enabled = quiet.Checked;
+
+        var footer = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, Padding = new(0, 8, 0, 0) };
+        footer.ColumnStyles.Add(new(SizeType.Percent, 100)); footer.ColumnStyles.Add(new(SizeType.AutoSize));
+        var status = new Label { Text = notifications.Error, AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = SettingsWindow.Muted };
+        var save = new Button { Text = "保存设置" };
+        SettingsWindow.StyleButton(save, true);
+        footer.Controls.Add(status, 0, 0); footer.Controls.Add(save, 1, 0); layout.Controls.Add(footer, 0, 1);
+        save.Click += (_, _) => {
+            try {
+                notifications.Save(new(completion.Checked, attention.Checked, quota.Checked, sound.Checked, quiet.Checked,
+                    start.Value.Hour*60+start.Value.Minute, end.Value.Hour*60+end.Value.Minute, health.Checked));
+                status.Text = "已保存";
+            } catch (Exception ex) { status.Text = ex.Message; }
+        };
+
+        var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, RowHeadersVisible = false,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize,
+            AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells, BackgroundColor = Color.White };
+        foreach (string title in new[] { "时间", "提醒", "处理" })
+            grid.Columns[grid.Columns.Add(title,title)].SortMode = DataGridViewColumnSortMode.NotSortable;
+        grid.Columns[0].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
+        grid.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        history.Controls.Add(grid);
+        var empty = new Label { Text = "暂无提醒记录", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = SettingsWindow.Muted };
+        history.Controls.Add(empty);
+        NotificationEntry[] displayed = [];
+        void RefreshHistory()
+        {
+            var entries = notifications.History;
+            empty.Visible = entries.Length == 0;
+            grid.Visible = entries.Length > 0;
+            if (displayed.SequenceEqual(entries)) return;
+            displayed = entries;
+            grid.Rows.Clear();
+            foreach (var entry in entries) grid.Rows.Add(entry.At.ToLocalTime().ToString("MM-dd HH:mm:ss"), entry.Title, entry.Outcome);
+        }
+        tabs.SelectedIndexChanged += (_, _) => {
+            _timer.Enabled = tabs.SelectedTab == history;
+            if (_timer.Enabled) RefreshHistory();
+        };
+        _timer.Tick += (_, _) => RefreshHistory();
+        Shown += (_, _) => {
+            // Size from the rendered font, tab header, footer and DPI-scaled controls.
+            // Toggling quiet hours only changes availability, so the layout stays still.
+            int chromeWidth = Width - viewport.ClientSize.Width;
+            int chromeHeight = Height - viewport.ClientSize.Height;
+            var hoursSize = hours.GetPreferredSize(Size.Empty);
+            int minWidth = Math.Max(MinimumSize.Width, chromeWidth + hoursSize.Width + hours.Margin.Horizontal);
+            int minHeight = chromeHeight + options.GetPreferredSize(new(viewport.ClientSize.Width, 0)).Height;
+            MinimumSize = new(minWidth, minHeight);
+        };
+        SettingsWindow.FitScreen(this);
     }
-    protected override void Dispose(bool disposing){if(disposing&&!_disposed){_disposed=true;_timer.Dispose();}base.Dispose(disposing);}
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _timer.Dispose();
+        base.Dispose(disposing);
+    }
 }
