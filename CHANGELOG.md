@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.30 - 2026-11-23
+
+### Windows
+
+- **Fewer background checks for Claude Code.** The bridge prioritizes the TAB5 session you're using and checks other sessions less often. It reuses session history when it hasn't changed.
+- **Less disk activity from quota history.** Codex usage is still saved every minute. The bridge appends each new reading and keeps your existing history.
+
 ## 0.6.29 - 2026-11-22
 
 ### Windows
