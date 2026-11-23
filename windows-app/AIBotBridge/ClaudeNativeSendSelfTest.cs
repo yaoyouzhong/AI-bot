@@ -28,6 +28,7 @@ internal static class ClaudeNativeSendSelfTest
     }
     internal static async Task RunAsync()
     {
+        ProbeCache();
         await ClaudeNativeFocusPreparation.SelfTestAsync();
         const string text="原生用户输入🙂";int count=0;
         void Require(bool ok,string reason){count++;if(!ok)throw new InvalidOperationException(reason);}
@@ -190,5 +191,35 @@ internal static class ClaudeNativeSendSelfTest
         result=await ClaudeNativeSend.SendAsync(failing,text,default);
         Require(result.FailureStage=="native_console_clipboard_format_unconfirmed"&&result.StagingAttempted&&!result.SubmitAttempted&&photoFailure.Submits==0,"Paste stage was lost or submitted");
         Console.WriteLine($"CLAUDE_NATIVE_SEND_SELF_TEST_OK {count} draft/identity/authorization/single-dispatch/unknown-delivery guards; no native client contacted");
+    }
+
+    private static void ProbeCache()
+    {
+        var cache=new ClaudeNativeTerminal.InputProbe();
+        long now=0;
+        int calls=0;
+        ClaudeNativeTerminal.View Inspect(){
+            Interlocked.Increment(ref calls);
+            Thread.Sleep(20);
+            return new("",0,"test",true);
+        }
+        var idle=cache.Check(Inspect,false,false,false,()=>now);
+        if(idle.Available||calls!=0)throw new InvalidOperationException("A cache-only read spawned a probe");
+        Parallel.For(0,12,_=>{
+            var result=cache.Check(Inspect,true,false,false,()=>now);
+            if(!result.Available||!result.Blank)throw new InvalidOperationException("Shared probe lost blank-console evidence");
+        });
+        if(calls!=1)throw new InvalidOperationException("Concurrent terminal checks duplicated the helper");
+        now=20000;
+        if(!cache.Check(Inspect,true,false,false,()=>now).Available||calls!=1)
+            throw new InvalidOperationException("Unselected terminal lost readiness or probed before its interval");
+        ClaudeNativeTerminal.View Unavailable(){calls++;throw new IOException("synthetic failure");}
+        cache.Check(Unavailable,true,true,false,()=>now);
+        now+=1000;
+        if(cache.Check(Inspect,true,false,false,()=>now).Available||calls!=2||!cache.Check(Inspect,true,true,true,()=>now).Available||calls!=3)
+            throw new InvalidOperationException("Background backoff delayed a newly selected terminal");
+        now+=60000;
+        if(!cache.Check(Inspect,true,false,false,()=>now).Available||calls!=4)
+            throw new InvalidOperationException("Unselected terminal never refreshed after its interval");
     }
 }

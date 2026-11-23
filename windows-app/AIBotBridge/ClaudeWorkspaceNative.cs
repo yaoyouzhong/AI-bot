@@ -12,7 +12,10 @@ internal sealed partial class ClaudeWorkspace
     internal Action<string,ClaudeNativeSend.Result>? DiagnosticResult {get;init;}
     private readonly bool _customNativeFactory;
     private sealed record NativeView(Guid Session,Guid Prompt,string Turn,long Started,long Ended,string State,string Outcome,bool Running,bool Waiting,bool CanSend,DateTimeOffset Observed,bool CanAppend=false,bool CanInterrupt=false,string[]? EarlierReplies=null);
+    private sealed record NativeTranscript(Guid Prompt,string Turn,long Started,long Ended,string Outcome,string[] EarlierReplies);
+    private sealed record CachedTranscript(string Path,long Length,DateTime Modified,NativeTranscript Transcript);
     private readonly Dictionary<string,NativeView> _nativeViews=[];
+    private readonly Dictionary<string,CachedTranscript> _nativeTranscripts=[];
     private readonly Dictionary<string,(string Turn,string Outcome)> _nativeCompletionViews=[];
     private readonly HashSet<string> _nativeAnnounced=[],_nativeIssued=[];
     private readonly HashSet<string> _nativeProbing=[];
@@ -38,32 +41,60 @@ internal sealed partial class ClaudeWorkspace
         lock(_sync)journals=_journals.Values.ToArray();
         return journals.Any(journal=>journal.ConfirmsNativeStop(task,turn));
     }
-    private NativeView? ObserveNative(ClaudeCatalog.Entry entry,out ClaudeSessionSource? source,ClaudeHistory.Value? suppliedHistory=null,IClaudeNativeSession? suppliedClient=null)
+    private NativeView? ObserveNative(ClaudeCatalog.Entry entry,out ClaudeSessionSource? source,ClaudeHistory.Value? suppliedHistory=null,IClaudeNativeSession? suppliedClient=null,bool background=false)
     {
         source=null;
         try {
             var client=suppliedClient??_nativeFactory(entry.Session);if(client is null)return null;
             string runtime=client.State;bool waiting=runtime=="waiting",running=waiting||runtime is "busy" or "working",idle=runtime=="idle";
             source=client.Source;
-            var history=suppliedHistory??ReadNativeHistory(entry,client);var latest=history.Turns.LastOrDefault();
-            if(latest is null){bool canSend=idle&&client.CanAddressInput;
+            var latest=background?ReadBackgroundTranscript(entry,client):SummarizeTranscript(entry,suppliedHistory??ReadNativeHistory(entry,client));
+            bool selected;lock(_sync)selected=_draftTask==entry.Alias;
+            bool Addressable()=>client is ClaudeNativeTerminal terminal
+                ?terminal.CanAddressInputForDisplay(selected||!background,interactive:!background)
+                :client.CanAddressInput;
+            if(latest is null){bool canSend=idle&&Addressable();
                 return client.State!=runtime?null:new(entry.Session,Guid.Empty,"",0,0,idle?"idle":"unknown","unknown",running,waiting,canSend,DateTimeOffset.UtcNow);}
-            string turn=(string)latest["id"];Guid prompt=Guid.Empty;
-            foreach(string id in history.Accepted)if(Guid.TryParse(id,out var user)&&Turn(entry,id)==turn){prompt=user;break;}
-            bool stopped=ConfirmedNativeStop(entry.Alias,turn);
-            string outcome=stopped?"interrupted":running?"inProgress":(string)latest["status"];
-            long started=Convert.ToInt64(latest["startedAt"]),ended=latest.TryGetValue("endedAt",out var at)?Convert.ToInt64(at):0;
+            bool stopped=ConfirmedNativeStop(entry.Alias,latest.Turn);
+            string outcome=stopped?"interrupted":running?"inProgress":latest.Outcome;
             string state=waiting?"waiting":running?"working":idle&&outcome is "completed" or "interrupted"?"idle":"unknown";
-            bool canWrite=client.CanAddressInput;
-            bool targetReady=canWrite&&running&&!waiting&&prompt!=Guid.Empty&&(client is not ClaudeSessionApi api||api.IsRunning(prompt));
-            // Only an accepted human prompt in this session proves that its
-            // earlier public replies have been followed by the user's action.
-            string[] earlier=prompt==Guid.Empty?[]:history.Turns.SkipLast(1).Where(t=>
-                (string)t["status"]=="completed"&&t["items"] is object[] {Length:>0})
-                .Select(t=>(string)t["id"]).ToArray();
-            return client.State!=runtime?null:new(entry.Session,prompt,turn,started,ended,state,outcome,running,waiting,idle&&canWrite,DateTimeOffset.UtcNow,targetReady&&client.CanAppend,targetReady&&client.CanInterrupt,earlier);
+            bool activeTurn=running&&!waiting&&latest.Prompt!=Guid.Empty;
+            bool canWrite=(idle||activeTurn)&&Addressable();
+            bool targetReady=canWrite&&activeTurn&&(client is not ClaudeSessionApi api||api.IsRunning(latest.Prompt));
+            return client.State!=runtime?null:new(entry.Session,latest.Prompt,latest.Turn,latest.Started,latest.Ended,state,outcome,running,waiting,idle&&canWrite,DateTimeOffset.UtcNow,targetReady&&client.CanAppend,targetReady&&client.CanInterrupt,latest.EarlierReplies);
         }catch(Exception e) when(e is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception or
             System.Runtime.InteropServices.COMException or System.Windows.Automation.ElementNotAvailableException){return null;}
+    }
+    private NativeTranscript? SummarizeTranscript(ClaudeCatalog.Entry entry,ClaudeHistory.Value history)
+    {
+        if(history.Turns.LastOrDefault() is not {} latest)return null;
+        string turn=(string)latest["id"];Guid prompt=Guid.Empty;
+        foreach(string id in history.Accepted)if(Guid.TryParse(id,out var user)&&Turn(entry,id)==turn){prompt=user;break;}
+        // Only an accepted human prompt proves that the earlier public replies
+        // have been followed by the user's action.
+        string[] earlier=prompt==Guid.Empty?[]:history.Turns.SkipLast(1).Where(t=>
+            (string)t["status"]=="completed"&&t["items"] is object[] {Length:>0})
+            .Select(t=>(string)t["id"]).ToArray();
+        return new(prompt,turn,Convert.ToInt64(latest["startedAt"]),
+            latest.TryGetValue("endedAt",out var at)?Convert.ToInt64(at):0,(string)latest["status"],earlier);
+    }
+    private NativeTranscript? ReadBackgroundTranscript(ClaudeCatalog.Entry entry,IClaudeNativeSession client)
+    {
+        bool VerifiedBlank()=>client is ClaudeNativeTerminal terminal?terminal.IsBlankForDisplay():
+            client is ClaudeNativeCode code?code.IsNewPanel():client.IsVerifiedBlank();
+        if(!_catalog.TryGetTranscript(entry.Session,out string? path)){
+            if(VerifiedBlank())return null;
+            throw new IOException("Claude history unavailable");
+        }
+        if(path is null)throw new IOException("Claude history ambiguous");
+        var file=new FileInfo(path);long length=file.Length;DateTime modified=file.LastWriteTimeUtc;
+        lock(_sync)if(_nativeTranscripts.TryGetValue(entry.Alias,out var cached)&&cached.Path==path&&
+            cached.Length==length&&cached.Modified==modified)return cached.Transcript;
+        var transcript=SummarizeTranscript(entry,ClaudeHistory.ReadTranscript(path,entry.Session,Key(),VerifiedBlank));
+        file.Refresh();
+        if(transcript is not null&&file.Exists&&file.Length==length&&file.LastWriteTimeUtc==modified)
+            lock(_sync)_nativeTranscripts[entry.Alias]=new(path,length,modified,transcript);
+        return transcript;
     }
     private void RefreshNative()
     {
@@ -75,7 +106,7 @@ internal sealed partial class ClaudeWorkspace
             var known=entries.Select(e=>e.Alias).ToHashSet();
             lock(_sync){
                 foreach(string task in _nativeObservations.Where(p=>p.Value<=observation&&!known.Contains(p.Key)).Select(p=>p.Key).ToArray()){
-                    _nativeObservations.Remove(task);_nativeViews.Remove(task);_nativeCompletionViews.Remove(task);
+                    _nativeObservations.Remove(task);_nativeViews.Remove(task);_nativeCompletionViews.Remove(task);_nativeTranscripts.Remove(task);
                 }
             }
             if(live is not null)foreach(var entry in entries.Where(e=>!live.Contains(e.Session))){
@@ -109,15 +140,19 @@ internal sealed partial class ClaudeWorkspace
     }
     private void ProbeNative(ClaudeCatalog.Entry entry,long? queuedAt){
         if(_disposed||!_enabled())return;
-        lock(_sync)if(_nativeWriteTask==entry.Alias||!_nativeProbing.Add(entry.Alias))return;
+        lock(_sync){
+            while(queuedAt.HasValue&&!_disposed&&_nativeProbing.Contains(entry.Alias))Monitor.Wait(_sync);
+            if(_disposed||!_enabled()||(queuedAt.HasValue&&_draftTask!=entry.Alias)||
+                _nativeWriteTask==entry.Alias||!_nativeProbing.Add(entry.Alias))return;
+        }
         try{
             long started=queuedAt??Environment.TickCount64,observation=NextNativeObservation();
-            var view=ObserveNative(entry,out var source);
+            var view=ObserveNative(entry,out var source,background:!queuedAt.HasValue);
             PublishNativeObservation(entry,view,observation,trackCompletion:true,source);
             long elapsed=Environment.TickCount64-started;
             if(queuedAt.HasValue||elapsed>=1000)Tab5LocalDiagnostics.Write($"CLAUDE_CONTROL selected={queuedAt.HasValue} elapsedMs={elapsed} available={view?.CanSend==true||view?.CanAppend==true}");
         }catch(Exception e) when(e is IOException or UnauthorizedAccessException or CryptographicException){}
-        finally{lock(_sync)_nativeProbing.Remove(entry.Alias);}
+        finally{lock(_sync){_nativeProbing.Remove(entry.Alias);Monitor.PulseAll(_sync);}}
     }
     private void PublishNativeObservation(ClaudeCatalog.Entry entry,NativeView? info,long observation,bool trackCompletion,ClaudeSessionSource? source=null){
         if(_disposed||!_enabled()||_catalog.Resolve(entry.Alias)?.Session!=entry.Session)return;
@@ -127,7 +162,7 @@ internal sealed partial class ClaudeWorkspace
             if(_nativeObservations.GetValueOrDefault(task)>observation)return;
             _nativeObservations[task]=observation;
             if(source is not null){_sources.Observe(task,source);_sources.Save();}
-            if(info is null){_nativeViews.Remove(task);if(_draftTask==task)_control=null;return;}
+            if(info is null){_nativeViews.Remove(task);_nativeTranscripts.Remove(task);if(_draftTask==task)_control=null;return;}
             _nativeViews[task]=info;
             if(_draftTask==task)_control=NativeControl(task);
             if(!trackCompletion)return;

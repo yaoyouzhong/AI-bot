@@ -11,6 +11,8 @@ internal sealed class ClaudeSessionIndex(string root)
 {
     private sealed record Entry(long Length, DateTime Modified, ClaudeSessionObservation? Value, DateTimeOffset? RetryAt,string? Title);
     private readonly Dictionary<string,Entry> _cache=new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<Guid,string?> _transcripts=[];
+    internal bool TryGetTranscript(Guid session,out string? path)=>Volatile.Read(ref _transcripts).TryGetValue(session,out path);
     internal string? KnownTitle(Guid id){
         var matches=_cache.Where(p=>Guid.TryParse(Path.GetFileNameWithoutExtension(p.Key),out var found)&&found==id).Take(2).ToArray();
         return matches.Length==1?matches[0].Value.Title:null;
@@ -19,12 +21,14 @@ internal sealed class ClaudeSessionIndex(string root)
         =>ScanAll(now).FirstOrDefault(value=>sessionId is null||value.Id==sessionId);
     internal IReadOnlyList<ClaudeSessionObservation> ScanAll(DateTimeOffset now)
     {
-        if(!Directory.Exists(root)){_cache.Clear();return [];}
+        if(!Directory.Exists(root)){_cache.Clear();Volatile.Write(ref _transcripts,[]);return [];}
         var seen=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var candidates=new List<ClaudeSessionObservation>();
+        var transcripts=new Dictionary<Guid,string?>();
         var options=new EnumerationOptions {RecurseSubdirectories=true,IgnoreInaccessible=true,AttributesToSkip=FileAttributes.ReparsePoint};
         foreach(var path in Directory.EnumerateFiles(root,"*.jsonl",options)) {
             if(path.Split(Path.DirectorySeparatorChar,Path.AltDirectorySeparatorChar).Any(p=>p.Equals("subagents",StringComparison.OrdinalIgnoreCase)) || !Guid.TryParse(Path.GetFileNameWithoutExtension(path),out var id))continue;
+            if(!transcripts.TryAdd(id,path))transcripts[id]=null;
             try {
                 var file=new FileInfo(path);seen.Add(path);
                 if(!_cache.TryGetValue(path,out var entry)||entry.Length!=file.Length||entry.Modified!=file.LastWriteTimeUtc||entry.RetryAt is {} retry&&now>=retry) {
@@ -36,6 +40,7 @@ internal sealed class ClaudeSessionIndex(string root)
             } catch(Exception e) when(e is IOException or UnauthorizedAccessException or JsonException){_cache.Remove(path);}
         }
         foreach(var path in _cache.Keys.Where(path=>!seen.Contains(path)).ToArray())_cache.Remove(path);
+        Volatile.Write(ref _transcripts,transcripts);
         return candidates.GroupBy(v=>v.Id).Where(g=>g.Count()==1).Select(g=>g.Single()).OrderByDescending(v=>v.LastActivity).ThenBy(v=>v.Id.ToString(),StringComparer.Ordinal).ToArray();
     }
     private static (ClaudeSessionObservation? Value,DateTimeOffset? RetryAt,string? Title) Read(string path,Guid id,DateTimeOffset now)

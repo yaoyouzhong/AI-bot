@@ -29,6 +29,8 @@ auth.json
 pairing.dat
 *-cache.json
 codex-quota-history.json
+codex-quota-history.json.tmp
+codex-quota-history.jsonl
 quota-auth-profile/
 page-logos/
 

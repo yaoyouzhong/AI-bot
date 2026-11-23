@@ -13,9 +13,9 @@ Windows 正常启动时会检查 Codex MSIX 私有缓存中的既有 `.apet` 导
 - Windows 通过只读 `rate-limit-reset-credits/history` 采集明确的 `redeemed` 事件，保留事件时间和不可逆 ID 指纹，仅在首次成功接收的同账户额度记录上保存一次。最多四页、合计四秒；可用卡列表或历史接口失败不丢有效额度和已取得的事件页。`granted`、过期、卡数减少不算已使用；只用明确事件核对相应采样区间，未知事件不猜测。官方自动/付费重置不在这份卡片历史内；没有账号级事件时只能根据已用比例回落及窗口改变识别重置边界，触发来源保持未知。官方公告不是账户重置证明。
 - 完整日允许正常轮询覆盖零点，不要求请求恰好命中 00:00:00；跨零点增量采用上述归属约定。接口返回比例有自身精度，日统计是观测增量，不是供应商每日账单。桥接未运行、电脑休眠或网络/授权故障期间无法凭空恢复历史。
 - 五小时额度独立展示每小时最后一次使用率快照，不连线、不与周额度相加。趋势图与数据明细分栏切换；点击柱/点会切换并定位对应明细。重复打开复用同一个窗口。
-- 历史保存在 `%APPDATA%\AI-bot\codex-quota-history.json`，保留 90 天，最多 140000 条（容纳每分钟采样）。保存采样时间、套餐、使用率、重置时间及请求账号标识的 SHA-256 指纹；可选 `ResetCredits` 仅保存明确使用事件的时间和 ID 的 SHA-256，不保存原始事件 ID。无原始账号标识、Key、Token、Cookie 或会话内容。兼容既有记录，不重写或补造过去的事件。
+- Windows 继续读取 `%APPDATA%\AI-bot\codex-quota-history.json` 快照，将新样本和重置卡证据追加到同目录的 `codex-quota-history.jsonl`。追加文件达到 256 KiB 后，将历史原子归并回快照。统计保留最近 90 天、最多 140000 条。保存字段包括采样时间、套餐、使用率、重置时间和账号 SHA-256 指纹。可选 `ResetCredits` 保存明确使用事件的时间和 ID 的 SHA-256。Mac 使用原有历史文件。
 - `--quota-history-once` 只读输出七日汇总、最新采样时间及保存错误，不输出账号指纹或凭据，便于核实驻留程序是否持续采集。
-- `--quota-history-from-file <codex-quota-history.json 副本>` 在隔离自测环境中只读重算指定副本，不访问桌面资料目录。驻留诊断 `resetCreditHistory` 仅给兑换时间、首次采集时间和来源；空列表不证明未发生官方自动重置。
+- `--quota-history-from-file <codex-quota-history.json 副本>` 在隔离自测环境中只读重算指定副本。备份或离线诊断时，应同时复制同目录的 `codex-quota-history.jsonl`（如存在）。只读取快照时，数据截至上次归并。驻留诊断 `resetCreditHistory` 仅给兑换时间、首次采集时间和来源。
 - `resetCreditHistoryStatus` 明确给出本次检查时间、分页是否完整及失败类型；接口不可用、超时或只取到部分页，与成功取得空历史区分显示。它不表示自动重置事件的覆盖情况。
 - 文件损坏或权限异常时保留原文件并提示，只在内存继续记录，不能让统计存储失败中断桥接。
 
@@ -64,8 +64,11 @@ a reset boundary whose origin remains unknown. Public announcements are not acco
 Local diagnostics expose event time, first observation time and source only.
 `resetCreditHistoryStatus` distinguishes complete empty history from unavailable,
 timed-out or partial pagination; it never establishes coverage of automatic resets.
-`--quota-history-from-file` recalculates an explicitly selected history copy read-only
-inside the public self-test profile, without accessing the desktop profile.
+Windows appends observations and credit evidence to `codex-quota-history.jsonl`
+beside the existing `codex-quota-history.json` snapshot. At 256 KiB the journal
+is consolidated into an atomically replaced snapshot. For backups and offline
+`--quota-history-from-file` diagnostics, copy both files when the journal exists.
+The snapshot alone contains history through the latest compaction.
 These are observed percentage-point increments at the API's precision, not daily
 billing records. Five-hour observations remain hourly-last snapshots. History retains a
 SHA-256 account fingerprint, never raw identifiers or credentials; older records
