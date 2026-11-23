@@ -18,8 +18,12 @@ internal sealed class QuotaHistory
     internal static TimeZoneInfo StatisticsZone { get; } = TimeZoneInfo.FindSystemTimeZoneById("China Standard Time");
     internal static QuotaHistory Shared { get; } = new();
     private readonly object _sync = new();
+    private const string HistoryFileName = "codex-quota-history.json";
+    private const int CompactAt = 256 * 1024;
     private readonly string _path;
+    private readonly string _journalPath;
     private readonly List<QuotaObservation> _samples = new();
+    private readonly Dictionary<DateTimeOffset,QuotaObservation> _pending = new();
     private readonly bool _preserveOriginal;
     internal string? Error { get; private set; }
     internal string? PersistenceDiagnostic { get; private set; }
@@ -31,19 +35,38 @@ internal sealed class QuotaHistory
     { lock(_sync) { _resetHistoryCheckedAt=DateTimeOffset.UtcNow;_resetHistoryComplete=complete;_resetHistoryError=error; } }
     internal QuotaHistory(string? directory = null)
     {
-        _path = Path.Combine(directory ?? Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AI-bot"), "codex-quota-history.json");
+        _path = Path.Combine(directory ?? Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AI-bot"), HistoryFileName);
+        _journalPath = Path.ChangeExtension(_path, ".jsonl");
+        List<QuotaObservation> journal = [];
+        // Read the journal first. Compaction publishes the snapshot before
+        // retiring the journal, so a concurrent reader cannot miss both.
+        try { journal = ReadJournal(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
+        { _preserveOriginal = true; }
+        var byTime = new Dictionary<DateTimeOffset,QuotaObservation>();
         try
         {
             if (File.Exists(_path))
             {
-                if (new FileInfo(_path).Length > 64 * 1024 * 1024) throw new InvalidDataException();
-                var rows = JsonSerializer.Deserialize<List<QuotaObservation>>(File.ReadAllText(_path)) ?? throw new InvalidDataException();
+                using var file = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                if (file.Length > 64 * 1024 * 1024) throw new InvalidDataException();
+                var rows = JsonSerializer.Deserialize<List<QuotaObservation>>(file) ?? throw new InvalidDataException();
                 if (rows.Any(x => x is null || !Valid(x))) throw new InvalidDataException();
-                _samples.AddRange(rows.OrderBy(x => x.At).DistinctBy(x => x.At).TakeLast(140000));
+                foreach (var row in rows) byTime.TryAdd(row.At, row);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
-        { _preserveOriginal = true; Error = "历史文件不可读，已保留原文件；本次只在内存记录。"; }
+        { _preserveOriginal = true; }
+        foreach (var row in journal)
+        {
+            if (byTime.TryAdd(row.At, row)) continue;
+            var previous = byTime[row.At];
+            if (row.ResetCredits is { Length: > 0 } && previous.Plan == row.Plan && previous.AccountFingerprint == row.AccountFingerprint)
+                byTime[row.At] = previous with { ResetCredits = (previous.ResetCredits ?? []).Concat(row.ResetCredits).DistinctBy(x => x.IdHash).Take(512).ToArray() };
+        }
+        _samples.AddRange(byTime.Values.OrderBy(x => x.At).TakeLast(140000));
+        if (_samples.Count > 0) Trim(_samples[^1].At);
+        if (_preserveOriginal) Error = "历史文件不可读，已保留原文件；本次只在内存记录。";
     }
     private static bool Percent(double? v) => v is null || double.IsFinite(v.Value) && v >= 0 && v <= 100;
     private static bool Valid(QuotaObservation s) => s.At > DateTimeOffset.UnixEpoch && Percent(s.Weekly) && Percent(s.FiveHour) &&
@@ -59,9 +82,8 @@ internal sealed class QuotaHistory
         {
             if (_samples.LastOrDefault() is { } last && row.At <= last.At) return;
             _samples.Add(row);
-            _samples.RemoveAll(x => x.At < row.At.AddDays(-90));
-            if (_samples.Count > 140000) _samples.RemoveRange(0, _samples.Count - 140000);
-            Save();
+            Trim(row.At);
+            Save(row);
         }
     }
 
@@ -77,20 +99,93 @@ internal sealed class QuotaHistory
                 x.IdHash is { Length: 64 } && x.IdHash.All(char.IsAsciiHexDigit) && !known.Contains(x.IdHash)).DistinctBy(x => x.IdHash).Take(512).ToArray();
             if (fresh.Length == 0) return;
             _samples[index] = _samples[index] with { ResetCredits = (_samples[index].ResetCredits ?? []).Concat(fresh).Take(512).ToArray() };
-            Save();
+            Save(_samples[index]);
         }
     }
-    private void Save()
+    private void Trim(DateTimeOffset latest)
+    {
+        var cutoff = latest.AddDays(-90);
+        int remove = Math.Max(0, _samples.Count - 140000);
+        while (remove < _samples.Count && _samples[remove].At < cutoff) remove++;
+        if (remove > 0) _samples.RemoveRange(0, remove);
+    }
+    private List<QuotaObservation> ReadJournal()
+    {
+        FileStream file;
+        try { file = new(_journalPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete); }
+        catch (FileNotFoundException) { return []; }
+        catch (DirectoryNotFoundException) { return []; }
+        using (file)
+        {
+            long length = file.Length;
+            if (length > 8 * 1024 * 1024) throw new InvalidDataException();
+            var bytes = new byte[(int)length];
+            int count = file.ReadAtLeast(bytes, bytes.Length, false);
+            var rows = new List<QuotaObservation>();
+            var remaining = bytes.AsSpan(0, count);
+            int newline;
+            // A final fragment without its commit newline is an interrupted append.
+            while ((newline = remaining.IndexOf((byte)'\n')) >= 0)
+            {
+                var row = JsonSerializer.Deserialize<QuotaObservation>(remaining[..newline]);
+                if (row is null || !Valid(row)) throw new InvalidDataException();
+                rows.Add(row);
+                remaining = remaining[(newline + 1)..];
+            }
+            return rows;
+        }
+    }
+    private long AppendPending()
+    {
+        using var file = new FileStream(_journalPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+        long end = file.Length;
+        long tailLimit = Math.Max(0, end - 128 * 1024);
+        while (end > 0)
+        {
+            file.Position = end - 1;
+            if (file.ReadByte() == '\n') break;
+            end--;
+            if (end < tailLimit) throw new InvalidDataException("Quota journal tail exceeds the observation limit.");
+        }
+        if (end != file.Length) file.SetLength(end);
+        file.Position = end;
+        foreach (var row in _pending.Values)
+        {
+            file.Write(JsonSerializer.SerializeToUtf8Bytes(row));
+            file.WriteByte((byte)'\n');
+        }
+        file.Flush(flushToDisk: true);
+        return file.Length;
+    }
+    private void WriteSnapshot()
+    {
+        string temporary = _path + ".tmp";
+        using (var file = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            JsonSerializer.Serialize(file, _samples);
+            file.Flush(flushToDisk: true);
+        }
+        AtomicFileReplacement.Move(temporary, _path);
+        File.Delete(_journalPath);
+    }
+    private void Save(QuotaObservation row)
     {
         if (_preserveOriginal) return;
+        _pending[row.At] = row;
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            File.WriteAllText(_path + ".tmp", JsonSerializer.Serialize(_samples));
-            AtomicFileReplacement.Move(_path + ".tmp", _path);
+            if (!File.Exists(_path)) WriteSnapshot();
+            else
+            {
+                long journalLength = AppendPending();
+                _pending.Clear();
+                if (journalLength >= CompactAt) WriteSnapshot();
+            }
+            _pending.Clear();
             Error = null; PersistenceDiagnostic = null;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         { Error = "历史保存失败，数据暂存在内存；下次采样自动重试，请检查数据目录权限。"; PersistenceDiagnostic = $"{ex.GetType().Name}/0x{ex.HResult:x8}"; }
     }
 

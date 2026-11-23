@@ -292,6 +292,7 @@ PRIVATE_NAMES = {
     "settings.json", "auth.json", ".credentials.json", "pairing.dat",
     "usage-cache.json", "domestic-quota-cache.json", "domestic-provider-cache.json",
     "weather-cache.json", "weather-provider-cache.json", "stock-cache.json", "codex-quota-history.json",
+    "codex-quota-history.json.tmp", "codex-quota-history.jsonl",
 }
 
 

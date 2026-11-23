@@ -15,8 +15,36 @@ internal sealed class ClaudeNativeTerminal:IClaudeNativeSession
     public ClaudeSessionSource Source=>ClaudeSessionSource.Terminal;
     internal readonly Guid Session;internal readonly int Pid;private readonly string _start,_record;
     private static readonly object ProbeLock=new();
-    private static readonly Dictionary<int,(string Start,long Expires,bool Available)> Probes=[];
-    internal static void ClearProbes(){lock(ProbeLock)Probes.Clear();}
+    private static readonly Dictionary<int,(string Start,long Used,InputProbe Probe)> Probes=[];
+    internal sealed class InputProbe
+    {
+        private sealed record Result(long Completed,bool Available,bool Blank);
+        private Result? _cached;
+        private readonly object _sync=new();
+
+        internal (bool Available,bool Blank) Check(Func<View> inspect,bool refresh,bool prioritized,bool interactive,Func<long> clock)
+        {
+            var previous=Volatile.Read(ref _cached);
+            bool Fresh(Result? value)
+            {
+                if(value is null)return false;
+                long age=clock()-value.Completed;
+                if(value.Available)return age<(prioritized?20000:60000);
+                return age<(interactive?750:prioritized?8000:12000);
+            }
+            if(Fresh(previous))return(previous!.Available,previous.Blank);
+            if(!refresh)return default;
+            lock(_sync){
+                previous=_cached;
+                if(Fresh(previous))return(previous!.Available,previous.Blank);
+                bool available=false,blank=false;
+                try{var view=inspect();available=true;blank=view.Empty||view.SuggestionCandidate;}
+                catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or InvalidOperationException){}
+                Volatile.Write(ref _cached,new(clock(),available,blank));
+                return(available,blank);
+            }
+        }
+    }
     private ClaudeNativeTerminal(Guid session,int pid,string start,string record){Session=session;Pid=pid;_start=start;_record=record;}
     internal static HashSet<Guid> LiveSessions()=>Candidates().GroupBy(c=>c.Session).Where(g=>g.Count()==1).Select(g=>g.Key).ToHashSet();
     internal static bool AllLiveSessionsIdle()
@@ -100,34 +128,42 @@ internal sealed class ClaudeNativeTerminal:IClaudeNativeSession
             (string)latest["id"]==ClaudeCatalog.Alias("claude:turn:"+Session+":"+user,key)&&
             latest["status"] is "unknown"&&State is "busy" or "working";
     }
-    public bool CanAddressInput {
-        get {
-            long now=Environment.TickCount64;
-            lock(ProbeLock)if(Probes.TryGetValue(Pid,out var previous)&&previous.Start==_start&&previous.Expires>now)return previous.Available;
-            bool available;
-            try{_=Call("exclusive");available=true;}
-            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or InvalidOperationException){available=false;}
-            lock(ProbeLock){
-                foreach(int old in Probes.Where(p=>p.Value.Expires<=now).Select(p=>p.Key).ToArray())Probes.Remove(old);
-                // A console can be unavailable briefly while its original
-                // session is resuming. Don't reuse a failed probe for 10 s.
-                Probes[Pid]=(_start,available?now+10000:Environment.TickCount64+750,available);
-            }
-            return available;
+    private (bool Available,bool Blank) ProbeInput(bool refresh,bool prioritized,bool interactive)
+    {
+        long now=Environment.TickCount64;
+        InputProbe probe;
+        lock(ProbeLock){
+            if(!Probes.TryGetValue(Pid,out var entry)||entry.Start!=_start){
+                if(!refresh)return default;
+                foreach(var old in Probes.Where(p=>now-p.Value.Used>120000).Select(p=>p.Key).ToArray())Probes.Remove(old);
+                probe=new();
+            }else probe=entry.Probe;
+            Probes[Pid]=(_start,now,probe);
         }
+        return probe.Check(()=>Call("exclusive"),refresh,prioritized,interactive,()=>Environment.TickCount64);
     }
+    public bool CanAddressInput=>ProbeInput(refresh:true,prioritized:true,interactive:true).Available;
+    // A device may switch back to a cached draft without another RPC, so
+    // readiness for other terminals still gets a slower background refresh.
+    internal bool CanAddressInputForDisplay(bool selected,bool interactive)=>ProbeInput(refresh:true,prioritized:selected,interactive:interactive).Available;
+    internal bool IsBlankForDisplay()=>ProbeInput(refresh:false,prioritized:false,interactive:false).Blank;
     public bool IsVerifiedBlank(){
         if(State!="idle"||!CanAddressInput)return false;
-        string root=Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile),".claude","projects");
-        if(Directory.EnumerateFiles(root,Session+".jsonl",new EnumerationOptions{RecurseSubdirectories=true,AttributesToSkip=FileAttributes.ReparsePoint}).Any())return false;
+        if(HasTranscript())return false;
         return Call("exclusive") is {Empty:true} or {SuggestionCandidate:true};
+    }
+    private bool HasTranscript(){
+        string root=Path.Combine(AppPaths.GetFolderPath(Environment.SpecialFolder.UserProfile),".claude","projects");
+        return Directory.EnumerateFiles(root,Session+".jsonl",new EnumerationOptions{RecurseSubdirectories=true,AttributesToSkip=FileAttributes.ReparsePoint}).Any();
     }
     internal static IEnumerable<ClaudeSessionObservation> NewPanels(IReadOnlySet<Guid>? known=null){
         foreach(var group in Candidates(known:known).GroupBy(c=>c.Session).Where(g=>g.Count()==1)){
             var terminal=group.Single();var id=terminal.Session;
             ClaudeSessionObservation? row=null;
             try{
-                if(terminal.IsVerifiedBlank()){
+                // Keep brand-new terminals discoverable without relaunching a
+                // worker on every catalog pass or reading the same console twice.
+                if(terminal.State=="idle"&&!terminal.HasTranscript()&&terminal.ProbeInput(refresh:true,prioritized:false,interactive:false).Blank){
                     using var data=JsonDocument.Parse(File.ReadAllBytes(terminal._record));
                     row=new(id,DateTime.FromFileTimeUtc(long.Parse(terminal._start,CultureInfo.InvariantCulture)),ClaudeHistory.Text(data.RootElement,"name")??"Claude Code",ClaudeHistory.Text(data.RootElement,"cwd"));
                 }

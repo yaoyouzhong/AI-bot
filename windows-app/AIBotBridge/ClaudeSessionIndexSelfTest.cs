@@ -23,7 +23,14 @@ internal static class ClaudeSessionIndexSelfTest
             Check(index.Scan(now,first)?.Title=="Older","explicit identity selects the older session");
             Check(index.Scan(now,child) is null&&index.Scan(now,Guid.NewGuid()) is null,"unknown or subagent identity must not fall back");
             File.AppendAllText(secondFile,Name(second,"Current"));Check(index.Scan(now)?.Title=="Current","title update");
+            Check(index.TryGetTranscript(second,out var indexed)&&indexed==secondFile,"history lookup did not reuse the catalog path");
+            var duplicate=Path.Combine(root,"second-project");Directory.CreateDirectory(duplicate);
+            var duplicateFile=Path.Combine(duplicate,Path.GetFileName(secondFile));
+            File.WriteAllText(duplicateFile,Name(second,"Title-only duplicate"));index.Scan(now);
+            Check(index.TryGetTranscript(second,out indexed)&&indexed is null,"title-only duplicate yielded a usable history path");
+            File.Delete(duplicateFile);
             File.Delete(secondFile);Check(index.Scan(now)?.Id==first,"deleted session invalidation");
+            Check(!index.TryGetTranscript(second,out _)&&!index.TryGetTranscript(child,out _),"removed or subagent transcripts stayed addressable");
             Check(index.Scan(now,second) is null,"deleted identity must not fall back");
             var partial=Guid.NewGuid();var partialFile=Path.Combine(root,partial+".jsonl");
             File.WriteAllText(partialFile,Event(partial,now.AddSeconds(-1)).TrimEnd('\n'));

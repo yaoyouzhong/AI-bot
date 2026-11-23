@@ -129,6 +129,30 @@ internal static class QuotaHistorySelfTest
         Directory.Delete(blockedTemporary);
         retry.Record(Q(at.AddMinutes(2), 22));
         Require(retry.Error is null && new QuotaHistory(retryFolder).Read().Length == 2, "Transient save failure permanently stopped history persistence.");
+        var journalFolder = Path.Combine(folder, "journal"); Directory.CreateDirectory(journalFolder);
+        var snapshotPath = Path.Combine(journalFolder, "codex-quota-history.json");
+        var journalPath = Path.ChangeExtension(snapshotPath, ".jsonl");
+        string originalSnapshot = System.Text.Json.JsonSerializer.Serialize(new[] { before });
+        File.WriteAllText(snapshotPath, originalSnapshot);
+        var incremental = new QuotaHistory(journalFolder);
+        incremental.Record(Q(at.AddMinutes(1), 22));
+        Require(File.ReadAllText(snapshotPath) == originalSnapshot && new FileInfo(journalPath).Length < 1024,
+            "One observation rewrote the snapshot or did not append a small delta.");
+        File.AppendAllText(journalPath, """{"At":"torn write""");
+        incremental = new QuotaHistory(journalFolder);
+        Require(incremental.Error is null && incremental.Read().Length == 2, "Torn journal tail hid valid observations.");
+        incremental.Record(Q(at.AddMinutes(2), 23));
+        Require(new QuotaHistory(journalFolder).Read().Length == 3, "Appending did not recover a torn tail.");
+        var syntheticRows = Enumerable.Range(3, 1500).Select(i => System.Text.Json.JsonSerializer.Serialize(
+            before with { At = at.AddMinutes(i), AccountFingerprint = new string('a', 64) }));
+        File.AppendAllLines(journalPath, syntheticRows);
+        incremental = new QuotaHistory(journalFolder);
+        string oldJournal = File.ReadAllText(journalPath);
+        incremental.Record(Q(at.AddMinutes(1503), 24));
+        Require(incremental.Error is null && !File.Exists(journalPath) && new QuotaHistory(journalFolder).Read().Length == 1504,
+            "Compaction failed to publish all observations.");
+        File.WriteAllText(journalPath, oldJournal);
+        Require(new QuotaHistory(journalFolder).Read().Length == 1504, "Replaying a journal after snapshot replacement duplicated observations.");
         var coverageStart=new DateTimeOffset(2026,10,21,0,0,0,TimeSpan.FromHours(8));
         var coverageRows=new[] {
             new QuotaObservation(coverageStart.AddHours(-1),"PRO",40,coverageStart.AddDays(7),null,null,"private-account"),
@@ -290,7 +314,8 @@ internal static class QuotaHistorySelfTest
             evidenceHistory.Record(detailed,"synthetic-account");evidenceHistory.RecordResetEvidence(detailed,"synthetic-account");
             evidenceHistory.RecordResetEvidence(detailed,"wrong-account");
             var persisted=new QuotaHistory(Path.Combine(directory,"evidence")).Read();
-            var saved=File.ReadAllText(Path.Combine(directory,"evidence","codex-quota-history.json"));
+            var saved=File.ReadAllText(Path.Combine(directory,"evidence","codex-quota-history.json"))+
+                File.ReadAllText(Path.Combine(directory,"evidence","codex-quota-history.jsonl"));
             using var historyStatus=System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(evidenceHistory.ResetCreditHistoryStatus));
             if(persisted.Sum(x=>x.ResetCredits?.Length??0)!=1||saved.Contains("used-private-id")||
                 System.Text.Json.JsonSerializer.Serialize(detailed).Contains("IdHash")||calls.Count!=4||

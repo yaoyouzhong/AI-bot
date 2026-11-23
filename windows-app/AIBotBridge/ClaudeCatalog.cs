@@ -9,6 +9,7 @@ internal sealed class ClaudeCatalog(string root,Func<byte[]> key,Func<IEnumerabl
     private readonly ClaudeSessionIndex _index=new(root);
     private readonly object _sync=new();private Entry[]? _entries;
     private readonly Tab5CatalogDisplay<Entry> _display=new();
+    internal bool TryGetTranscript(Guid session,out string? path)=>_index.TryGetTranscript(session,out path);
     internal static string Alias(string value,byte[] key,bool uuid=true){
         string hex=Convert.ToHexString(HMACSHA256.HashData(key,Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
         return uuid?Guid.ParseExact(hex[..32],"N").ToString():hex[..16];

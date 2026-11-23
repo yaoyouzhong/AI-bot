@@ -13,9 +13,13 @@ internal static class ClaudeHistory
         var matches=Directory.EnumerateFiles(root,"*.jsonl",options).Where(p=>!p.Split(Path.DirectorySeparatorChar,Path.AltDirectorySeparatorChar).Contains("subagents")&&Guid.TryParse(Path.GetFileNameWithoutExtension(p),out var id)&&id==session).Take(2).ToArray();
         if(matches.Length==0&&verifiedNewPanel?.Invoke()==true)return new([],false,[],[]);
         if(matches.Length!=1)throw new IOException("Claude history unavailable");
-        using var file=new FileStream(matches[0],FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete);
-        bool limited=file.Length>16*1024*1024;long offset=Math.Max(0,file.Length-16*1024*1024);file.Position=offset;
-        byte[] bytes=new byte[(int)(file.Length-offset)];file.ReadExactly(bytes);
+        return ReadTranscript(matches[0],session,key,verifiedNewPanel,backgroundImages);
+    }
+    internal static Value ReadTranscript(string path,Guid session,byte[] key,Func<bool>? verifiedNewPanel=null,bool backgroundImages=false){
+        using var file=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete);
+        long length=file.Length;
+        bool limited=length>16*1024*1024;long offset=Math.Max(0,length-16*1024*1024);file.Position=offset;
+        byte[] bytes=new byte[(int)(length-offset)];file.ReadExactly(bytes);
         bool titleOnly=!limited&&bytes.Length>0&&bytes[^1]==(byte)'\n';
         var nodes=new Dictionary<string,Node>();string? leaf=null;int ordinal=0;
         var lines=Encoding.UTF8.GetString(bytes).Split('\n');

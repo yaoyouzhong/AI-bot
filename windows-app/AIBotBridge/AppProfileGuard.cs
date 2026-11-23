@@ -27,7 +27,8 @@ internal static class AppProfileGuard
             if(IsPackageData(actualRoot))throw new IOException(Recovery);
             // No creation, reads of file contents, migration or credential changes.
             foreach(string path in new[]{Path.Combine(root,"AI-bot"),Path.Combine(root,"AI-bot","settings.json"),
-                Path.Combine(root,"AI-bot","tab5-pairing.dat"),Path.Combine(root,"AI-bot","codex-quota-history.json")}) {
+                Path.Combine(root,"AI-bot","tab5-pairing.dat"),Path.Combine(root,"AI-bot","codex-quota-history.json"),
+                Path.Combine(root,"AI-bot","codex-quota-history.jsonl")}) {
                 string? actual=PhysicalPath(path);
                 if(actual is not null&&IsPackageData(actual))throw new IOException(Recovery);
             }
