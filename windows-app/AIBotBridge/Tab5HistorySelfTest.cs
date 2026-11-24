@@ -189,6 +189,30 @@ internal static class Tab5HistorySelfTest
                         if(!middleBody.GetProperty("neighbors").EnumerateArray().Select(x=>x.GetProperty("replyView").GetProperty("turnId").GetString()).SequenceEqual(new[]{batchTurns[1],batchTurns[3],batchTurns[0]}))throw new Exception("Stored older/newer priority incorrect");
                         Console.WriteLine("TAB5_STORED_BATCH_OK owner unavailable, three older turns, both adjacency IDs, no desktop launch");
                     }
+                    var disconnectedDesktop=new Tab5CodexDesktop(pipe+"-absent",_=>{opens++;return false;});
+                    bool appServerAvailable=true;
+                    Task<Tab5CodexDesktop.State?> ReadAppServer(string id,string selected,int offset,CancellationToken token) {
+                        if(id!=task)throw new Exception("App Server task routing");
+                        var turn=JsonSerializer.SerializeToElement(new{turnId=batchTurns[^1],status="completed",items=new[]{new{type="agentMessage",phase="final_answer",text="App Server 回复"}}});
+                        return Task.FromResult(appServerAvailable?new Tab5CodexDesktop.State("notLoaded","",turn,false){HasPrevious=true,PreviousTurnId=batchTurns[^2]}:null);
+                    }
+                    using(var localTasks=new Tab5CodexTasks(disconnectedDesktop,()=>[new(task,"test","test",0)],rolloutPath:_=>batchLog,historyHome:temp,readAppServer:ReadAppServer)) {
+                        var serverRead=await localTasks.ReadPageAsync(task,0,stop.Token,includeView:true,device:"test-device");
+                        var serverBody=JsonSerializer.SerializeToElement(serverRead.Body);
+                        if(serverRead.Status!=200||!localTasks.ReadDiagnostic.Contains("source=app-server")||
+                           !serverBody.GetProperty("text").GetString()!.Contains("App Server 回复")||
+                           serverBody.GetProperty("replyView").GetProperty("readReceipt").GetString()!="")
+                            throw new Exception("App Server must precede saved replies without issuing a desktop read receipt");
+                        appServerAvailable=false;
+                        var read=await localTasks.ReadPageAsync(task,0,stop.Token,batchTurns[^1],-1,includeView:true,device:"test-device");
+                        var body=JsonSerializer.SerializeToElement(read.Body);
+                        if(read.Status!=200||!localTasks.ReadDiagnostic.Contains("source=stored")||
+                           body.GetProperty("turnId").GetString()!=batchTurns[^2]||
+                           !body.GetProperty("text").GetString()!.Contains("缓存轮次 3")||
+                           body.GetProperty("replyView").GetProperty("readReceipt").GetString()!="")
+                            throw new Exception("Desktop pipe timeout must preserve saved reply navigation without issuing a read receipt");
+                        Console.WriteLine("TAB5_STORED_PIPE_TIMEOUT_OK saved reply, exact turn navigation, no read receipt");
+                    }
                     // Production constructor path: no CLI pagination is involved when
                     // an unloaded desktop thread has a local public rollout.
                     string largeLog=Path.Combine(sessions,"large.jsonl");

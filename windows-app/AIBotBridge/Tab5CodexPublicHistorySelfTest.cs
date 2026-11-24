@@ -39,6 +39,25 @@ internal static class Tab5CodexPublicHistorySelfTest
             }catch(Exception ex) when(ex is IOException or OperationCanceledException){rejected=true;}
             if(rejected!=(mode is not ("ok" or "native" or "legacy")))throw new Exception("History boundary not enforced: "+mode);
         }
+        string latest=Guid.NewGuid().ToString(),previous=Guid.NewGuid().ToString();
+        Task<JsonElement> PageCall(string method,object args,CancellationToken token) {
+            var p=Json(args);
+            return Task.FromResult(method switch {
+                "thread/read"=>Json(new{result=new{thread=new{id="task",status=new{type="notLoaded"}}}}),
+                "thread/turns/list" when p.GetProperty("cursor").ValueKind==JsonValueKind.Null=>
+                    Json(new{result=new{data=new[]{new{id=latest,status="interrupted"}},nextCursor="older"}}),
+                "thread/turns/list"=>Json(new{result=new{data=new[]{new{id=previous,status="completed"}}}}),
+                "thread/items/list"=>Json(new{result=new{data=new[]{new{turnId=p.GetProperty("turnId").GetString(),
+                    item=new{type="agentMessage",phase="commentary",text="公开进度"}}}}}),
+                _=>throw new Exception("Unexpected App Server operation")
+            });
+        }
+        var current=await Tab5CodexPublicHistory.ReadPageAsync("task","",0,PageCall,CancellationToken.None);
+        var older=await Tab5CodexPublicHistory.ReadPageAsync("task",latest,-1,PageCall,CancellationToken.None);
+        if(current.TurnId!=latest||current.Status!="stored"||current.Runtime!="notLoaded"||current.PreviousTurnId!=previous||
+           !Tab5CodexActivity.FromDesktop(current,-1).Text.Contains("公开进度")||
+           older.TurnId!=previous||older.Status!="completed"||!older.IsHistory||older.NextTurnId!=latest)
+            throw new Exception("App Server reply navigation and runtime isolation");
         var lines=new Tab5BoundedLines(new StringReader("one\r\ntwo\nthree"),10);
         if(await lines.ReadAsync()!="one"||await lines.ReadAsync()!="two"||await lines.ReadAsync()!="three"||await lines.ReadAsync() is not null)throw new Exception("Buffered line framing");
         foreach(string value in new[]{new string('x',11),"中文中文"}) {
