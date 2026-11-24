@@ -1,0 +1,625 @@
+diff --git a/firmware/CMakeLists.txt b/firmware/CMakeLists.txt
+index 8b07881..e1705aa 100644
+--- a/firmware/CMakeLists.txt
++++ b/firmware/CMakeLists.txt
+@@ -1,6 +1,6 @@
+ cmake_minimum_required(VERSION 3.16)
+ include("${CMAKE_CURRENT_LIST_DIR}/../cmake/WindowsNinjaResponseFiles.cmake")
+-set(PROJECT_VER "0.2.322-ui")
++set(PROJECT_VER "0.2.323-ui")
+ option(TAB5_LOCAL_ART "Build daily art support; collections are installed separately" ON)
+ if(TAB5_LOCAL_VERSION)
+     set(PROJECT_VER "${TAB5_LOCAL_VERSION}")
+diff --git a/firmware/main/build_revision.h b/firmware/main/build_revision.h
+index c581647..1b0ae21 100644
+--- a/firmware/main/build_revision.h
++++ b/firmware/main/build_revision.h
+@@ -1,4 +1,4 @@
+ // Internal candidates keep the public/protocol version unchanged.
+ // This marker also binds the package's revision metadata to the image bytes.
+-static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R6";
++static const char tab5_build_revision[]="AIBOT_INTERNAL_REVISION=R2";
+ #define TAB5_INTERNAL_REVISION (tab5_build_revision+sizeof("AIBOT_INTERNAL_REVISION=")-1)
+diff --git a/firmware/main/ui.c b/firmware/main/ui.c
+index ec52743..4dc5ce8 100644
+--- a/firmware/main/ui.c
++++ b/firmware/main/ui.c
+@@ -143,7 +143,9 @@ static int preview_reply_client=-1;
+ static unsigned preview_health_chimes;
+ static unsigned preview_timer_chimes;
+ static unsigned preview_agenda_chimes;
+-void voice_remote_notify_reply(bool claude) {preview_reply_client=claude?1:0;preview_chimes++;}
++static bool preview_reply_pending[2];
++void voice_remote_notify_reply(bool claude) {preview_reply_client=claude?1:0;preview_reply_pending[claude]=true;preview_chimes++;}
++void voice_remote_cancel_reply(bool claude) {preview_reply_pending[claude]=false;}
+ void voice_remote_notify_health(void) {preview_health_chimes++;}
+ void voice_remote_notify_timer(void) {preview_timer_chimes++;}
+ void voice_remote_notify_agenda(void) {preview_agenda_chimes++;}
+@@ -417,6 +419,7 @@ static int64_t last_received, last_change, alert_until, offline_since = -1, pet_
+ static lv_obj_t *alert_dot;
+ static int64_t alert_started;
+ static bool alert_attention;
++static char session_banner_task[UI_SESSION_ID_SIZE];
+ static int alert_phase=-1;
+ static uint64_t completion[2], metric_seq;
+ static char metric_session[80];
+@@ -1572,6 +1575,7 @@ static bool codex_public_reply(cJSON *view,const char *body) {
+         strcmp(body,"正在读取会话动态…");
+ }
+ #include "ui_session_source.h"
++#include "ui_session_notifications.h"
+ #include "ui_session_unread.h"
+ static bool codex_list_can_reveal(void) {
+     return current_page==8&&!saver&&codex_list&&codex_project_picker&&
+@@ -3339,8 +3343,9 @@ static void workspace_notice_tick(int64_t now,bool changed,unsigned client) {
+         notice->unread=(codex_notices_ready||desktop_unread)&&!desktop_read;
+         codex_list_unread_dirty|=notice->unread;
+         notice->arrived=++codex_notice_sequence;
+-        if(notice->unread&&codex_notices_ready) {
+-            announce=true;snprintf(codex_alert_task,sizeof(codex_alert_task),"%s",entry->string);
++        if(notice->unread&&codex_notices_ready&&prefs.alerts&&!session_is_muted(client,entry->string)) {
++            announce=true;
++            snprintf(codex_alert_task,sizeof(codex_alert_task),"%s",entry->string);
+             // Arrival is unread until the matching turn has actually rendered.
+         }
+     }
+@@ -3355,7 +3360,10 @@ static void workspace_notice_tick(int64_t now,bool changed,unsigned client) {
+         }
+     }
+     codex_notices_ready=true;
+-    if(announce&&prefs.alerts) {
++    if(announce) {
++        session_banner_client=client;
++        memcpy(session_banner_task,codex_alert_task,sizeof(session_banner_task));
++        memcpy(session_chime_task[client],codex_alert_task,sizeof(session_chime_task[client]));
+         voice_remote_notify_reply(client!=0);alert_until=now+10000;alert_started=now;alert_attention=false;alert_phase=-1;
+         ui_text(banner,client?"Claude 新回复 · 查看":"Codex 新回复 · 查看");
+     }
+@@ -3366,20 +3374,67 @@ static void codex_notice_tick(int64_t now,bool changed) {
+     bool ready=codex_notices_ready;workspace_notice_tick(now,changed,0);
+     codex_notices_ready=ready;workspace_notice_tick(now,changed,1);codex_notices_ready=changed||ready;
+ }
++static void task_status_banner(int64_t now, unsigned client, const char *task, bool input) {
++    if (!prefs.alerts) return;
++    codex_alert_task[0] = 0;
++    session_banner_client = client;
++    snprintf(session_banner_task, sizeof(session_banner_task), "%s", task);
++    alert_until = now + 10000;
++    alert_started = now;
++    alert_attention = input;
++    alert_phase = -1;
++    ui_text_fmt(banner, "%s：%s", client ? "Claude" : "Codex", input ? "等待你的操作" : "任务已完成");
++}
++
++static void session_waiting_tick(int64_t now, unsigned client, const char *bound_task, bool input, bool scoped) {
++    enum { WAITING_LIMIT = 80 };
++    static char (*previous)[WAITING_LIMIT][UI_SESSION_ID_SIZE];
++    static unsigned used[2], next_slot[2];
++    if (!previous) previous = codex_alloc(2 * sizeof(*previous));
++    if (!previous) return;
++
++    cJSON *tasks = item(item(shown, client ? "claudeTasks" : "codexTasks"), "tasks");
++    cJSON *task = NULL;
++    cJSON_ArrayForEach(task, tasks) {
++        const char *id = text(task, "id");
++        if (!session_id_valid(id)) continue;
++        bool current = !strcmp(text(task, "state"), "waiting") ||
++            !strcmp(text(task, "companionState"), "waiting") || (input && !strcmp(id, bound_task));
++        unsigned index = 0;
++        while (index < used[client] && strcmp(previous[client][index], id)) index++;
++        if (index < used[client]) {
++            if (!current && index != --used[client])
++                memcpy(previous[client][index], previous[client][used[client]], UI_SESSION_ID_SIZE);
++            continue;
++        }
++        if (!current) continue;
++        unsigned slot = used[client] < WAITING_LIMIT ? used[client]++ : next_slot[client]++ % WAITING_LIMIT;
++        memcpy(previous[client][slot], id, UI_SESSION_ID_SIZE);
++        if (scoped && !session_is_muted(client, id)) task_status_banner(now, client, id, true);
++    }
++}
++
+ static void alerts(int64_t now, bool changed) {
+-    if (!changed)
+-        return;
++    if (!changed) return;
+     for (int i = 0; i < 2; i++) {
++        unsigned client = i ? 0 : 1;
+         cJSON *s = item(shown, i ? "codex" : "claude");
+         uint64_t seq = (uint64_t)num(s, "completionSequence");
+         bool input = yes(s, "needsInput");
+-        bool event = (input && !waiting[i]) || (seq != completion[i] && yes(s, "completionActive"));
+-        if (event && prefs.alerts) {
+-            codex_alert_task[0]=0;
+-            alert_until = now + 10000;
+-            alert_started=now;alert_attention=input;alert_phase=-1;
+-            ui_text_fmt(banner, "%s：%s", i ? "Codex" : "Claude", input ? "等待你的操作" : "任务已完成");
++        bool complete_event = seq != completion[i] && yes(s, "completionActive");
++        const char *bound_task = client ? text(item(shown, "claudeSession"), "taskId") : "";
++        bool scoped = workspace_has_muted_session(client, bound_task);
++        session_waiting_tick(now, client, bound_task, input, scoped);
++        if (!scoped) {
++            if ((input && !waiting[i]) || complete_event)
++                task_status_banner(now, client, bound_task, input);
++        } else if (session_id_valid(bound_task) && !session_is_muted(client, bound_task)) {
++            if (complete_event || (input && !waiting[i]))
++                task_status_banner(now, client, bound_task, input);
+         }
++        // Unattributed flags cannot identify an unmuted session while a
++        // matching mute is in the current catalog. Exact replies still route
++        // by task, even if a reduced catalog omitted that task row.
+         completion[i] = seq;
+         waiting[i] = input;
+     }
+@@ -4431,6 +4486,7 @@ void ui_start(void) {
+     extern void tab5_fast_copy_init(void);tab5_fast_copy_init();
+ #endif
+     prefs = ui_preferences_load();
++    session_mutes_load();
+     screen_orientation_mode=ui_orientation_load();
+     screen_orientation=(ui_orientation_filter){.direction=screen_orientation_mode==2?2:0,.candidate=3};
+     if(!codex_bookmarks) {
+@@ -4759,6 +4815,7 @@ void ui_start(void) {
+         session_source_rows[i]=session_source_create(row);
+         session_unread_rows[i]=session_unread_marker(row,"未读",60,26);
+         ui_text_font(lv_obj_get_child(session_unread_rows[i],0),&tab5_source_20,0);
++        session_bell_create(row, i);
+         visible(row,false);
+     }
+     lv_obj_t *task_right = card(tasks_page, 414, 0, 806, 512);
+diff --git a/firmware/main/ui_calendar.h b/firmware/main/ui_calendar.h
+index 72ee271..02d3aee 100644
+--- a/firmware/main/ui_calendar.h
++++ b/firmware/main/ui_calendar.h
+@@ -150,6 +150,7 @@ static void calendar_set_today(int year,int month,int day) {
+     int64_t now=esp_timer_get_time()/1000;
+     if(nearest&&prefs.alerts&&notified_day!=serial&&now>=alert_until&&!home_task_unread&&!saver) {
+         notified_day=serial;alert_until=now+10000;alert_started=now;alert_attention=false;alert_phase=-1;codex_alert_task[0]=0;
++        session_banner_task[0]=0;
+         ui_text(banner,"生日提醒 · 点击查看日历");
+     }
+ }
+diff --git a/firmware/main/ui_prefs.c b/firmware/main/ui_prefs.c
+index b96424c..eddfb3b 100644
+--- a/firmware/main/ui_prefs.c
++++ b/firmware/main/ui_prefs.c
+@@ -123,6 +123,43 @@ bool ui_saver_style_save(int style) {
+     if(result==ESP_OK)result=nvs_commit(h);
+     nvs_close(h);return result==ESP_OK;
+ }
++static const char *session_mutes_key(unsigned client) {
++    return client ? "claude_mutes" : "codex_mutes";
++}
++
++bool ui_session_mutes_load(unsigned client, ui_session_mutes *value) {
++    value->count = 0;
++    nvs_handle_t handle;
++    esp_err_t result = nvs_open("aibot_tab5", NVS_READONLY, &handle);
++    if (result == ESP_ERR_NVS_NOT_FOUND) return true;
++    if (result != ESP_OK) return false;
++
++    size_t length = sizeof(value->ids);
++    result = nvs_get_blob(handle, session_mutes_key(client), value->ids, &length);
++    nvs_close(handle);
++    if (result == ESP_ERR_NVS_NOT_FOUND) return true;
++    if (result != ESP_OK || length > sizeof(value->ids) || length % UI_SESSION_ID_SIZE) return false;
++    for (size_t i = 0; i < length / UI_SESSION_ID_SIZE; i++) {
++        if (strnlen(value->ids[i], UI_SESSION_ID_SIZE) != UI_SESSION_ID_SIZE - 1) return false;
++    }
++    value->count = length / UI_SESSION_ID_SIZE;
++    return true;
++}
++
++bool ui_session_mutes_save(unsigned client, const ui_session_mutes *value) {
++    if (value->count > UI_MUTED_SESSION_LIMIT) return false;
++    nvs_handle_t handle;
++    if (nvs_open("aibot_tab5", NVS_READWRITE, &handle) != ESP_OK) return false;
++    const char *key = session_mutes_key(client);
++    esp_err_t result = value->count
++        ? nvs_set_blob(handle, key, value->ids, value->count * UI_SESSION_ID_SIZE)
++        : nvs_erase_key(handle, key);
++    if (result == ESP_ERR_NVS_NOT_FOUND && !value->count) result = ESP_OK;
++    if (result == ESP_OK) result = nvs_commit(handle);
++    nvs_close(handle);
++    return result == ESP_OK;
++}
++
+ ui_preferences ui_preferences_load(void) {
+     ui_preferences p = {.version = 1,
+                         .selected = -1,
+diff --git a/firmware/main/ui_prefs.h b/firmware/main/ui_prefs.h
+index d1d931c..e01f788 100644
+--- a/firmware/main/ui_prefs.h
++++ b/firmware/main/ui_prefs.h
+@@ -1,6 +1,7 @@
+ #pragma once
+ #include <stdbool.h>
+ #include <stdint.h>
++#include <stddef.h>
+ #define UI_CLOCK_STYLES 9
+ #define UI_HOME_PROVIDERS 11
+ // 0 automatic; 1 locked normal landscape; 2 locked inverted landscape.
+@@ -43,6 +44,14 @@ typedef struct {
+ } ui_preferences;
+ ui_preferences ui_preferences_load(void);
+ bool ui_preferences_save(const ui_preferences *prefs);
++
++enum { UI_MUTED_SESSION_LIMIT = 64, UI_SESSION_ID_SIZE = 37 };
++typedef struct {
++    char ids[UI_MUTED_SESSION_LIMIT][UI_SESSION_ID_SIZE];
++    size_t count;
++} ui_session_mutes;
++bool ui_session_mutes_load(unsigned client, ui_session_mutes *value);
++bool ui_session_mutes_save(unsigned client, const ui_session_mutes *value);
+ int ui_clock_style_load(void);
+ bool ui_clock_style_save(int style);
+ int ui_saver_style_load(void);
+diff --git a/firmware/main/ui_session_unread.h b/firmware/main/ui_session_unread.h
+index 5a02044..1bdfaad 100644
+--- a/firmware/main/ui_session_unread.h
++++ b/firmware/main/ui_session_unread.h
+@@ -39,9 +39,11 @@ static void session_unread_style(void) {
+     for(int i=0;i<8;i++) {
+         if(!session_unread_rows[i])continue;
+         bool unread=session_unread_task(codex_task_ids[i]),active=!strcmp(codex_task_ids[i],codex_selected);
++        bool bell=session_bell_refresh(i,active);
+         visible(session_unread_rows[i],unread);
+-        session_source_width(codex_task_titles[i],unread?240:308);
+-        session_source_pos(session_unread_rows[i],248,workspace_client?0:10);
++        int title_width=bell?(unread&&!workspace_client?182:248):(unread?240:308);
++        session_source_width(codex_task_titles[i],title_width);
++        session_source_pos(session_unread_rows[i],bell?192:248,workspace_client?(bell?34:0):10);
+         ui_bg_color(codex_task_rows[i],lv_color_hex(active?0x465C65:unread?0x41483E:0x354247),0);
+         ui_border_opa(codex_task_rows[i],active||unread?LV_OPA_COVER:LV_OPA_TRANSP,0);
+         ui_border_color(codex_task_rows[i],lv_color_hex(active?BLUE:0xF1BB57),0);
+diff --git a/firmware/main/voice_remote.c b/firmware/main/voice_remote.c
+index d306826..5ed90b2 100644
+--- a/firmware/main/voice_remote.c
++++ b/firmware/main/voice_remote.c
+@@ -61,6 +61,9 @@ void voice_remote_notify_reply(bool claude) {
+     unsigned now=(unsigned)(esp_timer_get_time()/1000);
+     atomic_store(claude?&claude_notification_requested:&notification_requested,now?now:1u);
+ }
++void voice_remote_cancel_reply(bool claude) {
++    atomic_store(claude ? &claude_notification_requested : &notification_requested, 0);
++}
+ void voice_remote_notify_health(void) {
+     unsigned now=(unsigned)(esp_timer_get_time()/1000);atomic_store(&health_requested,now?now:1u);
+ }
+diff --git a/firmware/main/voice_remote.h b/firmware/main/voice_remote.h
+index fc4d267..6e066dd 100644
+--- a/firmware/main/voice_remote.h
++++ b/firmware/main/voice_remote.h
+@@ -18,6 +18,7 @@ void voice_remote_command(int command); /* 1 stop, 2 cancel, 3 use TAB5 */
+ bool voice_remote_busy(void); /* Small locked query for nested transport callbacks. */
+ void voice_remote_get(voice_remote_state *out);
+ void voice_remote_notify_reply(bool claude); /* Short local chime, deferred while capturing. */
++void voice_remote_cancel_reply(bool claude); /* Drop a queued reply chime for this provider. */
+ void voice_remote_notify_health(void); /* Distinct double alert, without reply speech. */
+ void voice_remote_notify_timer(void); /* Non-spoken chime, respecting mute and capture. */
+ void voice_remote_notify_agenda(void); /* Agenda-only cue; same worker, mute and capture priority. */
+diff --git a/tests/ui-preview/preview.c b/tests/ui-preview/preview.c
+index 862d7ec..8ad7271 100644
+--- a/tests/ui-preview/preview.c
++++ b/tests/ui-preview/preview.c
+@@ -2060,6 +2060,7 @@ static void check_camera_open_readiness(void) {
+ #include "workspace_controls_test.h"
+ #include "session_source_test.h"
+ #include "session_unread_test.h"
++#include "session_notifications_test.h"
+ #include "cancelled_draft_refresh_test.h"
+ #include "project_dropdown_navigation_test.h"
+ #include "project_identity_preview_test.h"
+@@ -2214,6 +2215,7 @@ int main(void) {
+     if(getenv("TAB5_WORKSPACE_BRAND_TABS_ONLY")){check_workspace_brand_tabs();return 0;}
+     if(getenv("TAB5_SESSION_SOURCE_ONLY")){check_session_source();return 0;}
+     if(getenv("TAB5_SESSION_UNREAD_ONLY")){check_session_unread();return 0;}
++    if(getenv("TAB5_SESSION_NOTIFICATIONS_ONLY")){check_session_notifications();return 0;}
+     if(getenv("TAB5_PROJECT_DROPDOWN_ONLY")){check_project_dropdown_navigation();return 0;}
+     if(getenv("TAB5_PROJECT_IDENTITY_ONLY")){check_project_identity_preview();return 0;}
+     if(getenv("TAB5_PROJECT_VIRTUAL_LIST_ONLY")){check_project_virtual_list();return 0;}
+diff --git a/tests/ui-preview/session_unread_test.h b/tests/ui-preview/session_unread_test.h
+index 59eb970..92a878d 100644
+--- a/tests/ui-preview/session_unread_test.h
++++ b/tests/ui-preview/session_unread_test.h
+@@ -33,7 +33,13 @@ static void check_session_unread(void) {
+         lv_area_t row,title,badge,source;lv_obj_get_coords(codex_task_rows[i],&row);lv_obj_get_coords(codex_task_titles[i],&title);
+         lv_obj_get_coords(session_unread_rows[i],&badge);lv_obj_get_coords(session_source_rows[i],&source);
+         assert(!lv_obj_has_flag(session_unread_rows[i],LV_OBJ_FLAG_HIDDEN));
+-        assert(title.x2<badge.x1&&badge.x2<row.x2&&badge.y1>=row.y1&&badge.y2<source.y1);
++        assert(badge.x2<row.x2&&badge.y1>=row.y1);
++        if(lv_obj_has_flag(session_bells[i],LV_OBJ_FLAG_HIDDEN))
++            assert(title.x2<badge.x1&&badge.y2<source.y1);
++        else {
++            lv_area_t bell;lv_obj_get_coords(session_bells[i],&bell);
++            assert(title.y2<badge.y1&&source.x2<badge.x1&&badge.x2<bell.x1);
++        }
+     }
+     capture("unread-claude-sessions");
+     for(int i=0;i<24;i++)tab5_draw_cache_step(pages[8]);
+diff --git a/tests/ui-preview/ui_preview_stubs.h b/tests/ui-preview/ui_preview_stubs.h
+index 16ddd0a..0329742 100644
+--- a/tests/ui-preview/ui_preview_stubs.h
++++ b/tests/ui-preview/ui_preview_stubs.h
+@@ -70,6 +70,17 @@ static bool preview_preferences_save_ok=true;
+ static ui_preferences preview_saved_preferences;
+ bool ui_preferences_save(const ui_preferences *p) {preview_preferences_saves++;if(!preview_preferences_save_ok)return false;preview_saved_preferences=*p;return true;}
+ static ui_reading_bookmark preview_reading[32];
++static ui_session_mutes preview_session_mutes[2];
++static bool preview_session_mutes_save_failure;
++bool ui_session_mutes_load(unsigned client, ui_session_mutes *value) {
++    *value = preview_session_mutes[client];
++    return true;
++}
++bool ui_session_mutes_save(unsigned client, const ui_session_mutes *value) {
++    if (preview_session_mutes_save_failure) return false;
++    preview_session_mutes[client] = *value;
++    return true;
++}
+ bool ui_reading_load(ui_reading_bookmark values[32]){memcpy(values,preview_reading,sizeof(preview_reading));return true;}
+ bool ui_reading_save(const ui_reading_bookmark values[32]){memcpy(preview_reading,values,sizeof(preview_reading));return true;}
+ int ui_clock_style_load(void) { return 0; }
+diff --git a/firmware/main/ui_session_notifications.h b/firmware/main/ui_session_notifications.h
+new file mode 100644
+index 0000000..1535617
+--- /dev/null
++++ b/firmware/main/ui_session_notifications.h
+@@ -0,0 +1,120 @@
++static lv_obj_t *session_bells[8], *session_bell_slash[8];
++static void session_unread_style(void);
++static ui_session_mutes session_mutes[2];
++static bool session_mutes_loaded[2];
++static unsigned session_banner_client;
++static char session_chime_task[2][UI_SESSION_ID_SIZE];
++static const char reminder_read_error[] = "提醒设置读取失败，请重试";
++static const char reminder_save_error[] = "提醒设置保存失败，请重试";
++static const char reminder_limit_error[] = "静音会话已满，请先恢复一个会话的提醒";
++
++static bool session_id_valid(const char *task) { return strlen(task) == UI_SESSION_ID_SIZE - 1; }
++
++static size_t session_mute_index(unsigned client, const char *task) {
++    const ui_session_mutes *value = &session_mutes[client];
++    for (size_t i = 0; i < value->count; i++)
++        if (!strcmp(value->ids[i], task)) return i;
++    return value->count;
++}
++
++static bool session_is_muted(unsigned client, const char *task) {
++    return session_mute_index(client, task) < session_mutes[client].count;
++}
++
++static bool workspace_has_muted_session(unsigned client, const char *bound_task) {
++    if (!session_mutes[client].count) return false;
++    if (session_is_muted(client, bound_task)) return true;
++
++    cJSON *tasks = item(item(shown, client ? "claudeTasks" : "codexTasks"), "tasks");
++    cJSON *task = NULL;
++    cJSON_ArrayForEach(task, tasks) {
++        if (session_is_muted(client, text(task, "id"))) return true;
++    }
++    return false;
++}
++
++static void session_mutes_load(void) {
++    for (unsigned client = 0; client < 2; client++)
++        session_mutes_loaded[client] = ui_session_mutes_load(client, &session_mutes[client]);
++}
++
++static bool session_bell_refresh(int row, bool selected) {
++    bool muted = session_is_muted(workspace_client, codex_task_ids[row]);
++    bool show = session_id_valid(codex_task_ids[row]) && (selected || muted);
++    visible(session_bells[row], show);
++    visible(session_bell_slash[row], muted);
++    tint(lv_obj_get_child(session_bells[row], 0), muted ? MUTED : INK);
++    return show;
++}
++
++static void session_reminder_clicked(lv_event_t *event) {
++    int row = (int)(intptr_t)lv_event_get_user_data(event);
++    const char *task = codex_task_ids[row];
++    if (!session_id_valid(task)) return;
++    unsigned client = workspace_client;
++    ui_session_mutes *value = &session_mutes[client];
++    if (!session_mutes_loaded[client]) {
++        session_mutes_loaded[client] = ui_session_mutes_load(client, value);
++        if (!session_mutes_loaded[client]) {
++            ui_text(codex_voice_hint, reminder_read_error);
++            return;
++        }
++    }
++
++    size_t index = session_mute_index(client, task);
++    bool muting = index == value->count;
++    if (muting) {
++        if (value->count == UI_MUTED_SESSION_LIMIT) {
++            ui_text(codex_voice_hint, reminder_limit_error);
++            return;
++        }
++        memcpy(value->ids[value->count++], task, UI_SESSION_ID_SIZE);
++    } else {
++        value->count--;
++        if (index != value->count)
++            memcpy(value->ids[index], value->ids[value->count], UI_SESSION_ID_SIZE);
++    }
++
++    if (!ui_session_mutes_save(client, value)) {
++        if (muting) value->count--;
++        else {
++            if (index != value->count)
++                memcpy(value->ids[value->count], value->ids[index], UI_SESSION_ID_SIZE);
++            value->count++;
++            memcpy(value->ids[index], task, UI_SESSION_ID_SIZE);
++        }
++        ui_text(codex_voice_hint, reminder_save_error);
++    } else {
++        const char *hint = lv_label_get_text(codex_voice_hint);
++        if (!strcmp(hint, reminder_read_error) || !strcmp(hint, reminder_save_error) || !strcmp(hint, reminder_limit_error))
++            ui_text(codex_voice_hint, "");
++        if (muting) {
++            if (session_banner_client == client && !strcmp(session_banner_task, task))
++                alert_until = 0;
++            if (!strcmp(session_chime_task[client], task))
++                voice_remote_cancel_reply(client != 0);
++        }
++    }
++    session_unread_style();
++}
++
++static void session_bell_create(lv_obj_t *parent, int row) {
++    lv_obj_t *bell = button(parent, LV_SYMBOL_BELL, 258, 4, 52, session_reminder_clicked, row);
++    session_bells[row] = bell;
++    lv_obj_set_height(bell, 52);
++    lv_obj_set_style_radius(bell, LV_RADIUS_CIRCLE, 0);
++    lv_obj_remove_flag(bell, LV_OBJ_FLAG_EVENT_BUBBLE | LV_OBJ_FLAG_SCROLLABLE);
++    ui_bg_opa(bell, LV_OPA_TRANSP, 0);
++    lv_obj_t *glyph = lv_obj_get_child(bell, 0);
++    ui_text_font(glyph, &lv_font_montserrat_24, 0);
++    lv_obj_center(glyph);
++    static const lv_point_precise_t points[] = {{0, 0}, {23, 24}};
++    lv_obj_t *slash = session_bell_slash[row] = lv_line_create(bell);
++    lv_line_set_points(slash, points, 2);
++    lv_obj_set_pos(slash, 15, 14);
++    lv_obj_set_style_line_color(slash, lv_color_hex(INK), 0);
++    lv_obj_set_style_line_width(slash, 3, 0);
++    lv_obj_set_style_line_rounded(slash, true, 0);
++    lv_obj_remove_flag(slash, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
++    visible(bell, false);
++}
+diff --git a/tests/ui-preview/session_notifications_test.h b/tests/ui-preview/session_notifications_test.h
+new file mode 100644
+index 0000000..0bfe9ac
+--- /dev/null
++++ b/tests/ui-preview/session_notifications_test.h
+@@ -0,0 +1,132 @@
++static void check_session_notifications(void) {
++    static const char *keys[] = {"codexTasks", "claudeTasks"};
++    static const char *models[] = {"codex", "claude"};
++    static const char *ids[2][2] = {
++        {"11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"},
++        {"33333333-3333-4333-8333-333333333333", "44444444-4444-4444-8444-444444444444"},
++    };
++    lv_indev_t *touch = lv_indev_create();
++    lv_indev_set_type(touch, LV_INDEV_TYPE_POINTER);
++    lv_indev_set_display(touch, lv_display_get_default());
++    lv_indev_set_read_cb(touch, camera_touch_read);
++
++    for (unsigned client = 0; client < 2; client++) {
++        reply_open_state_setup(client);
++        cJSON *remote = item(shown, keys[client]);
++        cJSON *tasks = item(remote, "tasks"), *first = cJSON_GetArrayItem(tasks, 0);
++        cJSON_ReplaceItemInObject(first, "id", cJSON_CreateString(ids[client][0]));
++        cJSON_ReplaceItemInObject(first, "title", cJSON_CreateString("本会话关闭提醒"));
++        cJSON *other = cJSON_Duplicate(first, true);
++        cJSON_ReplaceItemInObject(other, "id", cJSON_CreateString(ids[client][1]));
++        cJSON_ReplaceItemInObject(other, "title", cJSON_CreateString("同项目正常提醒"));
++        cJSON_AddItemToArray(tasks, other);
++        codex_select_task(ids[client][0]);
++        render_codex();
++        lv_obj_update_layout(lv_screen_active());
++
++        lv_area_t target, glyph, row;
++        lv_obj_get_coords(session_bells[0], &target);
++        lv_obj_get_coords(lv_obj_get_child(session_bells[0], 0), &glyph);
++        lv_obj_get_coords(codex_task_rows[0], &row);
++        assert(lv_area_get_width(&target) == 52 && lv_area_get_height(&target) == 52);
++        assert(glyph.x1 > target.x1 && glyph.x2 < target.x2 && glyph.y1 > target.y1 && glyph.y2 < target.y2);
++        assert(target.x2 < row.x2 && target.y2 < row.y2);
++        lv_font_glyph_dsc_t bell_glyph;
++        assert(lv_font_get_glyph_dsc(&lv_font_montserrat_24, &bell_glyph, 0xF0F3, 0));
++        lv_point_t center = {(target.x1 + target.x2) / 2, (target.y1 + target.y2) / 2};
++        assert(lv_obj_has_flag(session_bell_slash[0], LV_OBJ_FLAG_HIDDEN));
++
++        preview_session_mutes_save_failure = true;
++        gallery_pointer_click(touch, center);
++        assert(!session_is_muted(client, ids[client][0]));
++        assert(lv_obj_has_flag(session_bell_slash[0], LV_OBJ_FLAG_HIDDEN));
++        preview_session_mutes_save_failure = false;
++        gallery_pointer_click(touch, center);
++        assert(session_is_muted(client, ids[client][0]));
++        assert(!session_is_muted(client, ids[client][1]));
++        assert(!session_is_muted(client ^ 1, ids[client][0]));
++        assert(!lv_obj_has_flag(session_bell_slash[0], LV_OBJ_FLAG_HIDDEN));
++        assert(!strcmp(codex_selected, ids[client][0]));
++        memset(session_mutes, 0, sizeof(session_mutes));
++        session_mutes_load();
++        assert(session_is_muted(client, ids[client][0]));
++
++        cJSON *ready = cJSON_AddObjectToObject(remote, "repliesReady");
++        cJSON_AddStringToObject(ready, ids[client][0], "first-muted-reply");
++        cJSON *model = item(shown, models[client]);
++        cJSON_AddBoolToObject(model, "completionActive", true);
++        cJSON_AddNumberToObject(model, "completionSequence", 1);
++        if (client) {
++            cJSON *bound = cJSON_AddObjectToObject(shown, "claudeSession");
++            cJSON_AddStringToObject(bound, "taskId", ids[client][0]);
++        }
++        alert_until = 0;
++        codex_notices_ready = true;
++        unsigned chimes = preview_chimes;
++        alerts(3000, true);
++        codex_notice_tick(3000, true);
++        alert_visual_tick(3000);
++        render_codex();
++        assert(preview_chimes == chimes && !alert_until && !lv_label_get_text(banner)[0]);
++        assert(session_unread_count(client, NULL) == 1);
++        assert(session_unread_task(ids[client][0]));
++        assert(!lv_obj_has_flag(codex_unread_dot, LV_OBJ_FLAG_HIDDEN));
++        assert(!lv_obj_has_flag(session_unread_rows[0], LV_OBJ_FLAG_HIDDEN));
++        capture(client ? "session-claude-muted-unread" : "session-codex-muted-unread");
++        codex_select_task(ids[client][1]);
++        render_codex();
++        assert(!lv_obj_has_flag(session_bells[0], LV_OBJ_FLAG_HIDDEN));
++        assert(!lv_obj_has_flag(session_bell_slash[0], LV_OBJ_FLAG_HIDDEN));
++        assert(!lv_obj_has_flag(session_bells[1], LV_OBJ_FLAG_HIDDEN));
++        assert(lv_obj_has_flag(session_bell_slash[1], LV_OBJ_FLAG_HIDDEN));
++        capture(client ? "session-claude-mixed" : "session-codex-mixed");
++        codex_select_task(ids[client][0]);
++        render_codex();
++
++        // A muted arrival later in the batch must leave the unmuted banner's target intact.
++        cJSON_DeleteItemFromObject(ready, ids[client][0]);
++        cJSON_AddStringToObject(ready, ids[client][1], "normal-reply");
++        cJSON_AddStringToObject(ready, ids[client][0], "second-muted-reply");
++        codex_notice_tick(4000, true);
++        assert(preview_chimes == chimes + 1 && preview_reply_client == (int)client);
++        assert(!strcmp(codex_alert_task, ids[client][1]) && alert_until == 14000);
++        assert(session_unread_count(client, NULL) == 2);
++
++        alert_until = 0;
++        cJSON_AddStringToObject(first, "state", "waiting");
++        cJSON_AddBoolToObject(model, "needsInput", true);
++        alerts(5000, true);
++        assert(!alert_until);
++        cJSON_AddStringToObject(other, "state", "waiting");
++        alerts(6000, true);
++        assert(alert_until == 16000 && alert_attention);
++        assert(!strcmp(session_banner_task, ids[client][1]));
++        alerts(6500, true);
++        assert(alert_until == 16000);
++
++        gallery_pointer_click(touch, center);
++        assert(!session_is_muted(client, ids[client][0]));
++        assert(lv_obj_has_flag(session_bell_slash[0], LV_OBJ_FLAG_HIDDEN));
++        assert(session_unread_task(ids[client][0]));
++        cJSON_ReplaceItemInObject(ready, ids[client][0], cJSON_CreateString("restored-reply"));
++        codex_notice_tick(7000, true);
++        assert(preview_chimes == chimes + 2 && !strcmp(codex_alert_task, ids[client][0]));
++        alert_visual_tick(7000);
++        capture(client ? "session-claude-reminders-restored" : "session-codex-reminders-restored");
++        assert(preview_reply_pending[client]);
++        gallery_pointer_click(touch, center);
++        assert(session_is_muted(client, ids[client][0]));
++        assert(!preview_reply_pending[client] && alert_until == 0);
++        assert(session_unread_task(ids[client][0]));
++
++        // Archived or unrelated rules cannot hide a provider-wide reminder.
++        cJSON_DeleteItemFromArray(tasks, 0);
++        cJSON_DeleteItemFromObject(shown, "claudeSession");
++        cJSON_ReplaceItemInObject(model, "needsInput", cJSON_CreateFalse());
++        cJSON_ReplaceItemInObject(model, "completionSequence", cJSON_CreateNumber(2));
++        alerts(8000, true);
++        assert(alert_until == 18000 && !alert_attention);
++    }
++    lv_indev_delete(touch);
++    puts("SESSION_NOTIFICATIONS_OK pointer, independent settings, storage failure/reload, unread, banner and chime, batching, waiting transitions and restore");
++}

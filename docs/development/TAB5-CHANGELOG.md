@@ -2,6 +2,12 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.323-ui - 2026-11-24
+
+### Conversations
+
+- Select a Codex or Claude conversation in Conversations, then tap the bell at the end of its row to turn reminders off or back on. Muted conversations keep their unread badges and skip the TAB5 banner and chime.
+
 ## 0.2.322-ui - 2026-11-17
 
 ### Apps
