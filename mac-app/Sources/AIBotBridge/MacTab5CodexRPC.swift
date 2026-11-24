@@ -58,16 +58,21 @@ final class MacTab5CodexRPC {
         }
     }
     func call(_ method: String, _ params: [String: Any]) throws -> [String: Any] {
-        calls.lock(); defer { calls.unlock() }
+        try call(method, params, deadline: Date().addingTimeInterval(12))
+    }
+    func call(_ method: String, _ params: [String: Any], deadline: Date) throws -> [String: Any] {
+        guard calls.lock(before: deadline) else { throw MacTab5CodexFailure.timeout }
+        defer { calls.unlock() }
         guard Self.readMethods.contains(method) else { throw MacTab5CodexFailure.readOnlyConnection }
         do {
             if process?.isRunning != true {
+                guard deadline > Date() else { throw MacTab5CodexFailure.timeout }
                 try start()
-                do { _ = try request("initialize", ["clientInfo": ["name": "aibot_tab5_mac", "title": "AI-bot TAB5", "version": "1.0"]]) }
+                do { _ = try request("initialize", ["clientInfo": ["name": "aibot_tab5_mac", "title": "AI-bot TAB5", "version": "1.0"]], deadline: deadline) }
                 catch MacTab5CodexFailure.unavailable { throw MacTab5CodexFailure.readOnlyUnavailable }
                 try write(["method": "initialized"])
             }
-            return try request(method, params)
+            return try request(method, params, deadline: deadline)
         } catch { stopLocked(); throw error }
     }
     func stop() { calls.lock(); stopLocked(); calls.unlock() }
