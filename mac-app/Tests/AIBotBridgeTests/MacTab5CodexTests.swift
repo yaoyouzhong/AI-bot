@@ -224,11 +224,13 @@ final class MacTab5CodexTests: XCTestCase {
     }
     func testEmptyTurnRendersStatusWithoutInventingReplyOrReadReceipt() throws {
         let api = API()
-        for (state, status, placeholder) in [
-            ("interrupted", "已中断", "任务已停止，本轮尚无公开文字。"),
-            ("completed", "已完成", "本轮尚无公开文字。"),
-            ("failed", "失败", "本轮尚无公开文字。"),
-            ("inProgress", "运行中", "Codex 正在处理，等待新的动态…")
+        let older = UUID().uuidString.lowercased()
+        for (state, status, placeholder, hasStoredHistory) in [
+            ("interrupted", "已中断", "任务已停止，本轮尚无公开文字。", false),
+            ("completed", "已完成", "本轮尚无公开文字。", false),
+            ("failed", "失败", "本轮尚无公开文字。", false),
+            ("inProgress", "运行中", "Codex 正在处理，等待新的动态…", false),
+            ("inProgress", "运行中", "Codex 正在处理，等待新的动态…", true)
         ] {
             var publicText = ""
             let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { false }, call: { method, params in
@@ -239,6 +241,9 @@ final class MacTab5CodexTests: XCTestCase {
                                         ["type": "reasoning", "text": "PRIVATE_THINKING"]]]]]]
                 }
                 return try api.call(method, params)
+            }, storedHistory: { _ in
+                guard hasStoredHistory else { return nil }
+                return [["id": older, "status": "completed", "items": [["type": "agentMessage", "text": "上一轮公开回复"]]]]
             })
             codex.refresh()
             let result = codex.handle(["taskId": api.task, "op": "read"], device: "device")
@@ -247,6 +252,7 @@ final class MacTab5CodexTests: XCTestCase {
             XCTAssertEqual(result.body["receipt"] as? String, status)
             XCTAssertEqual(result.body["text"] as? String, placeholder)
             let view = try XCTUnwrap(result.body["replyView"] as? [String: Any])
+            XCTAssertEqual(view["turnId"] as? String, api.turn)
             XCTAssertEqual(view["hasText"] as? Bool, false)
             XCTAssertEqual(view["readReceipt"] as? String, "")
             XCTAssertEqual(view["pageCount"] as? Int, 1)

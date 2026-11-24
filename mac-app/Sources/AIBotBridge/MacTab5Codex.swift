@@ -985,10 +985,9 @@ final class MacTab5Codex {
             if selected.isEmpty { return turns.indices.last }
             return turns.firstIndex { Self.id($0["id"]) == selected.lowercased() }.map { $0 + offset }
         }
-        func hasTargetText(_ thread: [String: Any]) -> Bool {
-            let turns = thread["turns"] as? [[String: Any]] ?? []
-            guard let index = targetIndex(turns), turns.indices.contains(index) else { return false }
-            return Self.hasPublicText(turns[index])
+        func targetTurn(_ turns: [[String: Any]]?) -> [String: Any]? {
+            guard let turns, let index = targetIndex(turns), turns.indices.contains(index) else { return nil }
+            return turns[index]
         }
 
         var thread: [String: Any]
@@ -1010,21 +1009,20 @@ final class MacTab5Codex {
             let liveTarget = live.flatMap { snapshot in
                 offset == 0 && (selected.isEmpty || selected == snapshot.turn) ? snapshot.thread : nil
             }
-            do {
-                thread = try readThread(task, selected: selected.lowercased(), offset: offset, observeControls: true)
-            } catch {
-                if let liveTarget, hasTargetText(liveTarget) { thread = liveTarget }
-                else if let saved = storedHistory?(task) {
-                    thread = ["turns": saved, "controlUnavailable": true]
-                    fromStorage = true
-                } else { throw error }
+            let fetched = Result {
+                try readThread(task, selected: selected.lowercased(), offset: offset, observeControls: true)
             }
-            if !fromStorage, let storedHistory, !hasTargetText(thread),
-               !(liveTarget.map(hasTargetText) ?? false) {
-                guard let saved = storedHistory(task) else { return .error(503, "reply_unavailable") }
+            let available = (try? fetched.get()) ?? liveTarget
+            let liveTurn = targetTurn(liveTarget?["turns"] as? [[String: Any]])
+            let availableTurn = targetTurn(available?["turns"] as? [[String: Any]])
+            let expectedTurn = Self.id((liveTurn ?? availableTurn)?["id"])
+            if !(liveTurn.map(Self.hasPublicText) ?? false),
+               !(availableTurn.map(Self.hasPublicText) ?? false),
+               let saved = storedHistory?(task), let savedTurn = targetTurn(saved), Self.hasPublicText(savedTurn),
+               expectedTurn == nil || Self.id(savedTurn["id"]) == expectedTurn {
                 thread = ["turns": saved, "controlUnavailable": true]
                 fromStorage = true
-            }
+            } else { thread = try available ?? fetched.get() }
         }
         if let controlToken, probedDesktop { liveControl?.accept(controlToken, state: live) }
         var turns = thread["turns"] as? [[String: Any]] ?? []
