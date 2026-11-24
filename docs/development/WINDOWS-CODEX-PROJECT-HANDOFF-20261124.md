@@ -4,7 +4,8 @@
 
 - Windows 桥接读取 Codex 项目归属。现有 TAB5 选择器、分页、交互状态和传输协议沿用原实现，固件无需重刷。
 - 同一会话保持原会话 ID 和实际工作目录。桥接先查本地会话库和索引中的项目 ID，再读取桌面保留的旧归属与本机迁移映射，最后沿用目录和 Git 工作树匹配。只有已保存的本地项目可进入设备目录，远程与归档会话继续按原边界过滤。
-- macOS 的 [MacTab5Codex.swift](../../mac-app/Sources/AIBotBridge/MacTab5Codex.swift) 目前从工作目录和 Git 信息推导 Codex 项目。要在 Mac 上提供同一行为，需独立验证其桌面项目元数据并优先使用已确认的归属。Windows 实现可以独立部署。
+- macOS 的 [MacTab5Codex.swift](../../mac-app/Sources/AIBotBridge/MacTab5Codex.swift) 在本次对齐前从工作目录和 Git 信息推导 Codex 项目。Windows 实现可以独立部署。
+- macOS 回填：待验证。Mac 本地开发提交 `b88af65941f3` 已按桌面保存的项目归属列出会话。项目归属及旧归属迁移的本地测试通过，仍待连接 TAB5 核对列表。该实现尚未合入主干。
 
 ## 复现与验证
 
