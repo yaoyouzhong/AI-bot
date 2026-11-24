@@ -2,8 +2,23 @@
 
 ## 范围
 
-- 基线为 `main` 的 `6aaeafc`。改动针对 Windows 桥接的 Codex 回复读取，沿用现有 TAB5 协议和固件。
-- macOS 已有相同的公开接口读取路径，可以沿用现有分页和 stdio 子进程。Mac 也会尝试桌面实时快照，但在 App Server 失败且无法使用实时快照时，当前 `page` 路径没有从本地会话记录读取指定轮次的兜底。若对齐 Windows 的读取恢复行为，Mac 需要补这一项并独立验收。见 [MacTab5Codex](../../mac-app/Sources/AIBotBridge/MacTab5Codex.swift)、[MacCodexPublicHistory](../../mac-app/Sources/AIBotBridge/MacCodexPublicHistory.swift) 和 [MacTab5CodexRPC](../../mac-app/Sources/AIBotBridge/MacTab5CodexRPC.swift)。
+- 本次发起端：Windows
+- 是否需要交接：需要。Mac 核对本端的本地记录兜底缺口，并按 QQ 审批结果跟进 TAB5 读取与翻轮。
+- 接收平台：macOS
+- 发起端对齐初判：需要。Windows 对照两端读取源码，发现 Mac 在桌面快照和 App Server 都取不到正文时缺少本地记录兜底。
+- 基线为 `main` 的 `6aaeafc`，Windows 改动已随 `aee01675a078` 合入。沿用现有 TAB5 协议和固件。
+
+## 对齐清单
+
+### TAB5 在桌面快照和 App Server 无法提供回复时继续读取已保存的对话
+
+- 适用范围：两端共同要求。桌面快照不可用且 App Server 失败、缺少指定轮次或未返回公开正文时，Windows 和 macOS 都应从同一会话的本地记录读取指定轮次已保存的助手公开正文，并支持翻阅上一轮。
+- 发起端初判与结果：Windows 已补本地记录兜底并通过专项回归。Mac 已有桌面快照、App Server 和分页路径。
+- 接收端核对结果：Mac 侧 AutoLoop #113 的源码核对指出，`page` 在现有来源无法提供指定轮次正文时缺少本地记录兜底。是否启动开发待 QQ 开发审批，Mac 真机验收待执行。见 [MacTab5Codex](../../mac-app/Sources/AIBotBridge/MacTab5Codex.swift)、[MacCodexPublicHistory](../../mac-app/Sources/AIBotBridge/MacCodexPublicHistory.swift) 和 [MacTab5CodexRPC](../../mac-app/Sources/AIBotBridge/MacTab5CodexRPC.swift)。
+- 验收方法：用含两个已保存公开回复轮次的测试会话，分别模拟 App Server 失败、找不到指定轮次和没有公开正文，同时让桌面快照不可用。在 TAB5 打开指定轮次并翻到上一轮，检查正文和轮次一致，读取历史不产生或清除其他轮次的未读。另一会话的内容以及用户消息、推理和工具记录均不可出现在回复页。测试会话没有可用的目标轮次时，保留读取不可用状态。
+- 对齐状态：待对齐。待用户批准启动 Mac 实现与验收。
+
+待对齐：macOS｜TAB5 Codex 指定轮次公开回复的本地记录兜底
 
 ## 复现与修复
 
