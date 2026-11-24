@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace AIBotBridge;
 
@@ -58,6 +59,30 @@ internal static class Tab5CodexCatalogSelfTest
             File.WriteAllText(Path.Combine(gitdir,"gitdir"),Path.Combine(other,".git")+"\n");
             Require(Tab5CodexCatalog.MatchProject(linked,roots)?.Id=="linked","bad backlink cannot merge configured worktree");
             Require(Tab5CodexCatalog.MatchProject(linked,[roots[0]]) is null,"unregistered invalid worktree cannot enter saved catalog");
+            string assignedCatalog=Path.Combine(home,"assigned.sqlite");
+            string projectId=Guid.NewGuid().ToString(),otherProjectId=Guid.NewGuid().ToString(),legacyId=Guid.NewGuid().ToString();
+            string byDesktop=Guid.NewGuid().ToString(),byIndex=Guid.NewGuid().ToString(),byState=Guid.NewGuid().ToString();
+            string remote=Guid.NewGuid().ToString(),detached=Guid.NewGuid().ToString(),archived=Guid.NewGuid().ToString();
+            string AssignedRow(string id,string label,string path,string? project=null,string host="local")=>
+                $"INSERT INTO local_thread_catalog VALUES('{id}','{label}','{path.Replace("'","''")}',30,'{host}',0,{(project is null?"NULL":$"'{project}'")});";
+            Execute(assignedCatalog,schema+"ALTER TABLE local_thread_catalog ADD project_id TEXT;"+
+                AssignedRow(byDesktop,"Assigned worktree",linked)+AssignedRow(byIndex,"Indexed worktree",linked,projectId)+
+                AssignedRow(byState,"Moved worktree",linked,otherProjectId)+AssignedRow(remote,"Remote",linked,projectId,"remote")+
+                AssignedRow(detached,"Detached",linked)+AssignedRow(archived,"Archived",linked,projectId));
+            var assignments=JsonSerializer.SerializeToElement(new Dictionary<string,object> {
+                ["thread-project-assignments"]=new[]{byDesktop,byIndex,remote,detached}.ToDictionary(id=>id,_=>new{projectKind="local",projectId=legacyId}),
+                ["thread-project-membership-host-ids"]=new Dictionary<string,string>{{byDesktop,"local"},{remote,"remote"}},
+                ["app-server-project-id-by-legacy-project-id-by-host"]=new Dictionary<string,Dictionary<string,string>> {
+                    ["local:"+home]=new(){{legacyId,projectId}},["remote:"+home]=new(){{legacyId,otherProjectId}}},
+                ["projectless-thread-ids"]=new[]{detached}
+            });
+            var parsed=Tab5CodexProjectAssignments.Parse(assignments,home);
+            Require(parsed.Count==2&&parsed[byDesktop]==projectId,"desktop assignment migration respects local host and detach");
+            var result=Tab5CodexCatalog.ReadCatalog(false,assignedCatalog,
+                [new(Tab5GitProject.Id(projectId),"Assigned project",main),new(Tab5GitProject.Id(otherProjectId),"Other project",other)],
+                new Dictionary<string,Tab5CodexCatalog.Activity>{{byState,new(1,false,projectId)},{archived,new(1,true,projectId)}},parsed);
+            Require(result.Select(t=>t.Id).ToHashSet().SetEquals([byDesktop,byIndex,byState])&&
+                result.All(t=>t.Folder=="Assigned project"),"local desktop and indexed project ownership precede the worktree path");
             Console.WriteLine("Catalog migration, project identity and display stability self-tests passed.");
         }finally{Directory.Delete(home,true);}
     }

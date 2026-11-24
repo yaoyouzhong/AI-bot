@@ -53,11 +53,13 @@ internal static class Tab5CodexCatalog
         }
     }
     internal static IReadOnlyList<Tab5CodexTask> ReadCatalog(bool confirmation,string? catalogPath=null,
-        IReadOnlyList<Tab5SavedProject>? savedProjects=null,IReadOnlyDictionary<string,Activity>? activity=null)
-        =>TryReadCatalog(confirmation,catalogPath,savedProjects,activity)??[];
+        IReadOnlyList<Tab5SavedProject>? savedProjects=null,IReadOnlyDictionary<string,Activity>? activity=null,
+        IReadOnlyDictionary<string,string>? projectAssignments=null)
+        =>TryReadCatalog(confirmation,catalogPath,savedProjects,activity,projectAssignments)??[];
 
     internal static IReadOnlyList<Tab5CodexTask>? TryReadCatalog(bool confirmation,string? catalogPath=null,
-        IReadOnlyList<Tab5SavedProject>? savedProjects=null,IReadOnlyDictionary<string,Activity>? activity=null)
+        IReadOnlyList<Tab5SavedProject>? savedProjects=null,IReadOnlyDictionary<string,Activity>? activity=null,
+        IReadOnlyDictionary<string,string>? projectAssignments=null)
     {
         var projects=savedProjects??ReadSavedProjects();
         if(projects is null&&!confirmation)return null;
@@ -65,6 +67,8 @@ internal static class Tab5CodexCatalog
         var matcher=confirmation?null:new ProjectMatcher(projects??[]);
         var path = catalogPath??CatalogPath(HomePath);
         if (!File.Exists(path)) return null;
+        var observed=confirmation?null:activity??LocalActivity();
+        if(!confirmation&&catalogPath is null)projectAssignments??=Tab5CodexProjectAssignments.Read(HomePath);
         nint db = 0, statement = 0;
         var tasks = new List<Tab5CodexTask>();
         try
@@ -73,13 +77,18 @@ internal static class Tab5CodexCatalog
             sqlite3_busy_timeout(db, 100);
             // Confirmation must also see duplicate titles outside the device's
             // project and recent-task limits; it never serializes this full list.
-            if (sqlite3_prepare_v2(db, confirmation?Sql.Replace(" LIMIT 512","").Replace("host_id='local' AND ",""):Sql, -1, out statement, 0) != 0) return null;
+            string query=confirmation?Sql.Replace(" LIMIT 512","").Replace("host_id='local' AND ",""):Sql;
+            bool hasProject=!confirmation&&sqlite3_prepare_v2(db,query.Replace(" FROM local_thread_catalog",",project_id FROM local_thread_catalog"),-1,out statement,0)==0;
+            if(!hasProject&&sqlite3_prepare_v2(db,query,-1,out statement,0)!=0)return null;
             int step;
             while ((step=sqlite3_step(statement)) == 100)
             {
                 string id = Column(statement, 0), title = Column(statement, 1), folder = Column(statement, 2);
                 if (!Guid.TryParse(id, out _) || string.IsNullOrWhiteSpace(title)) continue;
-                var project=matcher?.Match(folder);
+                var project=matcher?.Assigned(observed?.GetValueOrDefault(id)?.ProjectId)
+                    ??matcher?.Assigned(hasProject?Column(statement,4):null)
+                    ??matcher?.Assigned(projectAssignments?.GetValueOrDefault(id))
+                    ??matcher?.Match(folder);
                 if(project is null&&!confirmation)continue;
                 tasks.Add(WithDisplayTitle(new(id,title,project?.Name??"",
                     (long)sqlite3_column_double(statement,3),project?.Id??"",project?.Order??int.MaxValue)));
@@ -89,27 +98,27 @@ internal static class Tab5CodexCatalog
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or IOException or UnauthorizedAccessException) { return null; }
         finally { if (statement != 0) sqlite3_finalize(statement); if (db != 0) sqlite3_close(db); }
         if(confirmation)return tasks; // Identity checks include archived and non-local duplicates.
-        var reconciled=ReconcileActivity(tasks,activity??LocalActivity());
+        var reconciled=ReconcileActivity(tasks,observed!);
         if(activity is null)lock(ActivityGate)reconciled=reconciled.Select(t=>ExplicitActivity.TryGetValue(t.Id,out var at)?t with {UpdatedAt=Math.Max(t.UpdatedAt,at)}:t).ToArray();
         return SelectRecent(reconciled);
     }
-    internal sealed record Activity(long UpdatedAt,bool Archived);
+    internal sealed record Activity(long UpdatedAt,bool Archived,string ProjectId="");
     internal static IReadOnlyList<Tab5CodexTask> ReconcileActivity(IReadOnlyList<Tab5CodexTask> tasks,IReadOnlyDictionary<string,Activity> activity)=>
         tasks.Where(t=>!activity.TryGetValue(t.Id,out var seen)||!seen.Archived)
             .Select(t=>activity.TryGetValue(t.Id,out var seen)?t with {UpdatedAt=Math.Max(t.UpdatedAt,seen.UpdatedAt)}:t).ToArray();
     private static IReadOnlyDictionary<string,Activity> LocalActivity() {
-        // The desktop catalog may lag while a turn is running. Read only the
-        // live activity timestamps of its known local IDs; retain display names
-        // and saved-project boundaries, and never import internal agent tasks.
+        // The desktop index may lag behind local activity and project moves.
+        // Join by its known local IDs so internal agent tasks stay out of the list.
         var result=new Dictionary<string,Activity>();nint db=0,statement=0;
         try {
             if(sqlite3_open_v2(Path.Combine(HomePath,"state_5.sqlite"),out db,1,0)!=0)return result;
             sqlite3_busy_timeout(db,100);
             const string sql="SELECT id,updated_at,archived FROM threads ORDER BY updated_at DESC LIMIT 512";
-            if(sqlite3_prepare_v2(db,sql,-1,out statement,0)!=0)return result;
+            bool hasProject=sqlite3_prepare_v2(db,sql.Replace(" FROM threads",",project_id FROM threads"),-1,out statement,0)==0;
+            if(!hasProject&&sqlite3_prepare_v2(db,sql,-1,out statement,0)!=0)return result;
             while(sqlite3_step(statement)==100) {
                 string id=Column(statement,0);if(!Guid.TryParse(id,out _))continue;
-                result[id]=new((long)sqlite3_column_double(statement,1),sqlite3_column_double(statement,2)!=0);
+                result[id]=new((long)sqlite3_column_double(statement,1),sqlite3_column_double(statement,2)!=0,hasProject?Column(statement,3):"");
             }
         }catch(Exception ex) when(ex is DllNotFoundException or EntryPointNotFoundException or IOException or UnauthorizedAccessException) {return result;}
         finally {if(statement!=0)sqlite3_finalize(statement);if(db!=0)sqlite3_close(db);}
@@ -128,11 +137,11 @@ internal static class Tab5CodexCatalog
             int step;
             while((step=sqlite3_step(statement))==100) {
                 string id=Column(statement,0),name=Column(statement,1),root=Column(statement,2);
-                if(!Guid.TryParse(id,out _)||string.IsNullOrWhiteSpace(name)||string.IsNullOrWhiteSpace(root))continue;
+                if(!Guid.TryParse(id,out var projectId)||string.IsNullOrWhiteSpace(name)||string.IsNullOrWhiteSpace(root))continue;
                 try { root=NormalizePath(root); } catch(Exception ex) when(ex is ArgumentException or NotSupportedException or PathTooLongException) {continue;}
                 if(name=="m5stack TAB5")name="M5Stack TAB5";
                 name=new string(name.Select(c=>char.IsControl(c)?' ':c).ToArray());
-                string key=Tab5GitProject.Id(id);
+                string key=Tab5GitProject.Id(projectId.ToString());
                 projects.Add(new(key,name,root,string.Equals(name,"Work",StringComparison.OrdinalIgnoreCase)?-1:projects.Count));
             }
             if(step!=101)return null;
@@ -147,11 +156,12 @@ internal static class Tab5CodexCatalog
     {
         private static readonly StringComparer Paths=StringComparer.OrdinalIgnoreCase;
         private readonly Dictionary<string,Tab5SavedProject> _roots=new(Paths),_repositories=new(Paths);
+        private readonly Dictionary<string,Tab5SavedProject> _projectIds=new(StringComparer.Ordinal);
         private readonly Dictionary<string,Tab5SavedProject?> _matches=new(Paths);
         internal ProjectMatcher(IReadOnlyList<Tab5SavedProject> projects)
         {
             var ids=new HashSet<string>();
-            var groups=projects.DistinctBy(p=>p.Root,Paths).Select(p=>(Project:p,Common:Tab5GitProject.CommonDirectory(p.Root)))
+            var groups=projects.Select(p=>(Project:p,Common:Tab5GitProject.CommonDirectory(p.Root)))
                 .GroupBy(p=>p.Common??p.Project.Root,Paths);
             var canonical=groups.Select(g=>{
                 var main=g.FirstOrDefault(p=>Paths.Equals(p.Common,Path.Combine(p.Project.Root,".git")));
@@ -165,10 +175,14 @@ internal static class Tab5CodexCatalog
                 var name=duplicate.Contains(p.Name)?Path.GetFileName(Path.GetDirectoryName(p.Root))+"/"+p.Name:p.Name;
                 if(!seen.Add(name))name+=" · "+p.Id[..Math.Min(6,p.Id.Length)];
                 var display=p with {Name=name};
-                foreach(var member in group)_roots[member.Project.Root]=display;
+                foreach(var member in group) {
+                    _roots[member.Project.Root]=display;
+                    _projectIds.TryAdd(member.Project.Id,display);
+                }
                 if(common is not null)_repositories[common]=display;
             }
         }
+        internal Tab5SavedProject? Assigned(string? id)=>Guid.TryParse(id,out var project)?_projectIds.GetValueOrDefault(Tab5GitProject.Id(project.ToString())):null;
         internal Tab5SavedProject? Match(string cwd)
         {
             if(!Path.IsPathFullyQualified(cwd))return null;
@@ -260,6 +274,8 @@ internal sealed class Tab5CodexTasks : IDisposable
     private readonly Dictionary<string,ReadReceipt> _readReceipts=new();
     private readonly Func<string,string?> _rolloutPath=Tab5CodexCatalog.RolloutPath;
     private readonly string _historyHome=Tab5CodexCatalog.HomePath;
+    private readonly Func<string,string,int,CancellationToken,Task<Tab5CodexDesktop.State?>>? _readAppServer;
+    private long _nextDesktopReplyProbe;
     internal string ReadDiagnostic {get;private set;}="尚无历史读取";
     internal static Tab5CodexDesktop.State StoredState(Tab5StoredReplies.Selection local) {
         JsonElement Turn(string id,string status)=>JsonSerializer.SerializeToElement(new {turnId=id,status});
@@ -298,11 +314,12 @@ internal sealed class Tab5CodexTasks : IDisposable
         });
     }
 
-    internal Tab5CodexTasks() : this(new Tab5CodexDesktop(),Tab5CodexCatalog.Recent,new Tab5CodexJournal(),liveActivity:SessionActivityReader.LiveActivity,displayScan:Tab5CodexCatalog.RecentScan) { }
-    internal Tab5CodexTasks(Tab5CodexDesktop desktop,Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexJournal? journal=null,Tab5CodexImages? images=null,Func<string,string?>? rolloutPath=null,string? historyHome=null,Tab5LiveActivity? liveActivity=null,Func<IReadOnlyList<Tab5CodexTask>?>? displayScan=null)
+    internal Tab5CodexTasks() : this(new Tab5CodexDesktop(),Tab5CodexCatalog.Recent,new Tab5CodexJournal(),liveActivity:SessionActivityReader.LiveActivity,displayScan:Tab5CodexCatalog.RecentScan) { _readAppServer=ReadAppServerPageAsync; }
+    internal Tab5CodexTasks(Tab5CodexDesktop desktop,Func<IReadOnlyList<Tab5CodexTask>> catalog,Tab5CodexJournal? journal=null,Tab5CodexImages? images=null,Func<string,string?>? rolloutPath=null,string? historyHome=null,Tab5LiveActivity? liveActivity=null,Func<IReadOnlyList<Tab5CodexTask>?>? displayScan=null,Func<string,string,int,CancellationToken,Task<Tab5CodexDesktop.State?>>? readAppServer=null)
     {
         _desktop=desktop;_liveActivity=liveActivity??new(desktop.ReadActivityAsync);_call=CallAsync;_connect=EnsureServerAsync;_catalog=catalog;_displayScan=displayScan??catalog;_journal=journal;_images=images??new();
         _rolloutPath=rolloutPath??Tab5CodexCatalog.RolloutPath;_historyHome=historyHome??Tab5CodexCatalog.HomePath;
+        _readAppServer=readAppServer;
         foreach(var record in journal?.Accepted()??[]) {
             _activeTurns[record.TaskId]=record.TurnId;_receipts[record.TaskId]="已发送 · 恢复动态";
         }
@@ -386,23 +403,32 @@ internal sealed class Tab5CodexTasks : IDisposable
         try {
             if(_desktop is not null) {
                 var readIdentity=_desktop.ReadIdentity();
-                Tab5CodexDesktop.State desktopState;Tab5ActivityPage? storedPage=null;
+                Tab5CodexDesktop.State? desktopState=null;
                 Tab5StoredReplies.Selection? storedSelection=null;
-                bool stored=false;
-                try {desktopState=await _desktop.ReadAsync(taskId,token,selectedTurn.Length==0?null:selectedTurn,ensureLoaded:false,turnOffset:turnOffset);}
-                catch(Tab5CodexDesktop.Rejected ex) when(ex.Code=="desktop_owner_unavailable") {
-                    // Viewing never opens/navigates the desktop. Unloaded threads
-                    // are read from their own local public reply log instead.
-                    var local=_storedReplies.Read(_rolloutPath(taskId),_historyHome,selectedTurn,turnOffset,page);
-                    if(local is null)return(503,new {error="reply_unavailable"});
-                    storedPage=local.Page;storedSelection=local;stored=true;
-                    desktopState=StoredState(local);
+                string source="owner";
+                if(Environment.TickCount64>=_nextDesktopReplyProbe)try {
+                    desktopState=await _desktop.ReadAsync(taskId,token,selectedTurn.Length==0?null:selectedTurn,ensureLoaded:false,turnOffset:turnOffset);
+                }catch(TimeoutException) {
+                    _nextDesktopReplyProbe=Environment.TickCount64+30000;
+                }catch(Exception ex) when(ex is IOException or JsonException or UnauthorizedAccessException||
+                    ex is OperationCanceledException&&!token.IsCancellationRequested) { }
+                if(desktopState is null) {
+                    token.ThrowIfCancellationRequested();
+                    source="app-server";
+                    if(_readAppServer is not null)desktopState=await _readAppServer(taskId,selectedTurn,turnOffset,token);
+                    if(desktopState is null) {
+                        source="stored";
+                        storedSelection=_storedReplies.Read(_rolloutPath(taskId),_historyHome,selectedTurn,turnOffset,page);
+                        if(storedSelection is null)return(503,new {error="reply_unavailable"});
+                        desktopState=StoredState(storedSelection);
+                    }
                 }
-                var activityView=storedPage??(string.IsNullOrEmpty(desktopState.TurnId)?null:_activity.Read(desktopState.Path,Tab5CodexCatalog.HomePath,page,desktopState.TurnId));
+                bool ownerReply=source=="owner";
+                var activityView=storedSelection?.Page??(ownerReply&&desktopState.TurnId.Length>0?_activity.Read(desktopState.Path,Tab5CodexCatalog.HomePath,page,desktopState.TurnId):null);
                 var desktopView=Tab5CodexActivity.FromDesktop(desktopState,page);
                 // Live snapshots include streamed public text before its completed
                 // rollout item is written. Empty log placeholders are not content.
-                bool useDesktopView=storedPage is null&&desktopView.HasText&&
+                bool useDesktopView=storedSelection is null&&desktopView.HasText&&
                     (desktopState.Status=="inProgress"||activityView?.HasText!=true);
                 if(useDesktopView)activityView=desktopView;
                 activityView ??= Tab5CodexActivity.FromDesktop(desktopState,page);
@@ -414,10 +440,10 @@ internal sealed class Tab5CodexTasks : IDisposable
                     _view=activityView;_viewedTask=taskId;_responses[taskId]=activityView.Text;_receipts[taskId]=desktopState.Current.Receipt;
                 }
                 UpdateControl(taskId,desktopState.Current);
-                var current=desktopState.Current;if(!stored)Completed(taskId,current.TurnId,current.Status,FinalResponse(current.Turn));
+                var current=desktopState.Current;if(ownerReply)Completed(taskId,current.TurnId,current.Status,FinalResponse(current.Turn));
                 if(includeView) {
                     string readReceipt="";
-                    if(device.Length>0&&readIdentity is not null&&_desktop.ReadIdentity()?.Scope==readIdentity.Scope&&
+                    if(ownerReply&&device.Length>0&&readIdentity is not null&&_desktop.ReadIdentity()?.Scope==readIdentity.Scope&&
                        !desktopState.IsHistory&&desktopState.TurnId==current.TurnId&&activityView.HasText&&
                        current.Status is "completed" or "interrupted" or "failed") {
                         long now=Environment.TickCount64;
@@ -449,12 +475,12 @@ internal sealed class Tab5CodexTasks : IDisposable
                     }
                     foreach(int adjacent in new[]{activityView.Page-1,activityView.Page+1}) {
                         if(adjacent<0||adjacent>=activityView.PageCount)continue;
-                        var neighbor=stored?_storedReplies.Read(_rolloutPath(taskId),_historyHome,desktopState.TurnId,0,adjacent)?.Page:
+                        var neighbor=storedSelection is not null?_storedReplies.Read(_rolloutPath(taskId),_historyHome,desktopState.TurnId,0,adjacent)?.Page:
                             useDesktopView?Tab5CodexActivity.FromDesktop(desktopState,adjacent):_activity.View(adjacent);
                         if(neighbor is null||neighbor.TurnId!=desktopState.TurnId)neighbor=Tab5CodexActivity.FromDesktop(desktopState,adjacent);
                         neighbors.Add(Payload(neighbor,desktopState));
                     }
-                    ReadDiagnostic=$"source={(stored?"stored":"owner")}; direction={turnOffset}; gate={readEntered-readStarted}ms; load={Environment.TickCount64-readEntered}ms; prefetched={neighbors.Count}";
+                    ReadDiagnostic=$"source={source}; direction={turnOffset}; gate={readEntered-readStarted}ms; load={Environment.TickCount64-readEntered}ms; prefetched={neighbors.Count}";
                     return (200,new {status="loaded",taskId,turnId=desktopState.TurnId,
                         replyView=JsonSerializer.SerializeToElement(Payload(activityView,desktopState)).GetProperty("replyView"),
                         text=activityView.Text,receipt=desktopState.Receipt,neighbors});
@@ -841,19 +867,47 @@ internal sealed class Tab5CodexTasks : IDisposable
             last.TryGetProperty("completedAt", out var ended) && ended.ValueKind == JsonValueKind.Number;
     }
 
+    private async Task<Tab5CodexDesktop.State?> ReadAppServerPageAsync(string task,string selected,int offset,CancellationToken token) {
+        using var budget=CancellationTokenSource.CreateLinkedTokenSource(token);
+        budget.CancelAfter(TimeSpan.FromSeconds(5));
+        try {
+            await EnsureServerAsync(budget.Token);
+            return await Tab5CodexPublicHistory.ReadPageAsync(task,selected,offset,CallAsync,budget.Token);
+        }catch(Exception ex) when(ex is IOException or JsonException or InvalidOperationException or UnauthorizedAccessException or
+             System.ComponentModel.Win32Exception or COMException or TimeoutException or OperationCanceledException) {
+            if(ex is not IOException||_input is null)StopServer();
+            token.ThrowIfCancellationRequested();
+            return null;
+        }
+    }
+
+    private static string InstalledCodexExecutable() {
+        // The elevated bridge launches the registered Store package, with no
+        // working-directory or PATH search for a user-writable codex.exe.
+        var packages=new Windows.Management.Deployment.PackageManager().FindPackagesForUser("","OpenAI.Codex_2p2nqsd0c76g0");
+        foreach(var package in packages) {
+            if(package.IsResourcePackage)continue;
+            var path=Path.Combine(package.InstalledLocation.Path,"app","resources","codex.exe");
+            if(File.Exists(path))return path;
+        }
+        throw new IOException("Installed Codex package unavailable");
+    }
+
     private async Task EnsureServerAsync(CancellationToken token)
     {
         if (_server is { HasExited: false } && _input is not null) return;
         if(_server is {HasExited:false})_server.Kill();
         _server?.Dispose();
         _pending.Clear();
-        var start = new ProcessStartInfo("codex")
+        bool readOnly=_desktop is not null;
+        var start = new ProcessStartInfo(readOnly?InstalledCodexExecutable():"codex")
         {
             UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true,
             RedirectStandardOutput = true, RedirectStandardError = true,
             StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8
         };
         start.ArgumentList.Add("app-server");
+        if(readOnly){start.ArgumentList.Add("--listen");start.ArgumentList.Add("stdio://");}
         // The installed CLI calls the desktop's priority tier "fast". Apply
         // compatibility to this child only; never rewrite the user's config.
         if (NeedsTierCompatibility())
@@ -865,9 +919,14 @@ internal sealed class Tab5CodexTasks : IDisposable
         _input = _server.StandardInput;
         _ = ReadOutputAsync(_server.StandardOutput, _input);
         _ = DrainErrorAsync(_server.StandardError);
-        var init = await CallAsync("initialize", new { clientInfo = new { name = "tab5-bridge", version = "0.1" }, capabilities = new { experimentalApi=true } }, token);
-        if (init.TryGetProperty("error", out _)) throw new IOException("Codex initialization failed");
-        await SendAsync(new { method = "initialized" });
+        try {
+            var init = await CallAsync("initialize", new { clientInfo = new { name = "tab5-bridge", version = "0.1" }, capabilities = new { experimentalApi=!readOnly } }, token);
+            if (!init.TryGetProperty("result",out _))throw new IOException("Codex initialization failed");
+            await SendAsync(new { method = "initialized" });
+        }catch {
+            if(readOnly)StopServer();
+            throw;
+        }
     }
 
     private static bool NeedsTierCompatibility()
@@ -897,6 +956,8 @@ internal sealed class Tab5CodexTasks : IDisposable
 
     private async Task<JsonElement> CallAsync(string method, object parameters, CancellationToken token)
     {
+        if(_desktop is not null&&method is not ("initialize" or "thread/read" or "thread/turns/list" or "thread/items/list"))
+            throw new IOException("App Server history operation is read-only");
         var id = Interlocked.Increment(ref _nextId);
         var completion = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
         var input=_input??throw new IOException("Codex is disconnected");
@@ -929,6 +990,10 @@ internal sealed class Tab5CodexTasks : IDisposable
                     id.TryGetInt32(out var responseId) && _pending.TryGetValue(responseId, out var pending) && ReferenceEquals(pending.Writer,input) &&
                     _pending.TryRemove(responseId,out _))
                     pending.Completion.TrySetResult(root.Clone());
+                else if(_desktop is not null) {
+                    // This connection owns no turns and never answers approval requests.
+                    if(root.TryGetProperty("id",out _)&&root.TryGetProperty("method",out _))throw new IOException("Unexpected App Server request");
+                }
                 else if (root.TryGetProperty("id", out id) && root.TryGetProperty("method", out var approval) &&
                     approval.ValueKind == JsonValueKind.String && approval.GetString() is "item/commandExecution/requestApproval" or "item/fileChange/requestApproval")
                 {
@@ -966,5 +1031,13 @@ internal sealed class Tab5CodexTasks : IDisposable
         }
     }
 
-    public void Dispose() { _lifetime.Cancel();try { if (_server is { HasExited: false }) _server.Kill(); } catch (InvalidOperationException) { } _server?.Dispose(); }
+    private void StopServer() {
+        _input=null;
+        var process=Interlocked.Exchange(ref _server,null);
+        try {if(process is {HasExited:false})process.Kill();}
+        catch(Exception ex) when(ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
+        finally {process?.Dispose();}
+    }
+
+    public void Dispose() { _lifetime.Cancel();StopServer(); }
 }

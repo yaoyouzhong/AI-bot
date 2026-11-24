@@ -25,35 +25,89 @@ internal static class Tab5CodexPublicHistory
         if(turns.GetArrayLength()>0) {
             var turn=turns[0];
             if(!turn.TryGetProperty("id",out var id)||id.ValueKind!=JsonValueKind.String||string.IsNullOrWhiteSpace(id.GetString()))throw new IOException("Missing turn identity");
-            string turnId=id.GetString()!;var items=new JsonArray();var seen=new HashSet<string>();string? cursor=null;int bytes=0;
-            if(replies)for(int batch=0;batch<1024;batch++) {
-                var parameters=new{threadId=task,turnId,limit=16,sortDirection="asc",cursor};
-                var itemPage=await call("thread/turns/items/list",parameters,token).WaitAsync(token);
-                bool legacy=UnsupportedMethod(itemPage);
-                if(legacy)itemPage=await call("thread/items/list",parameters,token).WaitAsync(token);
-                foreach(var entry in Rows(itemPage,16).EnumerateArray()) {
-                    var item=entry;
-                    if(legacy||entry.TryGetProperty("item",out _)) {
-                        if(!entry.TryGetProperty("turnId",out var owner)||owner.GetString()!=turnId||!entry.TryGetProperty("item",out item))throw new IOException("Item turn mismatch");
-                    }
-                    if(item.ValueKind!=JsonValueKind.Object||!item.TryGetProperty("type",out var type)||type.GetString()!="agentMessage")continue;
-                    if(!item.TryGetProperty("text",out var text)||text.ValueKind!=JsonValueKind.String)continue;
-                    string value=text.GetString()!;bytes+=Encoding.UTF8.GetByteCount(value);
-                    if(bytes>1024*1024)throw new IOException("Public reply budget exceeded");
-                    // Retain public text only, not raw tools, reasoning or metadata.
-                    items.Add(new JsonObject{["type"]="agentMessage",["text"]=value});
-                }
-                var r=itemPage.GetProperty("result");
-                if(!r.TryGetProperty("nextCursor",out var next)||next.ValueKind==JsonValueKind.Null)break;
-                if(next.ValueKind!=JsonValueKind.String||(cursor=next.GetString()) is not {Length:>0 and <=4096}||!seen.Add(cursor)||batch==1023)
-                    throw new IOException("Invalid history cursor");
-            }
+            string turnId=id.GetString()!;
+            var items=replies?await ReadItemsAsync(task,turnId,call,token):new JsonArray();
             var selected=new JsonObject{["id"]=turnId,["items"]=items};
             foreach(string key in new[]{"status","startedAt","completedAt"})if(turn.TryGetProperty(key,out var value))selected[key]=JsonNode.Parse(value.GetRawText());
             output.Add(selected);
         }
         var node=JsonNode.Parse(metadata.GetRawText())!;node["result"]!["thread"]!["turns"]=output;
         return JsonSerializer.SerializeToElement(node);
+    }
+
+    internal static async Task<Tab5CodexDesktop.State> ReadPageAsync(string task,string selected,int offset,Call call,CancellationToken token) {
+        var metadata=await call("thread/read",new{threadId=task,includeTurns=false},token).WaitAsync(token);
+        var thread=Tab5CodexDesktop.Child(Tab5CodexDesktop.Child(metadata,"result"),"thread");
+        if(Tab5CodexDesktop.Text(thread,"id")!=task)throw new IOException("Thread identity mismatch");
+
+        var turns=new List<JsonElement>();var ids=new HashSet<string>();var seen=new HashSet<string>();
+        string? cursor=null;int index=-1;
+        for(int batch=0;batch<8;batch++) {
+            var response=await call("thread/turns/list",new{threadId=task,limit=32,sortDirection="desc",itemsView="notLoaded",cursor},token).WaitAsync(token);
+            foreach(var turn in Rows(response,32).EnumerateArray()) {
+                string id=Tab5CodexDesktop.Text(turn,"id");
+                if(!Guid.TryParse(id,out _)||!ids.Add(id))throw new IOException("Invalid reply turn directory");
+                if(id==selected)index=turns.Count;
+                turns.Add(turn);
+            }
+            cursor=NextCursor(response,seen);
+            if(selected.Length==0)index=0;
+            if(cursor is null||index>=0&&index-offset+1<turns.Count)break;
+        }
+        if(index<0||turns.Count==0||cursor is not null&&index-offset>=turns.Count)throw new IOException("Requested turn unavailable");
+        index=Math.Clamp(index-offset,0,turns.Count-1);
+        string Id(int i)=>Tab5CodexDesktop.Text(turns[i],"id");
+        var chosen=turns[index];string turnId=Id(index);
+        var items=await ReadItemsAsync(task,turnId,call,token,useDocumentedMethod:true);
+        if(items.Count==0)throw new IOException("No public App Server reply");
+        // A separate App Server reads storage, with no ownership of the desktop
+        // turn. An unfinished rollout may be reported as interrupted.
+        string status=Tab5CodexDesktop.Text(chosen,"status");
+        if(status is not ("completed" or "interrupted" or "failed")||
+           status=="interrupted"&&Tab5CodexDesktop.Child(chosen,"completedAt").ValueKind!=JsonValueKind.Number)status="stored";
+        long started=(long)Tab5CodexDesktop.Child(chosen,"startedAt").TryGetDoubleSafe();
+        var result=JsonSerializer.SerializeToElement(new{turnId,status,turnStartedAtMs=started*1000,items});
+        return new("notLoaded","",result,false) {
+            IsHistory=index!=0,HasPrevious=index+1<turns.Count||cursor is not null,HasNext=index>0,
+            PreviousTurnId=index+1<turns.Count?Id(index+1):"",NextTurnId=index>0?Id(index-1):""
+        };
+    }
+
+    private static async Task<JsonArray> ReadItemsAsync(string task,string turnId,Call call,CancellationToken token,bool useDocumentedMethod=false) {
+        var items=new JsonArray();var seen=new HashSet<string>();string? cursor=null;int bytes=0;
+        for(int batch=0;batch<1024;batch++) {
+            var parameters=new{threadId=task,turnId,limit=16,sortDirection="asc",cursor};
+            string method=useDocumentedMethod?"thread/items/list":"thread/turns/items/list";
+            var response=await call(method,parameters,token).WaitAsync(token);
+            if(!useDocumentedMethod&&UnsupportedMethod(response)) {
+                useDocumentedMethod=true;
+                response=await call("thread/items/list",parameters,token).WaitAsync(token);
+            }
+            foreach(var entry in Rows(response,16).EnumerateArray()) {
+                var item=entry;
+                if(entry.ValueKind!=JsonValueKind.Object)throw new IOException("Invalid history item");
+                if(useDocumentedMethod||entry.TryGetProperty("item",out _)) {
+                    if(Tab5CodexDesktop.Text(entry,"turnId")!=turnId||!entry.TryGetProperty("item",out item))throw new IOException("Item turn mismatch");
+                }
+                if(Tab5CodexDesktop.Text(item,"type")!="agentMessage")continue;
+                string value=Tab5CodexDesktop.Text(item,"text"),phase=Tab5CodexDesktop.Text(item,"phase");
+                if(string.IsNullOrWhiteSpace(value)||phase is not ("" or "commentary" or "final_answer"))continue;
+                bytes+=Encoding.UTF8.GetByteCount(value);
+                if(bytes>1024*1024)throw new IOException("Public reply budget exceeded");
+                items.Add(new JsonObject{["type"]="agentMessage",["text"]=value,["phase"]=phase.Length==0?"final_answer":phase});
+            }
+            cursor=NextCursor(response,seen);
+            if(cursor is null)return items;
+        }
+        throw new IOException("History item limit exceeded");
+    }
+
+    private static string? NextCursor(JsonElement response,HashSet<string> seen) {
+        var result=response.GetProperty("result");
+        if(!result.TryGetProperty("nextCursor",out var next)||next.ValueKind==JsonValueKind.Null)return null;
+        if(next.ValueKind!=JsonValueKind.String||next.GetString() is not {Length:>0 and <=4096} cursor||!seen.Add(cursor))
+            throw new IOException("Invalid history cursor");
+        return cursor;
     }
     private static bool UnsupportedMethod(JsonElement response) =>
         response.TryGetProperty("error",out var error)&&error.TryGetProperty("code",out var code)&&
