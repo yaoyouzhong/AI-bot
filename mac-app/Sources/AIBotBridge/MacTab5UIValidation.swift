@@ -787,7 +787,7 @@ enum MacTab5UIValidation {
         try render(content, to: output.appendingPathComponent("device-center-esp8266.png"))
         try click("device-tab5"); try checkPages()
     }
-    private static func render(_ view: NSView, to url: URL) throws {
+    static func render(_ view: NSView, to url: URL) throws {
         view.layoutSubtreeIfNeeded()
         guard view.bounds.width >= 100, view.bounds.height >= 100, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { throw MacTab5Error.unavailable }
         let appearance = view.effectiveAppearance

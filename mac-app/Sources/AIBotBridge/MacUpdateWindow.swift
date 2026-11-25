@@ -266,7 +266,7 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
         cancelButton?.title = progress.isHidden ? "取消检查" : "取消下载"
         automatic.isEnabled = !busy; checkButton?.isEnabled = !busy
         requirement.stringValue = gallery ? "" : legacy ? "无法比较旧固件版本。请在刷机窗口确认目标后开始。" :
-            !available ? "" : key == "bridge" ? "自动校验、安装并重新打开 AI-bot。请先完成正在进行的操作。" :
+            !available ? "" : key == "bridge" ? "下载安装包并校验，确认后才会安装并重新打开 AI-bot。" :
             key == "tab5" ? "校验后向 TAB5 发送升级请求。请连接 USB 或 Wi-Fi，并保持供电。" :
             "通过 USB 升级，写入前自动备份。请保持连接和供电。"
         requirement.isHidden = requirement.stringValue.isEmpty
@@ -417,6 +417,14 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
                 status.stringValue = "下载校验通过，正在检查安装包…"
                 if key == "bridge" {
                     let app = try await Task.detached { try MacDesktopUpdate.unpack(path, version: release.version) }.value
+                    progress.isHidden = true
+                    status.stringValue = "安装包已校验，等待确认安装。"
+                    let confirmed = await confirmDesktopInstall(current: version, target: release.version)
+                    guard confirmed, !Task.isCancelled else {
+                        try? FileManager.default.removeItem(at: app.deletingLastPathComponent())
+                        status.stringValue = "已保留安装包，可稍后安装。"
+                        return
+                    }
                     busy = false
                     do {
                         try installDesktop(app, release.version)
@@ -477,6 +485,19 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
                 status.stringValue = Task.isCancelled || error is CancellationError ? "操作已取消。已下载的部分会保留，可重试。" : "升级未继续：" + error.localizedDescription
             }
         }
+    }
+
+    private func confirmDesktopInstall(current: String, target: String) async -> Bool {
+        guard let window, !Task.isCancelled else { return false }
+        let alert = NSAlert()
+        alert.messageText = "安装新版 AI-bot？"
+        alert.informativeText = "当前版本 \(current) → 目标版本 \(target)\n安装时 AI-bot 会退出，完成后自动重新打开。"
+        alert.addButton(withTitle: "安装并重启")
+        alert.addButton(withTitle: "稍后").keyEquivalent = "\u{1b}"
+        let response: NSApplication.ModalResponse = await withCheckedContinuation { continuation in
+            alert.beginSheetModal(for: window) { continuation.resume(returning: $0) }
+        }
+        return response == .alertFirstButtonReturn
     }
 
     @discardableResult
