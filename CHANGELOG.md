@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.32 - 2026-11-25
+
+### Windows and Apple Silicon Mac
+
+- **Keep isolated verification chats out of the TAB5 project list.** Regular project chats and conversations you explicitly assigned stay visible. Isolated test copies no longer appear just because they inherited a project ID.
+- **See a smaller update indicator.** When an update is available, a small arrow appears in the top-right corner of **Software/Firmware** under **Bridge Settings**. The update count remains below the title.
+
+### Mac
+
+- **Manage system permissions in Device Center.** Open **Device Center → Bridge Settings → System Permissions**. The duplicate shortcut was removed from the menu bar's context menu.
+
 ## 0.6.31 - 2026-11-25
 
 ### Windows and Apple Silicon Mac
