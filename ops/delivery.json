@@ -1,0 +1,11 @@
+{
+  "repo": "yaoyouzhong/AI-bot",
+  "internal": [],
+  "check": {
+    "workflow": "ci.yml",
+    "job": "alignment-check"
+  },
+  "review": {
+    "points": "AGENTS.md"
+  }
+}
