@@ -32,12 +32,12 @@ internal sealed class DeviceActionButton : Button
         using var title=new Font(Font,FontStyle.Bold);
         int inset=HorizontalInset,top=Math.Max(6,(Height-Font.Height*2-4)/2),width=Math.Max(1,Width-inset*2);
         const TextFormatFlags textFlags=TextFormatFlags.SingleLine|TextFormatFlags.EndEllipsis;
-        var detail=new Rectangle(inset,top+Font.Height+4,width,Font.Height+2);
+        int titleWidth=width;
         if(ShowsUpgradeArrow) {
-            float unit=DeviceDpi/96f,size=14*unit;
-            int space=(int)Math.Ceiling(size+4*unit);
-            if(detail.Width>space) {
-                var badge=new RectangleF(detail.Left,detail.Top+(detail.Height-size)/2,size,size);
+            float unit=DeviceDpi/96f,size=14*unit,edge=8*unit;
+            var badge=new RectangleF(Width-edge-size,edge,size,size);
+            int available=(int)(badge.Left-inset-4*unit);
+            if(available>0&&badge.Bottom<Height) {
                 float x=badge.Left+size/2,tip=badge.Top+size/2-3*unit;
                 using var background=new SolidBrush(Color.FromArgb(33,133,74));
                 using var arrow=new Pen(Color.White,1.6f*unit) { StartCap=System.Drawing.Drawing2D.LineCap.Round,EndCap=System.Drawing.Drawing2D.LineCap.Round,LineJoin=System.Drawing.Drawing2D.LineJoin.Round };
@@ -45,11 +45,10 @@ internal sealed class DeviceActionButton : Button
                 e.Graphics.FillEllipse(background,badge);
                 e.Graphics.DrawLine(arrow,x,tip,x,tip+6*unit);
                 e.Graphics.DrawLines(arrow,new PointF[]{new(x-3*unit,tip+3*unit),new(x,tip),new(x+3*unit,tip+3*unit)});
-                detail.X+=space;
-                detail.Width-=space;
+                titleWidth=Math.Min(width,available);
             }
         }
-        TextRenderer.DrawText(e.Graphics,Text,title,new Rectangle(inset,top,width,Font.Height+2),Enabled?SettingsWindow.Ink:Color.Gray,textFlags);
-        TextRenderer.DrawText(e.Graphics,_description,Font,detail,SettingsWindow.Muted,textFlags);
+        TextRenderer.DrawText(e.Graphics,Text,title,new Rectangle(inset,top,titleWidth,Font.Height+2),Enabled?SettingsWindow.Ink:Color.Gray,textFlags);
+        TextRenderer.DrawText(e.Graphics,_description,Font,new Rectangle(inset,top+Font.Height+4,width,Font.Height+2),SettingsWindow.Muted,textFlags);
     }
 }
