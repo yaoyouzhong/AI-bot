@@ -31,21 +31,25 @@ internal sealed class DeviceActionButton : Button
         e.Graphics.DrawRectangle(border,0,0,Math.Max(0,Width-1),Math.Max(0,Height-1));
         using var title=new Font(Font,FontStyle.Bold);
         int inset=HorizontalInset,top=Math.Max(6,(Height-Font.Height*2-4)/2),width=Math.Max(1,Width-inset*2);
-        int titleWidth=width;
+        const TextFormatFlags textFlags=TextFormatFlags.SingleLine|TextFormatFlags.EndEllipsis;
+        var detail=new Rectangle(inset,top+Font.Height+4,width,Font.Height+2);
         if(ShowsUpgradeArrow) {
-            float unit=DeviceDpi/96f;
-            var badge=new RectangleF(Width-41*unit,11*unit,24*unit,24*unit);
-            float scale=badge.Width/26;
-            float x=badge.Left+badge.Width/2,tip=badge.Top+badge.Height/2-6*scale;
-            using var background=new SolidBrush(Color.FromArgb(33,133,74));
-            using var arrow=new Pen(Color.White,3*scale) { StartCap=System.Drawing.Drawing2D.LineCap.Round,EndCap=System.Drawing.Drawing2D.LineCap.Round,LineJoin=System.Drawing.Drawing2D.LineJoin.Round };
-            e.Graphics.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            e.Graphics.FillEllipse(background,badge);
-            e.Graphics.DrawLine(arrow,x,tip,x,tip+11*scale);
-            e.Graphics.DrawLines(arrow,new PointF[]{new(x-5*scale,tip+5*scale),new(x,tip),new(x+5*scale,tip+5*scale)});
-            titleWidth=Math.Max(1,(int)(badge.Left-8*unit)-inset);
+            float unit=DeviceDpi/96f,size=14*unit;
+            int space=(int)Math.Ceiling(size+4*unit);
+            if(detail.Width>space) {
+                var badge=new RectangleF(detail.Left,detail.Top+(detail.Height-size)/2,size,size);
+                float x=badge.Left+size/2,tip=badge.Top+size/2-3*unit;
+                using var background=new SolidBrush(Color.FromArgb(33,133,74));
+                using var arrow=new Pen(Color.White,1.6f*unit) { StartCap=System.Drawing.Drawing2D.LineCap.Round,EndCap=System.Drawing.Drawing2D.LineCap.Round,LineJoin=System.Drawing.Drawing2D.LineJoin.Round };
+                e.Graphics.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                e.Graphics.FillEllipse(background,badge);
+                e.Graphics.DrawLine(arrow,x,tip,x,tip+6*unit);
+                e.Graphics.DrawLines(arrow,new PointF[]{new(x-3*unit,tip+3*unit),new(x,tip),new(x+3*unit,tip+3*unit)});
+                detail.X+=space;
+                detail.Width-=space;
+            }
         }
-        TextRenderer.DrawText(e.Graphics,Text,title,new Rectangle(inset,top,titleWidth,Font.Height+2),Enabled?SettingsWindow.Ink:Color.Gray,TextFormatFlags.SingleLine|TextFormatFlags.EndEllipsis);
-        TextRenderer.DrawText(e.Graphics,_description,Font,new Rectangle(inset,top+Font.Height+4,width,Font.Height+2),SettingsWindow.Muted,TextFormatFlags.SingleLine|TextFormatFlags.EndEllipsis);
+        TextRenderer.DrawText(e.Graphics,Text,title,new Rectangle(inset,top,width,Font.Height+2),Enabled?SettingsWindow.Ink:Color.Gray,textFlags);
+        TextRenderer.DrawText(e.Graphics,_description,Font,detail,SettingsWindow.Muted,textFlags);
     }
 }

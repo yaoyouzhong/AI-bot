@@ -85,10 +85,14 @@ internal static class Tab5CodexCatalog
             {
                 string id = Column(statement, 0), title = Column(statement, 1), folder = Column(statement, 2);
                 if (!Guid.TryParse(id, out _) || string.IsNullOrWhiteSpace(title)) continue;
-                var project=matcher?.Assigned(observed?.GetValueOrDefault(id)?.ProjectId)
-                    ??matcher?.Assigned(hasProject?Column(statement,4):null)
-                    ??matcher?.Assigned(projectAssignments?.GetValueOrDefault(id))
-                    ??matcher?.Match(folder);
+                var stateProject=matcher?.Assigned(observed?.GetValueOrDefault(id)?.ProjectId);
+                var desktopProject=matcher?.Assigned(hasProject?Column(statement,4):null)
+                    ??matcher?.Assigned(projectAssignments?.GetValueOrDefault(id));
+                // A thread started by an isolated clone can inherit a project ID in
+                // App Server state without joining that project in the desktop catalog.
+                if(stateProject is not null&&desktopProject is null&&!matcher!.HasWorkspaceMembership(folder))
+                    stateProject=null;
+                var project=stateProject??desktopProject??matcher?.Match(folder);
                 if(project is null&&!confirmation)continue;
                 tasks.Add(WithDisplayTitle(new(id,title,project?.Name??"",
                     (long)sqlite3_column_double(statement,3),project?.Id??"",project?.Order??int.MaxValue)));
@@ -155,6 +159,7 @@ internal static class Tab5CodexCatalog
     private sealed class ProjectMatcher
     {
         private static readonly StringComparer Paths=StringComparer.OrdinalIgnoreCase;
+        private readonly string _codexWorktreePrefix=NormalizePath(Path.Combine(HomePath,"worktrees"))+Path.DirectorySeparatorChar;
         private readonly Dictionary<string,Tab5SavedProject> _roots=new(Paths),_repositories=new(Paths);
         private readonly Dictionary<string,Tab5SavedProject> _projectIds=new(StringComparer.Ordinal);
         private readonly Dictionary<string,Tab5SavedProject?> _matches=new(Paths);
@@ -183,6 +188,13 @@ internal static class Tab5CodexCatalog
             }
         }
         internal Tab5SavedProject? Assigned(string? id)=>Guid.TryParse(id,out var project)?_projectIds.GetValueOrDefault(Tab5GitProject.Id(project.ToString())):null;
+        internal bool HasWorkspaceMembership(string cwd)
+        {
+            if(!Path.IsPathFullyQualified(cwd))return false;
+            string folder;
+            try{folder=NormalizePath(cwd);}catch(Exception e) when(e is ArgumentException or IOException or NotSupportedException){return false;}
+            return folder.StartsWith(_codexWorktreePrefix,StringComparison.OrdinalIgnoreCase)||Match(folder) is not null;
+        }
         internal Tab5SavedProject? Match(string cwd)
         {
             if(!Path.IsPathFullyQualified(cwd))return null;
