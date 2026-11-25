@@ -4,13 +4,13 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.30) · [简体中文](README.md)
+[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31) · [简体中文](README.md)
 
 **Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
-**This update**　Windows bridge **0.6.30** checks Claude Code sessions less often in the background and reduces disk writes for Codex quota history. Usage is still saved every minute, and existing history remains available. [Bridge release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.30) · [Illustrated first install](docs/FIRST-INSTALL.zh.md)
+**Desktop bridge 0.6.31**　Windows and Mac show TAB5 conversations in their saved Codex projects and can retrieve saved replies if the desktop connection cannot supply them. The overview can show working or idle status when local records confirm it. On Mac, AI-bot verifies the update before asking you to install. [Bridge release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31)
 
-**TAB5 0.2.322-ui** adds Calendar to the app grid and improves the overview and artwork transfers. [Firmware release](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.322-ui)
+**TAB5 0.2.323-ui**　Select a Codex or Claude conversation and tap the bell at the end of its row to mute or restore reminders. Muted conversations keep their unread badges. [Firmware release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31)
 
 **Artwork edition 2026.2** updates guides, appreciation and sources for 366 paintings and 366 calligraphy works. Standard and HD editions are available. [Artwork downloads](docs/GALLERY-PACKS.md)
 
@@ -66,11 +66,11 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 This project introduction compares the shared features of TAB5 and the ESP8266 display, then presents TAB5 highlights including overview, conversations, voice drafts, camera attachments, computer controls, agenda and art screensavers. Native interface footage uses demonstration data and composite hardware images, not hardware photography.
 
-Play the November 11, 2026 edition below (2:08). At 1:51, the desktop viewer shows Monet's *Water Lilies* and Su Shi's *The Cold Food Observance* fullscreen, then zooms in on the details.
+The November 25 edition (2:08) shows the current TAB5 overview and conversation reminders. Around 1:00, look for the bell and unread badge. At 1:51, the desktop viewer shows Monet's *Water Lilies* and Su Shi's *The Cold Food Observance* fullscreen, then zooms in on the details.
 
-https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
+<a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="560" alt="Play the AI-bot product video"></a>
 
-[Web MP4](https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8) · [1080p MP4](https://github.com/user-attachments/assets/c59ef11c-2a93-4a07-b5a4-505361062766) · [Media credits](docs/PRODUCT_VIDEO.md)
+[Watch or download the 1080p MP4](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)
 
 ## What it does
 
@@ -96,7 +96,7 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 <tr>
 <td align="center" valign="middle"><img src="docs/assets/screens/device-center.png" width="240" alt="Windows Device Center: My Devices and device settings"></td>
 <td align="center" valign="middle"><img src="docs/assets/screens/codex.png" width="180" alt="ESP8266 display: Codex status and quotas"></td>
-<td align="center" valign="middle"><img src="docs/assets/screens/tab5-overview.png" width="260" alt="TAB5 overview: task, quotas, clock and weather"></td>
+<td align="center" valign="middle"><img src="docs/assets/screens/tab5-overview-0323.png" width="260" alt="TAB5 overview: task, quotas, clock and weather"></td>
 </tr>
 <tr><td align="center" nowrap="nowrap">Accounts, devices and updates</td><td align="center" nowrap="nowrap">Status, quotas and daily info</td><td align="center" nowrap="nowrap">Touch controls and overview</td></tr>
 </tbody>
@@ -111,7 +111,7 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 
 **Agenda and scheduled reminders** are included in TAB5 210: aligned Today/All filtering, centered empty-state creation, local storage, offline edits/deletions and reconnect synchronization, with repeat and advance reminders. Up to 16 items; ended items remain until a full-capacity add evicts the oldest eligible expired one-time entry. [Usage and hardware boundaries](docs/RELEASE-0.6.11.md)
 
-**Dialogue workspace:** choose a Codex/Claude project and conversation, manage drafts/photos, and enter the exact current or unread conversation from Overview. Supported native Claude sessions can be located and controlled; sending is guarded when the target cannot be confirmed. Tool requests require computer approval. [Native interface preview with synthetic data](docs/assets/screens/tab5-dialogue-0318-r13-preview.png)
+**Dialogue workspace:** choose a Codex/Claude project and conversation, manage drafts/photos, and enter the exact current or unread conversation from Overview. Supported native Claude sessions can be located and controlled; sending is guarded when the target cannot be confirmed. Tool requests require computer approval. [Conversation bells and unread badge with demo data](docs/assets/screens/tab5-dialogue-claude-0323.png)
 
 **Codex Direct:** choose a recent session and finish recording to fill the computer input automatically. Review or edit on the computer, then confirm from TAB5. Supports question cards, continued dictation, failure recovery and hold to clear. [Guide](docs/TAB5-QUICK-CONSOLE.md)
 
@@ -172,11 +172,11 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 2. **Add your device.** Use a USB data cable and follow the [illustrated first-install guide](docs/FIRST-INSTALL.zh.md) for initial flashing, registration and pairing. Devices already running AI-bot can be verified and added directly.
 3. **Choose what to display.** Configure accounts, everyday information and cycling pages. Import a collection before using its TAB5 art screensaver; keep the computer and bridge running during initial synchronization. Completed TF libraries remain available offline.
 
-On Windows or Mac, open Device Center → Bridge Settings → Software/Firmware to see versions and release notes. Select an item and click One-Click Update to download, verify, and install it. Enable automatic checks for new-version notifications. Download and import artwork collections separately as needed. [Full update steps](docs/UPDATES.md)
+On Windows or Mac, open Device Center → Bridge Settings → Software/Firmware to see versions and release notes. Select an item and click One-Click Update to download and verify the package. For a bridge update, choose Install and restart or Later. Enable automatic checks for new-version notifications. Download and import artwork collections separately as needed. [Full update steps](docs/UPDATES.md)
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.30) · [Changelog](CHANGELOG.md) · [TAB5 hardware acceptance](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31) · [Changelog](CHANGELOG.md) · [Release acceptance](docs/development/RELEASE-0631-ACCEPTANCE-20261125.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](tab5/) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

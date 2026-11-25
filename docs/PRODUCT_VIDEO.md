@@ -1,12 +1,23 @@
 # 产品介绍视频 / Product introduction video
 
-## 2026-11-11 · 电脑端高清赏析 / Desktop HD artwork
+## 2026-11-25 · TAB5 总览与会话提醒 / TAB5 overview and conversation reminders
+
+[观看或下载 1080p MP4 / Watch or download 1080p](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4)
+
+2 分 08 秒。49–56 秒更新 TAB5 总览，56–64 秒展示行尾铃铛和静音后保留的未读角标。镜头来自 0.2.323-ui 的原生 LVGL 离屏预览，使用演示数据。原有顺序、时长、配乐和封面沿用 11 月 11 日版。[截图与许可记录](SCREENSHOTS.md) · [发布验收](development/RELEASE-0631-ACCEPTANCE-20261125.md)
+
+The 2:08 edition refreshes the TAB5 overview at 0:49–0:56 and the conversation bell and unread badge at 0:56–1:04. The new shots use native LVGL fixtures. The scene order, running time, soundtrack and cover are carried forward from November 11.
+
+SHA-256: `6d41059c42b100ed0fad66a83c3aac16e0a3f2d99fc4b5fe010d141a14f1a10b`
+
+## 2026-11-11 历史版 · 电脑端高清赏析 / Desktop HD artwork
 
 新版长 2 分 08 秒。1:43 起展示 TAB5 横竖屏名画和书法，1:51 起展示 Windows 原生图库全屏欣赏高清原作和缩放细节。两种电脑端作品各展示 5.5 秒。配乐在艺术段落续接原有乐句，片尾随之顺延。 / The 2:08 edition shows TAB5 landscape and portrait artwork from 1:43 and the native Windows fullscreen HD viewer and zoom from 1:51. Each desktop artwork is shown for 5.5 seconds. The original musical phrase is extended during the art section.
 
-https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
+[高清图库 / HD collections](GALLERY-HD.md)
 
-[网页版 MP4 / Web MP4](https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8) · [1080p MP4](https://github.com/user-attachments/assets/c59ef11c-2a93-4a07-b5a4-505361062766) · [高清图库 / HD collections](GALLERY-HD.md)
+原 GitHub 播放附件已失效，11 月 25 日版保留了这一段。 / The original GitHub playback links no longer resolve. The November 25 edition retains these scenes.
+<!-- Original attachment IDs: dd551941-fcd4-4a75-8466-b89158db99b8 and c59ef11c-2a93-4a07-b5a4-505361062766. -->
 
 | 文件 / File | SHA-256 |
 | --- | --- |
