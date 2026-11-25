@@ -7,11 +7,11 @@
 
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
-| Windows bridge · Windows 10/11 x64 | 0.6.30 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.30/AI-bot-bridge-v0.6.30-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.30/SHA256SUMS.txt) |
-| Mac bridge · macOS 13+ / Apple Silicon | 0.6.28 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.28/AI-bot-bridge-v0.6.28-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.28/SHA256SUMS.txt) |
+| Windows bridge · Windows 10/11 x64 | 0.6.31 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-bridge-v0.6.31-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
+| Mac bridge · macOS 13+ / Apple Silicon | 0.6.31 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-bridge-v0.6.31-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.8 | [Download · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
-| TAB5 · first install from factory system | 0.2.322-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/AI-bot-tab5-0.2.322-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/SHA256SUMS.txt) |
-| TAB5 · upgrade existing AI-bot | 0.2.322-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/AI-bot-tab5-0.2.322-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/SHA256SUMS.txt) |
+| TAB5 · first install from factory system | 0.2.323-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
+| TAB5 · upgrade existing AI-bot | 0.2.323-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
 
 ### Painting and calligraphy
 
