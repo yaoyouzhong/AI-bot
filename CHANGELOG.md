@@ -8,10 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - **Find TAB5 Codex conversations under their saved projects.** The TAB5 list follows the project you assigned in Codex, including conversations in separate Git worktrees.
 - **Read saved Codex replies on TAB5.** When the desktop connection can't supply the reply, the bridge can recover the saved text for the requested turn so you can open it or page back to an earlier turn.
+- **See your active Codex session in the TAB5 overview.** When the live connection is unavailable, the overview can show the session and its working or idle status if the local history confirms it.
 
 ### Mac
 
-- **See your active Codex session in the TAB5 overview.** When the live connection is unavailable, the overview can show the session and its working or idle status if the local history confirms it.
 - **Choose when to install a bridge update.** In **Software/Firmware**, choose **One-Click Update** to download and verify the package. Choose **Install and restart** to continue, or **Later** to keep working and reuse the verified download next time.
 
 ## 0.6.30 - 2026-11-23

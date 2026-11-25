@@ -14,6 +14,20 @@ internal sealed class CodexLifecycleTracker
         try { return processes.Length>0; }
         finally { foreach(var process in processes) process.Dispose(); }
     }
+    internal static bool HasActiveWriter(string directory,string path)
+    {
+        // Windows uses byte-range locks, not macOS flock. Probe an existing
+        // regular file read-only; only a lock violation proves a held lock.
+        // Missing files, sharing violations and access failures prove nothing.
+        try {
+            if((File.GetAttributes(directory)&FileAttributes.ReparsePoint)!=0||
+               (File.GetAttributes(path)&(FileAttributes.ReparsePoint|FileAttributes.Directory))!=0)return false;
+            using var file=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete);
+            try {file.Lock(0,1);}
+            catch(IOException ex) when(ex.HResult==unchecked((int)0x80070021)){return true;}
+            file.Unlock(0,1);return false;
+        }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or NotSupportedException){return false;}
+    }
     internal static string ResolveState(long? age,string? eventState,TimeSpan eventAge,bool running)
     {
         if(!running) return "offline";
