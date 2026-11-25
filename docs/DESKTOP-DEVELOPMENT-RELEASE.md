@@ -79,3 +79,10 @@ Use one repository and one main branch. Related changes for the same delivery sh
 Select scope and source once, build the required native candidate packages once, record acceptance once, then promote exactly those bytes. Existing validated candidates and justified unchanged-path evidence are reusable. Acceptance is bound to the candidate identity and file hashes. Tag events only validate metadata; explicit promotion retrieves a successful candidate run without rebuilding, resumes verified uploads, and synchronizes download metadata. Ordinary code CI still checks changed products; documentation/tooling changes do not rebuild apps. See RELEASE-AUTOMATION.md for commands and recovery.
 
 Record source identity, package hashes, platform tests and remaining limitations. Critical delivery, data-preservation and installation failures block the affected release. Publishing, tags and uploads require their applicable authorization. Follow the existing version specification and release closeout checklist; never replace published assets or tags in place.
+
+## 审查要点
+
+- 核对改动的调用方和原有行为。设备连接、配对、授权、串口与网络回退不能因平台对齐退化。
+- 本机只把实际执行的检查记为通过。分开核对合入、安装、真机验收和发布，不能用模拟、设备在线或另一个提交的记录代替。
+- 桌面功能改动在同一 PR 写交接，明确说明另一端需要做什么、哪些实机事项尚待验证。
+- 审查 GitHub 工作流时，检查触发范围、权限、提交身份和必需检查如何处理失败、取消及跳过。合入主干不应绕过发布或设备验收授权。
