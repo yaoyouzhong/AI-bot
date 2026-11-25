@@ -86,3 +86,4 @@ Record source identity, package hashes, platform tests and remaining limitations
 - 本机只把实际执行的检查记为通过。分开核对合入、安装、真机验收和发布，不能用模拟、设备在线或另一个提交的记录代替。
 - 桌面功能改动在同一 PR 写交接，明确说明另一端需要做什么、哪些实机事项尚待验证。
 - 审查 GitHub 工作流时，检查触发范围、权限、提交身份和必需检查如何处理失败、取消及跳过。合入主干不应绕过发布或设备验收授权。
+- 自动对齐只处理已通过本机验收的产品改动和配套交接，不自动合入改动交付策略、主干工作流或审查规则的 PR。GitHub 对主干强制要求来自 GitHub Actions 的 `alignment-check`，并要求 PR 分支跟上主干。
