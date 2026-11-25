@@ -523,6 +523,80 @@ final class MacTab5CodexTests: XCTestCase {
                               ids[2]: "Migrated project", ids[3]: "Directory project"])
     }
 
+    func testProjectPickerExcludesInheritedValidationAndKeepsExplicitAssignments() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let main = home.appendingPathComponent("Projects/AI-bot")
+        let isolated = home.appendingPathComponent("Validation/AI-bot")
+        let removed = home.appendingPathComponent("Removed/AI-bot")
+        let worktree = home.appendingPathComponent("worktrees/example/AI-bot")
+        let external = home.appendingPathComponent("External")
+        let nested = main.appendingPathComponent("Validation/AI-bot")
+        for directory in [main.appendingPathComponent(".git"), isolated.appendingPathComponent(".git"),
+                          nested.appendingPathComponent(".git"), worktree, external, home.appendingPathComponent("sqlite")] {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        let ids = (0..<12).map { _ in UUID().uuidString.lowercased() }
+        let project = ids[10], legacy = ids[11]
+        let paths = [main, worktree, isolated, removed, isolated, external, isolated, external, main, nested]
+        let titles = ["正常项目", "Codex 工作树", "独立验证", "已删除验证", "索引分配",
+                      "桌面分配", "取消分配", "普通外部会话", "归档会话", "嵌套验证副本"]
+        func database(_ path: String, _ sql: String) throws {
+            var db: OpaquePointer?
+            XCTAssertEqual(sqlite3_open(home.appendingPathComponent(path).path, &db), SQLITE_OK)
+            defer { sqlite3_close(db) }
+            XCTAssertEqual(sqlite3_exec(db, sql, nil, nil, nil), SQLITE_OK)
+        }
+        let stateRows = [0, 1, 2, 3, 4, 5, 6, 8, 9].map {
+            "INSERT INTO threads VALUES ('\(ids[$0])',\($0 == 8 ? 1 : 0),2,'\(project)');"
+        }.joined(separator: "\n")
+        let mainPath = main.path.replacingOccurrences(of: "'", with: "''")
+        try database("state_5.sqlite", """
+            CREATE TABLE threads(id TEXT, archived INTEGER, updated_at INTEGER, project_id TEXT);
+            CREATE TABLE projects(id TEXT, name TEXT, position INTEGER);
+            CREATE TABLE project_roots(project_id TEXT, path TEXT, position INTEGER);
+            INSERT INTO projects VALUES ('\(project)','AI-bot',0);
+            INSERT INTO project_roots VALUES ('\(project)','\(mainPath)',0);
+            \(stateRows)
+            """)
+        try database("sqlite/codex.db", """
+            CREATE TABLE local_thread_catalog(thread_id TEXT, host_id TEXT, missing_candidate INTEGER,
+                source_updated_at INTEGER, project_id TEXT);
+            INSERT INTO local_thread_catalog VALUES ('\(ids[4])','local',0,2,'\(project)'),
+                ('\(ids[2])','local',0,2,NULL), ('\(ids[3])','local',0,2,NULL);
+            """)
+        try JSONSerialization.data(withJSONObject: [
+            "thread-project-assignments": [
+                ids[5]: ["projectKind": "local", "projectId": legacy],
+                ids[6]: ["projectKind": "local", "projectId": legacy]
+            ],
+            "projectless-thread-ids": [ids[6]],
+            "app-server-project-id-by-legacy-project-id-by-host": ["local:" + home.standardizedFileURL.path: [legacy: project]]
+        ]).write(to: home.appendingPathComponent(".codex-global-state.json"))
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, call: { _, _ in
+            ["data": paths.indices.map { ["id": ids[$0], "cwd": paths[$0].path, "name": titles[$0]] }]
+        }, savedProjects: { MacCodexLocalMetadata.projects(home: home) })
+        func verify(_ assigned: [Int]) throws {
+            let snapshot = try XCTUnwrap(codex.snapshot())
+            let projects = try XCTUnwrap(snapshot["projects"] as? [[String: Any]])
+            let tasks = try XCTUnwrap(snapshot["tasks"] as? [[String: Any]])
+            let projectID = try XCTUnwrap(projects.first { $0["name"] as? String == "AI-bot" }?["id"] as? String)
+            XCTAssertEqual(Set(projects.compactMap { $0["name"] as? String }), ["AI-bot", "External"])
+            XCTAssertEqual(Set(tasks.filter { $0["projectId"] as? String == projectID }.compactMap { $0["title"] as? String }),
+                           Set(assigned.map { titles[$0] }))
+            let visible = Set((assigned + [7]).map { ids[$0] })
+            XCTAssertEqual(Set(tasks.compactMap { $0["id"] as? String }), visible)
+            XCTAssertEqual(Set(codex.taskCatalog().compactMap { $0["id"] as? String }), visible)
+        }
+        codex.refresh(); try verify([0, 1, 4, 5])
+        // A previously visible, explicitly assigned checkout must disappear
+        // when its assignment disappears, even while App Server retains its ID.
+        try database("sqlite/codex.db", "UPDATE local_thread_catalog SET project_id=NULL WHERE thread_id='\(ids[4])';")
+        codex.refresh(); try verify([0, 1, 5])
+        try database("sqlite/codex.db", "UPDATE local_thread_catalog SET project_id='\(project)' WHERE thread_id='\(ids[4])';")
+        codex.refresh(); try verify([0, 1, 4, 5])
+    }
+
     func testReplyPagingSkipsTimedOutDesktopAndRetriesAfterCooldown() throws {
         let api = API()
         var now: TimeInterval = 100, probes = 0
