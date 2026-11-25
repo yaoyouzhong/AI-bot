@@ -31,7 +31,7 @@ Windows 与 Apple Silicon Mac 均支持两类设备，具体范围见[平台说�
 
 **总览萌宠：** 项目与当前会话在左侧，短状态居中显示在右侧萌宠上方。根据当前受支持客户端显示一只 Codex 或 Clawd；客户端使用其他模型时仍保留其客户端萌宠，不接入其他 Harness。下方总览截图保留历史界面来源，新的萌宠外观见本节屏保预览。
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-overview.png" alt="TAB5 总览：状态、任务、额度与日期天气"></td><td width="50%"><img src="assets/screens/tab5-apps.png" alt="TAB5 应用：天气、电脑状态、行情、音乐、时钟与桌宠"></td></tr></table>
+<table><tr><td width="50%"><img src="assets/screens/tab5-overview-0323.png" alt="TAB5 总览：状态、任务、额度与日期天气"></td><td width="50%"><img src="assets/screens/tab5-apps.png" alt="TAB5 应用：天气、电脑状态、行情、音乐、时钟与桌宠"></td></tr></table>
 
 | 想做什么 | 从哪里进入 |
 | --- | --- |
@@ -56,11 +56,11 @@ Windows 与 Apple Silicon Mac 均支持两类设备，具体范围见[平台说�
 
 Claude 使用已安装的官方 CLI；受支持且可确认目标的原生会话支持交互，桥接持有的会话支持发送、排队追加和中断，工具操作由用户在电脑核对。Codex 直达的既有电脑草稿功能另见[操作说明](TAB5-QUICK-CONSOLE.md)。
 
-![TAB5 .313 对话工作区：Claude 项目、会话与草稿，原生渲染及演示数据](assets/screens/tab5-dialogue-0313-preview.png)
+选中会话后点行尾的铃铛切换提醒。静音会话仍显示未读角标，可直接点划线铃铛恢复提醒。
 
-该图使用离线演示数据，发送按钮状态不代表真实电脑连接或权限结果。旧版 Codex 直达图片及验证继续按原来源保留。
+![TAB5 0.2.323-ui Claude 会话：行尾铃铛和静音会话的未读角标，原生离屏演示](assets/screens/tab5-dialogue-claude-0323.png)
 
-以下常用任务、语音、相机与清空草稿图沿用已登记的历史原生演示；新版入口和页面标题以上方 .313 图片为准。未变更的操作细节与原验收范围继续适用。
+图中使用离线演示数据。下方常用任务、语音、相机与清空草稿图展示相应操作的历史原生界面。
 
 电脑端常用任务支持长标题换行与已选数量；原生隔离演示画面如下。
 

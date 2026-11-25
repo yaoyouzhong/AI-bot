@@ -1,5 +1,13 @@
 # 当前截图来源 / Screenshot provenance
 
+## 2026-11-25 Windows 升级与 TAB5 会话提醒
+
+`windows-desktop-upgrade-0631.png` 来自冻结 Windows 0.6.31 便携程序的原生 WinForms 离屏测试。演示版本号为 0.5.0 → 0.5.1，图中没有运行安装器。
+
+`tab5-overview-0323.png` 与 `tab5-dialogue-{codex,claude}-0323.png` 来自 323-R2 LVGL 隔离预览，分别使用固定天气、额度、日历和合成会话。PPM 转为 PNG，像素保持。摘要见 `licenses/materials.json`。[候选与真机验收](development/RELEASE-0631-ACCEPTANCE-20261125.md)
+
+The upgrade dialog comes from the frozen Windows 0.6.31 bridge with sample version numbers. The TAB5 overview and conversation captures use native 323-R2 LVGL fixtures.
+
 ## 2026-11-22 Mac 0.6.28 系统授权
 
 `mac-system-permissions-0628.png`（1360×1300）来自正式 Mac 原包（源码 `78feeb086de91595326d21f3040e225f4a57b028`）的 `--self-test-tab5-ui` 原生 AppKit 渲染。图中为演示状态，展示「授权当前 App…」及 Finder 定位入口。原图未修改。摘要登记于 `licenses/materials.json`。

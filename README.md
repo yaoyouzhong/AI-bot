@@ -4,13 +4,13 @@
 
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
-[下载与搭配](#下载与搭配) · [宣传视频](#宣传视频) · [完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.30) · [English](README.en.md)
+[下载与搭配](#下载与搭配) · [宣传视频](#宣传视频) · [完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31) · [English](README.en.md)
 
 **源码：** [Windows 桥接](windows-app/) · [Mac 桥接](mac-app/) · [TAB5 大屏固件](tab5/) · [ESP8266 小屏固件](esp8266/)
 
-**本次更新**　Windows 桥接 **0.6.30** 减少了 Claude Code 会话的后台探测，并减少了 Codex 额度历史的磁盘写入。额度仍每分钟保存，已有历史继续可查。[桥接更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.30) · [首次安装图文](docs/FIRST-INSTALL.zh.md)
+**桌面桥接 0.6.31**　Windows 和 Mac 在 TAB5 上按 Codex 保存的项目显示会话，桌面连接取不到正文时可读取已保存的回复。有本机记录可确认时，总览也能显示「工作中」或「待命」。Mac 升级会先校验安装包，再请你确认安装。[桥接更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31)
 
-**TAB5 0.2.322-ui** 在应用页新增日历入口，改善总览和图库传输。[固件更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/tab5-v0.2.322-ui)
+**TAB5 0.2.323-ui**　在「对话」页点选 Codex 或 Claude 会话，点行尾铃铛即可关闭或恢复提醒。静音会话仍显示未读角标。[固件更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31)
 
 **精选图库 2026.2** 更新名画和书法各 366 件的导览、赏析和出处，提供标准版与高清版。[图库下载](docs/GALLERY-PACKS.md)
 
@@ -66,11 +66,11 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 这段项目介绍对照展示 TAB5 大屏与 ESP8266 小屏的共有功能，并单独介绍 TAB5 的总览、会话、语音草稿、相机、电脑控制、日程和艺术屏保。画面使用原生界面演示数据与硬件合成图，非硬件实拍。
 
-下方可直接播放 2026 年 11 月 11 日版（2 分 08 秒）。从 1:51 起，可看电脑端全屏欣赏莫奈《睡莲》和苏轼《黄州寒食诗帖》，并放大查看细节。
+11 月 25 日版（2 分 08 秒）更新了 TAB5 总览和会话提醒画面。约 1:00 可看到行尾铃铛和未读标记。从 1:51 起，可看电脑端全屏欣赏莫奈《睡莲》和苏轼《黄州寒食诗帖》，并放大查看细节。
 
-https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
+<a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="560" alt="播放 AI-bot 产品视频"></a>
 
-[网页版 MP4](https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8) · [1080p MP4](https://github.com/user-attachments/assets/c59ef11c-2a93-4a07-b5a4-505361062766) · [视频与来源](docs/PRODUCT_VIDEO.md)
+[观看或下载 1080p MP4](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4) · [视频与来源](docs/PRODUCT_VIDEO.md)
 
 ## 能做什么
 
@@ -96,7 +96,7 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 <tr>
 <td align="center" valign="middle"><img src="docs/assets/screens/device-center.png" width="240" alt="Windows 设备中心：我的设备与设备设置入口"></td>
 <td align="center" valign="middle"><img src="docs/assets/screens/codex.png" width="180" alt="ESP8266 小屏：Codex 状态与额度"></td>
-<td align="center" valign="middle"><img src="docs/assets/screens/tab5-overview.png" width="260" alt="TAB5 总览：任务、额度、时钟与天气"></td>
+<td align="center" valign="middle"><img src="docs/assets/screens/tab5-overview-0323.png" width="260" alt="TAB5 总览：任务、额度、时钟与天气"></td>
 </tr>
 <tr><td align="center" nowrap="nowrap">配置账号、设备与更新</td><td align="center" nowrap="nowrap">展示状态、额度与日常信息</td><td align="center" nowrap="nowrap">触控操作，集中查看信息</td></tr>
 </tbody>
@@ -111,7 +111,7 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 
 **日程待办与到期提醒**已包含在 TAB5 210：今日／全部分段筛选与列表对齐，空状态居中新建；本地保存、离线编辑与删除、重连同步，支持时间、重复和提前提醒。最多 16 项；到期事项保留，满额新增时才清理最早结束的过期单次事项。[使用与实机边界](docs/RELEASE-0.6.11.md)
 
-**对话工作区：** 在 Codex／Claude 间选择项目和会话，管理草稿与照片，从总览直接查看同一会话或未读回复。支持定位并控制符合条件的 Claude 原生会话，无法确认目标时保护发送；工具请求在电脑确认。[新版原生界面（演示数据）](docs/assets/screens/tab5-dialogue-0318-r13-preview.png)
+**对话工作区：** 在 Codex／Claude 间选择项目和会话，管理草稿与照片，从总览直接查看同一会话或未读回复。支持定位并控制符合条件的 Claude 原生会话，无法确认目标时保护发送；工具请求在电脑确认。[会话铃铛和未读角标（演示数据）](docs/assets/screens/tab5-dialogue-claude-0323.png)
 
 **Codex 直达：** 从最近会话选择目标，结束录音后文字自动填入电脑；可在电脑校对，再通过 TAB5 确认发送。支持提问题卡、连续录音、失败恢复和长按清空。[使用说明](docs/TAB5-QUICK-CONSOLE.md)
 
@@ -143,11 +143,11 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 
 | 用途 | 版本 | 下载 | SHA-256 |
 | --- | --- | --- | --- |
-| Windows 桥接 · Windows 10/11 x64 | 0.6.30 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.30/AI-bot-bridge-v0.6.30-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.30/SHA256SUMS.txt) |
-| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.28 | [下载 · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.28/AI-bot-bridge-v0.6.28-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.28/SHA256SUMS.txt) |
+| Windows 桥接 · Windows 10/11 x64 | 0.6.31 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-bridge-v0.6.31-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
+| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.31 | [下载 · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-bridge-v0.6.31-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
 | ESP8266 小屏 · 首刷／升级通用 | 0.5.8 | [下载 · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
-| TAB5 · 出厂系统首次安装 | 0.2.322-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/AI-bot-tab5-0.2.322-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/SHA256SUMS.txt) |
-| TAB5 · 已有 AI-bot 升级 | 0.2.322-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/AI-bot-tab5-0.2.322-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/tab5-v0.2.322-ui/SHA256SUMS.txt) |
+| TAB5 · 出厂系统首次安装 | 0.2.323-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
+| TAB5 · 已有 AI-bot 升级 | 0.2.323-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
 
 ### 名画与书法
 
@@ -172,13 +172,13 @@ https://github.com/user-attachments/assets/dd551941-fcd4-4a75-8466-b89158db99b8
 2. **添加自己的设备。** 准备 USB 数据线，按[首次安装图文](docs/FIRST-INSTALL.zh.md)完成首次刷机、添加和配对；已经安装 AI-bot 的设备可直接验证并添加。
 3. **选择想看的内容。** 配置账号、日常信息和轮播页面；TAB5 艺术屏保需先导入对应图库，图片同步时保持电脑与桥接运行。
 
-Windows 和 Mac 都可从「设备中心 → 桥接设置 → 软件固件」查看版本和更新说明。选中项目，点「一键升级」开始下载、校验与安装。启用「自动检查并提醒」后可收到新版通知。图库按需单独下载与导入。[完整更新步骤](docs/UPDATES.md)
+Windows 和 Mac 都可从「设备中心 → 桥接设置 → 软件固件」查看版本和更新说明。选中项目，点「一键升级」下载并校验。更新桥接时，点「安装并重启」继续，或点「稍后」留待下次安装。图库按需单独下载与导入。[完整更新步骤](docs/UPDATES.md)
 
 [首次添加设备短片](docs/ONBOARDING_VIDEO.md)：Windows 接入入口与 Mac USB 配对路径。
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.30) · [更新日志](CHANGELOG.zh.md) · [TAB5 真机验收](docs/development/TAB5-CONTROL-215-ACCEPTANCE-20261017.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31) · [更新日志](CHANGELOG.zh.md) · [本次真机验收](docs/development/RELEASE-0631-ACCEPTANCE-20261125.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](tab5/) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)

@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 import download_catalog as catalog
-from product_release import PRODUCT_ONLY_MARKER
+from product_release import PRODUCT_ONLY_MARKER, valid_product_tag
 
 
 class DownloadCatalogTests(unittest.TestCase):
@@ -21,8 +21,15 @@ class DownloadCatalogTests(unittest.TestCase):
     def releases(self):
         releases = {}
         for entry in self.data["downloads"].values():
-            release = releases.setdefault(entry["tag"], {"tag_name": entry["tag"], "published_at": "2026-10-08", "draft": False,
-                "prerelease": False, "assets": [{"name": "SHA256SUMS.txt"}]})
+            tag = entry["tag"]
+            release = releases.setdefault(tag, {
+                "tag_name": tag,
+                "body": PRODUCT_ONLY_MARKER if valid_product_tag(tag) else "",
+                "published_at": "2026-10-08",
+                "draft": False,
+                "prerelease": False,
+                "assets": [{"name": "SHA256SUMS.txt"}],
+            })
             release["assets"].append({"name": entry["file"], "size": entry["size"], "digest": "sha256:" + entry["sha256"]})
             if catalog.checksum_name(entry) != 'SHA256SUMS.txt':
                 release['assets'].append({'name': catalog.checksum_name(entry)})
