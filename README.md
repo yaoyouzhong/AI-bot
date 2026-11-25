@@ -4,11 +4,11 @@
 
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
-[下载与搭配](#下载与搭配) · [宣传视频](#宣传视频) · [完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31) · [English](README.en.md)
+[下载与搭配](#下载与搭配) · [宣传视频](#宣传视频) · [完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.32) · [English](README.en.md)
 
 **源码：** [Windows 桥接](windows-app/) · [Mac 桥接](mac-app/) · [TAB5 大屏固件](tab5/) · [ESP8266 小屏固件](esp8266/)
 
-**桌面桥接 0.6.31**　Windows 和 Mac 在 TAB5 上按 Codex 保存的项目显示会话，桌面连接取不到正文时可读取已保存的回复。有本机记录可确认时，总览也能显示「工作中」或「待命」。Mac 升级会先校验安装包，再请你确认安装。[桥接更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31)
+**桌面桥接 0.6.32**　TAB5 的 Codex 项目会话列表会过滤隔离验证副本，保留真实项目会话。Windows 和 Mac 的更新箭头都移到「软件固件」卡片右上角。Mac 的系统授权入口在「设备中心 → 桥接设置 → 系统授权」。[桥接更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.32)
 
 **TAB5 0.2.323-ui**　在「对话」页点选 Codex 或 Claude 会话，点行尾铃铛即可关闭或恢复提醒。静音会话仍显示未读角标。[固件更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31)
 
@@ -143,8 +143,8 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 | 用途 | 版本 | 下载 | SHA-256 |
 | --- | --- | --- | --- |
-| Windows 桥接 · Windows 10/11 x64 | 0.6.31 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-bridge-v0.6.31-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
-| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.31 | [下载 · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-bridge-v0.6.31-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
+| Windows 桥接 · Windows 10/11 x64 | 0.6.32 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/AI-bot-bridge-v0.6.32-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/SHA256SUMS.txt) |
+| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.32 | [下载 · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/AI-bot-bridge-v0.6.32-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/SHA256SUMS.txt) |
 | ESP8266 小屏 · 首刷／升级通用 | 0.5.8 | [下载 · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
 | TAB5 · 出厂系统首次安装 | 0.2.323-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
 | TAB5 · 已有 AI-bot 升级 | 0.2.323-ui | [下载 · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
@@ -178,7 +178,7 @@ Windows 和 Mac 都可从「设备中心 → 桥接设置 → 软件固件」查
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31) · [更新日志](CHANGELOG.zh.md) · [本次真机验收](docs/development/RELEASE-0631-ACCEPTANCE-20261125.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.32) · [更新日志](CHANGELOG.zh.md) · [本次真机验收](docs/development/RELEASE-0632-ACCEPTANCE-20261125.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](tab5/) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)

@@ -1,5 +1,11 @@
 # 当前截图来源 / Screenshot provenance
 
+## 2026-11-25 · 0.6.32 软件固件更新角标 / Software/Firmware update badge
+
+windows-bridge-update-badge-0632.png 取自封存 Windows 0.6.32（源码 9e14d70399a4）的原生 WinForms 隔离渲染，使用合成更新数据。用于说明「软件固件」卡片右上角的小箭头。截图沿用项目原生界面与许可，SHA-256 已登记。现有 Mac 菜单和安装确认截图仍对应各自展示的界面。
+
+The capture shows the upper-right update badge using the frozen Windows 0.6.32 bridge and synthetic update data. The original Mac menu and installation confirmation images continue to illustrate their respective screens. [验收 / Acceptance](development/RELEASE-0632-ACCEPTANCE-20261125.md)
+
 ## 2026-11-25 Windows 升级与 TAB5 会话提醒
 
 `windows-desktop-upgrade-0631.png` 来自冻结 Windows 0.6.31 便携程序的原生 WinForms 离屏测试。演示版本号为 0.5.0 → 0.5.1，图中没有运行安装器。
