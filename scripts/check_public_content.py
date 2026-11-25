@@ -32,6 +32,7 @@ REVIEWED_DOC_NAMES = frozenset({
     'mac-direct-authorization.png',
     'mac-direct-authorization-upgrade.png',
     'windows-desktop-upgrade-0631.png',
+    'windows-bridge-update-badge-0632.png',
     'tab5-overview-0323.png',
     'tab5-dialogue-claude-0323.png',
     'tab5-dialogue-codex-0323.png',

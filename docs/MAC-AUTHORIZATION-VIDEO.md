@@ -1,6 +1,6 @@
 # Mac 授权说明短片 / Mac authorization supplement
 
-Mac 0.6.15 的 24 秒静音说明，补充[项目介绍片](PRODUCT_VIDEO.md)，不替代整个项目与双硬件介绍。
+这段 24 秒静音短片记录 Mac 0.6.15 的授权步骤，作为[项目介绍片](PRODUCT_VIDEO.md)的补充。当前版本从「设备中心 → 桥接设置 → 系统授权」打开授权向导。[当前安装说明](INSTALL.zh.md#mac)
 
 ![Mac 授权引导](assets/product-intro/AI-bot-mac-authorization-cover.png)
 
@@ -21,4 +21,4 @@ Mac 0.6.15 的 24 秒静音说明，补充[项目介绍片](PRODUCT_VIDEO.md)，
 | MP4 | `5ee0de101504b1377de6b18667428ad07feda9bf87c67acfa80395608463d4db` |
 | 工程 ZIP | `78ba61eaa99f4cf4ade245534a94f478bf1b117a85bf871abac0b2b92e6a7c70` |
 
-This silent 24-second Mac supplement preserves the whole-project film and compares no hardware. It uses genuine isolated native controls from accepted commit `8f4a5ed`, not footage of OS permission approval. The 1/0 card is explicitly scoped local acceptance after migration; legacy-first approval may require multiple items. Original MIT code/text, no font/framework/tool binaries or audio are distributed. All three frames and full decoding were checked. The clip is offered as a download, without an embedded-playback claim.
+This silent 24-second clip illustrates authorization in Mac 0.6.15. In the current bridge, open Device Center → Bridge Settings → System Permissions. It uses genuine isolated native controls from accepted commit `8f4a5ed`, not footage of OS permission approval. The 1/0 card is explicitly scoped local acceptance after migration; legacy-first approval may require multiple items. Original MIT code/text, no font/framework/tool binaries or audio are distributed. All three frames and full decoding were checked. The clip is offered as a download, without an embedded-playback claim.

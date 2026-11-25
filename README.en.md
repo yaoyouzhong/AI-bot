@@ -4,11 +4,11 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31) · [简体中文](README.md)
+[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.32) · [简体中文](README.md)
 
 **Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
-**Desktop bridge 0.6.31**　Windows and Mac show TAB5 conversations in their saved Codex projects and can retrieve saved replies if the desktop connection cannot supply them. The overview can show working or idle status when local records confirm it. On Mac, AI-bot verifies the update before asking you to install. [Bridge release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31)
+**Desktop bridge 0.6.32**　TAB5 project lists filter out isolated test copies and retain conversations linked to their Codex projects. Windows and Mac show the update arrow in the upper-right corner of the Software/Firmware card. On Mac, open System Permissions from Device Center → Bridge Settings. [Bridge release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.32)
 
 **TAB5 0.2.323-ui**　Select a Codex or Claude conversation and tap the bell at the end of its row to mute or restore reminders. Muted conversations keep their unread badges. [Firmware release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31)
 
@@ -143,8 +143,8 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
-| Windows bridge · Windows 10/11 x64 | 0.6.31 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-bridge-v0.6.31-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
-| Mac bridge · macOS 13+ / Apple Silicon | 0.6.31 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-bridge-v0.6.31-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
+| Windows bridge · Windows 10/11 x64 | 0.6.32 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/AI-bot-bridge-v0.6.32-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/SHA256SUMS.txt) |
+| Mac bridge · macOS 13+ / Apple Silicon | 0.6.32 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/AI-bot-bridge-v0.6.32-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.8 | [Download · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
 | TAB5 · first install from factory system | 0.2.323-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
 | TAB5 · upgrade existing AI-bot | 0.2.323-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
@@ -176,7 +176,7 @@ On Windows or Mac, open Device Center → Bridge Settings → Software/Firmware 
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31) · [Changelog](CHANGELOG.md) · [Release acceptance](docs/development/RELEASE-0631-ACCEPTANCE-20261125.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.32) · [Changelog](CHANGELOG.md) · [Release acceptance](docs/development/RELEASE-0632-ACCEPTANCE-20261125.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](tab5/) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)
