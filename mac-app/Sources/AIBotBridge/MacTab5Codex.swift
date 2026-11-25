@@ -18,6 +18,7 @@ final class MacTab5Codex {
     private let clock: () -> TimeInterval
     private let lookupNames: CatalogNames
     private let storedHistory: ((String) -> [[String: Any]]?)?
+    private let localDisplayActivity: ((String) -> String?)?
     private let savedProjects: (() -> MacCodexLocalMetadata.Projects)?
     private var nextDesktopReplyProbe: TimeInterval = -.infinity
     private var cachedNames: [String: String] = [:]
@@ -69,9 +70,10 @@ final class MacTab5Codex {
     var probeNativeControl: ((String) -> [String: Any]?)?
 
     init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, desktop: MacCodexDesktopIPC? = nil, controlMonitor: MacTab5LiveControl? = nil, catalogNames: CatalogNames? = nil, call: Call? = nil, taskPins: MacTaskPins? = nil, readState: MacCodexReadState? = nil, taskActivity: MacTaskActivity? = nil, provider: String = "Codex", storedHistory: ((String) -> [[String: Any]]?)? = nil,
-         savedProjects: (() -> MacCodexLocalMetadata.Projects)? = nil) {
+         savedProjects: (() -> MacCodexLocalMetadata.Projects)? = nil, localDisplayActivity: ((String) -> String?)? = nil) {
         self.provider = provider
         self.storedHistory = storedHistory ?? (call == nil ? { MacCodexPublicHistory.stored(task: $0) } : nil)
+        self.localDisplayActivity = localDisplayActivity ?? (call == nil && provider == "Codex" ? { MacCodexLocalMetadata.displayActivity(task: $0) } : nil)
         self.savedProjects = savedProjects ?? (call == nil ? { MacCodexLocalMetadata.projects() } : nil)
         self.deviceReads = MacTab5ReadAhead(freshness: provider == "Claude" ? 0.5 : 1)
         self.desktopReads = readState ?? MacCodexReadState(load: call == nil ? { MacCodexReadState.local() } : { nil }, clock: clock)
@@ -376,7 +378,9 @@ final class MacTab5Codex {
             if desktop != nil {
                 // Bound optional owner probes; never open windows during polling.
                 for index in catalog.indices where index < 3 || catalog[index]["id"] as? String == viewedTask {
-                    if let task = catalog[index]["id"] as? String, let live = probeDesktopReply(task) {
+                    guard let task = catalog[index]["id"] as? String else { continue }
+                    do {
+                        guard let live = try readDesktopReply(task) else { continue }
                         catalog[index]["state"] = live.taskState
                         catalog[index]["companionState"] = live.runtime == "systemError" ? "blocked" : live.taskState
                         catalog[index]["waitingKind"] = live.waitingKind
@@ -388,7 +392,11 @@ final class MacTab5Codex {
                            live.publicItems.contains(where: { !($0["text"] as? String ?? "").isEmpty }) {
                             ready[task] = live.turn
                         }
-                    }
+                    } catch MacCodexDesktopError.unavailable {
+                        // Disk evidence is only for the overview and companion.
+                        // It cannot verify a pending request or authorize control.
+                        if let state = localDisplayActivity?(task) { catalog[index]["companionState"] = state }
+                    } catch {}
                 }
             }
             stateLock.lock()
@@ -966,12 +974,13 @@ final class MacTab5Codex {
         stateLock.lock(); projection["repliesReady"] = ready; projection["repliesRead"] = combined
         projection["repliesUnread"] = ready.filter { combined[$0.key] != $0.value }; stateLock.unlock()
     }
-    private func probeDesktopReply(_ task: String) -> MacCodexDesktopIPC.State? {
+    private func readDesktopReply(_ task: String) throws -> MacCodexDesktopIPC.State? {
         guard let desktop, clock() >= nextDesktopReplyProbe else { return nil }
         do { return try desktop.read(task) }
-        catch MacCodexDesktopError.timeout { nextDesktopReplyProbe = clock() + 30 }
-        catch { }
-        return nil
+        catch MacCodexDesktopError.timeout {
+            nextDesktopReplyProbe = clock() + 30
+            throw MacCodexDesktopError.timeout
+        }
     }
 
     private func page(task: String, root: [String: Any], device: String, silent: Bool = false) throws -> MacTab5RPCResult {
@@ -979,7 +988,7 @@ final class MacTab5Codex {
         guard (-1...1).contains(offset), selected.isEmpty || Self.id(selected) != nil else { return .error(400, "invalid_turn") }
         let controlToken = liveControl?.capture(task: task)
         let probedDesktop = desktop != nil && clock() >= nextDesktopReplyProbe
-        let live = probeDesktopReply(task)
+        let live = try? readDesktopReply(task)
 
         func targetIndex(_ turns: [[String: Any]]) -> Int? {
             if selected.isEmpty { return turns.indices.last }

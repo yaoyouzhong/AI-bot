@@ -1,3 +1,5 @@
+import AppKit
+import Darwin
 import Foundation
 import SQLite3
 
@@ -5,6 +7,40 @@ enum MacCodexLocalMetadata {
     static var home: URL {
         ProcessInfo.processInfo.environment["CODEX_HOME"].map { URL(fileURLWithPath: $0) } ??
             FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
+    }
+
+    // Display-only fallback when the desktop IPC is not listening. The read-
+    // only App Server marks unfinished turns as interrupted, so use the exact
+    // persisted root turn and verify that Codex still holds its writer lock.
+    static func displayActivity(task: String, home: URL = MacCodexLocalMetadata.home) -> String? {
+        guard let launch = NSRunningApplication.runningApplications(withBundleIdentifier: "com.openai.codex")
+            .compactMap(\.launchDate).max() else { return nil }
+        return displayActivity(task: task, home: home, desktopLaunch: launch, now: Date())
+    }
+
+    static func displayActivity(task: String, home: URL, desktopLaunch: Date, now: Date) -> String? {
+        guard MacTab5Codex.id(task) == task else { return nil }
+        let turns = rows(home.appendingPathComponent("thread_history_1.sqlite"), """
+            SELECT status,started_at,completed_at FROM thread_turns
+            WHERE thread_id=?1 AND root_turn_id=turn_id
+            ORDER BY rollout_ordinal DESC LIMIT 1
+            """, binding: task)
+        guard let turn = turns.first, let started = Int64(turn[1]),
+              started >= Int64(desktopLaunch.timeIntervalSince1970),
+              started <= Int64(now.timeIntervalSince1970) else { return nil }
+
+        let lock = home.appendingPathComponent("thread-writer-locks").appendingPathComponent(task + ".lock")
+        let fd = open(lock.path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        var info = stat()
+        guard fstat(fd, &info) == 0, info.st_mode & S_IFMT == S_IFREG, info.st_uid == getuid(),
+              flock(fd, LOCK_SH | LOCK_NB) == -1, errno == EWOULDBLOCK else { return nil }
+
+        if turn[0] == "inProgress", turn[2].isEmpty { return "working" }
+        if ["completed", "interrupted", "failed"].contains(turn[0]),
+           let ended = Int64(turn[2]), (started...Int64(now.timeIntervalSince1970)).contains(ended) { return "idle" }
+        return nil
     }
 
     static func rows(_ database: URL, _ sql: String, binding: String? = nil) -> [[String]] {

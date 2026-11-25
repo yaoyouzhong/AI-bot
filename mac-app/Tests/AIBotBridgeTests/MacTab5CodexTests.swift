@@ -1,3 +1,4 @@
+import Darwin
 import SQLite3
 import XCTest
 @testable import AIBotBridge
@@ -541,6 +542,71 @@ final class MacTab5CodexTests: XCTestCase {
         now += 1
         XCTAssertEqual(codex.handle(request, device: "fixture").status, 200)
         XCTAssertEqual(probes, 2)
+    }
+
+    func testLocalOverviewActivityRequiresExactRootTurnAndLiveWriter() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let locks = home.appendingPathComponent("thread-writer-locks")
+        try FileManager.default.createDirectory(at: locks, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let task = UUID().uuidString.lowercased(), other = UUID().uuidString.lowercased()
+        let lock = locks.appendingPathComponent(task + ".lock")
+        try Data().write(to: lock)
+        let writer = open(lock.path, O_RDWR | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(writer, 0)
+        defer { close(writer) }
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(home.appendingPathComponent("thread_history_1.sqlite").path, &db), SQLITE_OK)
+        defer { sqlite3_close(db) }
+        func sql(_ value: String) { XCTAssertEqual(sqlite3_exec(db, value, nil, nil, nil), SQLITE_OK) }
+        sql("""
+            CREATE TABLE thread_turns (thread_id TEXT,turn_id TEXT,root_turn_id TEXT,rollout_ordinal INTEGER,
+                status TEXT,started_at INTEGER,completed_at INTEGER);
+            INSERT INTO thread_turns VALUES
+                ('\(task)','root','root',1,'inProgress',101,NULL),
+                ('\(task)','child','root',2,'completed',102,103),
+                ('\(other)','different','different',3,'completed',105,106);
+            """)
+        func activity(_ id: String = task, launch: TimeInterval = 100) -> String? {
+            MacCodexLocalMetadata.displayActivity(task: id, home: home,
+                desktopLaunch: Date(timeIntervalSince1970: launch), now: Date(timeIntervalSince1970: 110))
+        }
+        XCTAssertNil(activity())
+        XCTAssertEqual(flock(writer, LOCK_EX | LOCK_NB), 0)
+        XCTAssertEqual(activity(), "working")
+        XCTAssertNil(activity(other))
+        XCTAssertNil(activity(launch: 102))
+        sql("UPDATE thread_turns SET status='interrupted' WHERE turn_id='root'")
+        XCTAssertNil(activity())
+        sql("UPDATE thread_turns SET status='completed', completed_at=108 WHERE turn_id='root'")
+        XCTAssertEqual(activity(), "idle")
+        XCTAssertEqual(flock(writer, LOCK_UN), 0)
+        XCTAssertNil(activity())
+    }
+
+    func testUnavailableDesktopUsesDisplayActivityWithoutEnablingControl() throws {
+        let older = UUID().uuidString.lowercased(), newer = UUID().uuidString.lowercased()
+        var error = MacCodexDesktopError.unavailable
+        var now = 10.0
+        let desktop = MacCodexDesktopIPC(connect: { throw error })
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { true }, clock: { now },
+            desktop: desktop, call: { _, _ in
+                ["data": [[ "id": newer, "cwd": "/new", "updatedAt": 2],
+                          [ "id": older, "cwd": "/old", "updatedAt": 1]]]
+            }, localDisplayActivity: { $0 == older ? "working" : nil })
+        func overview() -> [String: Any]? { codex.snapshot(taskLimit: 1)?["overviewTask"] as? [String: Any] }
+        codex.refresh()
+        XCTAssertEqual(overview()?["id"] as? String, older)
+        XCTAssertEqual(overview()?["companionState"] as? String, "working")
+        XCTAssertEqual(overview()?["state"] as? String, "unknown")
+        XCTAssertFalse(codex.canMutate)
+        XCTAssertFalse(codex.prepareMutation(task: older))
+        now += 31
+        XCTAssertEqual(overview()?["companionState"] as? String, "unknown")
+        error = .incompatible
+        codex.refresh()
+        XCTAssertEqual(overview()?["id"] as? String, newer)
+        XCTAssertEqual(overview()?["companionState"] as? String, "unknown")
     }
 
     func testStoredPublicHistoryOnServiceFailureMissingTurnAndEmptyBody() throws {
