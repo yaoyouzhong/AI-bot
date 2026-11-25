@@ -1,3 +1,4 @@
+import SQLite3
 import XCTest
 @testable import AIBotBridge
 
@@ -223,11 +224,13 @@ final class MacTab5CodexTests: XCTestCase {
     }
     func testEmptyTurnRendersStatusWithoutInventingReplyOrReadReceipt() throws {
         let api = API()
-        for (state, status, placeholder) in [
-            ("interrupted", "已中断", "任务已停止，本轮尚无公开文字。"),
-            ("completed", "已完成", "本轮尚无公开文字。"),
-            ("failed", "失败", "本轮尚无公开文字。"),
-            ("inProgress", "运行中", "Codex 正在处理，等待新的动态…")
+        let older = UUID().uuidString.lowercased()
+        for (state, status, placeholder, hasStoredHistory) in [
+            ("interrupted", "已中断", "任务已停止，本轮尚无公开文字。", false),
+            ("completed", "已完成", "本轮尚无公开文字。", false),
+            ("failed", "失败", "本轮尚无公开文字。", false),
+            ("inProgress", "运行中", "Codex 正在处理，等待新的动态…", false),
+            ("inProgress", "运行中", "Codex 正在处理，等待新的动态…", true)
         ] {
             var publicText = ""
             let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { false }, call: { method, params in
@@ -238,6 +241,9 @@ final class MacTab5CodexTests: XCTestCase {
                                         ["type": "reasoning", "text": "PRIVATE_THINKING"]]]]]]
                 }
                 return try api.call(method, params)
+            }, storedHistory: { _ in
+                guard hasStoredHistory else { return nil }
+                return [["id": older, "status": "completed", "items": [["type": "agentMessage", "text": "上一轮公开回复"]]]]
             })
             codex.refresh()
             let result = codex.handle(["taskId": api.task, "op": "read"], device: "device")
@@ -246,6 +252,7 @@ final class MacTab5CodexTests: XCTestCase {
             XCTAssertEqual(result.body["receipt"] as? String, status)
             XCTAssertEqual(result.body["text"] as? String, placeholder)
             let view = try XCTUnwrap(result.body["replyView"] as? [String: Any])
+            XCTAssertEqual(view["turnId"] as? String, api.turn)
             XCTAssertEqual(view["hasText"] as? Bool, false)
             XCTAssertEqual(view["readReceipt"] as? String, "")
             XCTAssertEqual(view["pageCount"] as? Int, 1)
@@ -453,7 +460,8 @@ final class MacTab5CodexTests: XCTestCase {
         XCTAssertEqual((codex.snapshot()?["tasks"] as? [[String: Any]])?.first?["state"] as? String, "unknown")
         let reply = codex.handle(["op": "read", "taskId": api.task], device: "fixture")
         XCTAssertEqual(reply.status, 200); XCTAssertEqual(reply.body["text"] as? String, api.text)
-        XCTAssertEqual((reply.body["replyView"] as? [String: Any])?["state"] as? String, "unknown")
+        XCTAssertEqual((reply.body["replyView"] as? [String: Any])?["state"] as? String, "stored")
+        XCTAssertEqual((reply.body["replyView"] as? [String: Any])?["readReceipt"] as? String, "")
         let control = try XCTUnwrap(codex.snapshot()?["control"] as? [String: Any])
         for flag in ["running", "canSend", "canSteer", "canInterrupt"] { XCTAssertEqual(control[flag] as? Bool, false) }
         for op in ["send", "steer", "interrupt"] {
@@ -465,6 +473,132 @@ final class MacTab5CodexTests: XCTestCase {
         XCTAssertEqual(codex.handle(["op": "draft-load", "taskId": api.task, "requestId": UUID().uuidString], device: "fixture").status, 200)
         XCTAssertEqual((codex.snapshot()?["draftView"] as? [String: Any])?["text"] as? String, "本机草稿")
     }
+    func testSavedProjectsPreferLocalThenDesktopThenMigratedLegacy() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: home.appendingPathComponent("sqlite"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let ids = (0..<10).map { _ in UUID().uuidString.lowercased() }
+        let cwd = "/synthetic/directory"
+        func database(_ path: String, _ sql: String) throws {
+            var db: OpaquePointer?
+            XCTAssertEqual(sqlite3_open(home.appendingPathComponent(path).path, &db), SQLITE_OK)
+            defer { sqlite3_close(db) }
+            XCTAssertEqual(sqlite3_exec(db, sql, nil, nil, nil), SQLITE_OK)
+        }
+        try database("state_5.sqlite", """
+            CREATE TABLE threads(id TEXT, archived INTEGER, updated_at INTEGER, project_id TEXT);
+            CREATE TABLE projects(id TEXT, name TEXT, position INTEGER);
+            CREATE TABLE project_roots(project_id TEXT, path TEXT, position INTEGER);
+            INSERT INTO projects VALUES ('\(ids[6])','Local project',0), ('\(ids[7])','Desktop project',1),
+                ('\(ids[8])','Migrated project',2), ('\(ids[9])','Directory project',3);
+            INSERT INTO project_roots VALUES ('\(ids[6])','/synthetic/local',0), ('\(ids[7])','/synthetic/desktop',0),
+                ('\(ids[8])','/synthetic/migrated',0), ('\(ids[9])','\(cwd)',0);
+            INSERT INTO threads VALUES ('\(ids[0])',0,2,'\(ids[6])'), ('\(ids[1])',0,2,'\(ids[4])'),
+                ('\(ids[4])',1,3,'\(ids[6])');
+            """)
+        try database("sqlite/codex.db", """
+            CREATE TABLE local_thread_catalog(thread_id TEXT, host_id TEXT, missing_candidate INTEGER,
+                source_updated_at INTEGER, project_id TEXT);
+            INSERT INTO local_thread_catalog VALUES ('\(ids[0])','local',0,2,'\(ids[7])'),
+                ('\(ids[1])','local',0,2,'\(ids[7])'), ('\(ids[5])','remote',0,2,'\(ids[7])');
+            """)
+        let legacy = Dictionary(uniqueKeysWithValues: ids.prefix(4).map {
+            ($0, ["projectKind": "local", "projectId": ids[5]])
+        })
+        try JSONSerialization.data(withJSONObject: [
+            "thread-project-assignments": legacy,
+            "projectless-thread-ids": [ids[3]],
+            "app-server-project-id-by-legacy-project-id-by-host": ["local:" + home.standardizedFileURL.path: [ids[5]: ids[8]]]
+        ]).write(to: home.appendingPathComponent(".codex-global-state.json"))
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, call: { _, _ in
+            ["data": ids.prefix(6).map { ["id": $0, "cwd": cwd, "name": $0] }]
+        }, savedProjects: { MacCodexLocalMetadata.projects(home: home) })
+        codex.refresh()
+        let rows = Dictionary(uniqueKeysWithValues: codex.taskCatalog().compactMap { row -> (String, String)? in
+            guard let id = row["id"] as? String, let folder = row["folder"] as? String else { return nil }
+            return (id, folder)
+        })
+        XCTAssertEqual(rows, [ids[0]: "Local project", ids[1]: "Desktop project",
+                              ids[2]: "Migrated project", ids[3]: "Directory project"])
+    }
+
+    func testReplyPagingSkipsTimedOutDesktopAndRetriesAfterCooldown() throws {
+        let api = API()
+        var now: TimeInterval = 100, probes = 0
+        let desktop = MacCodexDesktopIPC(clock: { now }, connect: {
+            probes += 1
+            throw MacCodexDesktopError.timeout
+        })
+        let codex = MacTab5Codex(store: try store(), enabled: { true }, clock: { now },
+            canMutate: { false }, desktop: desktop, call: api.call)
+        codex.refresh()
+        XCTAssertEqual(probes, 1)
+        let request = ["op": "read", "taskId": api.task, "turnId": api.turn]
+        XCTAssertEqual(codex.handle(request, device: "fixture").status, 200)
+        now += 29
+        XCTAssertEqual(codex.handle(request, device: "fixture").status, 200)
+        XCTAssertEqual(probes, 1)
+        now += 1
+        XCTAssertEqual(codex.handle(request, device: "fixture").status, 200)
+        XCTAssertEqual(probes, 2)
+    }
+
+    func testStoredPublicHistoryOnServiceFailureMissingTurnAndEmptyBody() throws {
+        let task = UUID().uuidString.lowercased(), other = UUID().uuidString.lowercased()
+        let older = UUID().uuidString.lowercased(), latest = UUID().uuidString.lowercased()
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: path) }
+        func event(_ kind: String, _ turn: String, text: String = "") -> [String: Any] {
+            ["type": "event_msg", "payload": ["type": kind, "turn_id": turn, "last_agent_message": text]]
+        }
+        func message(_ role: String, _ phase: String, _ text: String) -> [String: Any] {
+            ["type": "response_item", "payload": ["type": "message", "role": role, "phase": phase,
+                "content": [["type": "output_text", "text": text]]]]
+        }
+        let records: [[String: Any]] = [
+            ["type": "session_meta", "payload": ["id": task]],
+            event("task_started", older), event("task_complete", older, text: "上一轮"),
+            event("task_started", latest), message("user", "final_answer", "PRIVATE"),
+            message("assistant", "analysis", "PRIVATE"), event("task_complete", other, text: "PRIVATE"),
+            ["type": "response_item", "payload": ["type": "function_call_output", "output": "PRIVATE"]],
+            message("assistant", "commentary", "已保存正文")
+        ]
+        let lines = try records.map { String(decoding: try JSONSerialization.data(withJSONObject: $0), as: UTF8.self) }
+        try Data(lines.joined(separator: "\n").utf8).write(to: path)
+        XCTAssertNil(MacCodexPublicHistory.stored(task: other, file: path))
+        for mode in ["failure", "missing", "empty"] {
+            let codex = MacTab5Codex(store: try store(), enabled: { true }, canMutate: { false }, call: { method, params in
+                if method == "thread/list" { return ["data": [["id": task, "cwd": "/synthetic", "name": "Fixture"]]] }
+                if method == "thread/read" {
+                    if mode == "failure" { throw MacTab5CodexFailure.unavailable }
+                    return ["thread": ["id": task]]
+                }
+                return Self.historyPage(method, params, turns: [
+                    ["id": mode == "missing" ? other : latest, "status": "interrupted", "items": [[String: Any]]()]
+                ])
+            }, storedHistory: { MacCodexPublicHistory.stored(task: $0, file: path) })
+            codex.refresh()
+            let read: [String: Any] = ["op": "read", "taskId": task, "turnId": latest]
+            let current = codex.handle(read, device: "fixture")
+            XCTAssertEqual(current.status, 200, mode)
+            XCTAssertEqual(current.body["text"] as? String, "已保存正文")
+            let view = current.body["replyView"] as? [String: Any]
+            XCTAssertEqual(view?["state"] as? String, "stored")
+            XCTAssertEqual(view?["readReceipt"] as? String, "")
+            XCTAssertEqual(view?["hasPrevious"] as? Bool, true)
+            let prior = codex.handle(read.merging(["turnOffset": -1]) { _, new in new }, device: "fixture")
+            XCTAssertEqual(prior.status, 200, mode)
+            XCTAssertEqual(prior.body["turnId"] as? String, older)
+            XCTAssertEqual(prior.body["text"] as? String, "上一轮")
+            XCTAssertEqual((prior.body["replyView"] as? [String: Any])?["readReceipt"] as? String, "")
+            XCTAssertFalse(String(decoding: try MacTab5Protocol.json(codex.snapshot()!), as: UTF8.self).contains("PRIVATE"))
+            XCTAssertNil((codex.snapshot()?["repliesUnread"] as? [String: String])?[task])
+            XCTAssertNil((codex.snapshot()?["repliesRead"] as? [String: String])?[task])
+            let unavailable = codex.handle(read.merging(["turnId": other, "turnOffset": -1]) { _, new in new }, device: "fixture")
+            XCTAssertNotEqual(unavailable.status, 200)
+        }
+    }
+
     func testReadOnlyHistoryUsesBoundedPublicPaginationAcrossTurnBoundary() throws {
         let task = UUID().uuidString.lowercased(), ids = (0..<3).map { _ in UUID().uuidString.lowercased() }
         var calls: [(String, [String: Any])] = []

@@ -17,6 +17,9 @@ final class MacTab5Codex {
     private let mutationAllowed: () -> Bool
     private let clock: () -> TimeInterval
     private let lookupNames: CatalogNames
+    private let storedHistory: ((String) -> [[String: Any]]?)?
+    private let savedProjects: (() -> MacCodexLocalMetadata.Projects)?
+    private var nextDesktopReplyProbe: TimeInterval = -.infinity
     private var cachedNames: [String: String] = [:]
     private var listSortKey = "recency_at"
     private var catalogUpdated: TimeInterval = -.infinity
@@ -65,8 +68,11 @@ final class MacTab5Codex {
     var onDisable: (() -> Void)?
     var probeNativeControl: ((String) -> [String: Any]?)?
 
-    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, desktop: MacCodexDesktopIPC? = nil, controlMonitor: MacTab5LiveControl? = nil, catalogNames: CatalogNames? = nil, call: Call? = nil, taskPins: MacTaskPins? = nil, readState: MacCodexReadState? = nil, taskActivity: MacTaskActivity? = nil, provider: String = "Codex") {
+    init(store: MacTab5PrivateStore = MacTab5PrivateStore(), enabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: enabledKey) }, sendEnabled: @escaping () -> Bool = { UserDefaults.standard.bool(forKey: sendKey) }, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, canMutate: @escaping () -> Bool = { true }, desktop: MacCodexDesktopIPC? = nil, controlMonitor: MacTab5LiveControl? = nil, catalogNames: CatalogNames? = nil, call: Call? = nil, taskPins: MacTaskPins? = nil, readState: MacCodexReadState? = nil, taskActivity: MacTaskActivity? = nil, provider: String = "Codex", storedHistory: ((String) -> [[String: Any]]?)? = nil,
+         savedProjects: (() -> MacCodexLocalMetadata.Projects)? = nil) {
         self.provider = provider
+        self.storedHistory = storedHistory ?? (call == nil ? { MacCodexPublicHistory.stored(task: $0) } : nil)
+        self.savedProjects = savedProjects ?? (call == nil ? { MacCodexLocalMetadata.projects() } : nil)
         self.deviceReads = MacTab5ReadAhead(freshness: provider == "Claude" ? 0.5 : 1)
         self.desktopReads = readState ?? MacCodexReadState(load: call == nil ? { MacCodexReadState.local() } : { nil }, clock: clock)
         self.taskPins = taskPins ?? (call == nil ? .shared : nil)
@@ -285,7 +291,11 @@ final class MacTab5Codex {
             // OpenClaw also uses the local App Server and reports `vscode`.
             // Its private workspace identifies those integration sessions; a
             // normal Codex chat merely discussing OpenClaw remains eligible.
-            threads.removeAll { Self.isOpenClawWorkspace($0["cwd"] as? String ?? "") }
+            let projectMetadata = provider == "Codex" ? savedProjects?() : nil
+            threads.removeAll {
+                Self.isOpenClawWorkspace($0["cwd"] as? String ?? "") ||
+                    (Self.id($0["id"]).map { projectMetadata?.excluded.contains($0) == true } ?? false)
+            }
             if !holdsGate { guard gate.try() else { return }; holdsGate = true }
             guard enabled() else { return }
             let hasUsableTask = threads.contains { Self.id($0["id"]) != nil && $0["cwd"] is String }
@@ -324,7 +334,8 @@ final class MacTab5Codex {
                 if provider == "Claude" { identity = nil }
                 else {
                     if projectIdentities[cwd] == nil { projectIdentities[cwd] = MacCodexProjectIdentity.resolve(cwd) }
-                    identity = projectIdentities[cwd]
+                    let directory = projectIdentities[cwd]!
+                    identity = projectMetadata?.match(task: id, cwd: cwd, identity: directory) ?? directory
                 }
                 let folder = identity?.name ?? URL(fileURLWithPath: cwd).lastPathComponent
                 let title = (root["name"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? cachedNames[id] ?? (provider == "Claude" ? "Claude Code" : "Codex 会话")
@@ -362,10 +373,10 @@ final class MacTab5Codex {
                     catalog[index]["title"] = prefix + String(name.prefix(max(0, 80 - prefix.count)))
                 }
             }
-            if let desktop {
+            if desktop != nil {
                 // Bound optional owner probes; never open windows during polling.
                 for index in catalog.indices where index < 3 || catalog[index]["id"] as? String == viewedTask {
-                    if let task = catalog[index]["id"] as? String, let live = try? desktop.read(task) {
+                    if let task = catalog[index]["id"] as? String, let live = probeDesktopReply(task) {
                         catalog[index]["state"] = live.taskState
                         catalog[index]["companionState"] = live.runtime == "systemError" ? "blocked" : live.taskState
                         catalog[index]["waitingKind"] = live.waitingKind
@@ -685,7 +696,8 @@ final class MacTab5Codex {
             if op == "read-ack" {
                 guard let turn = Self.id(root["turnId"]), let receipt = readReceipts[id], receipt.0 == device, receipt.1 == task, receipt.2 == turn,
                       receipt.3 > clock(), provider == "Claude" || ready[task] == turn else { return .error(409, "read_receipt_expired") }
-                let turns = (try readThread(task)["turns"] as? [[String: Any]]) ?? []
+                let thread = try desktop.map { try $0.read(task).thread } ?? readThread(task)
+                let turns = thread["turns"] as? [[String: Any]] ?? []
                 let latest = provider == "Claude" ? turns.last(where: Self.isPublicTerminalReply) : turns.last
                 guard latest?["id"] as? String == turn, Self.isTerminalReply(latest?["status"] as? String ?? "") else {
                     return .error(409, "read_turn_changed")
@@ -880,11 +892,16 @@ final class MacTab5Codex {
         let readOnly = rpc != nil || !mutable()
         var params: [String: Any] = ["threadId": task, "includeTurns": !readOnly]
         if provider == "Claude", observeControls { params["observeControls"] = true }
-        let result = try call("thread/read", params)
+        let readCall: Call
+        if let rpc {
+            let deadline = Date().addingTimeInterval(5)
+            readCall = { try rpc.call($0, $1, deadline: deadline) }
+        } else { readCall = call }
+        let result = try readCall("thread/read", params)
         guard var thread = result["thread"] as? [String: Any], Self.id(thread["id"]) == task else { throw MacTab5CodexFailure.protocolError }
         guard readOnly, provider != "Claude" else { return thread }
         let history = try MacCodexPublicHistory.read(task: task, selected: selected, offset: offset,
-                                                    call: call, clock: clock)
+                                                    call: readCall, clock: clock)
         thread["turns"] = history.turns
         thread["hasOlderTurns"] = history.hasOlder
         thread["historyLimited"] = history.limited
@@ -949,12 +966,32 @@ final class MacTab5Codex {
         stateLock.lock(); projection["repliesReady"] = ready; projection["repliesRead"] = combined
         projection["repliesUnread"] = ready.filter { combined[$0.key] != $0.value }; stateLock.unlock()
     }
+    private func probeDesktopReply(_ task: String) -> MacCodexDesktopIPC.State? {
+        guard let desktop, clock() >= nextDesktopReplyProbe else { return nil }
+        do { return try desktop.read(task) }
+        catch MacCodexDesktopError.timeout { nextDesktopReplyProbe = clock() + 30 }
+        catch { }
+        return nil
+    }
+
     private func page(task: String, root: [String: Any], device: String, silent: Bool = false) throws -> MacTab5RPCResult {
         let selected = root["turnId"] as? String ?? "", offset = Int(MacTab5Protocol.integer(root["turnOffset"]) ?? 0)
         guard (-1...1).contains(offset), selected.isEmpty || Self.id(selected) != nil else { return .error(400, "invalid_turn") }
         let controlToken = liveControl?.capture(task: task)
-        let live = desktop.flatMap { try? $0.read(task) }
-        let thread: [String: Any]
+        let probedDesktop = desktop != nil && clock() >= nextDesktopReplyProbe
+        let live = probeDesktopReply(task)
+
+        func targetIndex(_ turns: [[String: Any]]) -> Int? {
+            if selected.isEmpty { return turns.indices.last }
+            return turns.firstIndex { Self.id($0["id"]) == selected.lowercased() }.map { $0 + offset }
+        }
+        func targetTurn(_ turns: [[String: Any]]?) -> [String: Any]? {
+            guard let turns, let index = targetIndex(turns), turns.indices.contains(index) else { return nil }
+            return turns[index]
+        }
+
+        var thread: [String: Any]
+        var fromStorage = false
         if let live, let cache = latestPublic, cache.task == task,
            offset == 0, selected.isEmpty || selected == live.turn {
             // Once public history establishes the older-turn boundary, ordinary
@@ -968,10 +1005,28 @@ final class MacTab5Codex {
                 latest["turns"] = [turn]
             }
             thread = latest
-        } else { thread = try readThread(task, selected: selected, offset: offset, observeControls: true) }
-        if let controlToken, desktop != nil { liveControl?.accept(controlToken, state: live) }
+        } else {
+            let liveTarget = live.flatMap { snapshot in
+                offset == 0 && (selected.isEmpty || selected == snapshot.turn) ? snapshot.thread : nil
+            }
+            let fetched = Result {
+                try readThread(task, selected: selected.lowercased(), offset: offset, observeControls: true)
+            }
+            let available = (try? fetched.get()) ?? liveTarget
+            let liveTurn = targetTurn(liveTarget?["turns"] as? [[String: Any]])
+            let availableTurn = targetTurn(available?["turns"] as? [[String: Any]])
+            let expectedTurn = Self.id((liveTurn ?? availableTurn)?["id"])
+            if !(liveTurn.map(Self.hasPublicText) ?? false),
+               !(availableTurn.map(Self.hasPublicText) ?? false),
+               let saved = storedHistory?(task), let savedTurn = targetTurn(saved), Self.hasPublicText(savedTurn),
+               expectedTurn == nil || Self.id(savedTurn["id"]) == expectedTurn {
+                thread = ["turns": saved, "controlUnavailable": true]
+                fromStorage = true
+            } else { thread = try available ?? fetched.get() }
+        }
+        if let controlToken, probedDesktop { liveControl?.accept(controlToken, state: live) }
         var turns = thread["turns"] as? [[String: Any]] ?? []
-        if let live {
+        if let live, !fromStorage {
             if let index = turns.firstIndex(where: { $0["id"] as? String == live.turn }) {
                 turns[index]["items"] = Self.mergePublicItems(turns[index]["items"], live.publicItems)
             } else if live.startedAt >= (turns.last.flatMap { MacTab5Protocol.integer($0["startedAt"]) } ?? 0) {
@@ -979,15 +1034,17 @@ final class MacTab5Codex {
                 turns.append(["id": live.turn, "status": live.status, "startedAt": live.startedAt, "items": live.publicItems])
             }
         }
-        if let latest = turns.last, let turn = Self.id(latest["id"]) {
+        if !fromStorage, let latest = turns.last, let turn = Self.id(latest["id"]) {
             let items = Self.publicItems(latest["items"])
             if items.reduce(0, { $0 + (($1["text"] as? String)?.utf8.count ?? 0) }) <= 1024 * 1024 {
                 latestPublic = (task, turn, items, turns.count > 1 || thread["hasOlderTurns"] as? Bool == true)
             }
         }
-        var index = turns.count - 1
-        if !selected.isEmpty { guard let found = turns.firstIndex(where: { $0["id"] as? String == selected }) else { return .error(thread["historyLimited"] as? Bool == true ? 413 : 404, "turn_not_in_available_history") }; index = found + offset }
-        guard turns.indices.contains(index), let turnID = Self.id(turns[index]["id"]) else { return .error(thread["historyLimited"] as? Bool == true ? 413 : 404, "reply_unavailable") }
+        let historyError = thread["historyLimited"] as? Bool == true ? 413 : 404
+        guard let index = targetIndex(turns) else {
+            return .error(historyError, selected.isEmpty ? "reply_unavailable" : "turn_not_in_available_history")
+        }
+        guard turns.indices.contains(index), let turnID = Self.id(turns[index]["id"]) else { return .error(historyError, "reply_unavailable") }
         let turn = turns[index], recordedState = turn["status"] as? String ?? "unknown"
         if silent, provider == "Claude", ["unknown", "inProgress"].contains(recordedState) {
             stateLock.lock()
@@ -997,7 +1054,7 @@ final class MacTab5Codex {
             stateLock.unlock()
             if preserve { return .error(503, "reply_not_current") }
         }
-        let state = live?.turn == turnID ? live!.status :
+        let state = !fromStorage && live?.turn == turnID ? live!.status :
             (desktop != nil || !mutable()) && recordedState == "inProgress" ? "unknown" : recordedState
         // Public assistant messages only: no reasoning, tool output or raw rollouts.
         let text = Self.publicItems(turn["items"]).compactMap { $0["text"] as? String }.joined(separator: "\n\n")
@@ -1013,7 +1070,8 @@ final class MacTab5Codex {
         var receipt = ""
         let receiptEligible = provider == "Claude"
             ? Self.isTerminalReply(state) && Self.hasPublicText(turn) && !turns.dropFirst(index + 1).contains(where: Self.isPublicTerminalReply)
-            : !history && !text.isEmpty && Self.isTerminalReply(state)
+            : !fromStorage && !history && !text.isEmpty && Self.isTerminalReply(state) &&
+                (live.map { $0.turn == turnID && !$0.publicItems.isEmpty } ?? (desktop == nil && mutable()))
         if receiptEligible {
             if provider != "Claude" { ready[task] = turnID }
             let now = clock()
@@ -1027,12 +1085,12 @@ final class MacTab5Codex {
             }
         }
         let view: [String: Any] = ["taskId": task, "turnId": turnID, "page": page, "pageCount": pages.count, "hasText": !text.isEmpty, "readReceipt": receipt, "history": history, "hasPrevious": index > 0 || thread["hasOlderTurns"] as? Bool == true, "hasNext": index + 1 < turns.count, "previousTurnId": index > 0 ? turns[index - 1]["id"] as? String ?? "" : "", "nextTurnId": index + 1 < turns.count ? turns[index + 1]["id"] as? String ?? "" : "", "state": state, "startedAt": turn["startedAt"] as? Int64 ?? 0]
-        let controlThread = live?.thread ?? thread
+        let controlThread = fromStorage ? thread : live?.thread ?? thread
         let current = (controlThread["turns"] as? [[String: Any]])?.last ?? [:]
         let canControl = mutable() && (desktop == nil || live != nil) && controlThread["controlUnavailable"] as? Bool != true
         let running = canControl && (live?.running ?? (current["status"] as? String == "inProgress"))
         let flags = (controlThread["status"] as? [String: Any])?["activeFlags"] as? [String] ?? []
-        let statusText = state == "completed" ? "已完成" : state == "inProgress" ? "运行中" : state == "interrupted" ? "已中断" : state == "failed" ? "失败" : "状态未知"
+        let statusText = state == "completed" ? "已完成" : state == "inProgress" ? "运行中" : state == "interrupted" ? "已中断" : state == "failed" ? "失败" : state == "stored" ? "已保存" : "状态未知"
         stateLock.lock(); projection["replyView"] = view; projection["responses"] = [task: pages[page]]
         projection["receipts"] = [task: statusText]
         if provider == "Claude", let control = thread["nativeControl"] {
