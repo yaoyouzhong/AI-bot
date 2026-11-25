@@ -81,7 +81,8 @@ git status --short
 ## Release boundary
 
 - Windows / Mac 开发、交接、维护和发布先遵循 [统一流程](docs/DESKTOP-DEVELOPMENT-RELEASE.md)，跨平台改动使用其中的交接模板。双平台发布从同一候选源码提交构建，各自在对应系统验收；验收哪个包就发布哪个包，每次由唯一发布负责人统一操作。该流程不扩大推送、标签、上传或正式发布授权。
-- Windows 或 Mac 任一端有功能改动的 PR，必须在同一个 PR 中新增或更新 `docs/development/` 下的 `*-HANDOFF-*.md`。写明另一端是否要对齐、可核对的依据、发起端的验证结果和待验项。发起端完成适用测试、CI 和审核后，当前 PR 可以合入，另一端待对齐的事项在合入后跟进。
+- Windows 或 Mac 任一端有功能改动时，通过 PR 合入远端 `main`。创建 PR 前，按[交接模板](docs/development/CROSS-PLATFORM-HANDOFF-TEMPLATE.md)在 `docs/development/` 下新增或更新 `*-HANDOFF-*.md`，随代码放进同一个 PR。每个需另一端对齐的独立场景单独成节，并另起一行写 `待对齐：<平台>｜<场景>`，注明验收步骤和通过标准。仅需复验的事项用 `待验收：<平台>｜<场景>`，无需对齐的事项写明依据。
+- 合入前从 PR 差异核对交接文档和代码是否齐全，逐项确认接收平台、对齐判断、发起端验证结果和待验项。缺项先补齐，再完成适用的本机测试、CI 和审核。接收端的对齐工作在合入后跟进。
 
 - TAB5 本地固件交付统一使用 `artifacts/firmware/tab5/latest/aibot_tab5.bin`；通过 `scripts/prepare_tab5_firmware.ps1` 校验并生成，历史包保存在同级 `versions/`。更新说明必须包含分类标题和列表，并使用实际 sidecar 做预览。详见 `docs/TAB5-FIRMWARE-WORKFLOW.md`。
 
