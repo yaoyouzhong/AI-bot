@@ -142,21 +142,20 @@ final class MacBridgeActionCard: NSButton {
         shape.fill(); NSColor.separatorColor.setStroke(); shape.stroke()
         let paragraph = NSMutableParagraphStyle(); paragraph.lineBreakMode = .byTruncatingTail
         var titleRight = bounds.width - 16
-        if showsUpgradeArrow {
-            let badge = NSRect(x: bounds.maxX - 41, y: 11, width: 24, height: 24)
+        if showsUpgradeArrow && bounds.width > 42 && bounds.height > 22 {
+            let badge = NSRect(x: bounds.maxX - 22, y: 8, width: 14, height: 14)
             NSColor(srgbRed: 33.0 / 255, green: 133.0 / 255, blue: 74.0 / 255, alpha: 1).setFill()
             NSBezierPath(ovalIn: badge).fill()
-            let scale = badge.width / 26
-            let x = badge.midX, tip = badge.midY - 6 * scale
+            let x = badge.midX, tip = badge.midY - 3
             let arrow = NSBezierPath()
-            arrow.move(to: NSPoint(x: x, y: tip + 11 * scale))
+            arrow.move(to: NSPoint(x: x, y: tip + 6))
             arrow.line(to: NSPoint(x: x, y: tip))
-            arrow.move(to: NSPoint(x: x - 5 * scale, y: tip + 5 * scale))
+            arrow.move(to: NSPoint(x: x - 3, y: tip + 3))
             arrow.line(to: NSPoint(x: x, y: tip))
-            arrow.line(to: NSPoint(x: x + 5 * scale, y: tip + 5 * scale))
-            arrow.lineWidth = 3 * scale; arrow.lineCapStyle = .round; arrow.lineJoinStyle = .round
+            arrow.line(to: NSPoint(x: x + 3, y: tip + 3))
+            arrow.lineWidth = 1.6; arrow.lineCapStyle = .round; arrow.lineJoinStyle = .round
             NSColor.white.setStroke(); arrow.stroke()
-            titleRight = badge.minX - 8
+            titleRight = min(titleRight, badge.minX - 4)
         }
         (caption as NSString).draw(in: NSRect(x: 16, y: 12, width: max(1, titleRight - 16), height: 22), withAttributes: [
             .font: NSFont.systemFont(ofSize: 14, weight: .semibold),

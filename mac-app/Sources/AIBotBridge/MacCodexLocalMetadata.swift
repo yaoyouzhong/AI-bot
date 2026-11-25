@@ -97,14 +97,41 @@ enum MacCodexLocalMetadata {
         let local: [String: String], desktop: [String: String], legacy: [String: String]
         let saved: [String: MacCodexProjectIdentity.Value], roots: [(String, MacCodexProjectIdentity.Value)]
         let excluded: Set<String>
+        let worktreePrefix: String
 
-        func match(task: String, cwd: String, identity: MacCodexProjectIdentity.Value) -> MacCodexProjectIdentity.Value {
-            for candidate in [local[task], desktop[task], legacy[task]] {
-                if let candidate, let project = saved[candidate] { return project }
+        private func hasWorkspaceMembership(cwd: String, identity: MacCodexProjectIdentity.Value) -> Bool {
+            guard cwd.hasPrefix("/") else { return false }
+            let directory = URL(fileURLWithPath: cwd).standardizedFileURL
+            if directory.path.hasPrefix(worktreePrefix) { return true }
+            var folder = directory
+            while true {
+                if roots.contains(where: { $0.0 == folder.path }) { return true }
+                // Stop at a separate repository rather than inheriting a
+                // parent's project just because its path is nested there.
+                if FileManager.default.fileExists(atPath: folder.appendingPathComponent(".git").path) {
+                    let key = folder == directory ? identity.key : MacCodexProjectIdentity.resolve(folder.path).key
+                    return roots.contains { $0.1.key == key }
+                }
+                let parent = folder.deletingLastPathComponent()
+                if parent.path == folder.path || folder.path == "/" { return false }
+                folder = parent
             }
+        }
+
+        func match(task: String, cwd: String, identity: MacCodexProjectIdentity.Value) -> MacCodexProjectIdentity.Value? {
+            let stateProject = local[task].flatMap { saved[$0] }
+            let desktopProject = desktop[task].flatMap { saved[$0] } ?? legacy[task].flatMap { saved[$0] }
             let path = URL(fileURLWithPath: cwd).standardizedFileURL.path
-            return roots.first { path == $0.0 || path.hasPrefix($0.0 + "/") }?.1 ??
-                roots.first { $0.1.key == identity.key }?.1 ?? identity
+            let workspace = cwd.hasPrefix("/") ? (roots.first { path == $0.0 || path.hasPrefix($0.0 + "/") }?.1 ??
+                roots.first { $0.1.key == identity.key }?.1) : nil
+            // App Server can copy a project ID into a verification checkout.
+            // A desktop assignment or registered workspace must corroborate it.
+            if let stateProject {
+                guard desktopProject != nil || hasWorkspaceMembership(cwd: cwd, identity: identity) else { return nil }
+                return stateProject
+            }
+            // Keep Mac's existing directory fallback for unassigned sessions.
+            return desktopProject ?? workspace ?? identity
         }
     }
 
@@ -157,6 +184,7 @@ enum MacCodexLocalMetadata {
         let localIDs = Set(remote.filter { $0[1] == "local" }.map { $0[0].lowercased() })
         let remoteOnly = Set(remote.filter { $0[1] != "local" }.map { $0[0].lowercased() }).subtracting(localIDs)
         return Projects(local: assignments(local), desktop: assignments(desktop), legacy: legacyAssignments(state, home: home),
-                        saved: saved, roots: roots, excluded: remoteOnly.union(archived.map { $0[0].lowercased() }))
+                        saved: saved, roots: roots, excluded: remoteOnly.union(archived.map { $0[0].lowercased() }),
+                        worktreePrefix: home.appendingPathComponent("worktrees").standardizedFileURL.path + "/")
     }
 }

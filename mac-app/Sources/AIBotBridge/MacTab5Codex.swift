@@ -337,7 +337,10 @@ final class MacTab5Codex {
                 else {
                     if projectIdentities[cwd] == nil { projectIdentities[cwd] = MacCodexProjectIdentity.resolve(cwd) }
                     let directory = projectIdentities[cwd]!
-                    identity = projectMetadata?.match(task: id, cwd: cwd, identity: directory) ?? directory
+                    if let projectMetadata {
+                        guard let matched = projectMetadata.match(task: id, cwd: cwd, identity: directory) else { return nil }
+                        identity = matched
+                    } else { identity = directory }
                 }
                 let folder = identity?.name ?? URL(fileURLWithPath: cwd).lastPathComponent
                 let title = (root["name"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? cachedNames[id] ?? (provider == "Claude" ? "Claude Code" : "Codex 会话")
