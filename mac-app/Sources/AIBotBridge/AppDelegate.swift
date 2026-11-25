@@ -418,7 +418,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
 
     private func buildMenu() -> NSMenu {
-        let menu = MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
+        MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
             guard let self, let current = self.devices.device(device.kind), current.id == device.id, current.enabled else { return }
             if action == "mirror" {
                 if device.kind == "esp8266" { self.openMirror() }
@@ -439,8 +439,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             if action == "devices" { self?.openTab5() }
             else if action == "exit" { self?.quit() }
         })
-        menu.insertItem(item("系统授权…", #selector(openPermissionSetup)), at: max(0, menu.items.count - 1))
-        return menu
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
