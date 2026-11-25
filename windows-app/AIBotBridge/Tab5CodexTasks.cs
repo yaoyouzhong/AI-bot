@@ -231,6 +231,43 @@ internal static class Tab5CodexCatalog
         }catch(Exception ex) when(ex is DllNotFoundException or EntryPointNotFoundException or IOException or UnauthorizedAccessException){return null;}
         finally{if(statement!=0)sqlite3_finalize(statement);if(db!=0)sqlite3_close(db);}
     }
+    internal static string? LocalDisplayActivity(string task) {
+        long launch=0;
+        var desktopProcesses=Process.GetProcessesByName("Codex").Concat(Process.GetProcessesByName("ChatGPT"));
+        foreach(var process in desktopProcesses)using(process) {
+            try {
+                // A CLI process alone does not prove that the desktop is running.
+                if(process.MainWindowHandle!=0&&ForegroundObserver.IsCodex(process))
+                    launch=Math.Max(launch,new DateTimeOffset(process.StartTime).ToUnixTimeSeconds());
+            }catch(Exception ex) when(ex is System.ComponentModel.Win32Exception or InvalidOperationException or NotSupportedException) {}
+        }
+        return launch>0?ReadLocalDisplayActivity(HomePath,task,launch,DateTimeOffset.UtcNow.ToUnixTimeSeconds()):null;
+    }
+
+    // The rollout may be buffered, and the read-only App Server can label an
+    // unfinished turn as interrupted. Use only the exact persisted root turn,
+    // from this desktop lifetime, with evidence of an active Windows writer.
+    internal static string? ReadLocalDisplayActivity(string home,string task,long launch,long now) {
+        if(!Guid.TryParseExact(task,"D",out var id)||launch<=0||launch>now)return null;
+        nint db=0,statement=0;
+        try {
+            var path=Path.Combine(home,"thread_history_1.sqlite");
+            if(!File.Exists(path)||sqlite3_open_v2(path,out db,1,0)!=0)return null;
+            sqlite3_busy_timeout(db,100);
+            string query=$"SELECT status,started_at,completed_at FROM thread_turns WHERE thread_id='{id:D}' AND root_turn_id=turn_id ORDER BY rollout_ordinal DESC LIMIT 1";
+            if(sqlite3_prepare_v2(db,query,-1,out statement,0)!=0||sqlite3_step(statement)!=100)return null;
+            string status=Column(statement,0),end=Column(statement,2);
+            if(!long.TryParse(Column(statement,1),out long start)||start<launch||start>now)return null;
+            string? result=status=="inProgress"&&end.Length==0?"working":
+                (status is "completed" or "interrupted" or "failed")&&long.TryParse(end,out long completed)&&completed>=start&&completed<=now?"idle":null;
+            if(result is null)return null;
+            var directory=Path.Combine(home,"thread-writer-locks");
+            var writer=Path.Combine(directory,id.ToString("D")+".lock");
+            return CodexLifecycleTracker.HasActiveWriter(directory,writer)?result:null;
+        }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or DllNotFoundException or EntryPointNotFoundException) {return null;}
+        finally{if(statement!=0)sqlite3_finalize(statement);if(db!=0)sqlite3_close(db);}
+    }
+
     private static string Column(nint statement, int index)
     {
         int length = sqlite3_column_bytes(statement, index);
@@ -340,9 +377,7 @@ internal sealed class Tab5CodexTasks : IDisposable
         var (catalog,fresh) = _displayCatalog.Observe(_displayScan());
         var activity=SessionActivityReader.TaskActivities.GroupBy(a=>a.Id).ToDictionary(g=>g.Key,g=>g.MaxBy(a=>a.UpdatedAt)!);
         if(fresh)_liveActivity?.Refresh(catalog,_lifetime.Token);
-        foreach(var live in _liveActivity?.Fresh()??[])activity[live.Id]=live;
-        foreach(var id in _liveActivity?.Uncertain()??[])
-            activity[id]=(activity.GetValueOrDefault(id)??new(id,"unknown",0)) with {CompanionState="unknown"};
+        _liveActivity?.ApplyProjection(activity);
         // Publish completed turn identities from both desktop IPC and root logs.
         // Device reads and desktop reads both acknowledge the exact turn.
         foreach(var task in catalog)if(activity.TryGetValue(task.Id,out var state)&&state.Completed&&state.TurnId.Length>0)

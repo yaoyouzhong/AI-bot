@@ -14,6 +14,10 @@ Windows Setup closes a running AI-bot and starts it again after the upgrade. If 
 
 Starting with Windows 0.6.29, AI-bot asks whether to install after checking the download. Choose **Install and restart** to install in the background and return to the system tray, or **Later** to keep working. The next update attempt checks the saved installer and reuses it if it still matches the release.
 
+从 Mac 0.6.31 起，点「一键升级」后也会先下载并校验应用。点「安装并重启」会替换并重新打开 AI-bot。点「稍后」或按 Escape 可继续使用，下次尝试同一更新时会重新校验并复用已保存的安装包。
+
+Starting with Mac 0.6.31, One-Click Update downloads and verifies the app before asking whether to install. Choose **Install and restart** to replace and reopen AI-bot. Choose **Later** or press Escape to keep working. The next attempt for the same version verifies and reuses the saved package.
+
 ## 0.6.26 一键升级 / One-Click Update in 0.6.26
 
 有更新时，「桥接设置 → 软件固件」卡片显示绿圆底白色上箭头和更新数量。在版本表选中软件或固件，表格下方显示对应版本的更新说明。点「一键升级」一次开始下载、校验和安装。下载中可以取消，重试时可沿用已下载的数据。

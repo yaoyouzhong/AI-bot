@@ -14,10 +14,12 @@ internal static class ForegroundObserver
             GetWindowThreadProcessId(GetForegroundWindow(),out var id);
             if(id==0)return false;
             using var process=Process.GetProcessById((int)id);
-            return process.ProcessName.Equals("codex",StringComparison.OrdinalIgnoreCase) ||
-                process.ProcessName.Equals("ChatGPT",StringComparison.OrdinalIgnoreCase)&&
-                (process.MainModule?.FileName.Contains("OpenAI.Codex_",StringComparison.OrdinalIgnoreCase)??false);
+            return IsCodex(process);
         }
         catch(Exception ex) when(ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { return false; }
     }
+    internal static bool IsCodex(Process process) =>
+        process.ProcessName.Equals("codex",StringComparison.OrdinalIgnoreCase) ||
+        process.ProcessName.Equals("ChatGPT",StringComparison.OrdinalIgnoreCase)&&
+        (process.MainModule?.FileName.Contains("OpenAI.Codex_",StringComparison.OrdinalIgnoreCase)??false);
 }

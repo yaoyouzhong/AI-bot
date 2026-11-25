@@ -1,10 +1,12 @@
 using System.Text.Json;
+using System.Runtime.InteropServices;
 
 namespace AIBotBridge;
 
 internal static class Tab5CodexSelfTest
 {
     internal static async Task RunAsync() {
+        await VerifyOverviewFallbackAsync();
         await Tab5QueueTransportSelfTest.RunAsync();
         Tab5CodexCatalogSelfTest.Run();
         await Tab5NativeAppendSelfTest.RunAsync();
@@ -231,4 +233,108 @@ internal static class Tab5CodexSelfTest
         }
         Console.WriteLine("TAB5_CODEX_SELF_TEST_OK dispatch failures, uncertain delivery, malformed replies, no automatic retry (synthetic RPC only)");
     }
+
+    private static async Task VerifyOverviewFallbackAsync() {
+        string home=Path.Combine(Path.GetTempPath(),"aibot-overview-"+Guid.NewGuid().ToString("N"));
+        string locks=Path.Combine(home,"thread-writer-locks");Directory.CreateDirectory(locks);
+        string older=Guid.NewGuid().ToString(),newer=Guid.NewGuid().ToString();
+        string writerPath=Path.Combine(locks,older+".lock");File.WriteAllBytes(writerPath,[]);
+        string dbPath=Path.Combine(home,"thread_history_1.sqlite");
+        void Require(bool value,string message){if(!value)throw new InvalidOperationException("Overview: "+message);}
+        void Sql(string query) {
+            nint db=0;
+            try {
+                Require(sqlite3_open_v2(dbPath,out db,6,0)==0,"fixture open");
+                Require(sqlite3_exec(db,query,0,0,0)==0,"fixture SQL");
+            }finally{if(db!=0)sqlite3_close(db);}
+        }
+        try {
+            Sql("CREATE TABLE thread_turns(thread_id TEXT,turn_id TEXT,root_turn_id TEXT,rollout_ordinal INTEGER,status TEXT,started_at INTEGER,completed_at INTEGER);"+
+                $"INSERT INTO thread_turns VALUES('{older}','root','root',1,'inProgress',101,NULL),('{older}','child','root',2,'completed',102,103),('{newer}','other','other',3,'inProgress',105,NULL);");
+            string? Local(string task,long launch=100)=>Tab5CodexCatalog.ReadLocalDisplayActivity(home,task,launch,110);
+            Require(Local(older) is null,"unlocked file is not an active writer");
+            using var writer=new FileStream(writerPath,FileMode.Open,FileAccess.ReadWrite,FileShare.ReadWrite|FileShare.Delete);
+            writer.Lock(0,1);
+            Require(Local(older)=="working"&&Local(newer) is null&&Local(older,102) is null,"exact root, writer and current desktop lifetime required");
+            Sql("UPDATE thread_turns SET status='interrupted' WHERE turn_id='root'");
+            Require(Local(older) is null,"missing end cannot imply idle");
+            Sql("UPDATE thread_turns SET status='completed',completed_at=108 WHERE turn_id='root'");
+            Require(Local(older)=="idle","explicit completion establishes idle");
+            writer.Unlock(0,1);
+            Require(Local(older) is null,"completed data without a current writer is not reliable");
+            writer.Lock(0,1);
+            Sql("UPDATE thread_turns SET completed_at=111 WHERE turn_id='root'");
+            Require(Local(older) is null,"future completion is not reliable");
+            Sql("UPDATE thread_turns SET status='inProgress',completed_at=NULL WHERE turn_id='root'");
+            Console.WriteLine("ALIGNMENT-PASS WinOverviewLocalEvidence");
+
+            Tab5CodexTask[] catalog=[new(newer,"最新会话","测试",2),new(older,"工作会话","测试",1)];
+            string mode="live";long tick=100;int localReads=0;
+            var live=new Tab5LiveActivity((id,_)=>mode switch {
+                "live"=>Task.FromResult(new Tab5CodexDesktop.State(id==newer?"active":"idle","",default,false)),
+                "unavailable"=>Task.FromException<Tab5CodexDesktop.State>(new TimeoutException()),
+                _=>Task.FromException<Tab5CodexDesktop.State>(new Tab5CodexDesktop.Rejected("desktop_snapshot_incompatible"))
+            },id=>{Interlocked.Increment(ref localReads);return Local(id);},()=>tick);
+            // Initial refresh sets the production scheduler gate; subsequent
+            // fixture transitions refresh synchronously without a real desktop.
+            live.Refresh(catalog,CancellationToken.None);
+            for(int i=0;i<200&&live.Fresh().Count!=2;i++)await Task.Delay(10);
+            Require(live.Fresh().Count==2,"initial live refresh");
+            using var bridge=new Tab5CodexTasks(new Tab5CodexDesktop("aibot-overview-"+Guid.NewGuid().ToString("N")),()=>catalog,
+                rolloutPath:_=>null,historyHome:home,liveActivity:live);
+            JsonElement Snapshot()=>JsonSerializer.SerializeToElement(bridge.SnapshotLimited(1));
+            void Overview(string id,string companion,string title) {
+                var snapshot=Snapshot();var overview=snapshot.GetProperty("overviewTask");
+                Require(overview.GetProperty("Id").GetString()==id&&overview.GetProperty("Title").GetString()==title&&
+                    overview.GetProperty("CompanionState").GetString()==companion,"visible overview title and companion: "+companion);
+                Require(snapshot.GetProperty("tasks")[0].GetProperty("Id").GetString()==id,"overview retained under transport limit");
+            }
+            Overview(newer,"working","最新会话");
+            Require(localReads==0,"live snapshot takes precedence over disk");
+            mode="unavailable";await live.RefreshAsync(catalog,CancellationToken.None);
+            Overview(older,"working","工作会话");
+            var fallback=Snapshot();
+            Require(fallback.GetProperty("overviewTask").GetProperty("State").GetString()=="unknown"&&
+                fallback.GetProperty("control").ValueKind==JsonValueKind.Null&&
+                !fallback.GetProperty("repliesReady").EnumerateObject().Any()&&live.Fresh().Count==0,
+                "display fallback cannot authorize control, publish replies or affect global live state");
+            Sql("UPDATE thread_turns SET status='completed',completed_at=109 WHERE turn_id='root'");
+            await live.RefreshAsync([catalog[1]],CancellationToken.None);
+            // With no active task, the newer task is selected. Its missing
+            // writer cannot invent an idle or working state.
+            Overview(newer,"unknown","最新会话");
+            var both=JsonSerializer.SerializeToElement(bridge.SnapshotLimited(2)).GetProperty("tasks");
+            Require(both.EnumerateArray().Single(t=>t.GetProperty("Id").GetString()==older).GetProperty("CompanionState").GetString()=="idle",
+                "explicit completion reaches the same task's companion");
+            catalog[1]=catalog[1] with {UpdatedAt=3};
+            Overview(older,"idle","工作会话");
+            Require(!Snapshot().GetProperty("repliesReady").EnumerateObject().Any()&&
+                Snapshot().GetProperty("control").ValueKind==JsonValueKind.Null,"local completion does not announce replies or enable control");
+            catalog[1]=catalog[1] with {UpdatedAt=1};
+            Sql("UPDATE thread_turns SET status='inProgress',completed_at=NULL WHERE turn_id='root'");
+            await live.RefreshAsync(catalog,CancellationToken.None);
+            Overview(older,"working","工作会话");
+            tick+=15000;Overview(newer,"unknown","最新会话");
+            await live.RefreshAsync(catalog,CancellationToken.None);
+            writer.Unlock(0,1);await live.RefreshAsync(catalog,CancellationToken.None);
+            Overview(newer,"unknown","最新会话");
+            writer.Lock(0,1);mode="incompatible";await live.RefreshAsync(catalog,CancellationToken.None);
+            Overview(newer,"unknown","最新会话");
+            var incompatible=Snapshot();
+            Require(incompatible.GetProperty("overviewTask").GetProperty("State").GetString()=="unknown"&&
+                incompatible.GetProperty("control").ValueKind==JsonValueKind.Null&&
+                !incompatible.GetProperty("repliesReady").EnumerateObject().Any()&&live.Fresh().Count==0,
+                "incompatible live interface must neither use local display state nor grant control");
+            Console.WriteLine("ALIGNMENT-PASS WinOverviewDisplayOnly");
+            mode="live";await live.RefreshAsync(catalog,CancellationToken.None);
+            Overview(newer,"working","最新会话");
+            Console.WriteLine("ALIGNMENT-PASS WinOverviewLiveFallbackTransitions");
+        }finally{Directory.Delete(home,true);}
+    }
+    [DllImport("winsqlite3.dll",CallingConvention=CallingConvention.Cdecl)]
+    private static extern int sqlite3_open_v2([MarshalAs(UnmanagedType.LPUTF8Str)]string path,out nint db,int flags,nint vfs);
+    [DllImport("winsqlite3.dll",CallingConvention=CallingConvention.Cdecl)]
+    private static extern int sqlite3_exec(nint db,[MarshalAs(UnmanagedType.LPUTF8Str)]string sql,nint callback,nint arg,nint error);
+    [DllImport("winsqlite3.dll",CallingConvention=CallingConvention.Cdecl)]
+    private static extern int sqlite3_close(nint db);
 }
