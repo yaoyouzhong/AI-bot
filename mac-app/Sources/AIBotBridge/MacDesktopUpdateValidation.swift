@@ -58,6 +58,7 @@ import Darwin
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [FixtureResponse.self]
         let downloader = MacGalleryDownloader(configuration: configuration)
+        let downloads = root.appendingPathComponent("updates")
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
         var installedCandidate = false
@@ -72,26 +73,81 @@ import Darwin
                 installedCandidate = true
             }, catalogPage: { _ in catalog },
             downloadPackage: { update, progress in
-                try await downloader.download(update, root: root.appendingPathComponent("updates"), progress: progress)
+                try await downloader.download(update, root: downloads, progress: progress)
             })
         controller.open(component: "bridge")
         try waitFor("Catalog did not load.") { !controller.busy }
         func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
-        guard let content = controller.window?.contentView,
+        guard let window = controller.window, let content = window.contentView,
               let button = descendants(content).compactMap({ $0 as? NSButton }).first(where: { $0.title == "一键升级" }),
               button.isEnabled else { throw MacTab5LocalError.invalid("One-click update is unavailable.") }
-        button.performClick(nil)
-        try waitFor("Invalid checksum test timed out.") { !controller.busy }
-        guard !installedCandidate, button.isEnabled,
-              descendants(content).compactMap({ $0 as? NSTextField }).contains(where: { $0.stringValue.contains("未通过 SHA-256 校验") }),
-              !FileManager.default.fileExists(atPath: root.appendingPathComponent("before.json").path) else {
-            throw MacTab5LocalError.invalid("Invalid checksum did not leave the installed app available for retry.")
+        func statusContains(_ message: String) -> Bool {
+            descendants(content).compactMap { $0 as? NSTextField }.contains { $0.stringValue.contains(message) }
+        }
+        func notInstalled() -> Bool {
+            !installedCandidate && !FileManager.default.fileExists(atPath: root.appendingPathComponent("before.json").path)
+        }
+        func rejectInvalidChecksum() throws {
+            button.performClick(nil)
+            try waitFor("Invalid checksum appeared to pass preparation.") { !controller.busy || window.attachedSheet != nil }
+            guard notInstalled(), window.attachedSheet == nil, button.isEnabled, statusContains("未通过 SHA-256 校验") else {
+                throw MacTab5LocalError.invalid("Invalid checksum did not leave the installed app available for retry.")
+            }
+        }
+        func prepare(_ appearance: NSAppearance.Name? = nil, preview: String? = nil) throws -> (window: NSWindow, install: NSButton, later: NSButton) {
+            window.appearance = appearance.flatMap(NSAppearance.init(named:))
+            button.performClick(nil)
+            try waitFor("Verified package did not reach confirmation.") { window.attachedSheet != nil || !controller.busy }
+            guard notInstalled(), let sheet = window.attachedSheet, let view = sheet.contentView,
+                  statusContains("等待确认安装"), !button.isEnabled else {
+                throw MacTab5LocalError.invalid("The prepared update did not wait for an explicit choice.")
+            }
+            let buttons = descendants(view).compactMap { $0 as? NSButton }
+            guard let install = buttons.first(where: { $0.title == "安装并重启" }),
+                  let later = buttons.first(where: { $0.title == "稍后" }), later.keyEquivalent == "\u{1b}" else {
+                throw MacTab5LocalError.invalid("The upgrade confirmation actions were not available.")
+            }
+            if let preview { try MacTab5UIValidation.render(view, to: root.appendingPathComponent(preview)) }
+            return (sheet, install, later)
         }
 
+        try rejectInvalidChecksum()
         FixtureResponse.set([packageURL: asset, checksumURL: checksum(fixture.sha256)])
-        button.performClick(nil)
+        let packageRequests = FixtureResponse.requestCount(packageURL)
+        let cached = downloads.appendingPathComponent("downloads/\(fixture.sha256)/\(fixture.archive)")
+        let light = try prepare(.aqua, preview: "confirmation-light.png")
+        light.later.performClick(nil)
+        try waitFor("Later did not return to the update window.") { !controller.busy }
+        guard notInstalled(), button.isEnabled, statusContains("已保留安装包"),
+              try MacTab5Protocol.sha256(Data(contentsOf: cached)) == fixture.sha256 else {
+            throw MacTab5LocalError.invalid("Later did not preserve the verified package and installed app.")
+        }
+        let dark = try prepare(.darkAqua, preview: "confirmation-dark.png")
+        guard let escape = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                                           windowNumber: dark.window.windowNumber, context: nil, characters: "\u{1b}",
+                                           charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53) else {
+            throw MacTab5Error.unavailable
+        }
+        dark.window.sendEvent(escape)
+        try waitFor("Escape did not defer the installation.") { !controller.busy }
+        guard notInstalled(), statusContains("已保留安装包"), FixtureResponse.requestCount(packageURL) == packageRequests + 1 else {
+            throw MacTab5LocalError.invalid("Retry downloaded the same package again or installed without confirmation.")
+        }
+
+        // Damage the local copy without changing its length so retry must hash
+        // the existing bytes, not infer validity from the completed download.
+        let handle = try FileHandle(forWritingTo: cached)
+        try handle.write(contentsOf: Data([(asset.first ?? 0) ^ 0xff]))
+        try handle.close()
+        try rejectInvalidChecksum()
+
+        let final = try prepare()
+        guard FixtureResponse.requestCount(packageURL) == packageRequests + 2 else {
+            throw MacTab5LocalError.invalid("The invalid cache was not downloaded again on retry.")
+        }
+        final.install.performClick(nil)
         try waitFor("Verified package did not install.") { installedCandidate }
-        print("MAC_DESKTOP_UPDATE_SWAP_OK invalid checksum blocked and retry installed verified bytes")
+        print("MAC_DESKTOP_UPDATE_SWAP_OK checksum rejection, Later and Escape preserved the app, retry reused verified bytes, confirmation installed once")
         app.terminate(nil)
     }
 
@@ -114,13 +170,18 @@ import Darwin
 private final class FixtureResponse: URLProtocol {
     private static let lock = NSLock()
     private static var replies: [URL: Data] = [:]
+    private static var requests: [URL: Int] = [:]
 
     static func set(_ value: [URL: Data]) { lock.withLock { replies = value } }
+    static func requestCount(_ url: URL) -> Int { lock.withLock { requests[url, default: 0] } }
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
-        guard let url = request.url, let body = Self.lock.withLock({ Self.replies[url] }),
+        guard let url = request.url, let body = Self.lock.withLock({
+            Self.requests[url, default: 0] += 1
+            return Self.replies[url]
+        }),
               let reply = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1",
                                           headerFields: ["Content-Length": String(body.count)]) else {
             client?.urlProtocol(self, didFailWithError: URLError(.resourceUnavailable))
