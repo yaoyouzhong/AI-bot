@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Apple Silicon Mac
 
-- **Future Mac one-click updates won't ask you to grant Accessibility again.** Version 0.6.33 switches to a fixed signing certificate, and later versions signed with the same certificate keep your permission. When upgrading from an older version to 0.6.33, you may need to grant it once more.
+- **The Mac bridge now uses a fixed signing certificate.** When upgrading from an older version to 0.6.33, macOS may ask you to grant some system permissions again, including Accessibility. Later one-click updates signed with the same certificate retain the Accessibility permission you've already granted.
 
 ## 0.6.32 - 2026-11-25
 
