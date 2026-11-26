@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.34 - 2026-11-26
+
+### Apple Silicon Mac
+
+- **Notification prompts no longer hold up other permissions.** Setup asks about notifications last on first launch or after an update. You can leave the prompt unanswered and enable notifications later in **Device Center → Bridge Settings → System Permissions**. When computer control is enabled, the bridge checks System Events permission at startup without asking you to confirm a permission you've already granted.
+
 ## 0.6.33 - 2026-11-26
 
 ### Apple Silicon Mac

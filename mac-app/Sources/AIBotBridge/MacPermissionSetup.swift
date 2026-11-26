@@ -34,6 +34,42 @@ enum MacAccessibilityInstallation {
 }
 
 @MainActor
+final class MacSystemEventsPermissionReview {
+    typealias State = MacPermissionSetup.State
+
+    private let probe: (Bool) async -> State
+    private var launchCheck: Task<State, Never>?
+    private var lastCheck: State?
+
+    init(probe: @escaping (Bool) async -> State) {
+        self.probe = probe
+    }
+
+    func checkAtLaunch() async -> State {
+        if let launchCheck { return await launchCheck.value }
+        let task = Task { [weak self, probe] in
+            let state = await probe(true)
+            self?.remember(state)
+            return state
+        }
+        launchCheck = task
+        return await task.value
+    }
+
+    func current() async -> State {
+        _ = await checkAtLaunch()
+        let state = await probe(false)
+        remember(state)
+        return state == .openApp && lastCheck == .allowed ? .lastCheckedAllowed : state
+    }
+
+    private func remember(_ state: State) {
+        // A stopped helper is not a new authorization decision.
+        if state != .openApp { lastCheck = state }
+    }
+}
+
+@MainActor
 enum MacPermissionSetup {
     private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "AIBotBridge", category: "SystemPermissions")
     private static var lastReportedAccessibility: State?
@@ -52,15 +88,14 @@ enum MacPermissionSetup {
         Step.allCases.filter { step in
             let state = states[step] ?? .checking
             guard state.needsAttention else { return false }
+            if step == .systemEvents, state == .openApp { return false }
             guard mode == .upgrade else { return true }
-            // System Events is a background helper. Retry if it stopped or
-            // wasn't ready during preflight. Don't open other apps on upgrade.
-            return step != .localNetwork && (state != .openApp || step == .systemEvents)
+            return step != .localNetwork && state != .openApp
         }
     }
 
     enum State: Equatable {
-        case unused, checking, request, settings, allowed, openApp, unavailable, conflictingCopy
+        case unused, checking, request, settings, allowed, lastCheckedAllowed, openApp, unavailable, conflictingCopy
 
         var needsPermission: Bool { self == .request || self == .settings || self == .openApp }
         var needsAttention: Bool { needsPermission || self == .conflictingCopy }
@@ -72,6 +107,7 @@ enum MacPermissionSetup {
             case .request: return "待授权"
             case .settings: return "请在系统设置中确认"
             case .allowed: return "已授权"
+            case .lastCheckedAllowed: return "上次检查已授权"
             case .openApp: return "打开应用后可授权"
             case .unavailable: return "当前不可用"
             }
@@ -207,11 +243,14 @@ enum MacPermissionSetup {
     ) async {
         for step in steps {
             guard !Task.isCancelled else { return }
+            // The window offers notifications after this queue, without waiting
+            // for the right-corner banner to be answered.
+            if step == .notifications { continue }
             let current = await state(step)
             guard !Task.isCancelled else { return }
             if step == .localNetwork, current == .settings, mode == .firstLaunch {
                 await request(step, .request)
-            } else if current == .request || (current == .openApp && (mode == .firstLaunch || step == .systemEvents))
+            } else if current == .request || (current == .openApp && mode == .firstLaunch && step != .systemEvents)
                 || (step == .accessibility && current == .settings) {
                 await request(step, current)
             }

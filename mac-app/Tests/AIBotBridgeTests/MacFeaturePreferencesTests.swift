@@ -14,7 +14,7 @@ final class MacFeaturePreferencesTests: XCTestCase {
             await Task.yield()
             requested.append(step)
         })
-        XCTAssertEqual(requested, [.location, .notifications, .terminal, .music, .systemEvents, .localNetwork, .accessibility])
+        XCTAssertEqual(requested, [.location, .terminal, .music, .localNetwork, .accessibility])
     }
 
     @MainActor func testConflictingAccessibilityCopyIsVisibleWithoutRequestingConsent() async {
@@ -62,18 +62,45 @@ final class MacFeaturePreferencesTests: XCTestCase {
             .terminal: .openApp], mode: .upgrade).isEmpty)
     }
 
-    @MainActor func testUpgradeRetriesAnUnavailableSystemEventsPreflight() async {
+    @MainActor func testUnverifiedSystemEventsDoesNotRequestAuthorization() async {
         typealias Step = MacPermissionSetup.Step
         typealias State = MacPermissionSetup.State
         XCTAssertTrue(MacPermissionSetup.pendingSteps([.systemEvents: .allowed], mode: .upgrade).isEmpty)
-        let steps = MacPermissionSetup.pendingSteps([.systemEvents: .openApp, .terminal: .openApp], mode: .upgrade)
-        XCTAssertEqual(steps, [.systemEvents])
-        for state in [State.openApp, .request, .allowed, .unavailable] {
+        XCTAssertTrue(MacPermissionSetup.pendingSteps([.systemEvents: .openApp, .terminal: .openApp], mode: .upgrade).isEmpty)
+        XCTAssertEqual(MacPermissionSetup.pendingSteps([.systemEvents: .request], mode: .upgrade), [.systemEvents])
+        for state in [State.openApp, .request, .allowed, .lastCheckedAllowed, .unavailable] {
             var requested: [State] = []
-            await MacPermissionSetup.runInitial(steps: steps, mode: .upgrade, state: { _ in state },
+            await MacPermissionSetup.runInitial(steps: [Step.systemEvents], mode: .upgrade, state: { _ in state },
                 request: { _, current in requested.append(current) })
-            XCTAssertEqual(requested, state == .openApp || state == .request ? [state] : [])
+            XCTAssertEqual(requested, state == .request ? [state] : [])
         }
+    }
+
+    @MainActor func testSystemEventsStartupAndWindowShareOneBackgroundCheck() async {
+        var starts = 0
+        var live = MacPermissionSetup.State.allowed
+        let review = MacSystemEventsPermissionReview { startsHelper in
+            if startsHelper { starts += 1; await Task.yield() }
+            return live
+        }
+        let startup = Task { await review.checkAtLaunch() }
+        let opened = Task { await review.current() }
+        let launchState = await startup.value
+        let firstVisible = await opened.value
+        XCTAssertEqual(launchState, .allowed)
+        XCTAssertEqual(firstVisible, .allowed)
+        live = .openApp
+        for _ in 0..<3 {
+            let observed = await review.current()
+            XCTAssertEqual(observed, .lastCheckedAllowed)
+        }
+        live = .request
+        let revoked = await review.current()
+        XCTAssertEqual(revoked, .request)
+        live = .openApp
+        let unchecked = await review.current()
+        XCTAssertEqual(unchecked, .openApp)
+        XCTAssertEqual(starts, 1)
     }
 
     @MainActor func testSystemEventsAndAccessibilityAreRequestedIndependently() async {
