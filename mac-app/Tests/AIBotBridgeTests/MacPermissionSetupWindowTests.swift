@@ -3,6 +3,104 @@ import XCTest
 @testable import AIBotBridge
 
 final class MacPermissionSetupWindowTests: XCTestCase {
+    @MainActor func testInitialGuideOffersNotificationsAfterAccessibilityFollowUpWithoutWaiting() async throws {
+        typealias Step = MacPermissionSetup.Step
+        typealias State = MacPermissionSetup.State
+        _ = NSApplication.shared
+        let priorPolicy = NSApp.activationPolicy()
+        if priorPolicy != .prohibited, !NSApp.setActivationPolicy(.prohibited) {
+            throw XCTSkip("The test process cannot disable window activation")
+        }
+        defer { if priorPolicy != .prohibited { NSApp.setActivationPolicy(priorPolicy) } }
+
+        var states: [Step: State] = [.notifications: .request, .systemEvents: .request, .accessibility: .settings]
+        var sequence: [Step] = []
+        var idleCount = 0
+        var notificationDecision: CheckedContinuation<Void, Never>?
+        let controller = MacPermissionSetupWindow(readState: { states[$0] ?? .unused }, request: { step, state in
+            sequence.append(step)
+            if step == .accessibility, state == .settings { return }
+            if step == .notifications {
+                await withCheckedContinuation { notificationDecision = $0 }
+            }
+            states[step] = .allowed
+        })
+        controller.onIdle = { idleCount += 1 }
+        let window = try XCTUnwrap(controller.window)
+        window.alphaValue = 0
+        defer { notificationDecision?.resume(); window.close() }
+        controller.open(initial: states, steps: [.notifications, .systemEvents, .accessibility], mode: .upgrade)
+        for _ in 0..<100 where idleCount == 0 { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(sequence, [.systemEvents, .accessibility])
+        XCTAssertEqual(idleCount, 1)
+        XCTAssertNil(notificationDecision)
+
+        states[.accessibility] = .request
+        XCTAssertTrue(controller.resumeIfOpen())
+        for _ in 0..<100 where notificationDecision == nil { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(sequence, [.systemEvents, .accessibility, .accessibility, .notifications])
+        XCTAssertEqual(idleCount, 2)
+        XCTAssertNotNil(notificationDecision)
+        let finished = notificationDecision
+        notificationDecision = nil
+        finished?.resume()
+    }
+
+    @MainActor func testNotificationWaitDoesNotBlockSystemEvents() async throws {
+        typealias Step = MacPermissionSetup.Step
+        typealias State = MacPermissionSetup.State
+        _ = NSApplication.shared
+        let priorPolicy = NSApp.activationPolicy()
+        if priorPolicy != .prohibited, !NSApp.setActivationPolicy(.prohibited) {
+            throw XCTSkip("The test process cannot disable window activation")
+        }
+        defer { if priorPolicy != .prohibited { NSApp.setActivationPolicy(priorPolicy) } }
+
+        var states: [Step: State] = [.notifications: .request, .systemEvents: .request]
+        var notificationDecision: CheckedContinuation<Void, Never>?
+        var requests: [Step] = []
+        let controller = MacPermissionSetupWindow(readState: { states[$0] ?? .unused }, request: { step, _ in
+            requests.append(step)
+            if step == .notifications {
+                await withCheckedContinuation { notificationDecision = $0 }
+            }
+            states[step] = .allowed
+        })
+        let window = try XCTUnwrap(controller.window)
+        defer {
+            notificationDecision?.resume()
+            window.close()
+        }
+        func find(_ view: NSView, id: String) -> NSView? {
+            if view.identifier?.rawValue == id { return view }
+            return view.subviews.lazy.compactMap { find($0, id: id) }.first
+        }
+        let content = try XCTUnwrap(window.contentView)
+        let notifications = try XCTUnwrap(find(content, id: "permission-notifications") as? NSButton)
+        let settings = try XCTUnwrap(find(content, id: "permission-notification-settings") as? NSButton)
+        let systemEvents = try XCTUnwrap(find(content, id: "permission-systemEvents") as? NSButton)
+        let notificationStatus = try XCTUnwrap(find(content, id: "permission-status-notifications") as? NSTextField)
+        controller.configurePresentation(mode: .upgrade, steps: [.notifications, .systemEvents])
+        controller.display(states)
+        window.alphaValue = 0
+        window.orderFrontRegardless()
+        notifications.performClick(nil)
+        for _ in 0..<100 where notificationDecision == nil { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(requests, [.notifications])
+        XCTAssertEqual(notificationStatus.stringValue, "请到右上角确认")
+        XCTAssertTrue(settings.isEnabled && !settings.isHidden)
+        XCTAssertTrue(systemEvents.isEnabled)
+
+        systemEvents.performClick(nil)
+        for _ in 0..<100 where !systemEvents.isHidden { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(requests, [.notifications, .systemEvents])
+        XCTAssertNotNil(notificationDecision)
+        XCTAssertEqual(notificationStatus.stringValue, "请到右上角确认")
+        let finished = notificationDecision
+        notificationDecision = nil
+        finished?.resume()
+    }
+
     @MainActor func testReturnsToSameWindowAndRefreshesAfterAccessibilityApproval() async throws {
         typealias State = MacPermissionSetup.State
         _ = NSApplication.shared
