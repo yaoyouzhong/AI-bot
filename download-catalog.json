@@ -9,11 +9,11 @@
       "sha256": "ea12f145b84e0a855eea82d3b323ccb3aace81dc67adee95b8e553f34c52814a"
     },
     "macos": {
-      "version": "0.6.33",
-      "tag": "v0.6.33",
-      "file": "AI-bot-bridge-v0.6.33-macos-arm64.zip",
-      "size": 19948901,
-      "sha256": "ad016b141c25164dfb40d598b83daf06baad810f5543e3aac7de249cb3d25954"
+      "version": "0.6.34",
+      "tag": "v0.6.34",
+      "file": "AI-bot-bridge-v0.6.34-macos-arm64.zip",
+      "size": 19961011,
+      "sha256": "409839af1075e49ee3eab14f8a948e0dae0f7ec18d1356ffa0ce3d815837dd50"
     },
     "esp8266": {
       "version": "0.5.8",
