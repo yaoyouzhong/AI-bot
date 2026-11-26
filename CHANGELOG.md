@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Apple Silicon Mac
 
-- **The Mac bridge now uses a fixed signing certificate.** You may need to reapprove Accessibility once when upgrading from an older version to 0.6.33. After that, One-click Update keeps your existing Accessibility permission when the new version is signed with the same certificate.
+- **Future Mac one-click updates won't ask you to grant Accessibility again.** Version 0.6.33 switches to a fixed signing certificate, and later versions signed with the same certificate keep your permission. When upgrading from an older version to 0.6.33, you may need to grant it once more.
 
 ## 0.6.32 - 2026-11-25
 
