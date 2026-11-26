@@ -12,6 +12,17 @@ from artifact_names import COMPONENT_KEYS, ESP_FLASH_TEMPLATE, UPDATE_ALIASES, n
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def mac_signing(archive):
+    with zipfile.ZipFile(archive) as package:
+        if "MAC_SIGNING.json" not in package.namelist():
+            return "arm64; signing metadata unavailable; interactive acceptance required"
+        record = json.loads(package.read("MAC_SIGNING.json"))
+    if record not in ({"mode": "adhoc", "notarized": False}, {"mode": "certificate", "notarized": False}):
+        raise ValueError("Invalid macOS package signing metadata")
+    signing = "ad-hoc signed" if record["mode"] == "adhoc" else "certificate signed"
+    return f"arm64; {signing}; not notarized; interactive acceptance required"
+
+
 def prepare(directory: Path, version: str, commit: str, *, component="bundle", versions=None, tab5_source=None, desktop_platform="all"):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Expected full source commit SHA")
@@ -45,13 +56,14 @@ def prepare(directory: Path, version: str, commit: str, *, component="bundle", v
         if checksum != f"{actual}  {name}":
             raise ValueError(f"Archive checksum mismatch: {name}")
     source_record = validate_tab5(directory, tab, source=tab5_source) if component == "tab5" else None
+    mac = mac_signing(directory / resolve(directory, "macos", bridge)) if "macos" in keys else "not included"
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         shutil.copyfile(ROOT / name, directory / name)
     (directory / "BUILD.json").write_text(json.dumps({
         "version": version, "component": component, "componentVersions": current, "sourceCommit": commit,
         "packageHashes": {name: hashlib.sha256((directory / name).read_bytes()).hexdigest() for name in archives},
         "tab5Source": source_record,
-        "macOS": "arm64; ad-hoc signed; not notarized; interactive acceptance required" if component in ("bridge", "bundle") and desktop_platform != "windows" else "not included",
+        "macOS": mac,
         "desktopPlatform": desktop_platform,
         "status": "candidate; publication requires separate acceptance"
     }, indent=2) + "\n", encoding="utf-8")

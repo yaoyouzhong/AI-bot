@@ -46,13 +46,15 @@ PY
 cache_root="$HOME/Library/Application Support/AI-bot/build-tools/keychain/$cache_key"
 cached="$cache_root/AIBotKeychainHelper"
 requirement="identifier \"$helper_id\" and certificate leaf = H\"$fingerprint\""
+sign_options=()
+if [[ -n "${AIBOT_MAC_SIGN_KEYCHAIN:-}" ]]; then sign_options+=(--keychain "$AIBOT_MAC_SIGN_KEYCHAIN"); fi
 if [[ ! -f "$cached" ]]; then
     mkdir -p "$cache_root"
     chmod 700 "$cache_root"
     temporary="$(mktemp "$cache_root/.helper.XXXXXX")"
     trap 'rm -f "$temporary"' EXIT
     install -m 755 "$binary" "$temporary"
-    codesign --force --sign "$identity" --timestamp=none --options runtime --identifier "$helper_id" "$temporary"
+    codesign --force --sign "$identity" ${sign_options[@]+"${sign_options[@]}"} --timestamp=none --options runtime --identifier "$helper_id" "$temporary"
     codesign --verify --strict -R="${requirement}" "$temporary"
     mv "$temporary" "$cached"
     trap - EXIT

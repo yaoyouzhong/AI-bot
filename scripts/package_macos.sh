@@ -14,6 +14,13 @@ mkdir -p "$repo_root/artifacts"
 output="$(cd "$output" && pwd)"
 stage="$(mktemp -d "$repo_root/artifacts/mac-package.XXXXXX")"
 bash scripts/build_macos_app.sh "$stage/AIBotBridge.app"
+signature="$(codesign --display --verbose=4 "$stage/AIBotBridge.app" 2>&1)"
+if [[ "$signature" == *'Signature=adhoc'* ]]; then
+    signing=adhoc
+else
+    signing=certificate
+fi
+printf '{"mode":"%s","notarized":false}\n' "$signing" > "$stage/MAC_SIGNING.json"
 python3 scripts/test_flash_tool_bundle.py
 lipo "$stage/AIBotBridge.app/Contents/MacOS/AIBotBridge" -verify_arch arm64
 cp LICENSE THIRD_PARTY_NOTICES.md "$stage/"
@@ -29,4 +36,4 @@ plutil -lint "$unpacked/AIBotBridge.app/Contents/Info.plist"
 codesign --verify --deep --strict --verbose=2 "$unpacked/AIBotBridge.app"
 "$unpacked/AIBotBridge.app/Contents/MacOS/AIBotBridge" --self-test-flash-tool
 (cd "$output" && shasum -a 256 "$(basename "$archive")" > "$(basename "$archive").sha256")
-echo "MAC_PACKAGE_OK zip=$archive; interactive acceptance pending; ad-hoc signed, not notarized"
+echo "MAC_PACKAGE_OK zip=$archive; signing=$signing; not notarized; interactive acceptance pending"
