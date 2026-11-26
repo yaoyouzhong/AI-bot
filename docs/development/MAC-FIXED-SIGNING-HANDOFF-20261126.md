@@ -24,4 +24,11 @@
 - 本地证据：`artifacts/mac-fixed-signing-20261126/`（包括原生回执和截图）。固定签名 ZIP 为 `AI-bot-bridge-v0.6.31-macos-arm64.zip`，19,948,421 字节，SHA-256 `984007a6a07a3d07698a62cc311fcbd9da29f0eee6d484841c0163212003bbae`。构建基线及未提交补丁单独留证；这是本机隔离候选，不是可直接公开晋级的包。试验版编号不是产品版本。
 - 该机早先的独立标识真授权实测，已覆盖浏览器首装手动放行后，同证书内置升级保留辅助功能。本次使用另一个独立标识 `AIBotSigningMigration.app` 和当前内置更新逻辑，走完整授权路径：临时签名 1.1.0 获得辅助功能权限后，于 13:08:59 执行更新；固定签名 1.1.1 于 13:09:00 自动启动，未被系统阻止，但新进程读到未授权。系统列表不再显示旧测试条目，重新添加当前测试 App 即可，不需要先删除。重新授权后，1.1.1 于 13:12:53 更新；同证书 1.1.2 于 13:12:54 自动启动，第一次权限检查为已授权，无需再授予。两次均保持固定安装路径，旧、新进程分别确认。原始回执和汇总保存在本地 `artifacts/mac-fixed-signing-20261126/tcc/`。
 - 测试结束后只重置测试标识的 Accessibility，通过新进程复验未授权；关闭测试 App 和回环更新服务，日常桥接未重启或替换。
-- 待验收：Mac｜使用长期发布证书签出的原包验证首次浏览器安装（未公证时可能须手动放行）、已许可旧公开版迁移、后续内置更新和所需的系统权限。不要把试验证书下的辅助功能结果扩展为本候选、钥匙串、麦克风、定位、单目标控制权限或其他 macOS 版本的结论；钥匙串和设备链路另验。
+## 0.6.33 正式包补验
+
+- **原包身份：** 源码 `7f7be120603a6243acb04f6c787fd5e67408477d`，候选 `c4d00428fd5cf264cca1632c9e36bf635ae5345d1f400e4aa525eba19637967b`。[正式发布](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.33)只包含 Apple Silicon Mac 桥接与校验清单，Windows 和设备固件版本不变。
+- **普通账户首装与钥匙串：** 在同一台 Apple Silicon Mac（macOS 27.3，26C5047e）的全新普通账户用 Chrome 下载封存 ZIP。下载摘要与候选一致，ZIP 及解压后的 App 均带浏览器隔离标记，完整验签通过。首次正常打开创建了该账户的钥匙串条目；停止后从同一位置重开，新进程读回同一条目，未改写条目，也无须再次经过阻止启动的确认。通过独立本地端口和原生鉴权路径验证，不读取或记录凭据。测试进程已停止，日常桥接的进程、版本及可执行文件摘要不变。
+- **升级与权限证据分开：** 旧公开 0.6.32 原包在隔离配置中经内置更新安装本次 0.6.33 原包，验证了版本、替换、自动启动和配置保留。临时签名迁移及同证书后续更新的辅助功能授权实测来自上面的独立测试标识；正式包首装未授予辅助功能，未验证生产旧钥匙串迁移、其他系统权限、设备配对或其他 macOS 版本。
+- **后续例行发版：** 固定证书、下载与首装路径、钥匙串访问方式未变时，不逐版重建普通账户或重走手动首开。照常核对新原包摘要、App 和辅助程序签名身份，用上一公开原包做原生内置更新及重启回归并登记证据。更换证书、改动分发格式、更新器或钥匙串行为时，按影响补测相关入口；维护原有发布验收要求。
+
+The frozen 0.6.33 Apple Silicon package passed quarantined Chrome download, first launch, and login Keychain creation and reuse on restart in a fresh standard account. The old public package also updated to the frozen package with an isolated profile. Accessibility migration evidence is from a separate test identifier and is not evidence of production Keychain migration or hardware pairing. Routine releases can use native in-app update regression instead of repeating the manual fresh-account walkthrough when the relevant paths and signing identity are unchanged.
