@@ -6,8 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Apple Silicon Mac
 
-- **Keep Accessibility permission across updates.** For future versions signed with the same certificate, use **Bridge Settings → Software/Firmware → One-click Update** to keep the permission you already granted.
-- **Reapprove permissions on the first switch only if macOS asks.** When moving from an older signing identity to this one, open **Device Center → Bridge Settings → System Permissions** after the app restarts and reapprove only what it reports as missing. A fresh download may still need **Open Anyway** because the app is not Apple-notarized.
+- **The Mac bridge now uses a fixed signing certificate.** You may need to reapprove Accessibility once when upgrading from an older version to 0.6.33. After that, One-click Update keeps your existing Accessibility permission when the new version is signed with the same certificate.
 
 ## 0.6.32 - 2026-11-25
 
