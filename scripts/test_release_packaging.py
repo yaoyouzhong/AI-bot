@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 
 from prepare_release_assets import prepare, ROOT
 from test_component_versions import ComponentVersionTests, ComponentPayloadTests
@@ -127,7 +128,12 @@ class PackagingTests(unittest.TestCase):
                      "AIBotBridge-0.1.0-local-candidate-macos-arm64.zip",
                      "AI-bot-0.1.0-source.zip", "AI-bot-0.1.0-firmware-materials.zip"):
             data = name.encode()
-            (directory / name).write_bytes(data)
+            if name.endswith("-macos-arm64.zip"):
+                with zipfile.ZipFile(directory / name, "w") as archive:
+                    archive.writestr("MAC_SIGNING.json", '{"mode":"certificate","notarized":false}')
+                data = (directory / name).read_bytes()
+            else:
+                (directory / name).write_bytes(data)
             (directory / (name + ".sha256")).write_text(
                 f"{hashlib.sha256(data).hexdigest()}  {name}\n", encoding="ascii")
 
@@ -241,7 +247,7 @@ class PackagingTests(unittest.TestCase):
                     (directory / windows).unlink()
                     (directory / (windows + ".sha256")).unlink()
                     prepare(directory, "0.1.0", "a" * 40, component="bridge", desktop_platform="macos")
-                    self.assertNotEqual(json.loads((directory / "BUILD.json").read_text())["macOS"], "not included")
+                    self.assertIn("certificate signed; not notarized", json.loads((directory / "BUILD.json").read_text())["macOS"])
                     public = Path(temp) / "public"
                     user_payload(directory, public, "bridge")
                     self.assertTrue((public / "AI-bot-bridge-v0.1.0-macos-arm64.zip").exists())

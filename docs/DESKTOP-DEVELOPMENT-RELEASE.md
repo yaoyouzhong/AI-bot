@@ -57,6 +57,19 @@ Evidence follows the actual change: identify candidates by source and archive ha
 - 覆盖升级后，新版本首次打开时重新检查启用功能的权限；只列出系统可确认的缺失项，已授权项不再请求。启用电脑控制时，在后台启动系统事件以预检自动化权限。辅助功能待授权时，由当前进程向 macOS 请求，再打开系统设置，便于给本次运行的 App 授权。无法无提示预检的本地网络和未运行的其他自动化目标仍可在完整清单中处理。同版本重新启动不重复打开引导。
 - 关闭引导后，从「设备中心 → 桥接设置 → 系统授权」补办；保留手动关闭的功能。正式发布验收使用独立账户。也可在当前账户用全新应用标识、独立配置和钥匙串记录的完整包复测流程；从一开始固定安装路径，勿清除日常账户权限。
 
+### 固定签名候选 / Fixed-signing candidates
+
+准备未公证的固定自签名候选时，在 Mac 构建机的钥匙串使用**同一张**代码签名证书和私钥。用下列命令对新目录打包；证书指纹可用于识别证书，私钥、密码和钥匙串不得进入仓库或安装包。`AIBOT_MAC_SIGN_KEYCHAIN` 可指向已经解锁的独立构建钥匙串。`fixed` 要求明确的证书指纹，失败即停止，不自动生成/更换证书，也不退回临时签名。正式长期使用前需确认发布人、私钥备份和证书有效期；不要复用一次性测试证书。这不改变默认 CI 的签名方式或发布授权。
+
+```bash
+AIBOT_MAC_SIGN_MODE=fixed AIBOT_MAC_SIGN_IDENTITY='<40 位证书指纹>' \
+  bash scripts/package_macos.sh artifacts/<新候选目录>
+```
+
+- 迁移：使用已公开的临时签名旧包，保持原安装位置，通过内置更新装入固定签名候选。旧版本可能没有迁移说明，应在对应发布说明同时解释：重启后仅补办确实失效的系统权限，钥匙串确认单独核对，不承诺全部无提示。
+- 连续升级：使用同一张证书和 Bundle ID 构建一个不同版本，通过内置更新复验自动重启和当前进程的辅助功能状态。不以系统开关外观代替实测；下载包的 Gatekeeper 放行与权限继承单列。固定签名版拒绝通过内置更新退回临时签名或换证书；确需轮换需单独设计迁移与验收，不把手动回退当作保留权限。
+- Use the same code-signing certificate and bundle identifier across builds. `fixed` requires the certificate fingerprint and never falls back to ad-hoc. First adoption can require renewed system permissions; subsequent in-app updates reject signer changes or ad-hoc packages. This package is not notarized. Verify Gatekeeper, Accessibility and Keychain separately, and do not publish with the isolated test certificate.
+
 ## 维护与回退
 
 发布后执行现有发布收尾清单，核验公开下载、客户端更新检查及各平台实际版本；更新主页、安装说明和相关媒体。保留发布清单、附件摘要与验收记录。

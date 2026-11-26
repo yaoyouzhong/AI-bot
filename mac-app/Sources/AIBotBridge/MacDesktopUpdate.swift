@@ -1,8 +1,74 @@
 import AppKit
 import Darwin
+import Security
 
 enum MacDesktopUpdate {
     private static let appID = "io.github.yaoyouzhong.aibot.bridge"
+
+    enum SigningTransition: Equatable { case unchanged, adoptingCertificate }
+
+    enum SigningError: LocalizedError {
+        case unreadable, differentSigner
+
+        var errorDescription: String? {
+            switch self {
+            case .unreadable: "无法确认当前应用或更新包的签名身份；没有安装更新。"
+            case .differentSigner: "更新包的签名与已安装版本不一致；保留当前版本。"
+            }
+        }
+    }
+
+    private struct SigningIdentity {
+        let code: SecStaticCode
+        let requirement: SecRequirement
+        let leaf: Data?
+
+        init(_ url: URL) throws {
+            var code: SecStaticCode?
+            var info: CFDictionary?
+            var requirement: SecRequirement?
+            guard SecStaticCodeCreateWithPath(url as CFURL, [], &code) == errSecSuccess, let code,
+                  SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
+                  let details = info as NSDictionary?, let flags = details[kSecCodeInfoFlags] as? NSNumber,
+                  SecCodeCopyDesignatedRequirement(code, [], &requirement) == errSecSuccess, let requirement else {
+                throw SigningError.unreadable
+            }
+            self.code = code
+            self.requirement = requirement
+            if flags.uint32Value & SecCodeSignatureFlags.adhoc.rawValue != 0 {
+                leaf = nil
+            } else if let certificate = (details[kSecCodeInfoCertificates] as? [SecCertificate])?.first {
+                leaf = SecCertificateCopyData(certificate) as Data
+            } else {
+                throw SigningError.unreadable
+            }
+        }
+
+        func satisfies(_ requirement: SecRequirement) -> Bool {
+            SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess
+        }
+    }
+
+    // Legacy ad-hoc clients have no publisher identity to pin. The existing
+    // release transport, SHA-256, bundle ID and strict signature validation
+    // still apply to that one-time adoption. Once signed, never fall back.
+    private static func signingTransition(from installed: URL, to candidate: URL) throws -> SigningTransition {
+        let current = try SigningIdentity(installed), next = try SigningIdentity(candidate)
+        guard let leaf = current.leaf else { return next.leaf == nil ? .unchanged : .adoptingCertificate }
+        guard next.leaf == leaf, next.satisfies(current.requirement), current.satisfies(next.requirement) else {
+            throw SigningError.differentSigner
+        }
+        return .unchanged
+    }
+
+    static func prepare(_ package: URL, replacing installed: URL, version: String) throws -> (app: URL, signing: SigningTransition) {
+        let app = try unpack(package, version: version)
+        do { return (app, try signingTransition(from: installed, to: app)) }
+        catch {
+            try? FileManager.default.removeItem(at: app.deletingLastPathComponent())
+            throw error
+        }
+    }
 
     static func unpack(_ package: URL, version: String) throws -> URL {
         let folder = package.deletingLastPathComponent().resolvingSymlinksInPath().appendingPathComponent("app-" + UUID().uuidString)
@@ -48,6 +114,7 @@ enum MacDesktopUpdate {
         defer { if !keepStaging { try? fm.removeItem(at: staging) } }
         _ = try MacTab5LocalProcess.run("/usr/bin/ditto", [app.path, replacement.path], timeout: 60)
         try verify(replacement, version: version)
+        _ = try signingTransition(from: installed, to: replacement)
         func swap() -> Bool {
             renameatx_np(AT_FDCWD, replacement.path, AT_FDCWD, installed.path, UInt32(RENAME_SWAP)) == 0
         }

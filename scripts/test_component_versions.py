@@ -67,7 +67,12 @@ class ComponentPayloadTests(unittest.TestCase):
     def seed(self, directory, names):
         for name in names:
             data = name.encode()
-            (directory / name).write_bytes(data)
+            if name.endswith("-macos-arm64.zip"):
+                with zipfile.ZipFile(directory / name, "w") as archive:
+                    archive.writestr("README.md", data)
+                data = (directory / name).read_bytes()
+            else:
+                (directory / name).write_bytes(data)
             (directory / (name+".sha256")).write_text(f"{hashlib.sha256(data).hexdigest()}  {name}\n")
 
     def test_bridge_only_and_esp_only_need_no_other_component_packages(self):

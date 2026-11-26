@@ -416,10 +416,13 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
                 canCancel = false; controls()
                 status.stringValue = "下载校验通过，正在检查安装包…"
                 if key == "bridge" {
-                    let app = try await Task.detached { try MacDesktopUpdate.unpack(path, version: release.version) }.value
+                    let prepared = try await Task.detached {
+                        try MacDesktopUpdate.prepare(path, replacing: Bundle.main.bundleURL, version: release.version)
+                    }.value
+                    let app = prepared.app
                     progress.isHidden = true
                     status.stringValue = "安装包已校验，等待确认安装。"
-                    let confirmed = await confirmDesktopInstall(current: version, target: release.version)
+                    let confirmed = await confirmDesktopInstall(current: version, target: release.version, signing: prepared.signing)
                     guard confirmed, !Task.isCancelled else {
                         try? FileManager.default.removeItem(at: app.deletingLastPathComponent())
                         status.stringValue = "已保留安装包，可稍后安装。"
@@ -429,6 +432,9 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
                     do {
                         try installDesktop(app, release.version)
                         status.stringValue = "已替换应用，正在重新打开 AI-bot…"
+                    } catch let error as MacDesktopUpdate.SigningError {
+                        try? FileManager.default.removeItem(at: app.deletingLastPathComponent())
+                        status.stringValue = error.localizedDescription
                     } catch MacTab5Error.busy {
                         try? FileManager.default.removeItem(at: app.deletingLastPathComponent())
                         status.stringValue = "请先完成正在进行的设备操作，再点一键升级。"
@@ -487,11 +493,13 @@ final class MacUpdateWindow: NSWindowController, NSWindowDelegate {
         }
     }
 
-    private func confirmDesktopInstall(current: String, target: String) async -> Bool {
+    private func confirmDesktopInstall(current: String, target: String, signing: MacDesktopUpdate.SigningTransition) async -> Bool {
         guard let window, !Task.isCancelled else { return false }
         let alert = NSAlert()
         alert.messageText = "安装新版 AI-bot？"
-        alert.informativeText = "当前版本 \(current) → 目标版本 \(target)\n安装时 AI-bot 会退出，完成后自动重新打开。"
+        let restart = "当前版本 \(current) → 目标版本 \(target)\n安装时 AI-bot 会退出，完成后自动重新打开。"
+        let migration = "\n\n这次升级会切换到固定签名。重启后，macOS 可能需要你重新确认部分权限。"
+        alert.informativeText = signing == .adoptingCertificate ? restart + migration : restart
         alert.addButton(withTitle: "安装并重启")
         alert.addButton(withTitle: "稍后").keyEquivalent = "\u{1b}"
         let response: NSApplication.ModalResponse = await withCheckedContinuation { continuation in
