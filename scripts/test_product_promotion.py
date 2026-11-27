@@ -161,7 +161,7 @@ class ProductPromotionTests(unittest.TestCase):
 
     def test_unrelated_draft_cannot_claim_next_product_tag(self):
         releases = [{'tag_name':'v0.6.20', 'body':''},
-                    {'tag_name':'v0.6.21', 'body':'unrelated draft', 'draft':True}]
+                    {'tag_name':'v1.0.44', 'body':'unrelated draft', 'draft':True}]
         with patch.object(promotion, 'public_releases', return_value=releases), patch.object(promotion, 'product_tags', return_value=['v0.6.20']), patch.object(promotion, 'ensure_product_tag') as ensure:
             with self.assertRaisesRegex(ValueError, 'unrelated release'):
                 promotion.reserve_product('owner/repo', [self.tab5], {})
@@ -191,8 +191,20 @@ class ProductPromotionTests(unittest.TestCase):
             self.assertEqual(actual['tag'], 'v0.6.21')
             ensure.assert_not_called(); cli.assert_called_once()
 
+    def test_renamed_historical_page_keeps_exact_tag_and_identity(self):
+        product = render_product('owner/repo', '0.6.35', [self.tab5])
+        release = {'tag_name': product['tag'], 'name': 'AI-bot v1.0.43',
+                   'body': product['body'], 'draft': False, 'prerelease': False}
+        promotion.verify_product_release(release, product)
+        promotion.verify_product_release(dict(release, name=product['title']), product)
+        for changes in ({'tag_name': 'v1.0.43'}, {'name': 'AI-bot v1.0.42'},
+                        {'body': 'Unrelated release'}, {'draft': True}):
+            with self.subTest(changes=changes):
+                with self.assertRaisesRegex(ValueError, 'accepted component scope'):
+                    promotion.verify_product_release(dict(release, **changes), product)
+
     def test_interrupted_or_retried_promotion_reuses_one_product_release(self):
-        product = render_product('owner/repo', '0.6.21', [self.tab5])
+        product = render_product('owner/repo', '1.0.44', [self.tab5])
         manifest = {'fixture.zip': {'bytes': 10, 'sha256': 'a' * 64}}
         state = {'release': None, 'created': 0, 'uploaded': 0, 'published': 0, 'tags': ['v0.6.20']}
         def releases(_):
@@ -214,7 +226,7 @@ class ProductPromotionTests(unittest.TestCase):
         with patch.object(promotion, 'component_plan', return_value=self.tab5), patch.object(promotion.pipeline, 'require_release_scope', return_value={}), patch.object(promotion, 'stage_product', return_value=manifest), patch.object(promotion, 'public_releases', side_effect=releases), patch.object(promotion, 'product_tags', side_effect=lambda: state['tags']), patch.object(promotion, 'ensure_product_tag', side_effect=ensure), patch.object(promotion, 'orphan_matches', return_value=True), patch.object(promotion.pipeline, 'run_cli', side_effect=run_cli), patch.object(promotion.pipeline, 'remote_identity', side_effect=lambda *_: deepcopy(state['release'])), patch.object(promotion.pipeline, 'ensure_tag') as ensure_component, patch.object(promotion.pipeline, 'upload', side_effect=upload), patch.object(promotion.pipeline, 'closeout', return_value={}), patch.object(promotion.pipeline, 'write'):
             first = promotion.promote_product([entry], 'owner/repo', execute=True, publish=True)
             second = promotion.promote_product([entry], 'owner/repo', execute=True, publish=True)
-            self.assertEqual(first['productTag'], 'v0.6.21')
+            self.assertEqual(first['productTag'], 'v1.0.44')
             self.assertEqual(second['productTag'], first['productTag'])
             self.assertEqual((state['created'], state['uploaded'], state['published']), (1, 1, 1))
             ensure_component.assert_called_once()
