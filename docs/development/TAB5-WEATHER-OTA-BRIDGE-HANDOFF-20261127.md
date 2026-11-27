@@ -12,6 +12,8 @@
 - Windows 和 Mac 将同一提供商响应的浓度、单项分指数及标准一并传给 TAB5。总体 AQI 独立显示。和风按实际标准选用数据，Open-Meteo 读取 `us_aqi_pm2_5`。
 - 使用和风样例 `19 µg/m³`、分指数 `28`、总体 AQI `42` 检查实况中浓度、等级和总体 AQI；再移除或换错单项标准，确认只省略对应等级。已有 Windows 本地联调验证真实和风等级显示。Mac 已有实现与离线夹具，接收端需复验实机。
 
+- macOS 接收端：已对齐本地实现。`WeatherForecastTests.testPM25MissingConcentrationDoesNotReuseOldGrade` 验证缺少浓度时不沿用旧单项等级；总体 AQI 独立，保留可用读数。实体设备仍待验证。
+
 待验收：macOS｜和风与 Open-Meteo 的等级标准、缺失分指数降级及 TAB5 实况显示
 
 ### 三小时气压变化
@@ -20,6 +22,8 @@
 - Windows 本地候选经配对 USB 测得当前站点真实气压与受控的下降 1.2 hPa 显示。历史自然积累和最终安装包另行验收，Mac 已有等价实现和样本匹配测试。
 
 待验收：Windows｜最终候选连续采集满三小时后复核真实气压变化
+
+- macOS 接收端：已对齐本地实现。`WeatherForecastTests.testPM25SubIndexAndPressureTrend`、`testPressureTrendNotExposedOnDisconnectOrCacheRestore` 验证同口径趋势及断线、重启后不显示旧趋势。
 
 待验收：macOS｜确认真实气压变化及地点与口径切换后正确降级
 
@@ -30,6 +34,8 @@
 
 待验收：Windows｜使用最终候选核对 Codex、Claude 原回执及升级前保留草稿和附件
 
+- macOS 接收端：已对齐明确拒绝的原请求终态，未知仍拦截。`MacTab5CodexTests.testPreserveDraftRejectedReceiptIsFinal`、`testPreserveDraftUnknownThenResolvedForBothProviders`、`testUpgradeReceiptPreservesTextAttachmentsAndPeerDrafts` 覆盖回执、草稿与附件。真实配对升级仍待验证。
+
 待验收：macOS｜核对 Codex、Claude 原回执、未知回退及保留草稿和附件
 
 ### 草稿未同步或冲突
@@ -38,6 +44,8 @@
 - 通过已配对连接测试旧桥接回退、两种桌面拒绝提示、重启后的草稿保留和通过准备后启动。保留既有配对和 TAB5 展示设置。
 
 待验收：Windows｜真机核对无冲突与冲突两条升级准备路径及配对和启动状态
+
+- macOS 接收端：已有等价草稿保护；以 `MacTab5CodexTests` 的近期列表外身份、重启、空请求和冲突回归补验。旧桥接和升级提示的本地回归亦纳入 `MacTab5Tests`。不把模拟视为真实 OTA。
 
 待验收：macOS｜真机核对近期列表之外的保存、冲突、旧桥接和升级准备提示
 
