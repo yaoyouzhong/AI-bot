@@ -36,7 +36,8 @@ internal static class WeatherForecastSelfTest
         Check(restored?.Sunrise is null&&restored?.Sunset is null&&restored?.Date=="2026-10-11");
         var now=DateTimeOffset.UtcNow;
         var snapshot=new StatusSnapshot(1,now.ToString("HH:mm:ss"),now.ToUnixTimeSeconds(),28800,now,new("idle",null),new("idle",null)) {
-            Weather=new("测试城市","晴",20,25,15,50,0,null,null,"open-meteo",now,false,UtcOffsetSeconds:28800){Daily=days}};
+            Weather=new("测试城市","晴",20,25,15,50,0,19,42,"qweather",now,false,UtcOffsetSeconds:28800){Daily=days,
+                Pm25Index=28,Pm25Standard="cn-mee-1h",PressureChange3hHpa=-1.2}};
         var bytes=Tab5Protocol.Snapshot(snapshot,"0123456789ab","weather-solar",1);using var frame=JsonDocument.Parse(bytes);
         var weather=frame.RootElement.GetProperty("data").GetProperty("weather");var solarDay=weather.GetProperty("daily")[0];
         Check(solarDay.GetProperty("sunrise").GetString()=="06:12"&&solarDay.GetProperty("sunset").GetString()=="17:43"&&
@@ -44,6 +45,21 @@ internal static class WeatherForecastSelfTest
             weather.GetProperty("daily")[3].GetProperty("daylightSeconds").GetDouble()==86400&&bytes.Length+28<Tab5Protocol.MaximumFrame);
         // The legacy USB heartbeat continues to omit TAB5-only forecast series.
         var legacy=DeviceStatusFrame.Create(snapshot);Check(legacy["data"]?["weather"]?["daily"] is null);
+        Check(weather.GetProperty("pm25Index").GetInt32()==28&&weather.GetProperty("pm25Standard").GetString()=="cn-mee-1h"&&
+              weather.GetProperty("pressureChange3hHpa").GetDouble()==-1.2);
+        using var particles=JsonDocument.Parse("""
+            {"pollutants":[{"code":"pm2p5","concentration":{"value":19,"unit":"μg/m3"},
+             "subIndexes":[{"code":"us-epa","aqi":75},{"code":"cn-mee-1h","aqi":27.2}]}]}
+            """);
+        Check(MigratedWeather.WeatherMonitor.QPm25(particles.RootElement,"cn-mee")== (19.0,28,"cn-mee-1h"));
+        Check(MigratedWeather.WeatherMonitor.QPm25(particles.RootElement,"qaqi").Index is null);
+        var pressure=new WeatherPressureHistory();long t=now.ToUnixTimeSeconds();
+        Check(pressure.Observe("qweather|station|a",t,1013.2,t) is null);
+        Check(pressure.Observe("qweather|station|a",t+2*3600,1012.4,t+2*3600) is null);
+        Check(pressure.Observe("qweather|station|a",t+3*3600,1012,t+3*3600) is double delta&&Math.Abs(delta+1.2)<0.001);
+        Check(pressure.Observe("qweather|sea_level|a",t+3*3600,1012,t+3*3600) is null);
+        Check(pressure.Observe("qweather|sea_level|b",t+3*3600,1014,t+3*3600) is null);
+        Console.WriteLine("WEATHER_LIVE_FACTS_OK matching_pm25_subindex valid_pressure_history isolated_station optional_wire_fields");
         Console.WriteLine("WEATHER_SOLAR_WIRE_OK shared_TAB5_USB_WiFi_BLE fields timezone polar_values bounded_frame legacy_unchanged");
         Console.WriteLine("WEATHER_SOLAR_PARSE_OK qweather_local meteo_dated_minutes cross_date_invalid_rejected polar_day_night old_cache");
         Console.WriteLine("WEATHER_FORECAST_PARSE_OK local midnight, missing arrays/numbers, zero values, probability vs amount");

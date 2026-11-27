@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Windows and Apple Silicon Mac
+
+- **See more detail in TAB5 current conditions.** A provider's particulate sub-index enables the PM2.5 category. The three-hour pressure change appears once enough comparable readings have been collected at the same location.
+- **Get separate delivery and draft messages before a TAB5 update.** Preparation can continue when the original receipt is resolved and the draft is safely preserved. Uncertain delivery and conflicting drafts still block the update and retain the draft.
+
 ### Windows
 
 - Choose a Coding/Token Plan separately from API balances in **Model Accounts**. Adds GLM personal Coding Plan key queries and Alibaba Coding Plan's five-hour, weekly and subscription-month quotas; updates MiniMax and MiMo account entry points.

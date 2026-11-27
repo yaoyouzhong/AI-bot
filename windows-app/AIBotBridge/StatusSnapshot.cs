@@ -33,6 +33,9 @@ internal sealed record WeatherSnapshot(
 {
     public double? PressureHpa { get; init; }
     public string? PressureKind { get; init; }
+    public double? PressureChange3hHpa { get; init; }
+    public int? Pm25Index { get; init; }
+    public string? Pm25Standard { get; init; }
     public string? LocationStatus { get; init; }
     public string? AirQualityStandard { get; init; }
     public WeatherHour[] Hourly { get; init; }=[];

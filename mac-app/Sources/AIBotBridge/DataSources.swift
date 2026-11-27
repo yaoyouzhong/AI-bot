@@ -214,7 +214,10 @@ final class MacDataStore {
                 value.airQualityStandard = old.airQualityStandard
                 value.stale = true
             }
-            if value.pm25 == nil, old.pm25 != nil { value.pm25 = old.pm25; value.stale = true }
+            if value.pm25 == nil, old.pm25 != nil {
+                value.pm25 = old.pm25; value.pm25Index = old.pm25Index; value.pm25Standard = old.pm25Standard
+                value.stale = true
+            }
             if value.pressureHpa == nil, old.pressureHpa != nil {
                 value.pressureHpa = old.pressureHpa; value.pressureKind = old.pressureKind; value.stale = true
             }
@@ -367,6 +370,7 @@ actor MacDataService {
     private var lastWeatherAttempt: TimeInterval = -.infinity
     private var lastWeatherSettings: MacWeatherRefreshSchedule.Query?
     private var weatherSchedule = MacWeatherRefreshSchedule()
+    private var pressureHistory = MacWeatherPressureHistory()
     private var lastStockAttempt = Date.distantPast
     private var refreshingWeather = false
     private let qweather = MacQWeatherService()
@@ -417,8 +421,11 @@ actor MacDataService {
             let query = MacWeatherRefreshSchedule.Query(preferences, point)
             guard weatherSchedule.shouldFetch(query, now: now, force: force) else { return }
             store.weatherDiagnostic("天气：正在查询…")
-            let value = try await fetchWeather(preferences, point: point)
+            var value = try await fetchWeather(preferences, point: point)
             guard !settingsChanged() else { return }
+            let pressureKey = value.pressureLocation.map { "\(value.source)|\(value.pressureKind ?? "")|\($0)" } ?? ""
+            value.pressureChange3hHpa = pressureHistory.observe(identity: pressureKey, at: value.pressureObservedAt,
+                                                                pressure: value.pressureHpa, now: Date())
             store.update(weather: value)
             weatherSchedule.succeeded(query, now: ProcessInfo.processInfo.systemUptime)
             store.weatherDiagnostic(Self.forecastNote(store.snapshot().weather!))
@@ -466,7 +473,7 @@ actor MacDataService {
         let coordinate = String(format: "latitude=%.6f&longitude=%.6f", locale: Locale(identifier: "en_US_POSIX"),
                                 location.latitude, location.longitude)
         let forecast = URL(string: "https://api.open-meteo.com/v1/forecast?\(coordinate)&current=temperature_2m,relative_humidity_2m,weather_code,pressure_msl&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,daylight_duration&forecast_days=7&timezone=auto")!
-        let air = URL(string: "https://air-quality-api.open-meteo.com/v1/air-quality?\(coordinate)&current=us_aqi,pm2_5")!
+        let air = URL(string: "https://air-quality-api.open-meteo.com/v1/air-quality?\(coordinate)&current=us_aqi,pm2_5,us_aqi_pm2_5")!
         let (forecastData, forecastResponse) = try await session.data(from: forecast)
         guard (forecastResponse as? HTTPURLResponse)?.statusCode == 200 else {
             throw DataError.invalidResponse

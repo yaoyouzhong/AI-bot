@@ -296,7 +296,7 @@ final class MacTab5Firmware {
                 remote = nil;leaseUntil = 0
                 startRejected = true
                 automaticBoot = nil; automaticProbe = false; finalUSB = nil
-                let reasons = ["device_busy":"设备正忙，请先结束录音、拍照或网络操作。", "draft_pending":"还有待确认或待同步的草稿，请先处理送达与同步状态。", "draft_save_failed":"设备草稿保存失败，升级尚未开始。", "no_link":"设备没有可用的升级通道，请检查连接模式与连接状态。", "offer_changed":"设备上的固件提供已变化，请重新选择候选。", "request_failed":"设备未能启动固件更新，请检查设备提示。"]
+                let reasons = ["device_busy":"设备正忙，请先结束录音、拍照或网络操作。", "draft_pending":"还有待确认或待同步的草稿，请先处理送达与同步状态。", "delivery_unconfirmed":"还有消息待核对送达，草稿已保留，升级未开始。", "draft_unsynced":"还有草稿未同步，草稿已保留，升级未开始。", "draft_save_failed":"设备草稿保存失败，升级尚未开始。", "no_link":"设备没有可用的升级通道，请检查连接模式与连接状态。", "offer_changed":"设备上的固件提供已变化，请重新选择候选。", "request_failed":"设备未能启动固件更新，请检查设备提示。"]
                 message = (root["error"] as? String).flatMap { reasons[$0] } ?? "设备拒绝开始升级，请检查设备提示；原固件仍保留。"
                 return .init(200,["accepted":true])
             default: return .error(400, "invalid_stage")

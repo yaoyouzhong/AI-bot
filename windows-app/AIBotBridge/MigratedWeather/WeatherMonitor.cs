@@ -43,11 +43,16 @@ sealed class WeatherMonitor
         public double High { get; set; }
         public double Low { get; set; }
         public double Pm25 { get; set; }
+        public int? Pm25Index { get; set; }
+        public string Pm25Standard { get; set; }
         public int Humidity { get; set; }
         public double? AirQualityIndex { get; set; }
         public string AirQualityStandard { get; set; } = "";
         public double? PressureHpa { get; set; }
         public string PressureKind { get; set; } = "";
+        public double? PressureChange3hHpa { get; set; }
+        internal long PressureObservedUtc { get; set; }
+        internal string PressureLocation { get; set; }="";
         public int Icon { get; set; }
         public long EpochUtc { get; set; }
         public int UtcOffsetS { get; set; }
@@ -62,6 +67,7 @@ sealed class WeatherMonitor
     }
 
     readonly object _lock = new();
+    readonly WeatherPressureHistory _pressureHistory = new();
     Snapshot _snapshot = new();
     byte[] _headerBitmap = new byte[HeaderW * HeaderH * 2];
     byte[] _dateBitmap = new byte[DateW * DateH * 2];
@@ -341,19 +347,19 @@ sealed class WeatherMonitor
         var now = nowDoc.RootElement.GetProperty("now");
         var daily = dailyDoc.RootElement.GetProperty("daily")[0];
         var aqi = (Value: double.NaN, Category: "", Code: "");
-        var pm25 = -1.0;
+        var pm = (Concentration:-1.0,Index:(int?)null,Standard:(string)null);
         try
         {
             using var airDoc = await QWeatherJson(host, apiKey,
                 $"/airquality/v1/current/{resolvedLat.ToString("F2", CultureInfo.InvariantCulture)}/{resolvedLon.ToString("F2", CultureInfo.InvariantCulture)}?lang=zh");
             aqi = AirIndex(airDoc.RootElement);
-            pm25 = AirPollutant(airDoc.RootElement, "pm2p5");
+            pm = QPm25(airDoc.RootElement,aqi.Code);
         }
         catch
         {
             var fallbackAir = await FetchOpenMeteoAir(resolvedLat, resolvedLon);
             aqi = (fallbackAir.Aqi, "", "us-epa");
-            pm25 = fallbackAir.Pm25;
+            pm = (fallbackAir.Pm25,fallbackAir.Pm25Index,fallbackAir.Pm25Index.HasValue?"us-epa":null);
         }
         var updated = DateTimeOffset.TryParse(now.GetProperty("obsTime").GetString(), out var observed)
             ? observed.ToUnixTimeSeconds() : DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -364,10 +370,11 @@ sealed class WeatherMonitor
             AirQuality = CompactAirCategory(aqi.Category, aqi.Value),
             AirQualityIndex = double.IsFinite(aqi.Value)?aqi.Value:null, AirQualityStandard=aqi.Code,
             PressureHpa = OptionalNumber(now,"pressure"), PressureKind="station",
+            PressureObservedUtc=observed==default?0:observed.ToUnixTimeSeconds(),PressureLocation=id,
             Temperature = ParseDouble(now.GetProperty("temp").GetString()),
             High = ParseDouble(daily.GetProperty("tempMax").GetString()),
             Low = ParseDouble(daily.GetProperty("tempMin").GetString()),
-            Pm25 = pm25, Humidity = (int)ParseDouble(now.GetProperty("humidity").GetString()),
+            Pm25=pm.Concentration,Pm25Index=pm.Index,Pm25Standard=pm.Standard,Humidity=(int)ParseDouble(now.GetProperty("humidity").GetString()),
             Icon = QWeatherIcon(now.GetProperty("icon").GetString()),
             EpochUtc = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             UtcOffsetS = ParseUtcOffset(location.TryGetProperty("utcOffset", out var offset) ? offset.GetString() : null),
@@ -416,50 +423,63 @@ sealed class WeatherMonitor
         var query = $"latitude={lat.ToString(CultureInfo.InvariantCulture)}&longitude={lon.ToString(CultureInfo.InvariantCulture)}";
         var weatherTask = Http.GetStringAsync("https://api.open-meteo.com/v1/forecast?" + query
             + "&current=temperature_2m,relative_humidity_2m,weather_code,pressure_msl&hourly=temperature_2m,weather_code,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,precipitation_sum,sunrise,sunset,daylight_duration&forecast_days=7&timezone=auto");
-        var airTask = Http.GetStringAsync("https://air-quality-api.open-meteo.com/v1/air-quality?" + query + "&current=us_aqi,pm2_5");
+        var airTask = Http.GetStringAsync("https://air-quality-api.open-meteo.com/v1/air-quality?" + query + "&current=us_aqi,pm2_5,us_aqi_pm2_5");
         await Task.WhenAll(weatherTask, airTask);
         using var weatherDoc = JsonDocument.Parse(await weatherTask);
         using var airDoc = JsonDocument.Parse(await airTask);
-        var current = weatherDoc.RootElement.GetProperty("current");
+        var weatherRoot=weatherDoc.RootElement;
+        var current = weatherRoot.GetProperty("current");
         var code = current.GetProperty("weather_code").GetInt32();
-        var aqi = airDoc.RootElement.TryGetProperty("current", out var air)
-            && air.TryGetProperty("us_aqi", out var number) ? number.GetDouble() : double.NaN;
-        var pm25 = airDoc.RootElement.TryGetProperty("current", out air)
-            && air.TryGetProperty("pm2_5", out number) ? number.GetDouble() : double.NaN;
+        airDoc.RootElement.TryGetProperty("current",out var air);
+        var aqi = air.ValueKind==JsonValueKind.Object?OptionalNumber(air,"us_aqi")??double.NaN:double.NaN;
+        var pm25 = air.ValueKind==JsonValueKind.Object?OptionalNumber(air,"pm2_5")??-1:-1;
+        int? pm25Index=double.IsFinite(pm25)&&pm25>=0?PollutantIndex(air,"us_aqi_pm2_5"):null;
+        int? offsetSeconds=weatherRoot.TryGetProperty("utc_offset_seconds",out var offset)&&offset.TryGetInt32(out var seconds)?seconds:null;
+        long observedUtc=0;
+        if(offsetSeconds is >=-43200 and <=50400&&offsetSeconds.Value%60==0&&current.TryGetProperty("time",out var time)&&time.ValueKind==JsonValueKind.String&&
+           DateTime.TryParseExact(time.GetString(),"yyyy-MM-dd'T'HH:mm",CultureInfo.InvariantCulture,DateTimeStyles.None,out var local))
+            observedUtc=new DateTimeOffset(local,TimeSpan.FromSeconds(offsetSeconds.Value)).ToUnixTimeSeconds();
+        var gridLat=OptionalNumber(weatherRoot,"latitude");var gridLon=OptionalNumber(weatherRoot,"longitude");
+        string pressureLocation=gridLat.HasValue&&gridLon.HasValue?FormattableString.Invariant($"{gridLat:F5},{gridLon:F5}"):"";
         return new Snapshot
         {
             City = canonicalCity, ConfiguredCity = city,
             Condition = ConditionFor(code), AirQuality = AirFor(aqi), Icon = IconFor(code),
             AirQualityIndex=double.IsFinite(aqi)?aqi:null,AirQualityStandard="us-epa",
             PressureHpa=OptionalNumber(current,"pressure_msl"),PressureKind="sea_level",
+            PressureObservedUtc=observedUtc,PressureLocation=pressureLocation,
             Temperature = current.GetProperty("temperature_2m").GetDouble(),
-            Pm25 = double.IsNaN(pm25) ? -1 : pm25,
+            Pm25 = double.IsFinite(pm25) ? pm25 : -1,Pm25Index=pm25Index,Pm25Standard=pm25Index.HasValue?"us-epa":null,
             Humidity = current.GetProperty("relative_humidity_2m").GetInt32(),
             High = weatherDoc.RootElement.GetProperty("daily").GetProperty("temperature_2m_max")[0].GetDouble(),
             Low = weatherDoc.RootElement.GetProperty("daily").GetProperty("temperature_2m_min")[0].GetDouble(),
             EpochUtc = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            UtcOffsetS = weatherDoc.RootElement.TryGetProperty("utc_offset_seconds", out var offset) ? offset.GetInt32() : 0,
+            UtcOffsetS = offsetSeconds??0,
             UpdatedUtc = DateTimeOffset.UtcNow.ToUnixTimeSeconds(), Source = "open-meteo",
             Hourly=WeatherForecast.MeteoHours(weatherDoc.RootElement,DateTime.UtcNow.AddSeconds(weatherDoc.RootElement.TryGetProperty("utc_offset_seconds",out var utcOffset)?utcOffset.GetInt32():0),ConditionFor),
             Daily=WeatherForecast.MeteoDays(weatherDoc.RootElement,ConditionFor),ForecastLocation=$"{lat:F4},{lon:F4}",
         };
     }
 
-    static async Task<(double Aqi, double Pm25)> FetchOpenMeteoAir(double latitude, double longitude)
+    static async Task<(double Aqi, double Pm25,int? Pm25Index)> FetchOpenMeteoAir(double latitude, double longitude)
     {
         var query = $"latitude={latitude.ToString(CultureInfo.InvariantCulture)}&longitude={longitude.ToString(CultureInfo.InvariantCulture)}";
         using var document = JsonDocument.Parse(await Http.GetStringAsync(
-            "https://air-quality-api.open-meteo.com/v1/air-quality?" + query + "&current=us_aqi,pm2_5"));
-        if (!document.RootElement.TryGetProperty("current", out var current)) return (double.NaN, -1);
-        var aqi = current.TryGetProperty("us_aqi", out var number) ? number.GetDouble() : double.NaN;
-        var pm25 = current.TryGetProperty("pm2_5", out number) ? number.GetDouble() : -1;
-        return (aqi, pm25);
+            "https://air-quality-api.open-meteo.com/v1/air-quality?" + query + "&current=us_aqi,pm2_5,us_aqi_pm2_5"));
+        if (!document.RootElement.TryGetProperty("current", out var current)) return (double.NaN, -1,null);
+        if(current.ValueKind!=JsonValueKind.Object)return(double.NaN,-1,null);
+        var aqi = OptionalNumber(current,"us_aqi")??double.NaN;
+        var pm25 = OptionalNumber(current,"pm2_5")??-1;
+        return (aqi,pm25,double.IsFinite(pm25)&&pm25>=0?PollutantIndex(current,"us_aqi_pm2_5"):null);
     }
 
     void SetSnapshot(Snapshot snapshot)
     {
         snapshot.Stale = false;
         lock (_lock) {
+            string pressureKey=snapshot.PressureLocation.Length==0?"":$"{snapshot.Source}|{snapshot.PressureKind}|{snapshot.PressureLocation}";
+            snapshot.PressureChange3hHpa=_pressureHistory.Observe(pressureKey,snapshot.PressureObservedUtc,snapshot.PressureHpa,
+                                                                 DateTimeOffset.UtcNow.ToUnixTimeSeconds());
             bool samePlace=snapshot.Source==_snapshot.Source&&snapshot.ForecastLocation.Length>0&&snapshot.ForecastLocation==_snapshot.ForecastLocation;
             snapshot.HourlyStale=snapshot.Hourly.Length==0;
             snapshot.DailyStale=snapshot.Daily.Length==0;
@@ -684,7 +704,8 @@ sealed class WeatherMonitor
         City = value.City, ConfiguredCity = value.ConfiguredCity, Condition = value.Condition, AirQuality = value.AirQuality,
         Temperature = value.Temperature, High = value.High, Low = value.Low, Pm25 = value.Pm25, Humidity = value.Humidity,
         AirQualityIndex=value.AirQualityIndex,AirQualityStandard=value.AirQualityStandard,
-        PressureHpa=value.PressureHpa,PressureKind=value.PressureKind,
+        PressureHpa=value.PressureHpa,PressureKind=value.PressureKind,PressureChange3hHpa=value.PressureChange3hHpa,
+        Pm25Index=value.Pm25Index,Pm25Standard=value.Pm25Standard,
         Icon = value.Icon, EpochUtc = value.EpochUtc, UtcOffsetS = value.UtcOffsetS,
         UpdatedUtc = value.UpdatedUtc, Stale = value.Stale, Source = value.Source,
         Hourly=value.Hourly?.ToArray()??[],Daily=value.Daily?.ToArray()??[],HourlyStale=value.HourlyStale,DailyStale=value.DailyStale,ForecastLocation=value.ForecastLocation,
@@ -720,30 +741,41 @@ sealed class WeatherMonitor
     {
         if (!root.TryGetProperty("indexes", out var indexes) || indexes.GetArrayLength() == 0)
             return (double.NaN, "", "");
-        JsonElement selected = indexes[0];
-        foreach (var item in indexes.EnumerateArray())
-        {
-            var code = item.TryGetProperty("code", out var value) ? value.GetString() : "";
-            if (code == "cn-mee") { selected = item; break; }
-            if (code == "qaqi") selected = item;
-        }
+        string[] preferred=["cn-mee","cn-mee-1h","us-epa","us-epa-nc","qaqi"];
+        var selected=preferred.Select(code=>indexes.EnumerateArray().FirstOrDefault(item=>
+            item.ValueKind==JsonValueKind.Object&&item.TryGetProperty("code",out var value)&&value.GetString()==code))
+            .FirstOrDefault(item=>item.ValueKind==JsonValueKind.Object);
+        if(selected.ValueKind!=JsonValueKind.Object)selected=indexes[0];
         var aqi = selected.TryGetProperty("aqi", out var number) && number.TryGetDouble(out var parsed)
             ? parsed : double.NaN;
         var category = selected.TryGetProperty("category", out var text) ? text.GetString() ?? "" : "";
         return (aqi, category, selected.TryGetProperty("code",out var selectedCode)?selectedCode.GetString()??"":"");
     }
 
-    static double AirPollutant(JsonElement root, string code)
+    static int? PollutantIndex(JsonElement root,string key) => root.ValueKind==JsonValueKind.Object&&root.TryGetProperty(key,out var index)&&
+        index.ValueKind==JsonValueKind.Number&&index.TryGetDouble(out var value)&&value is >=0 and <=10000?(int)Math.Ceiling(value):null;
+
+    internal static (double Concentration,int? Index,string Standard) QPm25(JsonElement root,string overallStandard)
     {
-        if (!root.TryGetProperty("pollutants", out var pollutants)) return -1;
+        if (!root.TryGetProperty("pollutants",out var pollutants)||pollutants.ValueKind!=JsonValueKind.Array)return(-1,null,null);
         foreach (var item in pollutants.EnumerateArray())
         {
-            if (!item.TryGetProperty("code", out var itemCode) || itemCode.GetString() != code) continue;
-            if (item.TryGetProperty("concentration", out var concentration)
-                && concentration.TryGetProperty("value", out var value) && value.TryGetDouble(out var parsed))
-                return parsed;
+            if(item.ValueKind!=JsonValueKind.Object||!item.TryGetProperty("code",out var itemCode)||itemCode.GetString()!="pm2p5")continue;
+            if(!item.TryGetProperty("concentration",out var concentration)||concentration.ValueKind!=JsonValueKind.Object||
+                !concentration.TryGetProperty("unit",out var unit)||unit.ValueKind!=JsonValueKind.String||
+                unit.GetString() is not ("μg/m3" or "µg/m3" or "μg/m³" or "µg/m³")||
+                OptionalNumber(concentration,"value") is not double parsed||parsed is not (>=0 and <=100000))
+                return(-1,null,null);
+            if(item.TryGetProperty("subIndexes",out var subIndexes)&&subIndexes.ValueKind==JsonValueKind.Array) {
+                string[] standards=overallStandard is "cn-mee" or "cn-mee-1h"?["cn-mee-1h","cn-mee"]:
+                    overallStandard is "us-epa" or "us-epa-nc"?[overallStandard]:[];
+                foreach(string standard in standards)foreach(var sub in subIndexes.EnumerateArray())
+                    if(sub.ValueKind==JsonValueKind.Object&&sub.TryGetProperty("code",out var code)&&code.GetString()==standard&&PollutantIndex(sub,"aqi") is int index)
+                        return(parsed,index,standard);
+            }
+            return(parsed,null,null);
         }
-        return -1;
+        return(-1,null,null);
     }
 
     static string CompactAirCategory(string category, double aqi)

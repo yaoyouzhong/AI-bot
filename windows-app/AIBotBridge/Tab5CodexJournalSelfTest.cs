@@ -20,6 +20,28 @@ internal static class Tab5CodexJournalSelfTest
             journal.Save(record with{State="accepted",TurnId=turn});
             journal=new Tab5CodexJournal(path);
             if(journal.Draft(task)!=""||journal.Accepted().Length!=1)throw new Exception("Only acknowledged send clears draft");
+            var retained=record with {Id=Guid.NewGuid().ToString()};
+            journal.Save(retained,text);
+            journal.Save(retained with {State="accepted",TurnId=turn},keepDraft:true);
+            journal=new Tab5CodexJournal(path);
+            if(journal.Draft(task)!=text||journal.Pending(task) is not null||
+                journal.Find(retained.Id)?.State!="accepted")throw new Exception("OTA receipt must retain exact draft after restart");
+            string offList=Guid.NewGuid().ToString();
+            using(var tasks=new Tab5CodexTasks(new Tab5CodexDesktop(),()=>[],journal,rolloutPath:key=>key==offList?"synthetic-existing-session":null)) {
+                string emptyTask=Guid.NewGuid().ToString();
+                if(tasks.Draft(offList,id,text,[],"fixture").Status!=200||tasks.Draft(offList,id,text,[],"fixture",true).Status!=200||
+                    tasks.Draft(offList,id,"different",[],"fixture").Status!=409||tasks.Draft(offList,id,"",[],"fixture").Status!=409||
+                    tasks.Draft(offList,id).Status!=404||tasks.Draft(Guid.NewGuid().ToString(),id,text,[],"fixture").Status!=404||
+                    new Tab5CodexJournal(path).Draft(offList)!=text)throw new Exception("Off-list draft retention must be durable, nonempty, exact and read-only outside save");
+                byte[] stored=File.ReadAllBytes(path);
+                if(tasks.Draft(emptyTask,id,"",[],"fixture",true).Status!=200||
+                    tasks.Draft(offList,id,"",[],"fixture",true).Status!=409||!stored.SequenceEqual(File.ReadAllBytes(path)))
+                    throw new Exception("Empty retention only compares durable state and must never rewrite the journal");
+                var pendingEmpty=record with {Id=Guid.NewGuid().ToString(),TaskId=emptyTask,Device="fixture",Operation="interrupt"};
+                journal.Save(pendingEmpty);
+                if(tasks.Draft(emptyTask,id,"",[],"fixture",true).Status!=409||journal.Pending(emptyTask)!=pendingEmpty)
+                    throw new Exception("An unresolved receipt blocks empty retention");
+            }
             journal.SaveDraft(task,"下一条草稿");
             journal.Save(record with{Id=Guid.NewGuid().ToString(),Operation="interrupt",State="accepted",TurnId=turn});
             if(journal.Draft(task)!="下一条草稿")throw new Exception("Stopping must preserve the draft");

@@ -17,6 +17,7 @@ internal sealed class MigratedWeatherService
                 value.AirQuality, MigratedWeather.WeatherMonitor.Animation,
                 _monitor.HeaderCenterX, _monitor.DateCenterX, _monitor.RangeY, value.Icon, value.UtcOffsetS)
                 { PressureHpa=value.PressureHpa,PressureKind=value.PressureKind,AirQualityStandard=value.AirQualityStandard,
+                    PressureChange3hHpa=value.Stale?null:value.PressureChange3hHpa,Pm25Index=value.Pm25Index,Pm25Standard=value.Pm25Standard,
                     LocationStatus=_monitor.LocationStatus,Hourly=value.Hourly,Daily=value.Daily,
                     HourlyStale=value.Stale||value.HourlyStale,DailyStale=value.Stale||value.DailyStale };
         }

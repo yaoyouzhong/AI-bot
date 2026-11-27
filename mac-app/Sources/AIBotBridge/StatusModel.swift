@@ -32,7 +32,18 @@ struct WeatherSnapshot: Codable, Equatable {
     var airQualityStandard: String? = nil
     var pressureHpa: Double? = nil
     var pressureKind: String? = nil
+    var pressureChange3hHpa: Double? = nil
+    var pm25Index: Int? = nil
+    var pm25Standard: String? = nil
     var animation: String? = nil
+    var pressureObservedAt: Date? = nil
+    var pressureLocation: String? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case city, condition, temperature, high, low, humidity, weatherCode, pm25, airQualityIndex, source, updatedAt, stale
+        case utcOffsetSeconds, hourly, daily, hourlyStale, dailyStale, airQualityLabel, airQualityStandard
+        case pressureHpa, pressureKind, pressureChange3hHpa, pm25Index, pm25Standard, animation
+    }
 }
 
 struct MacWeatherHour: Codable, Equatable {

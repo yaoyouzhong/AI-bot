@@ -749,13 +749,25 @@ internal sealed class Tab5CodexTasks : IDisposable
         catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or CryptographicException or System.Runtime.InteropServices.ExternalException)
         {return(503,new{error="image_storage_unavailable"});}
     }
-    internal (int Status,object Body) Draft(string taskId,string requestId,string? text=null,string[]? images=null,string device="") {
+    internal (int Status,object Body) Draft(string taskId,string requestId,string? text=null,string[]? images=null,string device="",bool keepDraft=false) {
         if(!Guid.TryParse(taskId,out _)||!Guid.TryParse(requestId,out _)||text is not null&&Encoding.UTF8.GetByteCount(text)>2000)
             return(400,new{error="invalid_request"});
-        if(!_catalog().Any(t=>t.Id==taskId))return(404,new{error="task_not_in_recent_catalog"});
+        bool recent=_catalog().Any(t=>t.Id==taskId);
+        bool emptyCheck=keepDraft&&text==""&&(images?.Length??0)==0;
+        // A session may fall out of the device's projected list while its draft
+        // is still unsynced. Verify the exact local identity before retaining it.
+        if(!recent&&(text is null||device.Length==0||!emptyCheck&&string.IsNullOrEmpty(_rolloutPath(taskId))))
+            return(404,new{error="task_not_in_recent_catalog"});
         try {
             if(_journal is null)throw new IOException();
-            if(text is not null){_images.Resolve(device,taskId,images??[],false);_journal.SaveDraft(taskId,text,images,device);}
+            if(text is not null){
+                images??=[];
+                _images.Resolve(device,taskId,images,false);
+                if(keepDraft||!recent) {
+                    if(!keepDraft&&text.Length==0&&images.Length==0||!_journal.RetainDraft(taskId,text,images,device))
+                        return(409,new{error="draft_changed"});
+                }else _journal.SaveDraft(taskId,text,images,device);
+            }
             else {
                 var pending=_journal.Pending(taskId);
                 Volatile.Write(ref _draftView,new{taskId,requestId,text=_journal.Draft(taskId),images=_journal.Images(taskId),pendingRequest=pending?.Id??"",operation=pending?.Operation??"",expectedTurn=pending?.ExpectedTurn??""});
@@ -764,14 +776,14 @@ internal sealed class Tab5CodexTasks : IDisposable
         }catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException or System.Security.Cryptography.CryptographicException)
         {return(503,new{error="draft_storage_unavailable"});}
     }
-    internal async Task<(int Status,object Body)> ReceiptAsync(string taskId,string requestId,CancellationToken token,string device="") {
+    internal async Task<(int Status,object Body)> ReceiptAsync(string taskId,string requestId,CancellationToken token,string device="",bool keepDraft=false) {
         if(!Guid.TryParse(taskId,out _)||!Guid.TryParse(requestId,out _))return(400,new{error="invalid_request"});
         if(!_catalog().Any(t=>t.Id==taskId))return(404,new{error="task_not_in_recent_catalog"});
         try {
             var record=_journal?.Find(Guid.Parse(requestId).ToString());
             if(record is null)return(404,new{error="receipt_not_found"});
             if(record.TaskId!=taskId||record.Device!=device)return(409,new{error="request_id_conflict"});
-            var result=await RecoverReceiptAsync(record,token);
+            var result=await RecoverReceiptAsync(record,token,keepDraft);
             bool canConfirm=result.Status==504&&_journal!.CanConfirm(record,device);
             Tab5LocalDiagnostics.Write($"CODEX_RECEIPT phase=capability status={result.Status} canConfirm={canConfirm} operation={record.Operation}");
             return result.Status==504?(504,new{error="delivery_unknown",canConfirmDelivered=canConfirm}):result;
@@ -789,9 +801,10 @@ internal sealed class Tab5CodexTasks : IDisposable
             return(503,new{error="draft_storage_unavailable"});
         }
     }
-    private async Task<(int Status,object Body)> RecoverReceiptAsync(Tab5SendRecord record,CancellationToken token) {
+    private async Task<(int Status,object Body)> RecoverReceiptAsync(Tab5SendRecord record,CancellationToken token,bool keepDraft=false) {
         if(record.State=="abandoned")return(504,new{error="delivery_unknown"});
-        if(record.State=="rejected")return(record.Status,new{error=record.Error});
+        if(record.State=="rejected")
+            return(record.Status,keepDraft?(object)new{error=record.Error,deliveryFinal=true}:new{error=record.Error});
         if(record.State is "accepted" or "completed")return(202,new{status="submitted",taskId=record.TaskId,turnId=record.TurnId,requestId=record.Id});
         string? turn=null;long began=Environment.TickCount64;
         if(record.ResolutionSource=="native_pending") {
@@ -803,7 +816,7 @@ internal sealed class Tab5CodexTasks : IDisposable
             Tab5LocalDiagnostics.Write($"CODEX_RECEIPT phase=recovery result=unknown ms={Environment.TickCount64-began}");
             return(504,new{error="delivery_unknown"});
         }
-        _journal!.Save(record with {State="accepted",TurnId=turn!,Status=202});
+        _journal!.Save(record with {State="accepted",TurnId=turn!,Status=202},keepDraft:keepDraft);
         _desktop!.ForgetNativeReceipt(record.Id);
         Tab5LocalDiagnostics.Write($"CODEX_RECEIPT phase=recovery result=accepted ms={Environment.TickCount64-began}");
         lock(_receiptLock){_activeTurns[record.TaskId]=turn!;_receipts[record.TaskId]="已确认送达";}

@@ -156,11 +156,16 @@ internal sealed partial class ClaudeWorkspace:IDisposable
             if(!Guid.TryParse(request,out var requestGuid))return(400,new{error="invalid_request"});request=requestGuid.ToString();
             string[] images=root.TryGetProperty("images",out var imageList)&&imageList.ValueKind==JsonValueKind.Array?imageList.EnumerateArray().Select(v=>v.GetString()??"").ToArray():[];
             if(images.Length>3||Encoding.UTF8.GetByteCount(text)>2000)return(400,new{error="invalid_request"});
+            bool preserveDraft=root.TryGetProperty("preserveDraft",out var preserve)&&preserve.ValueKind==JsonValueKind.True;
             if(op is "draft-save" or "draft-load"){
                 if(!Guid.TryParse(task,out _))return(400,new{error="invalid_request"});
                 if(entry is null&&op=="draft-save"&&text.Length==0&&images.Length==0&&journal.Pending(task) is not null)
                     return(409,new{error="pending_delivery_requires_receipt"});
-                if(op=="draft-save"){_images.Resolve(device,task,images,false);journal.SaveDraft(task,text,images,device);}
+                if(op=="draft-save"){
+                    _images.Resolve(device,task,images,false);
+                    if(preserveDraft){if(!journal.RetainDraft(task,text,images,device))return(409,new{error="draft_changed"});}
+                    else journal.SaveDraft(task,text,images,device);
+                }
                 else{
                     var pending=journal.Pending(task);
                     lock(_sync){_draftDevice=device;_draftTask=task;_draft=new{taskId=task,requestId=request,text=journal.Draft(task),images=journal.Images(task),pendingRequest=pending?.Id??"",operation=pending?.Operation??"",expectedTurn=pending?.ExpectedTurn??""};}
@@ -183,7 +188,7 @@ internal sealed partial class ClaudeWorkspace:IDisposable
                 if(record.State=="rejected")return(record.Status,new{error=record.Error,deliveryFinal=record.Error=="message_cancelled"||record.ResolutionSource is "native_submit_not_invoked" or "native_turn_completed" or "test_tracking_closed_unknown"});
                 if(record.State is "accepted" or "completed")return(202,new{status="submitted",taskId=task,requestId=request,turnId=record.TurnId});
                 if(record.State=="abandoned")return(504,new{error="delivery_unknown",canConfirmDelivered=false});
-                string? found=Receipt(entry,record);if(found is null)return(504,new{error="delivery_unknown",canConfirmDelivered=_nativeClients&&journal.CanConfirm(record,device)});journal.Save(record with{State="accepted",Status=202,TurnId=found,NativeReceipt=null});return(202,new{status="submitted",taskId=task,requestId=request,turnId=found});}
+                string? found=Receipt(entry,record);if(found is null)return(504,new{error="delivery_unknown",canConfirmDelivered=_nativeClients&&journal.CanConfirm(record,device)});journal.Save(record with{State="accepted",Status=202,TurnId=found,NativeReceipt=null},keepDraft:op=="receipt"&&preserveDraft);return(202,new{status="submitted",taskId=task,requestId=request,turnId=found});}
             if(op is not ("send" or "steer" or "interrupt")||op!="interrupt"&&string.IsNullOrWhiteSpace(text)&&images.Length==0||op!="send"&&!Guid.TryParse(expected,out _))return(400,new{error="invalid_request"});
             if(Environment.TickCount64-_catalogAt>30000)return(503,new{error="claude_catalog_stale"});
             if(op!="interrupt"&&journal.Pending(task) is not null)return(409,new{error="pending_delivery_requires_receipt"});

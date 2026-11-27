@@ -277,7 +277,7 @@ internal sealed partial class Tab5Service : IDisposable
         _gallery=gallery??new();
         if(_store.Current is { } pair) _reservedPort=FlashDeviceDiscovery.Read().FirstOrDefault(d=>d.Identity==pair.UsbIdentity)?.Port;
     }
-    private object ConnectionHealthFor(StatusSnapshot snapshot,Tab5OtaPackage? image) => new { uiAutomationCommand=UIAutomation.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),owner:UiAutomationOwner), screenPreviewCommand=ScreenPreview.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), hostBindingVersion=1,hostId=_store.Current is {} hostPair?Tab5HostBinding.Id(hostPair):"",hostName=Tab5HostBinding.Name(Environment.MachineName),voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),image),bootVerifyCommand=BootVerifyCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()),runtimeDiagnosticCommand=RuntimeDiagnosticCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,unlockCredentialVersion=2,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
+    private object ConnectionHealthFor(StatusSnapshot snapshot,Tab5OtaPackage? image) => new { otaReceiptPreserveDraft=1,uiAutomationCommand=UIAutomation.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),owner:UiAutomationOwner), screenPreviewCommand=ScreenPreview.CommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()), hostBindingVersion=1,hostId=_store.Current is {} hostPair?Tab5HostBinding.Id(hostPair):"",hostName=Tab5HostBinding.Name(Environment.MachineName),voiceEnabled=(_voice as Tab5VoiceHost)?.SettingsEnabled,displayCommand=DisplayCommand,otaCommand=RemoteOtaCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds(),image),bootVerifyCommand=BootVerifyCommandForFrame(snapshot.CapturedAt.ToUnixTimeMilliseconds()),runtimeDiagnosticCommand=RuntimeDiagnosticCommand,galleryPacks=GalleryPack.ContentRevisions(),gallerySyncVersion=1,galleryStream=1,computerControlVersion=1,unlockCredentialVersion=2,wifiUnlockVersion=WifiKeyboardSettings.Configured&&_pinStore.IsEnabled(_store.Current)?1:0,
         bleStandby=Tab5BleClient.ReportStandby(Environment.TickCount64,Interlocked.Read(ref _usbAckAt),Interlocked.Read(ref _bleAckAt),_usbDataActive,_bleStatus) };
     private long _musicPublishedAt, _snapshotAt;
     private int _publicationRequested;
@@ -512,10 +512,11 @@ internal sealed partial class Tab5Service : IDisposable
             if(imageIds.ValueKind!=JsonValueKind.Array||imageIds.GetArrayLength()>Tab5CodexImages.MaxCount||imageIds.EnumerateArray().Any(x=>x.ValueKind!=JsonValueKind.String))return(400,new{error="invalid_images"});
             images=imageIds.EnumerateArray().Select(x=>x.GetString()!).ToArray();
         }
-        if(operation=="draft-save")return ObserveDraft(_codexTasks.Draft(taskId.GetString()!,requestId,message.GetString()!,images,id));
+        bool preserveDraft=root.TryGetProperty("preserveDraft",out var preserve)&&preserve.ValueKind==JsonValueKind.True;
+        if(operation=="draft-save")return ObserveDraft(_codexTasks.Draft(taskId.GetString()!,requestId,message.GetString()!,images,id,preserveDraft));
         if(operation=="draft-load")return ObserveDraft(_codexTasks.Draft(taskId.GetString()!,requestId));
         if(operation=="receipt-confirm")return _codexTasks.ConfirmDelivery(taskId.GetString()!,requestId,id,message.GetString()!,expectedTurn,images);
-        if(operation=="receipt")return ObserveDraft(await _codexTasks.ReceiptAsync(taskId.GetString()!,requestId,token,id));
+        if(operation=="receipt")return ObserveDraft(await _codexTasks.ReceiptAsync(taskId.GetString()!,requestId,token,id,preserveDraft));
         if(operation=="read-ack")return await _codexTasks.ConfirmReadAsync(id,taskId.GetString()!,readTurn,requestId,token);
         if(operation=="read") {
             bool inlineReply=root.TryGetProperty("inlineReply",out var inline)&&inline.ValueKind==JsonValueKind.True;
