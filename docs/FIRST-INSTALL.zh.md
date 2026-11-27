@@ -2,7 +2,7 @@
 
 [下载中心](../DOWNLOADS.md) · [English quick start](INSTALL.zh.md#english-quick-start) · [升级与排错](INSTALL.zh.md#troubleshooting)
 
-适用于 Windows 和 Mac 桥接 0.6.31、TAB5 0.2.323-ui 和 ESP8266 0.5.8。准备电脑、设备和一根 **USB 数据线**。首次接入只需 USB，账号、Wi-Fi 和语音可稍后配置。
+适用于 Windows 桥接 0.6.32、Mac 桥接 0.6.34、TAB5 0.2.324-ui 和 ESP8266 0.5.8。准备电脑、设备和一根 **USB 数据线**。首次接入只需 USB，账号、Wi-Fi 和语音可稍后配置。
 
 ## 1. 安装电脑桥接
 
@@ -15,8 +15,8 @@
 ### Mac（Apple Silicon，macOS 13 或更新）
 
 1. 从[下载中心](../DOWNLOADS.md)点 **Mac 桥接**，解压 `*-macos-arm64.zip`，把 `AIBotBridge.app` 拖入 Finder 的 **应用程序**。
-2. 从 **应用程序** 打开 AI-bot。当前包未公证；如果系统提示无法验证开发者，先核对下载来源，再按 [Apple 的打开应用说明](https://support.apple.com/zh-cn/102445)处理。
-3. 首次打开时，按 **系统授权** 引导确认适用的 macOS 提示。辅助功能在系统设置里也可能叫「设备控制和数据访问」。以后可从 **设备中心 → 桥接设置 → 系统授权** 继续。
+2. 从 **应用程序** 打开 AI-bot。当前包采用固定自签名，未做 Apple 公证；如果系统提示无法验证开发者，先核对下载来源，再按 [Apple 的打开应用说明](https://support.apple.com/zh-cn/102445)处理。
+3. 首次打开时，按 **系统授权** 引导确认适用的 macOS 提示。通知最后询问，屏幕右上角的通知提示不点也不影响其他授权。以后可从 **设备中心 → 桥接设置 → 系统授权** 单独开启通知或补办其他权限；辅助功能也从这里打开当前系统入口。
 4. 从菜单栏 AI-bot 图标打开 **设备中心**，首次连接走下方 USB 路线。
 
 ![Mac 菜单示例：第一项是「设备中心」](assets/screens/mac-menu.png)

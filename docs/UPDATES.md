@@ -1,6 +1,6 @@
 # 软件与固件更新 / Software and firmware updates
 
-本页对应 Windows 和 Mac 桥接 0.6.31。Windows 从托盘打开设备中心，Mac 从菜单栏打开。检查更新统一从「设备中心 → 桥接设置 → 软件固件」进入。旧版 v0.5.0 用户先更新电脑应用。
+本页对应 Windows 桥接 0.6.32 和 Mac 桥接 0.6.34。Windows 从托盘打开设备中心，Mac 从菜单栏打开。检查更新统一从「设备中心 → 桥接设置 → 软件固件」进入。旧版 v0.5.0 用户先更新电脑应用。
 
 [完整下载中心](../DOWNLOADS.md)集中提供 Windows / Mac 桥接、ESP8266 固件、TAB5 首刷与升级包、书法和名画图库。桥接 0.6.10 的「完整下载与安装说明」链接也指向此处。
 
@@ -22,16 +22,28 @@ Starting with Mac 0.6.31, One-Click Update downloads and verifies the app before
 
 <sub>Windows 0.6.31 原生窗口，版本号为演示数据。 / Native Windows 0.6.31 dialog with sample version numbers.</sub>
 
+Mac 0.6.33 改用固定签名。已有用户优先用内置更新；重启后如有权限缺失，从「设备中心 → 桥接设置 → 系统授权」补办。后续使用同一证书签名的版本可保留辅助功能授权；从浏览器重新下载的未公证 ZIP 仍可能需要「仍要打开」。
+
+Mac 0.6.33 uses a fixed signing certificate. Use the in-app updater if AI-bot is already installed. After restart, reapprove only missing permissions from **Device Center → Bridge Settings → System Permissions**. Later updates signed with the same certificate retain Accessibility permission. A fresh browser download is not notarized and may still require **Open Anyway**.
+
+Mac 0.6.34 将通知授权放在其它权限之后；不点通知提示也不耽误其它授权，之后可从「系统授权」单独开启。
+
+Mac 0.6.34 asks about notifications after other permissions. You can leave the notification prompt unanswered and finish the rest, or enable notifications later in System Permissions.
+
 ## 通用升级入口 / One-Click Update
 
-有更新时，「桥接设置 → 软件固件」卡片显示绿圆底白色上箭头和更新数量。在版本表选中软件或固件，表格下方显示对应版本的更新说明。点「一键升级」开始下载和校验，按应用或设备提示继续安装。下载中可以取消，重试时可沿用已下载的数据。
+有更新时，「桥接设置 → 软件固件」卡片右上角显示小号绿底白箭头，标题下方显示更新数量。在版本表选中软件或固件，表格下方显示对应版本的更新说明。点「一键升级」开始下载和校验，按应用或设备提示继续安装。下载中可以取消，重试时可沿用已下载的数据。
 
 - macOS 在可写的位置替换现有应用并重新打开。需要系统授权或手动替换时按提示操作。
 - Windows 在旧桥接退出后运行安装器，再重新启动 AI-bot。便携版会打开安装器。
 - 支持电脑端升级的 TAB5 会收到升级请求，先保存草稿，再传输并写入固件。重启后按原流程核验运行镜像和启动分区。旧固件可从设备的「设置 → 固件升级」确认。
 - ESP8266 需连接 USB。识别到目标小屏及其版本后，先完整备份再写入和校验。版本或 USB 身份未知时，使用刷机窗口手动确认。
 
-When updates are available, the Software/Firmware card shows a white up arrow on a green circle and a count. Select an item to see its release notes, then click One-Click Update to download and verify the package, then follow the app or device prompt. Cancel a download to resume it later. The Mac bridge restarts after the update. macOS may require system approval or a manual replacement for protected locations. Windows closes the installed bridge, runs the installer, and starts AI-bot again. Portable copies open the installer. Supported TAB5 devices save drafts before writing and verify the running image and boot partition after restarting. Connect ESP8266 over USB for automatic backup and flashing. Older TAB5 firmware or an ESP8266 with an unknown version or USB identity still requires manual confirmation.
+When updates are available, a small green update badge appears in the upper-right corner of the Software/Firmware card, with the update count below the title. Select an item to see its release notes, then click One-Click Update to download and verify the package, then follow the app or device prompt. Cancel a download to resume it later. The Mac bridge restarts after the update. macOS may require system approval or a manual replacement for protected locations. Windows closes the installed bridge, runs the installer, and starts AI-bot again. Portable copies open the installer. Supported TAB5 devices save drafts before writing and verify the running image and boot partition after restarting. Connect ESP8266 over USB for automatic backup and flashing. Older TAB5 firmware or an ESP8266 with an unknown version or USB identity still requires manual confirmation.
+
+<img src="assets/screens/windows-bridge-update-badge-0632.png" width="650" alt="Windows Device Center with the update badge in the upper-right corner of the Software/Firmware card">
+
+<sub>Windows 0.6.32 原生界面，更新数量为演示数据。 / Native Windows 0.6.32 with a sample update count.</sub>
 
 ## 日常使用
 
@@ -45,6 +57,10 @@ When updates are available, the Software/Firmware card shows a white up arrow on
 打开「软件固件」时，首次打开或上次成功检查已满 5 分钟会自动刷新。查询失败时页面保留上次成功结果，1 分钟后再次打开可自动重试。「检查更新」可直接刷新。
 
 0.6.2 修复：已连接的旧版 ESP8266 如果未上报固件版本，显示「版本未知（旧固件未上报）」，可以点「手动准备小屏升级」。这不表示发现了更新，不触发自动更新提醒。下载并校验最新正式固件包后，程序会说明无法排除同版本或降级，由用户确认进入 USB 刷机工具；仍需连接该小屏并点击开始刷机，先完整备份，再写入和校验。离线、版本上报无效、下载期间设备或版本改变都会阻止继续。新版固件通过 USB 和已认证的 Wi-Fi 请求上报自身版本。0.6.1 及更早的安装包不包含此修复。
+
+TAB5 自动模式下，升级优先选择 Wi-Fi，其次 USB，最后蓝牙。接收和写入结束后，设备先校验固件，通过后才切换启动分区并重启。
+
+In automatic mode, TAB5 prefers Wi-Fi for updates, followed by USB and then Bluetooth. After receiving and writing the image, TAB5 validates it before selecting the boot partition and restarting.
 
 TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备中心的首刷流程。下载包与首次安装说明见[安装指南](INSTALL.zh.md)。本地与公开版功能统一，名画和书法图库独立下载；在本窗口“屏保图库”中导入 ZIP，程序升级保留图库。详见[图库说明](GALLERY-PACKS.md)。
 
@@ -69,7 +85,7 @@ TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备�
 
 The [complete download center](../DOWNLOADS.en.md) lists both desktop apps, ESP8266 firmware, TAB5 first-install/upgrade packages and both artwork collections. Bridge 0.6.10's manual-download link opens this center.
 
-This guide covers Windows and Mac bridges 0.6.31. Open Device Center from the Windows tray or Mac menu bar, then go to Bridge Settings → Software/Firmware. Check for updates and select an item to read its notes. Starting with 0.6.26, choose One-Click Update. On earlier versions, choose the download action and follow the installer or device prompts. The bridge verifies SHA-256, package identity, and compatibility before installing. After updating, check the running version and reconnect the device if needed. For TAB5, use Verify Boot to check the running image and boot partition again. Use the first-install package from Device Center for a first flash and the upgrade package for a TAB5 that already runs AI-bot. Each component can be updated independently.
+This guide covers Windows bridge 0.6.32 and Mac bridge 0.6.34. Open Device Center from the Windows tray or Mac menu bar, then go to Bridge Settings → Software/Firmware. Check for updates and select an item to read its notes. Starting with 0.6.26, choose One-Click Update. On earlier versions, choose the download action and follow the installer or device prompts. The bridge verifies SHA-256, package identity, and compatibility before installing. After updating, check the running version and reconnect the device if needed. For TAB5, use Verify Boot to check the running image and boot partition again. Use the first-install package from Device Center for a first flash and the upgrade package for a TAB5 that already runs AI-bot. Each component can be updated independently.
 
 Enable Check Automatically and Notify to start background checks after about 30 seconds. On Mac, the delay starts when the launch permission review finishes. The bridge checks again in about an hour after a successful check and retries after about 15 minutes on failure. Each update version is announced once. Windows notifications respect quiet hours. Click a notification to open the relevant item. A grouped Windows notification opens the first item. Use the installer, boot check, and physical display to confirm the update after download.
 

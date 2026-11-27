@@ -6,13 +6,15 @@ The Windows development build adds a product selector that separates Coding/Toke
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31) · [简体中文](README.md)
+[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35) · [简体中文](README.md)
 
 **Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
-**Desktop bridge 0.6.31**　Windows and Mac show TAB5 conversations in their saved Codex projects and can retrieve saved replies if the desktop connection cannot supply them. The overview can show working or idle status when local records confirm it. On Mac, AI-bot verifies the update before asking you to install. [Bridge release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31)
+**Mac bridge 0.6.34**　Setup asks about notifications last so they no longer hold up other permissions. You can enable them later in System Permissions. If computer control is enabled, the bridge checks System Events permission at startup. The latest Windows version remains 0.6.32. [Mac release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.34)
 
-**TAB5 0.2.323-ui**　Select a Codex or Claude conversation and tap the bell at the end of its row to mute or restore reminders. Muted conversations keep their unread badges. [Firmware release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31)
+**TAB5 0.2.324-ui**　The overview updates the calendar, weather and model cards. See remaining Codex weekly quota and time to reset. Long weather locations take priority, and gold badges mark solar terms in the monthly screensaver. [Firmware release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35)
+
+The current Windows 0.6.32 and Mac 0.6.34 bridges continue to supply their existing weather data, including PM2.5 concentration and current pressure when the provider reports them. The PM2.5 category and three-hour pressure change require data from a future bridge update. The pressure trend also needs enough readings from the same location, source and pressure reference. [See the TAB5 screens](docs/FEATURES.zh.md#tab5)
 
 **Artwork edition 2026.2** updates guides, appreciation and sources for 366 paintings and 366 calligraphy works. Standard and HD editions are available. [Artwork downloads](docs/GALLERY-PACKS.md)
 
@@ -68,11 +70,11 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 This project introduction compares the shared features of TAB5 and the ESP8266 display, then presents TAB5 highlights including overview, conversations, voice drafts, camera attachments, computer controls, agenda and art screensavers. Native interface footage uses demonstration data and composite hardware images, not hardware photography.
 
-The November 25 edition (2:08) shows the current TAB5 overview and conversation reminders. Around 1:00, look for the bell and unread badge. At 1:51, the desktop viewer shows Monet's *Water Lilies* and Su Shi's *The Cold Food Observance* fullscreen, then zooms in on the details.
+The November 27 edition (2:08) refreshes TAB5 quota, current weather, computer metrics, markets, overview, conversation reminders and the floral calendar. See the overview at 0:49 and the gold solar-term badges at 1:39. The desktop artwork viewer still begins at 1:51 with Monet's *Water Lilies* and Su Shi's *The Cold Food Observance*.
 
-<a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="560" alt="Play the AI-bot product video"></a>
+<a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="560" alt="Play the AI-bot product video"></a>
 
-[Watch or download the 1080p MP4](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)
+[Watch or download the 1080p MP4](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)
 
 ## What it does
 
@@ -98,7 +100,7 @@ The November 25 edition (2:08) shows the current TAB5 overview and conversation 
 <tr>
 <td align="center" valign="middle"><img src="docs/assets/screens/device-center.png" width="240" alt="Windows Device Center: My Devices and device settings"></td>
 <td align="center" valign="middle"><img src="docs/assets/screens/codex.png" width="180" alt="ESP8266 display: Codex status and quotas"></td>
-<td align="center" valign="middle"><img src="docs/assets/screens/tab5-overview-0323.png" width="260" alt="TAB5 overview: task, quotas, clock and weather"></td>
+<td align="center" valign="middle"><img src="docs/assets/screens/tab5-overview-0324.png" width="260" alt="TAB5 overview: task, quotas, clock and weather"></td>
 </tr>
 <tr><td align="center" nowrap="nowrap">Accounts, devices and updates</td><td align="center" nowrap="nowrap">Status, quotas and daily info</td><td align="center" nowrap="nowrap">Touch controls and overview</td></tr>
 </tbody>
@@ -113,7 +115,7 @@ The November 25 edition (2:08) shows the current TAB5 overview and conversation 
 
 **Agenda and scheduled reminders** are included in TAB5 210: aligned Today/All filtering, centered empty-state creation, local storage, offline edits/deletions and reconnect synchronization, with repeat and advance reminders. Up to 16 items; ended items remain until a full-capacity add evicts the oldest eligible expired one-time entry. [Usage and hardware boundaries](docs/RELEASE-0.6.11.md)
 
-**Dialogue workspace:** choose a Codex/Claude project and conversation, manage drafts/photos, and enter the exact current or unread conversation from Overview. Supported native Claude sessions can be located and controlled; sending is guarded when the target cannot be confirmed. Tool requests require computer approval. [Conversation bells and unread badge with demo data](docs/assets/screens/tab5-dialogue-claude-0323.png)
+**Dialogue workspace:** choose a Codex/Claude project and conversation, manage drafts/photos, and enter the exact current or unread conversation from Overview. Supported native Claude sessions can be located and controlled; sending is guarded when the target cannot be confirmed. Tool requests require computer approval. [Conversation bells and unread badge with demo data](docs/assets/screens/tab5-dialogue-claude-0324.png)
 
 **Codex Direct:** choose a recent session and finish recording to fill the computer input automatically. Review or edit on the computer, then confirm from TAB5. Supports question cards, continued dictation, failure recovery and hold to clear. [Guide](docs/TAB5-QUICK-CONSOLE.md)
 
@@ -145,11 +147,11 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
-| Windows bridge · Windows 10/11 x64 | 0.6.31 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-bridge-v0.6.31-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
-| Mac bridge · macOS 13+ / Apple Silicon | 0.6.31 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-bridge-v0.6.31-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
+| Windows bridge · Windows 10/11 x64 | 0.6.32 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/AI-bot-bridge-v0.6.32-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/SHA256SUMS.txt) |
+| Mac bridge · macOS 13+ / Apple Silicon | 0.6.34 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.34/AI-bot-bridge-v0.6.34-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.34/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.8 | [Download · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
-| TAB5 · first install from factory system | 0.2.323-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
-| TAB5 · upgrade existing AI-bot | 0.2.323-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
+| TAB5 · first install from factory system | 0.2.324-ui | [Download · 6 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/SHA256SUMS.txt) |
+| TAB5 · upgrade existing AI-bot | 0.2.324-ui | [Download · 6 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/SHA256SUMS.txt) |
 
 ### Painting and calligraphy
 
@@ -178,7 +180,7 @@ On Windows or Mac, open Device Center → Bridge Settings → Software/Firmware 
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31) · [Changelog](CHANGELOG.md) · [Release acceptance](docs/development/RELEASE-0631-ACCEPTANCE-20261125.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.34) · [Changelog](CHANGELOG.md) · [Mac update verification scope](docs/development/MAC-SYSTEM-EVENTS-PREFLIGHT-HANDOFF-20261126.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](tab5/) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

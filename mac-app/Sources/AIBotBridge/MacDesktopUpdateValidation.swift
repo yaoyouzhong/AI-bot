@@ -1,3 +1,4 @@
+import ApplicationServices
 import AppKit
 import Darwin
 
@@ -8,12 +9,14 @@ import Darwin
         let version: String
         let archive: String
         let sha256: String
+        let expectsSigningMigration: Bool?
     }
 
     private struct Receipt: Codable {
         let oldVersion: String
         let oldPID: Int32
         let configSHA256: String
+        let accessibility: Bool?
     }
 
     private static func context(_ path: URL) throws -> (root: URL, fixture: Fixture, installedVersion: String) {
@@ -45,7 +48,8 @@ import Darwin
         let registry = MacDeviceRegistry(directory: root.appendingPathComponent("profile"))
         try registry.file.write([.init(kind: "tab5", name: "验收设备", enabled: false, hardwareID: "001122334455")])
         let receipt = Receipt(oldVersion: installed, oldPID: ProcessInfo.processInfo.processIdentifier,
-                              configSHA256: try MacTab5Protocol.sha256(Data(contentsOf: registry.file.url)))
+                              configSHA256: try MacTab5Protocol.sha256(Data(contentsOf: registry.file.url)),
+                              accessibility: AXIsProcessTrusted())
         let asset = try Data(contentsOf: root.appendingPathComponent(fixture.archive), options: .mappedIfSafe)
         let base = "https://github.com/yaoyouzhong/AI-bot/releases/download/v\(fixture.version)/"
         let packageURL = URL(string: base + fixture.archive)!, checksumURL = URL(string: base + "SHA256SUMS.txt")!
@@ -103,6 +107,11 @@ import Darwin
                 throw MacTab5LocalError.invalid("The prepared update did not wait for an explicit choice.")
             }
             let buttons = descendants(view).compactMap { $0 as? NSButton }
+            if let migration = fixture.expectsSigningMigration {
+                let showsMigration = descendants(view).compactMap { $0 as? NSTextField }
+                    .contains { $0.stringValue.contains("切换到固定签名") }
+                guard showsMigration == migration else { throw MacTab5LocalError.invalid("Signing migration notice did not match the update.") }
+            }
             guard let install = buttons.first(where: { $0.title == "安装并重启" }),
                   let later = buttons.first(where: { $0.title == "稍后" }), later.keyEquivalent == "\u{1b}" else {
                 throw MacTab5LocalError.invalid("The upgrade confirmation actions were not available.")
@@ -162,7 +171,9 @@ import Darwin
             throw MacTab5LocalError.invalid("Restart did not retain the isolated device configuration.")
         }
         let result = ["oldVersion": before.oldVersion, "runningVersion": installed, "packageSHA256": fixture.sha256,
-                      "predecessorExited": "yes", "isolatedConfigPreserved": "yes"]
+                      "predecessorExited": "yes", "isolatedConfigPreserved": "yes",
+                      "accessibilityBefore": before.accessibility.map(String.init) ?? "not recorded",
+                      "accessibilityAfter": String(AXIsProcessTrusted())]
         try JSONEncoder().encode(result).write(to: root.appendingPathComponent("boot.json"), options: .atomic)
     }
 }

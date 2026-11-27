@@ -52,10 +52,23 @@ Evidence follows the actual change: identify candidates by source and archive ha
 
 ## Mac 首次授权验收
 
-- 首次打开包时检查引导是否依次请求定位、语音识别、麦克风、通知及适用的自动化权限，已允许的项目不重复弹出；通知首次没有返回授权决定时会再请求一次，仍未决定可在同一引导重试。辅助功能在最后直接打开系统设置，引导仍可操作并刷新应用读到的授权；若系统开关已开而权限未生效，核对当前 App 后按提示处理。使用「稍后完成」后不再继续发起系统请求。
+- 验收 0.6.34 起的候选时，先检查定位、语音识别、麦克风及适用的自动化权限；辅助功能按提示打开系统设置，引导仍可操作并刷新当前 App 的授权。通知在其他自动请求和辅助功能的输入权限续步之后独立询问；不点右上角提示也不影响其他授权，稍后可用「允许通知…」或「打开通知设置…」。已允许的项目不重复弹出，关闭引导后不再发起新的请求。若系统开关已开而权限未生效，核对当前 App 后按提示处理。
 - 首次授权时，可在后台启动已安装的 Terminal、音乐和 Spotify，逐个确认自动化；未安装的应用不请求。未配对 TAB5 时也应请求 Terminal 自动化，实际会话操作仍须通过配对与功能检查。核对蓝牙及 macOS 15 以上可用网络中的本地网络提示。允许权限后验证音乐读取、播放／暂停及语音功能；拒绝某项仍能继续完成其他授权。
 - 覆盖升级后，新版本首次打开时重新检查启用功能的权限；只列出系统可确认的缺失项，已授权项不再请求。启用电脑控制时，在后台启动系统事件以预检自动化权限。辅助功能待授权时，由当前进程向 macOS 请求，再打开系统设置，便于给本次运行的 App 授权。无法无提示预检的本地网络和未运行的其他自动化目标仍可在完整清单中处理。同版本重新启动不重复打开引导。
 - 关闭引导后，从「设备中心 → 桥接设置 → 系统授权」补办；保留手动关闭的功能。正式发布验收使用独立账户。也可在当前账户用全新应用标识、独立配置和钥匙串记录的完整包复测流程；从一开始固定安装路径，勿清除日常账户权限。
+
+### 固定签名候选 / Fixed-signing candidates
+
+准备未公证的固定自签名候选时，在 Mac 构建机的钥匙串使用**同一张**代码签名证书和私钥。用下列命令对新目录打包；证书指纹可用于识别证书，私钥、密码和钥匙串不得进入仓库或安装包。`AIBOT_MAC_SIGN_KEYCHAIN` 可指向已经解锁的独立构建钥匙串。`fixed` 要求明确的证书指纹，失败即停止，不自动生成/更换证书，也不退回临时签名。正式长期使用前需确认发布人、私钥备份和证书有效期；不要复用一次性测试证书。这不改变默认 CI 的签名方式或发布授权。
+
+```bash
+AIBOT_MAC_SIGN_MODE=fixed AIBOT_MAC_SIGN_IDENTITY='<40 位证书指纹>' \
+  bash scripts/package_macos.sh artifacts/<新候选目录>
+```
+
+- 迁移：使用已公开的临时签名旧包，保持原安装位置，通过内置更新装入固定签名候选。旧版本可能没有迁移说明，应在对应发布说明同时解释：重启后仅补办确实失效的系统权限，钥匙串确认单独核对，不承诺全部无提示。
+- 连续升级：使用同一张证书和 Bundle ID 构建一个不同版本，通过内置更新复验自动重启和当前进程的辅助功能状态。不以系统开关外观代替实测；下载包的 Gatekeeper 放行与权限继承单列。固定签名版拒绝通过内置更新退回临时签名或换证书；确需轮换需单独设计迁移与验收，不把手动回退当作保留权限。
+- Use the same code-signing certificate and bundle identifier across builds. `fixed` requires the certificate fingerprint and never falls back to ad-hoc. First adoption can require renewed system permissions; subsequent in-app updates reject signer changes or ad-hoc packages. This package is not notarized. Verify Gatekeeper, Accessibility and Keychain separately, and do not publish with the isolated test certificate.
 
 ## 维护与回退
 
@@ -79,3 +92,11 @@ Use one repository and one main branch. Related changes for the same delivery sh
 Select scope and source once, build the required native candidate packages once, record acceptance once, then promote exactly those bytes. Existing validated candidates and justified unchanged-path evidence are reusable. Acceptance is bound to the candidate identity and file hashes. Tag events only validate metadata; explicit promotion retrieves a successful candidate run without rebuilding, resumes verified uploads, and synchronizes download metadata. Ordinary code CI still checks changed products; documentation/tooling changes do not rebuild apps. See RELEASE-AUTOMATION.md for commands and recovery.
 
 Record source identity, package hashes, platform tests and remaining limitations. Critical delivery, data-preservation and installation failures block the affected release. Publishing, tags and uploads require their applicable authorization. Follow the existing version specification and release closeout checklist; never replace published assets or tags in place.
+
+## 审查要点
+
+- 核对改动的调用方和原有行为。设备连接、配对、授权、串口与网络回退不能因平台对齐退化。
+- 本机只把实际执行的检查记为通过。分开核对合入、安装、真机验收和发布，不能用模拟、设备在线或另一个提交的记录代替。
+- 桌面功能改动在同一 PR 写交接，明确说明另一端需要做什么、哪些实机事项尚待验证。
+- 审查 GitHub 工作流时，检查触发范围、权限、提交身份和必需检查如何处理失败、取消及跳过。合入主干不应绕过发布或设备验收授权。
+- 自动对齐只处理已通过本机验收的产品改动和配套交接，不自动合入改动交付策略、主干工作流或审查规则的 PR。GitHub 对主干强制要求来自 GitHub Actions 的 `alignment-check`，并要求 PR 分支跟上主干。

@@ -107,7 +107,12 @@ class CandidateTests(unittest.TestCase):
                 z.writestr("SOURCE-MANIFEST.json", json.dumps({"version": version, "applicationSha256": hashed, "sourceCommit": None}))
         else:
             for key in keys:
-                (folder / names(key, current[component])[0]).write_bytes((key + suffix).encode())
+                path = folder / names(key, current[component])[0]
+                if key == "macos":
+                    with zipfile.ZipFile(path, "w") as archive:
+                        archive.writestr("MAC_SIGNING.json", '{"mode":"adhoc","notarized":false}')
+                else:
+                    path.write_bytes((key + suffix).encode())
         for artifact in list(folder.iterdir()):
             (folder / (artifact.name + ".sha256")).write_text(f"{pipeline.digest(artifact)}  {artifact.name}\n")
         prepare(folder, current[component], SOURCE, component=component, versions=current, desktop_platform=platform, tab5_source=source_zip)

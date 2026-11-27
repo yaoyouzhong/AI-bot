@@ -3,8 +3,8 @@
 ## 范围和源码身份
 
 - 发起端 Windows；用户要求先完成代码与模拟测试，真实套餐在后续开通后实测。
-- 本地分支 `codex/windows-domestic-coding-plans`，起点 `0139da5ad693eebb79e556b3a6670fd399e720e4`。未推送、未创建远端 PR、未合入 main、未发布或部署。
-- 当前 checkout 含其他任务的既有未提交改动，本次只提交套餐相关文件；Release 编译为共享 checkout 的集成检查，不是干净发布候选。
+- 本地分支 `codex/windows-domestic-coding-plans`，起点 `0139da5ad693eebb79e556b3a6670fd399e720e4`。功能提交为 28816e6e35f0ea3841bbfdf937366067233fe4dd。PR 以 013750ac2baf124ac4b3ac3e52db1ceb0c0aa39a 为主干基线，保留该基线的发布日志条目。
+- 开发阶段在共享工作区执行了构建、模拟和渲染验证。提交到 PR 的差异只包含套餐相关代码和文档。
 - 不改变 VERSION、固件或额度协议字段。不新增火山、腾讯、华为设备显示模式；这三家本轮只在 Windows 模型账号窗口查看与缓存。
 - 设计见 [设计记录](WINDOWS-CODING-PLAN-DESIGN-20261127.md)，当前设置与支持级别见 [使用说明](../DOMESTIC_QUOTA_SETUP.md#2026-11-27-windows-开发版编程套餐)。
 
@@ -89,9 +89,4 @@
 
 ## 发布与收尾
 
-未获推送／发布授权，不创建标签、推送或发布。没有新 worktree 或专用 Cargo target。保留本地开发分支、源码和 `artifacts/coding-plans-20261127/ui` 的复核截图；后续有真实套餐后在此记录实际结果并准备 PR。共享 checkout 内其他任务的文件未清理或纳入本次提交。
-
-临时资料清理命令被自动策略拒绝，未通过其他工具绕过。以下本轮资料因此保留，均不纳入提交／发布包：
-
-- `C:\Users\YAOUOU~1\AppData\Local\Temp\aibot-coding-plans-20261127`：官方公开脚本的临时契约核对资料。
-- `C:\Users\yaououzhong\Work\AI-bot\artifacts\public-profile-2bfb7592f136421fa88b54ed005eaee0` 与 `C:\Users\yaououzhong\Work\AI-bot\artifacts\public-profile-8618c5118ff7465190cad0ddf79ea8ce`：本轮离线 WebView2 测试 profile，不含真实厂商登录。其余轻量合成缓存属于运行时自动生成的 public-profile，未根据时间批量删除，以免误碰并行任务。
+本轮授权范围为推送 Windows 开发分支并创建 PR。真实套餐开通后补测，在本交接中回填结果。macOS 和设备侧按各条待办跟进。

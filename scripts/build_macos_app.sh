@@ -6,7 +6,14 @@ package_root="$repo_root/mac-app"
 # A local certificate fingerprint is not a credential. Keep this machine's
 # choice outside the checkout so CI and other developers remain independent.
 identity_file="$HOME/Library/Application Support/AI-bot/local-code-signing-identity.txt"
-if [[ -n "${AIBOT_MAC_SIGN_IDENTITY:-}" ]]; then
+sign_mode="${AIBOT_MAC_SIGN_MODE:-auto}"
+case "$sign_mode" in
+    auto|adhoc|fixed) ;;
+    *) echo 'AIBOT_MAC_SIGN_MODE must be auto, adhoc, or fixed.' >&2; exit 1 ;;
+esac
+if [[ "$sign_mode" == adhoc ]]; then
+    sign_identity="-"
+elif [[ -n "${AIBOT_MAC_SIGN_IDENTITY:-}" ]]; then
     sign_identity="$AIBOT_MAC_SIGN_IDENTITY"
 elif [[ -f "$identity_file" ]]; then
     sign_identity="$(cat "$identity_file")"
@@ -16,6 +23,15 @@ elif [[ -f "$identity_file" ]]; then
     fi
 else
     sign_identity="-"
+fi
+if [[ "$sign_mode" == fixed && ! "$sign_identity" =~ ^[[:xdigit:]]{40}$ ]]; then
+    echo 'Fixed signing requires a pinned 40-character certificate fingerprint (AIBOT_MAC_SIGN_IDENTITY or local identity file).' >&2
+    exit 1
+fi
+sign_options=()
+if [[ "$sign_mode" == fixed ]]; then sign_options+=(--timestamp=none); fi
+if [[ "$sign_identity" != '-' && -n "${AIBOT_MAC_SIGN_KEYCHAIN:-}" ]]; then
+    sign_options+=(--keychain "$AIBOT_MAC_SIGN_KEYCHAIN")
 fi
 # Never silently fall back to ad-hoc signing after a fixed identity is selected.
 app_root="${1:-$repo_root/artifacts/AIBotBridge.app}"
@@ -52,8 +68,11 @@ plutil -lint "$contents/Info.plist"
 if [[ "$sign_identity" == "-" ]]; then
     echo "Ad-hoc candidate: changed builds may require fresh macOS authorization." >&2
 fi
-codesign --force --sign "$sign_identity" --options runtime \
+codesign --force --sign "$sign_identity" ${sign_options[@]+"${sign_options[@]}"} --options runtime \
     --entitlements "$package_root/AIBotBridge.entitlements" "$app_root"
 codesign --verify --deep --strict --verbose=2 "$app_root"
+if [[ "$sign_mode" == fixed ]]; then
+    codesign --verify --strict -R="identifier \"io.github.yaoyouzhong.aibot.bridge\" and certificate leaf = H\"$sign_identity\"" "$app_root"
+fi
 
 echo "$app_root"

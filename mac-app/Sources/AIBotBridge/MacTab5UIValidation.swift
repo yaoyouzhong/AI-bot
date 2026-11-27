@@ -559,7 +559,7 @@ enum MacTab5UIValidation {
         func status(_ step: Step) -> String? { labels.first { $0.identifier?.rawValue == "permission-status-\(step)" }?.stringValue }
         setup.display(pending, active: .microphone)
         let reveal = buttons.first { $0.title == "在 Finder 中显示当前 App" }
-        guard button(.terminal)?.title == "打开并授权…", button(.notifications)?.title == "打开系统设置…",
+        guard button(.terminal)?.title == "打开并授权…", button(.notifications)?.title == "打开通知设置…",
               button(.speech)?.isHidden == true, buttons.contains(where: { $0.title == "稍后完成" }),
               reveal?.isHidden == true else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions", output: output)
@@ -588,10 +588,10 @@ enum MacTab5UIValidation {
         try validateSettings(window, name: "system-permissions-install", output: output)
         updated[.accessibility] = .request
         updated[.systemEvents] = .openApp
-        setup.configurePresentation(mode: .upgrade, steps: MacPermissionSetup.pendingSteps(updated, mode: .upgrade))
+        setup.configurePresentation(mode: .upgrade, steps: [.systemEvents, .accessibility])
         setup.display(updated)
         guard status(.accessibility) == "已授权，输入待确认", button(.accessibility)?.title == "确认输入权限…",
-              status(.systemEvents) == "待检查授权", button(.systemEvents)?.title == "检查并授权…",
+              status(.systemEvents) == "尚未检查", button(.systemEvents)?.title == "检查状态…",
               reveal?.isHidden == true else { throw MacTab5Error.unconfirmed }
         try validateSettings(window, name: "system-permissions-input", output: output)
         updated[.systemEvents] = .request
@@ -599,6 +599,28 @@ enum MacTab5UIValidation {
         guard status(.accessibility) == "已授权，输入待确认", button(.systemEvents)?.title == "授权系统事件…"
         else { throw MacTab5Error.unconfirmed }
         updated[.accessibility] = .allowed
+        updated[.systemEvents] = .openApp
+        setup.configurePresentation(mode: .upgrade, steps: [.systemEvents])
+        setup.display(updated)
+        let summary = labels.first { $0.identifier?.rawValue == "permission-summary" }
+        guard summary?.stringValue == "系统事件尚未检查，可按需检查。",
+              buttons.contains(where: { $0.title == "关闭" }) else { throw MacTab5Error.unconfirmed }
+        try validateSettings(window, name: "system-permissions-system-events-unchecked", output: output)
+        updated[.systemEvents] = .lastCheckedAllowed
+        setup.display(updated)
+        guard status(.systemEvents) == "上次检查已授权", button(.systemEvents)?.isHidden == true
+        else { throw MacTab5Error.unconfirmed }
+        try validateSettings(window, name: "system-permissions-system-events-last-checked", output: output)
+        updated[.notifications] = .request
+        setup.configurePresentation(mode: .upgrade, steps: [.notifications, .systemEvents])
+        setup.display(updated)
+        let notificationSettings = buttons.first { $0.identifier?.rawValue == "permission-notification-settings" }
+        guard button(.notifications)?.title == "允许通知…", notificationSettings?.isHidden == false,
+              labels.contains(where: { $0.stringValue.contains("屏幕右上角的系统提示中点「允许」") }),
+              summary?.stringValue == "通知可单独处理，不影响其他权限。" else { throw MacTab5Error.unconfirmed }
+        try validateSettings(window, name: "system-permissions-notification-independent", output: output)
+        updated[.notifications] = .allowed
+        setup.configurePresentation(mode: .upgrade, steps: [.systemEvents, .accessibility])
         updated[.systemEvents] = .allowed
         setup.display(updated)
         guard Step.allCases.allSatisfy({ button($0)?.isHidden == true }),

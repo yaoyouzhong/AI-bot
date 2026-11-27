@@ -35,6 +35,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     private var espDisplayWindow: MacESPDisplayWindow?
     private var bridgeStatusWindow: MacBridgeStatusWindow?
     private var permissionSetupWindow: MacPermissionSetupWindow?
+    @MainActor private lazy var systemEventsReview = MacSystemEventsPermissionReview { [weak self] startHelper in
+        guard let self else { return .unused }
+        return await MacPermissionSetup.state(.systemEvents, enabled: self.permissionEnabled, startSystemEvents: startHelper)
+    }
     private var preparingPermissions = true
     private let dataStore = MacDataStore(quotaHistory: MacQuotaHistory())
     private lazy var dataService = MacDataService(store: dataStore, demanded: { MacDeviceRegistry.shared.demanded($0) })
@@ -223,8 +227,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         }
         // System permission APIs require the installed application bundle.
         guard Bundle.main.bundleURL.pathExtension == "app",
-              let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
-              let mode = MacPermissionSetup.launchMode(version: version) else {
+              let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
+            finishInitialPermissions()
+            return
+        }
+        guard let mode = MacPermissionSetup.launchMode(version: version) else {
+            // Already reviewed this version: recheck only System Events, without presenting the guide.
+            Task { @MainActor [weak self] in _ = await self?.systemEventsReview.checkAtLaunch() }
             finishInitialPermissions()
             return
         }
@@ -232,8 +241,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             guard let self else { return }
             var states: [MacPermissionSetup.Step: MacPermissionSetup.State] = [:]
             for step in MacPermissionSetup.Step.allCases {
-                states[step] = await MacPermissionSetup.state(step, enabled: self.permissionEnabled,
-                                                              startSystemEvents: true)
+                if step == .systemEvents {
+                    states[step] = await self.systemEventsReview.checkAtLaunch()
+                } else {
+                    states[step] = await MacPermissionSetup.state(step, enabled: self.permissionEnabled)
+                }
             }
             let steps = MacPermissionSetup.pendingSteps(states, mode: mode)
             // Do not repeat the automatic review after "Finish Later" or
@@ -266,6 +278,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
         let window = MacPermissionSetupWindow(
             readState: { [weak self] step in
                 guard let self else { return .unused }
+                if step == .systemEvents { return await self.systemEventsReview.current() }
                 return await MacPermissionSetup.state(step, enabled: self.permissionEnabled)
             },
             request: { [weak self] step, state in
@@ -418,7 +431,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
 
     private func buildMenu() -> NSMenu {
-        let menu = MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
+        MacDeviceCenterMenu.build(devices: (try? devices.file.read()) ?? [], deviceAction: { [weak self] device, action in
             guard let self, let current = self.devices.device(device.kind), current.id == device.id, current.enabled else { return }
             if action == "mirror" {
                 if device.kind == "esp8266" { self.openMirror() }
@@ -439,8 +452,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
             if action == "devices" { self?.openTab5() }
             else if action == "exit" { self?.quit() }
         })
-        menu.insertItem(item("系统授权…", #selector(openPermissionSetup)), at: max(0, menu.items.count - 1))
-        return menu
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {

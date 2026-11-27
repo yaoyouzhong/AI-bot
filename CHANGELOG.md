@@ -9,6 +9,29 @@ All notable changes to this project will be documented in this file.
 - Choose a Coding/Token Plan separately from API balances in **Model Accounts**. Adds GLM personal Coding Plan key queries and Alibaba Coding Plan's five-hour, weekly and subscription-month quotas; updates MiniMax and MiMo account entry points.
 - Adds labelled subscription-progress collection for Ark, Tencent, Baidu, StepFun and Huawei consoles. These adapters have synthetic tests only and await subscribed-account verification; they do not add device display modes. DeepSeek retains its usage-based wallet.
 
+## 0.6.34 - 2026-11-26
+
+### Apple Silicon Mac
+
+- **Notification prompts no longer hold up other permissions.** Setup asks about notifications last on first launch or after an update. You can leave the prompt unanswered and enable notifications later in **Device Center → Bridge Settings → System Permissions**. When computer control is enabled, the bridge checks System Events permission at startup without asking you to confirm a permission you've already granted.
+
+## 0.6.33 - 2026-11-26
+
+### Apple Silicon Mac
+
+- **The Mac bridge now uses a fixed signing certificate.** When upgrading from an older version to 0.6.33, macOS may ask you to grant some system permissions again, including Accessibility. Later one-click updates signed with the same certificate retain the Accessibility permission you've already granted.
+
+## 0.6.32 - 2026-11-25
+
+### Windows and Apple Silicon Mac
+
+- **Keep isolated verification chats out of the TAB5 project list.** Regular project chats and conversations you explicitly assigned stay visible. Isolated test copies no longer appear just because they inherited a project ID.
+- **See a smaller update indicator.** When an update is available, a small arrow appears in the top-right corner of **Software/Firmware** under **Bridge Settings**. The update count remains below the title.
+
+### Mac
+
+- **Manage system permissions in Device Center.** Open **Device Center → Bridge Settings → System Permissions**. The duplicate shortcut was removed from the menu bar's context menu.
+
 ## 0.6.31 - 2026-11-25
 
 ### Windows and Apple Silicon Mac

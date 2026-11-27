@@ -2,6 +2,23 @@
 
 TAB5 versions are independent of the desktop bridge and ESP8266. `versions/TAB5` records the release target; the image's embedded version and matching notes must agree with it before publication.
 
+## 0.2.324-ui - 2026-11-27
+
+### Overview and calendar
+
+- The overview calendar shows upcoming reminders when available and rebalances the space when there are none. Open Calendar to see the selected day's details and upcoming birthdays.
+- The Codex card shows remaining weekly quota. A small clock above the seven-segment bar shows how much time remains before reset. The weekly bar matches the temperature and humidity track thickness. Model captions and card footers are aligned.
+
+### Weather
+
+- The overview shows temperature, humidity, and today's high and low. Long locations take priority, with an ellipsis as a last resort to keep the footer on one line.
+- Current conditions and the 24-hour and seven-day forecasts have updated layouts. When the data is available, current conditions show the PM2.5 category and the three-hour pressure change. Rain-free periods share one summary.
+
+### Display and firmware updates
+
+- Interface pages share a compressed font library. Screensavers retain their original fonts, and the monthly calendar marks solar terms with gold badges and red text.
+- Firmware update preparation distinguishes unconfirmed delivery from an unsynced draft and retains drafts awaiting action.
+
 ## 0.2.323-ui - 2026-11-24
 
 ### Conversations
