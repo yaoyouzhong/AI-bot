@@ -4,13 +4,13 @@
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.34) · [简体中文](README.md)
+[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35) · [简体中文](README.md)
 
 **Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
 **Mac bridge 0.6.34**　Setup asks about notifications last so they no longer hold up other permissions. You can enable them later in System Permissions. If computer control is enabled, the bridge checks System Events permission at startup. The latest Windows version remains 0.6.32. [Mac release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.34)
 
-**TAB5 0.2.323-ui**　Select a Codex or Claude conversation and tap the bell at the end of its row to mute or restore reminders. Muted conversations keep their unread badges. [Firmware release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31)
+**TAB5 0.2.324-ui**　The overview updates the calendar, weather and model cards. See remaining Codex weekly quota and time to reset. Long weather locations take priority, and gold badges mark solar terms in the monthly screensaver. [Firmware release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35)
 
 **Artwork edition 2026.2** updates guides, appreciation and sources for 366 paintings and 366 calligraphy works. Standard and HD editions are available. [Artwork downloads](docs/GALLERY-PACKS.md)
 
@@ -96,7 +96,7 @@ The November 25 edition (2:08) shows the current TAB5 overview and conversation 
 <tr>
 <td align="center" valign="middle"><img src="docs/assets/screens/device-center.png" width="240" alt="Windows Device Center: My Devices and device settings"></td>
 <td align="center" valign="middle"><img src="docs/assets/screens/codex.png" width="180" alt="ESP8266 display: Codex status and quotas"></td>
-<td align="center" valign="middle"><img src="docs/assets/screens/tab5-overview-0323.png" width="260" alt="TAB5 overview: task, quotas, clock and weather"></td>
+<td align="center" valign="middle"><img src="docs/assets/screens/tab5-overview-0324.png" width="260" alt="TAB5 overview: task, quotas, clock and weather"></td>
 </tr>
 <tr><td align="center" nowrap="nowrap">Accounts, devices and updates</td><td align="center" nowrap="nowrap">Status, quotas and daily info</td><td align="center" nowrap="nowrap">Touch controls and overview</td></tr>
 </tbody>
@@ -146,8 +146,8 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 | Windows bridge · Windows 10/11 x64 | 0.6.32 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/AI-bot-bridge-v0.6.32-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/SHA256SUMS.txt) |
 | Mac bridge · macOS 13+ / Apple Silicon | 0.6.34 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.34/AI-bot-bridge-v0.6.34-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.34/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.8 | [Download · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
-| TAB5 · first install from factory system | 0.2.323-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
-| TAB5 · upgrade existing AI-bot | 0.2.323-ui | [Download · 5 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/SHA256SUMS.txt) |
+| TAB5 · first install from factory system | 0.2.324-ui | [Download · 6 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/SHA256SUMS.txt) |
+| TAB5 · upgrade existing AI-bot | 0.2.324-ui | [Download · 6 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/SHA256SUMS.txt) |
 
 ### Painting and calligraphy
 

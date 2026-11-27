@@ -2,7 +2,7 @@
 
 [下载中心](../DOWNLOADS.md) · [English quick start](INSTALL.zh.md#english-quick-start) · [升级与排错](INSTALL.zh.md#troubleshooting)
 
-适用于 Windows 桥接 0.6.32、Mac 桥接 0.6.34、TAB5 0.2.323-ui 和 ESP8266 0.5.8。准备电脑、设备和一根 **USB 数据线**。首次接入只需 USB，账号、Wi-Fi 和语音可稍后配置。
+适用于 Windows 桥接 0.6.32、Mac 桥接 0.6.34、TAB5 0.2.324-ui 和 ESP8266 0.5.8。准备电脑、设备和一根 **USB 数据线**。首次接入只需 USB，账号、Wi-Fi 和语音可稍后配置。
 
 ## 1. 安装电脑桥接
 
