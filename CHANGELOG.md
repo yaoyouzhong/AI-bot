@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.6.35 - 2026-11-27
 
 ### Windows and Apple Silicon Mac
 
