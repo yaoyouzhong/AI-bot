@@ -12,6 +12,8 @@
 
 **TAB5 0.2.324-ui**　首页更新日历、天气和模型卡，Codex 可看周额度剩余和重置进度。天气地点过长时优先显示地名，十二月历用金底红字标出节气。[固件更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35)
 
+现行 Windows 0.6.32 和 Mac 0.6.34 桥接可继续提供原有天气数据，包括气象来源提供的 PM2.5 浓度和当前气压。PM2.5 单项等级和近 3 小时气压变化需要后续桥接版本提供数据。气压趋势还需积累同地点、同来源、同口径的历史。 [查看 TAB5 界面](docs/FEATURES.zh.md#tab5)
+
 **精选图库 2026.2** 更新名画和书法各 366 件的导览、赏析和出处，提供标准版与高清版。[图库下载](docs/GALLERY-PACKS.md)
 
 <p><img src="docs/assets/screens/tab5-companion-savers-headphones-preview.png" width="880" alt="Codex 和戴耳机的 Claude 萌宠屏保预览"></p>
@@ -66,11 +68,11 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 这段项目介绍对照展示 TAB5 大屏与 ESP8266 小屏的共有功能，并单独介绍 TAB5 的总览、会话、语音草稿、相机、电脑控制、日程和艺术屏保。画面使用原生界面演示数据与硬件合成图，非硬件实拍。
 
-11 月 25 日版（2 分 08 秒）更新了 TAB5 总览和会话提醒画面。约 1:00 可看到行尾铃铛和未读标记。从 1:51 起，可看电脑端全屏欣赏莫奈《睡莲》和苏轼《黄州寒食诗帖》，并放大查看细节。
+11 月 27 日版（2 分 08 秒）更新了 TAB5 额度、天气实况、电脑状态、行情、总览、会话提醒和十二月历画面。0:49 可看新版总览，1:39 可看金底红字节气徽章，1:51 起仍可看电脑端全屏欣赏莫奈《睡莲》和苏轼《黄州寒食诗帖》。
 
-<a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="560" alt="播放 AI-bot 产品视频"></a>
+<a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="560" alt="播放 AI-bot 产品视频"></a>
 
-[观看或下载 1080p MP4](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4) · [视频与来源](docs/PRODUCT_VIDEO.md)
+[观看或下载 1080p MP4](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4) · [视频与来源](docs/PRODUCT_VIDEO.md)
 
 ## 能做什么
 
@@ -111,7 +113,7 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 **日程待办与到期提醒**已包含在 TAB5 210：今日／全部分段筛选与列表对齐，空状态居中新建；本地保存、离线编辑与删除、重连同步，支持时间、重复和提前提醒。最多 16 项；到期事项保留，满额新增时才清理最早结束的过期单次事项。[使用与实机边界](docs/RELEASE-0.6.11.md)
 
-**对话工作区：** 在 Codex／Claude 间选择项目和会话，管理草稿与照片，从总览直接查看同一会话或未读回复。支持定位并控制符合条件的 Claude 原生会话，无法确认目标时保护发送；工具请求在电脑确认。[会话铃铛和未读角标（演示数据）](docs/assets/screens/tab5-dialogue-claude-0323.png)
+**对话工作区：** 在 Codex／Claude 间选择项目和会话，管理草稿与照片，从总览直接查看同一会话或未读回复。支持定位并控制符合条件的 Claude 原生会话，无法确认目标时保护发送；工具请求在电脑确认。[会话铃铛和未读角标（演示数据）](docs/assets/screens/tab5-dialogue-claude-0324.png)
 
 **Codex 直达：** 从最近会话选择目标，结束录音后文字自动填入电脑；可在电脑校对，再通过 TAB5 确认发送。支持提问题卡、连续录音、失败恢复和长按清空。[使用说明](docs/TAB5-QUICK-CONSOLE.md)
 

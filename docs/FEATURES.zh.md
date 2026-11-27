@@ -58,7 +58,9 @@ Claude 使用已安装的官方 CLI；受支持且可确认目标的原生会话
 
 选中会话后点行尾的铃铛切换提醒。静音会话仍显示未读角标，可直接点划线铃铛恢复提醒。
 
-![TAB5 0.2.323-ui Claude 会话：行尾铃铛和静音会话的未读角标，原生离屏演示](assets/screens/tab5-dialogue-claude-0323.png)
+![TAB5 0.2.324-ui Claude 会话：行尾铃铛和静音会话的未读角标，原生离屏演示](assets/screens/tab5-dialogue-claude-0324.png)
+
+[查看 Codex 会话提醒](assets/screens/tab5-dialogue-codex-0324.png)
 
 图中使用离线演示数据。下方常用任务、语音、相机与清空草稿图展示相应操作的历史原生界面。
 
@@ -96,7 +98,7 @@ Claude 使用已安装的官方 CLI；受支持且可确认目标的原生会话
 
 **全年点阵**每天一颗点，显示已过、今天与剩余日期，支持 365／366 天；**十二月历**结合每月花卉、农历、节气和节假日。两者无需额外图库。
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-annual.png" alt="全年点阵：每天一颗点与年度进度"></td><td width="50%"><img src="assets/screens/tab5-floral.png" alt="十二月历：当月花卉、农历与节气"></td></tr></table>
+<table><tr><td width="50%"><img src="assets/screens/tab5-annual.png" alt="全年点阵：每天一颗点与年度进度"></td><td width="50%"><img src="assets/screens/tab5-floral-0324.png" alt="十二月历：当月花卉、农历与节气"></td></tr></table>
 
 在 TAB5 **设置 → 屏幕声音**选择并预览。屏保选项包括经典时钟、年度点阵、年度点阵暖灰、十二月历、每日名画、每日书法、日期倒计时、Codex萌宠和Claude萌宠。经典时钟和年度点阵按设备本地 07:00–19:00 使用日间配色，其余为夜间配色；不再单列暗夜与自动昼夜。经典时钟秒数变化时时分位置稳定，每分钟保留轻微移位。十二月历预览可切月，自动屏保跟随实际月份。
 
@@ -139,7 +141,7 @@ Claude 使用已安装的官方 CLI；受支持且可确认目标的原生会话
 
 进入底部 **额度**，用左上角厂商选择器切换。Claude / Codex 可显示账户返回的用量、重置时间和套餐；Codex 重置卡及到期时间取决于账号实际返回内容。
 
-![TAB5 Codex 额度页：用量、重置时间与重置卡](assets/screens/tab5-quota.png)
+![TAB5 Codex 额度页：用量、重置时间与重置卡](assets/screens/tab5-quota-0324.png)
 
 Windows 桥接的 DeepSeek 显示网页账户可用余额及累计消费，智谱显示开放平台可用余额及可核对的累计消费；Mac 本次未同步这些取数修复。余额与 Coding Plan 用量采用不同布局。数据源未提供的字段显示 `--`。
 
@@ -152,9 +154,13 @@ Windows 桥接的 DeepSeek 显示网页账户可用余额及累计消费，智�
 
 **天气：应用 → 天气。** 页内切换实况、24 小时预报和未来 7 天；电脑端 **账号数据 → 天气定位**选择城市与来源。
 
-![TAB5 天气实况](assets/screens/tab5-weather.png)
+![TAB5 0.2.324-ui 天气实况，使用当前公开桥接可提供的数据](assets/screens/tab5-weather-0324.png)
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-hourly.png" alt="天气 24 小时预报"></td><td width="50%"><img src="assets/screens/tab5-seven-days.png" alt="天气未来 7 天预报"></td></tr></table>
+现行 Windows 0.6.32 和 Mac 0.6.34 桥接可继续提供原有天气数据，包括气象来源提供的 PM2.5 浓度和当前气压。PM2.5 单项等级和近 3 小时气压变化需要后续桥接版本提供数据。气压趋势还需积累同地点、同来源、同口径的历史。
+
+The current Windows 0.6.32 and Mac 0.6.34 bridges continue to supply their existing weather data, including PM2.5 concentration and current pressure when the provider reports them. The PM2.5 category and three-hour pressure change require data from a future bridge update. The pressure trend also needs enough readings from the same location, source and pressure reference.
+
+<table><tr><td width="50%"><img src="assets/screens/tab5-hourly-0324.png" alt="天气 24 小时预报"></td><td width="50%"><img src="assets/screens/tab5-seven-days-0324.png" alt="天气未来 7 天预报"></td></tr></table>
 
 **行情：应用 → 行情。** 按美股、港股、A 股分组，列表可滚动；电脑端 **账号数据 → 自选股票**保存代码，最多 20 只。截图报价为演示值。
 
@@ -197,7 +203,7 @@ Windows 桥接的 DeepSeek 显示网页账户可用余额及累计消费，智�
 
 **日历**从总览日期或顶部生日提醒进入，显示月历、农历、节气、节假日与生日；电脑端 **日历生日**管理生日信息。**应用 → 桌宠**同时展示 Claude / Codex 状态与各自角色；下图为自选动画。
 
-<table><tr><td width="50%"><img src="assets/screens/tab5-calendar.png" alt="日历：日期、节假日与生日"></td><td width="50%"><img src="assets/screens/tab5-pet.png" alt="桌宠：Claude 工作中与 Codex 空闲"></td></tr></table>
+<table><tr><td width="50%"><img src="assets/screens/tab5-calendar-0324.png" alt="日历：日期、节假日与生日"></td><td width="50%"><img src="assets/screens/tab5-pet.png" alt="桌宠：Claude 工作中与 Codex 空闲"></td></tr></table>
 
 </details>
 

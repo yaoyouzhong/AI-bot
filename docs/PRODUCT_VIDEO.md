@@ -1,5 +1,25 @@
 # 产品介绍视频 / Product introduction video
 
+## 2026-11-27 · TAB5 0.2.324-ui 界面更新 / Interface refresh
+
+[观看或下载 1080p MP4 / Watch or download 1080p](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4)
+
+2 分 08 秒，保留原片的展示顺序、时长和音轨。更新的屏幕来自 R16 原生 LVGL 离屏渲染，使用演示数据。天气实况展示现行公开桥接可提供的数据。 [截图来源](SCREENSHOTS.md) · [固件对应源码](development/tab5-324-source/README.md)
+
+The 2:08 edition retains the original scene order, timing and audio track. Refreshed screens use native R16 LVGL renders and demonstration data. Current conditions use fields available from the published bridges.
+
+| 时间 / Time | 更新镜头 / Refreshed shots |
+| --- | --- |
+| 0:07–0:15 | TAB5 额度 / Quota |
+| 0:23–0:31 | 天气实况与电脑状态 / Current weather and computer metrics |
+| 0:35–0:42 | 行情 / Watchlist |
+| 0:49–1:04 | 总览、Codex 与 Claude 会话提醒 / Overview and reminders for Codex and Claude |
+| 1:39–1:43 | 十二月历节气徽章 / Solar-term badges in the floral calendar |
+
+片头五帧同步更新额度画面。/ The first five frames show the refreshed quota view.
+
+SHA-256: `977599d2ad0a2c115a5015467ae7741ce9ded8ecfb7b94d4b6cfd355259fef1c`
+
 ## 2026-11-25 · TAB5 总览与会话提醒 / TAB5 overview and conversation reminders
 
 [观看或下载 1080p MP4 / Watch or download 1080p](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4)

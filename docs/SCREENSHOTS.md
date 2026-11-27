@@ -1,10 +1,14 @@
 # 当前截图来源 / Screenshot provenance
 
-## 2026-11-27 · TAB5 0.2.324-ui 首页 / Overview
+## 2026-11-27 · TAB5 0.2.324-ui 界面 / Screens
 
 `tab5-overview-0324.png` 取自 R16 原生 LVGL 离屏渲染，展示新版日历、Codex 周额度小钟和温湿度天气卡。数据为演示内容，PPM 转 PNG 保持像素。摘要登记在 `licenses/materials.json`。
 
 The overview uses the R16 firmware renderer and demonstration data. The conversion from PPM to PNG preserves the rendered pixels. The asset inventory records its digest.
+
+R16 补充截图覆盖 Codex 与 Claude 会话提醒、额度、天气实况、24 小时与七日预报、日历明细，以及十二月历节气徽章。天气实况用已发布桥接可提供的字段演示。所有新增 `*-0324.png` 保留 1280×720 原生渲染像素，使用演示数据，文件摘要在素材清单登记。
+
+The added R16 captures cover notification states in both dialogue clients, quota, current conditions, hourly and seven-day forecasts, calendar details, and the solar-term badges. Current conditions use the fields available from published bridges. The PNGs preserve the native 1280×720 pixels and use demonstration data.
 
 ## 2026-11-25 · 0.6.32 软件固件更新角标 / Software/Firmware update badge
 
