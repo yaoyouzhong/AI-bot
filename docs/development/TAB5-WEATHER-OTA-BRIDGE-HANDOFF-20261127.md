@@ -53,3 +53,13 @@
 
 - Windows Release 构建、`--status-once`、`--self-test-weather-forecast`、`--self-test-weather-location`、`--self-test-codex-tasks`、`--self-test-claude-native-workspace` 和 `--self-test-tab5-remote-ota` 均通过。Mac 原生 CI 运行 `swift test` 与 `swift build -c release`。合入后由接收端补实际安装与 TAB5 结果。
 - 过去的 Windows 驻留联调包与本次源码分开记录。原生构建和历史联调不能替代最终发布候选安装与真机验收。此次没有新发布安装包、版本标签或附件。
+
+## Mac 原包安装回填 · 2026-11-27
+
+- 已从双端唯一源码 `32fbf674704b993cc1ef9c0e69cf952247e47482` 构建 Mac 0.6.35 固定签名原包；同一证书及 Bundle ID 沿用公开 0.6.34。ZIP 为 20,006,333 字节，SHA-256 `622769fe7ba33cc55c52320f45a807cddc35548efb4efbe014ee8382a9e58e32`，来源由 `BUILD-SOURCE-macos.json` 绑定。Mac 原生测试 592 项、5 跳过、0 失败，Release 构建通过。
+- 原生一键升级夹具使用公开 0.6.34 ZIP 升到该原包，自动重启、隔离配置及两版进程实际读取的辅助功能权限通过。办公室 Mac 的日常安装也已覆盖到同一 0.6.35，正常启动和再启动通过；43 个受检文件未改，53 项原偏好保留，运行缓存与版本检查标记按设计刷新。运行中的系统授权页确认辅助功能及适用的既有权限已授权，未重置系统权限。
+- 原配对通过新版进程的本机回环认证；Codex 和 Claude 各一条现有非空草稿读回匹配安装前内容。该检查没有向实体 TAB5 发送、确认或清空草稿。设备中心仍显示 USB 未连接、Wi-Fi 等待、蓝牙扫描，没有新鲜实体设备证据；上面天气、OTA 准备、冲突与附件的真机事项继续待验。
+- 原包未公证，Gatekeeper 自动执行评估拒绝。办公室 Mac 的原生验收覆盖已有安装的正常升级与启动，未测试浏览器下载后的首次打开。
+- **用户现场验收。** 用户另行确认，已在自己的 Mac 上从浏览器下载，在「隐私与安全性」确认仍然打开后可正常使用。随后一键升级也通过，未再次弹出系统授权窗口。这是用户在其设备上的结果，和办公室 Mac 的自动 Gatekeeper 评估分开记录。
+- 下一步由 Windows 负责人汇集同 SHA 的两端原包。用户已接受真实订阅、办公室 Mac 环境未复测的实体 TAB5 场景及未公证等剩余限制，并授权按验收原包发布。
+- 原 ZIP、校验文件、来源 stamp、平台验收回执及接手步骤已放入 [GitHub 内部传输草稿](https://github.com/yaoyouzhong/AI-bot/releases/tag/untagged-09fb51e0f5a3d26c830b)，草稿名 `handoff-mac-0635-32fbf67-20261127`。使用有仓库写权限的登录下载；`ACCEPTANCE-macos.json` 尚未绑定双端候选 ID，须由 Windows 装配同 SHA 原包后登记到统一验收，不直接作为 promote 输入。该内部草稿不得直接公开发布。
