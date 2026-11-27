@@ -34,6 +34,7 @@ REVIEWED_DOC_NAMES = frozenset({
     'windows-desktop-upgrade-0631.png',
     'windows-bridge-update-badge-0632.png',
     'tab5-overview-0323.png',
+    'tab5-overview-0324.png',
     'tab5-dialogue-claude-0323.png',
     'tab5-dialogue-codex-0323.png',
     'mac-system-permissions-0628.png',
@@ -276,6 +277,7 @@ PUBLISHED_TAB5_FILES = published_tab5_files()
 REVIEWED_SOURCE_ARCHIVE = "docs/development/TAB5-0.2.89-ui-source.zip"
 REVIEWED_SOURCE_ARCHIVES = frozenset({
     REVIEWED_SOURCE_ARCHIVE,
+    "docs/development/tab5-324-source/AI-bot-tab5-0.2.324-ui-source.zip",
     "docs/development/tab5-283-source/AI-bot-tab5-0.2.283-ui-source.zip",
     "docs/development/tab5-312-source/AI-bot-tab5-0.2.312-ui-source.zip",
     "docs/development/tab5-313-source/AI-bot-tab5-0.2.313-ui-source.zip",

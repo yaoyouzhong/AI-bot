@@ -1,4 +1,12 @@
-# 最新工程源码 / Latest project source: 0.2.313-ui
+# TAB5 0.2.324-ui 对应源码 / Corresponding source
+
+[完整 .324 工程、许可和核验说明](tab5-324-source/README.md)对应本地修订 R16。首刷和升级包使用相同的应用镜像，构建输入和镜像摘要见包内清单。
+
+[The complete .324 project, licenses, and verification record](tab5-324-source/README.md) correspond to R16. The first-install and upgrade packages contain the same application image. The archive records its digest and build inputs.
+
+---
+
+# 历史工程源码 / Previous project source: 0.2.313-ui
 
 [完整 .313 工程及核验说明](tab5-313-source/README.md)包含全部 999 个项目文件、7,600 项重建输入摘要、依赖覆盖与 SDK 补丁，已逐项核对 Mac 交接的 25 项修改。无需叠加旧版本源码。对应应用 SHA-256 `e0c0981beae8525e74fc1aeb3880904aeb95df909d63f5b9a39162ec72deb587`；原生构建和 USB 真机结果来自 Mac 交接。本次同步完整源码，未重新构建、刷机或发布固件，不宣称独立逐位重建。
 
