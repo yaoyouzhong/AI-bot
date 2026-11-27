@@ -205,26 +205,18 @@ def gallery_display_version(category, package_version, language="zh"):
 
 def table(data, language="zh", tag=None, *, install_only=False):
     entries = copy.deepcopy(data["downloads"])
-    changed = set()
-    if tag:
+    # Published product tags can group independently versioned downloads.
+    # Keep the exact catalog rows, including verified asset sizes and names.
+    changed = {key for key, item in entries.items() if item["tag"] == tag}
+    if tag and not changed:
         component, version = release_target(tag)
-        published = any(item["tag"] == tag for item in entries.values())
         for key, (kind, template, _, _) in SPECS.items():
             if kind == component or component == "bundle" and kind in ("bridge", "esp8266"):
-                # A published Windows-only release must not invent a Mac download.
-                if published and entries[key]["tag"] != tag:
-                    continue
                 # Draft notes must not invent a download for an unselected platform.
-                if (not published and component == "bridge" and version == versions(ROOT)["bridge"]
+                if (component == "bridge" and version == versions(ROOT)["bridge"]
                         and desktop_platform(ROOT) != "all" and key != desktop_platform(ROOT)):
                     continue
-                target = {"tag": tag, "version": version, "file": template.format(version=version)}
-                if entries[key]["tag"] == tag and entries[key]["version"] == version:
-                    target["file"] = entries[key]["file"]
-                # A published target already has verified size/hash metadata.
-                # Unknown draft assets must not inherit the previous package size.
-                if any(entries[key].get(field) != value for field, value in target.items()):
-                    entries[key] = target
+                entries[key] = {"tag": tag, "version": version, "file": template.format(version=version)}
                 changed.add(key)
     zh = language == "zh"
     hd_catalog = {} if install_only else load_hd()

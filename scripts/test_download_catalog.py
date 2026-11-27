@@ -118,6 +118,12 @@ class DownloadCatalogTests(unittest.TestCase):
         self.assertEqual((downloads["windows"]["tag"], downloads["windows"]["version"]),
                          ("v99.0.3", "99.0.1"))
         self.assertEqual((downloads["esp8266"]["tag"], downloads["esp8266"]["file"]), ("v99.0.3", flash))
+        rendered = catalog.table({"downloads": downloads}, "en", tag=product["tag_name"])
+        for key in ("windows", "esp8266"):
+            release_row = next(line for line in rendered.splitlines() if catalog.asset_url(downloads[key]) in line)
+            self.assertIn(downloads[key]["version"] + " · this release", release_row)
+            self.assertIn(catalog.display_size(downloads[key]["size"]), release_row)
+        self.assertNotIn("99.0.3 · this release", rendered)
         self.assertEqual(selected(full, "SHA256SUMS.txt")["esp8266"]["file"], full)
 
     def test_gallery_table_exposes_exact_installed_package_versions(self):
