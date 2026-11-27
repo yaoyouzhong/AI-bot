@@ -2,19 +2,19 @@
 
 **Your AI status, all on one screen.** AI-bot is a desktop AI companion that works with your computer, bringing AI task status, account quotas across providers and everyday information to a dedicated display, with fewer trips between windows. Follow Claude Code / Codex progress and view plan usage or API balances for Chinese AI services including DeepSeek, Zhipu, Kimi, MiniMax and Alibaba Model Studio.
 
-The Windows development build adds a product selector that separates Coding/Token Plan quotas from API wallets. See [plan setup and verification scope](docs/DOMESTIC_QUOTA_SETUP.md#2026-11-27-windows-开发版编程套餐) for the new providers. Current public installers do not yet include these changes.
+In Windows and Mac bridge 0.6.35, Model Accounts tracks plan usage, API wallets and supported resource packages separately. Five console adapters have passed simulated checks and still await subscribed-account verification. See [plan setup](docs/DOMESTIC_QUOTA_SETUP.md#bridge-0635-model-accounts).
 
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
-[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35) · [简体中文](README.md)
+[Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v1.0.44) · [简体中文](README.md)
 
 **Source:** [Windows bridge](windows-app/) · [Mac bridge](mac-app/) · [TAB5 firmware](tab5/) · [ESP8266 firmware](esp8266/)
 
-**Mac bridge 0.6.34**　Setup asks about notifications last so they no longer hold up other permissions. You can enable them later in System Permissions. If computer control is enabled, the bridge checks System Events permission at startup. The latest Windows version remains 0.6.32. [Mac release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.34)
+**Windows and Mac bridge 0.6.35**　Before a TAB5 update, the bridge distinguishes unverified message delivery from unsynced drafts. It preserves drafts and pauses the update when delivery is uncertain or a draft conflicts. [Bridge release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v1.0.44)
 
 **TAB5 0.2.324-ui**　The overview updates the calendar, weather and model cards. See remaining Codex weekly quota and time to reset. Long weather locations take priority, and gold badges mark solar terms in the monthly screensaver. [Firmware release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35)
 
-The current Windows 0.6.32 and Mac 0.6.34 bridges continue to supply their existing weather data, including PM2.5 concentration and current pressure when the provider reports them. The PM2.5 category and three-hour pressure change require data from a future bridge update. The pressure trend also needs enough readings from the same location, source and pressure reference. [See the TAB5 screens](docs/FEATURES.zh.md#tab5)
+With bridge 0.6.35, TAB5 can show the PM2.5 category when the weather provider supplies the matching sub-index. The three-hour pressure trend appears after enough readings from the same location, source and pressure reference. [See the TAB5 screens](docs/FEATURES.zh.md#tab5)
 
 **Artwork edition 2026.2** updates guides, appreciation and sources for 366 paintings and 366 calligraphy works. Standard and HD editions are available. [Artwork downloads](docs/GALLERY-PACKS.md)
 
@@ -147,8 +147,8 @@ Configure up to four app/folder launchers in Windows Device Center → TAB5 → 
 
 | Use | Version | Download | SHA-256 |
 | --- | --- | --- | --- |
-| Windows bridge · Windows 10/11 x64 | 0.6.32 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/AI-bot-bridge-v0.6.32-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/SHA256SUMS.txt) |
-| Mac bridge · macOS 13+ / Apple Silicon | 0.6.34 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.34/AI-bot-bridge-v0.6.34-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.34/SHA256SUMS.txt) |
+| Windows bridge · Windows 10/11 x64 | 0.6.35 | [Download · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v1.0.44/AI-bot-bridge-v0.6.35-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v1.0.44/SHA256SUMS.txt) |
+| Mac bridge · macOS 13+ / Apple Silicon | 0.6.35 | [Download · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v1.0.44/AI-bot-bridge-v0.6.35-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v1.0.44/SHA256SUMS.txt) |
 | ESP8266 display · first install / upgrade | 0.5.8 | [Download · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
 | TAB5 · first install from factory system | 0.2.324-ui | [Download · 6 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/SHA256SUMS.txt) |
 | TAB5 · upgrade existing AI-bot | 0.2.324-ui | [Download · 6 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/SHA256SUMS.txt) |
@@ -180,7 +180,7 @@ On Windows or Mac, open Device Center → Bridge Settings → Software/Firmware 
 
 ## Further reading
 
-- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.34) · [Changelog](CHANGELOG.md) · [Mac update verification scope](docs/development/MAC-SYSTEM-EVENTS-PREFLIGHT-HANDOFF-20261126.md)
+- **Use and updates:** [Feature gallery](docs/FEATURES.zh.md) · [Changes by component](https://github.com/yaoyouzhong/AI-bot/releases/tag/v1.0.44) · [Changelog](CHANGELOG.md) · [Mac update verification scope](docs/development/MAC-SYSTEM-EVENTS-PREFLIGHT-HANDOFF-20261126.md)
 - **Data and privacy:** [Data sources](docs/DATA_SOURCES.md) · [Quota-history boundaries](docs/QUOTA_TRENDS.md). Activity statistics extract local status and token metadata; account quotas come from provider interfaces and are counted separately.
 - **Development and source:** [Development guide](docs/DEVELOPMENT.md) · [Protocol](docs/PROTOCOL.md) · [TAB5 source and builds](tab5/) · [Independent component versions](docs/COMPONENT-VERSIONS.md)
 - **Materials and licenses:** [Provenance](PROVENANCE.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Screenshots and art credits](docs/SCREENSHOTS.md) · [Optional pet animation pack](docs/assets/pet/README.md)

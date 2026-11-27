@@ -1,8 +1,11 @@
 # 国产模型额度设置
 
-## 2026-11-27 Windows 开发版编程套餐
+<a id="2026-11-27-windows-开发版编程套餐"></a>
+<a id="bridge-0635-model-accounts"></a>
 
-本节对应本地开发源码，尚未发布或部署。入口仍是 **设备中心 → 账号数据 → 模型账号**，增加“统计内容”选择。已采集过的智谱余额、阿里 Token Plan、阶跃余额和百度资源包沿用原统计内容；新账号优先打开套餐。切换后缓存分别保存，不把钱包或资源包改名为编程套餐。
+## Windows 和 Mac 桥接 0.6.35 编程套餐
+
+本节适用于桥接 0.6.35。Windows 与 Mac 都支持分开选择和保存套餐、余额和适用的资源包。Mac 新增百炼 Coding Plan 三个额度窗口、更新 MiniMax 和小米入口，并补充火山、腾讯、百度、阶跃和华为的网页采集。下表记录 Windows 端较详细的配置与模拟验证。入口仍是 **设备中心 → 账号数据 → 模型账号**，增加“统计内容”选择。已采集过的智谱余额、阿里 Token Plan、阶跃余额和百度资源包沿用原统计内容；新账号优先打开套餐。切换后缓存分别保存，不把钱包或资源包改名为编程套餐。
 
 显示、额度徽标和下拉选项仅展示 `Coding Plan` / `Token Plan` 类型，不重复厂商／模型名；厂商由独立标题标识。Step Plan 显示为 Coding Plan，MiniMax M Plan 显示为 Token Plan；下表保留实际官方产品名供核对来源。
 
@@ -22,13 +25,13 @@
 
 **本轮按用户要求只完成代码与模拟验收，所有新增链路均没有真实订阅账号验收。** 后五家的网页采集是保守的可见进度适配器，不是已核实的私有 JSON API：仅在精确官方 HTTPS 主机和套餐路由读取带明确周期标签及使用／剩余说明的百分比。未知结构、多个矛盾进度、余额、过期或无标签数字均不更新；页面不匹配时明确提示尚未识别，保留最后成功数据。它们在界面标为“待验证”，开通后需核对实际订阅页并按需收紧厂商适配。
 
-火山、腾讯、华为本轮仅在 Windows 模型账号窗口查看与缓存，不新增设备模式。其余既有厂商使用已有额度字段；GLM 套餐的设备显示仍需对端核验，ESP8266 现有固件仍有余额专用分支，不能据 Windows 镜像预览宣称实机支持。本轮没有刷机。
+火山、腾讯、华为的新增套餐进度在 Windows 和 Mac 的「模型账号」中查看和缓存。其余既有厂商使用已有额度字段；GLM 套餐的设备显示仍需对端核验，ESP8266 现有固件仍有余额专用分支，不能据 Windows 镜像预览宣称实机支持。本轮没有刷机。
 
-验证入口：`--self-test-domestic-quota`、`--self-test-coding-plan-dom`、`--self-test-coding-plan-ui <目录>`。最后一项只用合成账号生成离屏界面，打开不可见且不激活的测试窗口，不连接厂商。实现来源、跨端待办和结果见[交接记录](development/WINDOWS-CODING-PLAN-HANDOFF-20261127.md)。下文保留既有发布版本的设置与历史验证记录；与本节不同的厂商范围、入口和智谱默认口径，以本节描述的开发版为准。
+验证入口：`--self-test-domestic-quota`、`--self-test-coding-plan-dom`、`--self-test-coding-plan-ui <目录>`。最后一项只用合成账号生成离屏界面，打开不可见且不激活的测试窗口，不连接厂商。实现来源、跨端待办和结果见[交接记录](development/WINDOWS-CODING-PLAN-HANDOFF-20261127.md)。下文保留既有发布版本的设置与历史验证记录；与本节不同的厂商范围、入口和智谱默认口径，以本节对应的桥接版本为准。
 
-### Windows development build (English)
+### Windows and Mac bridge 0.6.35 (English)
 
-Model Accounts now separates subscription products from wallets/packages and preserves existing selections. GLM personal Coding Plan supports its official usage-plugin key contract; Alibaba Coding Plan retains five-hour, weekly and calendar-month quotas independently of Token Plan. MiniMax uses its current China domain; MiMo opens its authenticated plan-management route. Kimi retains its existing local service. Ark, Tencent, Baidu, StepFun and Huawei add conservative labelled-progress browser adapters, with separate Tencent Coding/Token products. Unknown or conflicting markup retains old data. These five adapters are **synthetic implementations awaiting real subscribed-page verification**, not verified private APIs. Ark/Tencent/Huawei have no new device modes; GLM device rendering also remains pending, with a known ESP8266 wallet-specific branch. DeepSeek retains its usage-based wallet. No live account, installation or hardware acceptance is claimed.
+Model Accounts now separates subscription products from wallets/packages and preserves existing selections. GLM personal Coding Plan supports its official usage-plugin key contract; Alibaba Coding Plan retains five-hour, weekly and calendar-month quotas independently of Token Plan. MiniMax uses its current China domain; MiMo opens its authenticated plan-management route. Kimi retains its existing local service. Ark, Tencent, Baidu, StepFun and Huawei add conservative labelled-progress browser adapters, with separate Tencent Coding/Token products. Unknown or conflicting markup retains old data. These five adapters are **synthetic implementations awaiting real subscribed-page verification**, not verified private APIs. Ark/Tencent/Huawei have no new device modes; GLM device rendering also remains pending, with a known ESP8266 wallet-specific branch. DeepSeek retains its usage-based wallet. Mac also separates plans, API wallets and resource packages. It adds Alibaba Coding Plan's three quota windows, updates the MiniMax and MiMo entry points, and provides the same five console adapters. Live subscription checks remain pending.
 
 > 本页入口按 Windows 0.6.0 更新。适用于 Windows 桥接 App；设备的缓存提示需要更新固件。
 

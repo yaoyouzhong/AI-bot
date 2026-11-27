@@ -6,16 +6,16 @@ Windows / Mac 协作、候选构建物与发布职责见[统一开发发布流�
 
 Product releases use an independent `1.0.x` version line. The 44 historical product releases, including prereleases, have display titles from `AI-bot v1.0.0` through `AI-bot v1.0.43` in publication order. Their original tags, assets and download URLs are retained. New product tags start at `v1.0.44` and increment the patch number.
 
-Windows 桥接为 **0.6.32**，Mac 桥接为 **0.6.34**，TAB5 为 **0.2.324-ui**，ESP8266 为 **0.5.8**，独立精选图库为 **2026.2**。[统一下载](../DOWNLOADS.md) · [Mac 发布说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.34) · [TAB5 发布说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35)
+Windows 和 Mac 桥接均为 **0.6.35**，TAB5 为 **0.2.324-ui**，ESP8266 为 **0.5.8**，独立精选图库为 **2026.2**。[统一下载](../DOWNLOADS.md) · [双端桥接发布说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v1.0.44) · [TAB5 发布说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35)
 
-The Windows bridge is at 0.6.32 and the Mac bridge is at 0.6.34. Current device firmware versions are TAB5 0.2.324-ui and ESP8266 0.5.8. The optional artwork collections are at 2026.2.
+The Windows and Mac bridges are both at 0.6.35. Current device firmware versions are TAB5 0.2.324-ui and ESP8266 0.5.8. The optional artwork collections are at 2026.2.
 
 ## 版本来源
 
 | 组件 | 当前版本 | 版本文件 | 正式组件标签 |
 | --- | --- | --- | --- |
-| Windows 桥接 | 0.6.32 | 根目录 `VERSION` | `bridge-v0.6.32` |
-| Mac 桥接 | 0.6.34 | 根目录 `VERSION` | `bridge-v0.6.34` |
+| Windows 桥接 | 0.6.35 | 根目录 `VERSION` | `bridge-v0.6.35` |
+| Mac 桥接 | 0.6.35 | 根目录 `VERSION` | `bridge-v0.6.35` |
 | ESP8266 固件 | 0.5.8 | `esp8266/VERSION` | `esp8266-v0.5.8` |
 | TAB5 固件 | 0.2.324-ui | `versions/TAB5` | `tab5-v0.2.324-ui` |
 

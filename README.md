@@ -2,19 +2,19 @@
 
 **AI 状态，一屏掌握。** AI-bot 是一款搭配电脑使用的桌面 AI 助手，将 AI 任务状态、多平台账户额度和日常信息集中呈现在独立屏幕上，减少来回切换窗口。支持查看 Claude Code / Codex 的工作进度，以及 DeepSeek、智谱、Kimi、MiniMax、阿里百炼等国产模型服务的套餐用量或 API 余额。
 
-Windows 开发版新增国产编程套餐的「统计内容」选择，区分 Coding／Token Plan 和 API 余额。新增厂商的真实订阅验证状态及使用范围见[套餐设置](docs/DOMESTIC_QUOTA_SETUP.md#2026-11-27-windows-开发版编程套餐)。当前公开安装包尚未包含本轮改动。
+Windows 和 Mac 桥接 0.6.35 在「模型账号」中分开统计套餐、API 余额和适用的资源包。五家控制台的网页采集已通过模拟验证，真实订阅页面仍待核对。详见[套餐设置](docs/DOMESTIC_QUOTA_SETUP.md#bridge-0635-model-accounts)。
 
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
-[下载与搭配](#下载与搭配) · [宣传视频](#宣传视频) · [完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35) · [English](README.en.md)
+[下载与搭配](#下载与搭配) · [宣传视频](#宣传视频) · [完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v1.0.44) · [English](README.en.md)
 
 **源码：** [Windows 桥接](windows-app/) · [Mac 桥接](mac-app/) · [TAB5 大屏固件](tab5/) · [ESP8266 小屏固件](esp8266/)
 
-**Mac 桥接 0.6.34**　通知最后询问，不再挡住其他授权，之后也能从「系统授权」单独开启。开启电脑控制时，桥接启动后会自动检查系统事件权限。Windows 最新版仍为 0.6.32。[Mac 更新说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.34)
+**Windows 和 Mac 桥接 0.6.35**　TAB5 升级前会区分消息待核对送达和草稿未同步。仍有未知回执或草稿冲突时，保留草稿并暂停升级。[桥接更新说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v1.0.44)
 
 **TAB5 0.2.324-ui**　首页更新日历、天气和模型卡，Codex 可看周额度剩余和重置进度。天气地点过长时优先显示地名，十二月历用金底红字标出节气。[固件更新](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35)
 
-现行 Windows 0.6.32 和 Mac 0.6.34 桥接可继续提供原有天气数据，包括气象来源提供的 PM2.5 浓度和当前气压。PM2.5 单项等级和近 3 小时气压变化需要后续桥接版本提供数据。气压趋势还需积累同地点、同来源、同口径的历史。 [查看 TAB5 界面](docs/FEATURES.zh.md#tab5)
+搭配桥接 0.6.35，TAB5 可以在气象来源提供相应分指数时显示 PM2.5 等级。积累同地点、同来源、同口径的观测后，可显示近 3 小时气压变化。[查看 TAB5 界面](docs/FEATURES.zh.md#tab5)
 
 **精选图库 2026.2** 更新名画和书法各 366 件的导览、赏析和出处，提供标准版与高清版。[图库下载](docs/GALLERY-PACKS.md)
 
@@ -147,8 +147,8 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 | 用途 | 版本 | 下载 | SHA-256 |
 | --- | --- | --- | --- |
-| Windows 桥接 · Windows 10/11 x64 | 0.6.32 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/AI-bot-bridge-v0.6.32-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/SHA256SUMS.txt) |
-| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.34 | [下载 · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.34/AI-bot-bridge-v0.6.34-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.34/SHA256SUMS.txt) |
+| Windows 桥接 · Windows 10/11 x64 | 0.6.35 | [下载 · 31 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v1.0.44/AI-bot-bridge-v0.6.35-windows-x64-setup.exe) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v1.0.44/SHA256SUMS.txt) |
+| Mac 桥接 · macOS 13+ / Apple Silicon | 0.6.35 | [下载 · 19 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v1.0.44/AI-bot-bridge-v0.6.35-macos-arm64.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v1.0.44/SHA256SUMS.txt) |
 | ESP8266 小屏 · 首刷／升级通用 | 0.5.8 | [下载 · 384 KiB](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip.sha256) |
 | TAB5 · 出厂系统首次安装 | 0.2.324-ui | [下载 · 6 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-first-install.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/SHA256SUMS.txt) |
 | TAB5 · 已有 AI-bot 升级 | 0.2.324-ui | [下载 · 6 MiB](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-upgrade.zip) | [SHA-256](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/SHA256SUMS.txt) |
@@ -182,7 +182,7 @@ Windows 和 Mac 都可从「设备中心 → 桥接设置 → 软件固件」查
 
 ## 更多资料
 
-- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.34) · [更新日志](CHANGELOG.zh.md) · [Mac 更新验收范围](docs/development/MAC-SYSTEM-EVENTS-PREFLIGHT-HANDOFF-20261126.md)
+- **使用与更新：** [完整功能图鉴](docs/FEATURES.zh.md) · [本次更新明细](https://github.com/yaoyouzhong/AI-bot/releases/tag/v1.0.44) · [更新日志](CHANGELOG.zh.md) · [Mac 更新验收范围](docs/development/MAC-SYSTEM-EVENTS-PREFLIGHT-HANDOFF-20261126.md)
 - **数据与隐私：** [数据来源](docs/DATA_SOURCES.md) · [额度趋势统计边界](docs/QUOTA_TRENDS.md)。活动统计提取本地状态与 Token 元数据，账户额度来自厂商接口，两者分开统计。
 - **开发与源码：** [开发说明](docs/DEVELOPMENT.md) · [协议](docs/PROTOCOL.md) · [TAB5 源码与构建](tab5/) · [组件独立版本](docs/COMPONENT-VERSIONS.md)
 - **素材与许可：** [来源记录](PROVENANCE.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [截图与作品署名](docs/SCREENSHOTS.md) · [可选桌宠动画包](docs/assets/pet/README.md)
