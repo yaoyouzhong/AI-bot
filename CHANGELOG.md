@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Windows
+
+- Choose a Coding/Token Plan separately from API balances in **Model Accounts**. Adds GLM personal Coding Plan key queries and Alibaba Coding Plan's five-hour, weekly and subscription-month quotas; updates MiniMax and MiMo account entry points.
+- Adds labelled subscription-progress collection for Ark, Tencent, Baidu, StepFun and Huawei consoles. These adapters have synthetic tests only and await subscribed-account verification; they do not add device display modes. DeepSeek retains its usage-based wallet.
+
 ## 0.6.34 - 2026-11-26
 
 ### Apple Silicon Mac

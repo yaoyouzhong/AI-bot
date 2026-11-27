@@ -165,7 +165,7 @@ internal static class Program
         }
         if(args.Length==1&&args[0]=="--self-test-domestic-quota") {
             AppPaths.BeginPublicSelfTest();
-            OfficialQuotaApiSelfTest.Run();AdditionalQuotaSelfTest.Run();XiaomiQuotaSelfTest.Run();DomesticQuotaCycleSelfTest.Run();
+            OfficialQuotaApiSelfTest.Run();AdditionalQuotaSelfTest.Run();XiaomiQuotaSelfTest.Run();DomesticQuotaCycleSelfTest.Run();CodingPlanSelfTest.Run();
             return;
         }
         if(args.Length is 1 or 2&&args[0]=="--inspect-tab5-windows-followup"){Tab5WindowsFollowupInspection.RunAsync(args.Length==2?args[1]:null).GetAwaiter().GetResult();return;}
@@ -183,6 +183,8 @@ internal static class Program
             return;
         }
         if(args.Length==2&&args[0]=="--self-test-model-account-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();MigratedDomestic.DomesticQuotaAuthForm.AlignmentUiSelfTest(Path.GetFullPath(args[1]));return;}
+        if(args.Length==2&&args[0]=="--self-test-coding-plan-ui"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();MigratedDomestic.DomesticQuotaAuthForm.CodingPlanPreview(Path.GetFullPath(args[1]));return;}
+        if(args is ["--self-test-coding-plan-dom"]){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();CodingPlanDomSelfTest.Run();return;}
         if(args.Length==2&&args[0]=="--self-test-deepseek-source-preview"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();MigratedDomestic.DomesticQuotaAuthForm.DeepSeekSourcePreview(Path.GetFullPath(args[1]));return;}
         if(args.Length==2&&args[0]=="--self-test-voice-settings-parity"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();Tab5VoiceSettingsSelfTest.Run(Path.GetFullPath(args[1]));return;}
         if(args.Length==2&&args[0]=="--self-test-esp-stock-parity"){AppPaths.BeginPublicSelfTest();ApplicationConfiguration.Initialize();try{EspStockParitySelfTest.RunAsync(Path.GetFullPath(args[1])).GetAwaiter().GetResult();}catch(Exception ex){Console.Error.WriteLine("ESP_STOCK_PARITY_FAILED "+ex.GetType().Name+": "+ex.Message);Environment.ExitCode=1;}return;}
