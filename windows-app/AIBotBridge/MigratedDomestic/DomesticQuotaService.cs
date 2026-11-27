@@ -18,20 +18,20 @@ static class DomesticProviderCatalog
 {
     public static readonly DomesticProviderDefinition[] All =
     {
-        new("qwen", "阿里云百炼", "千问 Token Plan",
+        new("qwen", "阿里云百炼", "Coding Plan / Token Plan",
             "https://bailian.console.aliyun.com/cn-beijing?tab=plan#/efm/subscription/token-plan", true),
-        new("kimi", "月之暗面", "Kimi Coding Plan", "https://www.kimi.com/code/console", true),
-        new("xiaomi", "小米 MiMo", "MiMo Token Plan",
+        new("kimi", "月之暗面", "Coding Plan", "https://www.kimi.com/code/console", true),
+        new("xiaomi", "小米 MiMo", "Token Plan",
             "https://platform.xiaomimimo.com/token-plan", true),
-        new("zhipu", "智谱 GLM", "开放平台可用余额（不是 Coding Plan 额度）", AIBotBridge.ZhipuBalance.AuthorizationUrl, true),
-        new("volcengine", "火山方舟", "豆包大模型", "https://console.volcengine.com/ark", false),
-        new("minimax", "MiniMax", "MiniMax Token Plan", "https://platform.minimaxi.com/console/usage", true),
+        new("zhipu", "智谱 GLM", "Coding Plan / API 余额", AIBotBridge.ZhipuBalance.AuthorizationUrl, true),
+        new("volcengine", "火山方舟", "Coding Plan", "https://console.volcengine.com/ark", true),
+        new("minimax", "MiniMax", "Token Plan", "https://platform.minimax.cn/console/usage", true),
         new("deepseek", "DeepSeek", "DeepSeek 开放平台", "https://platform.deepseek.com/usage", true),
-        new("baidu", "百度智能云", "千帆模型资源包（指定量包）", "https://console.bce.baidu.com/qianfan/overview", true),
-        new("tencent", "腾讯云", "混元大模型", "https://console.cloud.tencent.com/hunyuan", false),
-        new("huawei", "华为云", "盘古 / ModelArts", "https://console.huaweicloud.com/modelarts/", false),
+        new("baidu", "百度智能云", "Token Plan / 模型资源包", "https://console.bce.baidu.com/qianfan/overview", true),
+        new("tencent", "腾讯云", "Coding Plan / Token Plan", "https://console.cloud.tencent.com/hunyuan", true),
+        new("huawei", "华为云", "Token Plan", "https://console.huaweicloud.com/modelarts/", true),
         new("iflytek", "讯飞开放平台", "讯飞星火", "https://console.xfyun.cn/", false),
-        new("stepfun", "阶跃星辰", "开放平台余额（非 Step Plan）", "https://platform.stepfun.com/account-overview", true),
+        new("stepfun", "阶跃星辰", "Coding Plan / API 余额", "https://platform.stepfun.com/account-overview", true),
         new("baichuan", "百川智能", "Baichuan", "https://platform.baichuan-ai.com/", false),
         new("lingyi", "零一万物", "Yi", "https://platform.lingyiwanwu.com/", false),
     };
@@ -39,6 +39,7 @@ static class DomesticProviderCatalog
 
 sealed class DomesticQuotaSnapshot
 {
+    public Dictionary<string, AIBotBridge.DomesticProviderQuotaSnapshot> Plans = new();
     public double? QwenPlanPct;
     public double? QwenWeeklyPct;
     public double? QwenFiveHourPct;
@@ -97,7 +98,7 @@ sealed partial class DomesticQuotaService
 {
     internal const string QwenSubscriptionName = "Token Plan 团队版";
     const string MiniMaxCredentialTarget = "AI-bot/MiniMaxTokenPlanKey";
-    const string MiniMaxQuotaEndpoint = "https://www.minimaxi.com/v1/token_plan/remains";
+    const string MiniMaxQuotaEndpoint = "https://www.minimax.cn/v1/token_plan/remains";
     static readonly TimeSpan MinRefreshInterval = TimeSpan.FromSeconds(60);
     static readonly TimeSpan RateLimitBackoff = TimeSpan.FromSeconds(300);
     static readonly string CachePath = Path.Combine(
@@ -116,6 +117,7 @@ sealed partial class DomesticQuotaService
         {
             lock (_lock) { var value = new DomesticQuotaSnapshot
             {
+                Plans = new(_snapshot.Plans),
                 QwenPlanPct = _snapshot.QwenPlanPct,
                 QwenWeeklyPct = _snapshot.QwenWeeklyPct,
                 QwenFiveHourPct = _snapshot.QwenFiveHourPct,
@@ -192,7 +194,7 @@ sealed partial class DomesticQuotaService
     public void Refresh(string providerId, bool force = false, bool webOnly = false)
     {
         var provider = DomesticProviderCatalog.All.FirstOrDefault(x => x.Id == providerId);
-        if (provider?.CaptureSupported != true || providerId is "stepfun" or "baidu" && !HasOfficialApi(providerId)) return;
+        if (provider?.CaptureSupported != true || providerId is "stepfun" or "baidu" && !SelectedIsPlan(providerId) && !HasOfficialApi(providerId)) return;
         lock (_lock)
         {
             var now = DateTime.UtcNow;
@@ -552,6 +554,7 @@ sealed partial class DomesticQuotaService
             snapshot.MiniMaxWeeklyWindowSeconds=cycles.MiniMax?.WeeklyWindowSeconds;
         }
         catch { snapshot = new(); }
+        snapshot.Plans ??= new();
         if (snapshot.KimiMembership.StartsWith("LEVEL_", StringComparison.OrdinalIgnoreCase))
             snapshot.KimiMembership = "";
         if (string.IsNullOrWhiteSpace(snapshot.KimiMembership))
@@ -575,7 +578,7 @@ sealed partial class DomesticQuotaService
     }
 }
 
-sealed class DomesticQuotaAuthForm : Form
+sealed partial class DomesticQuotaAuthForm : Form
 {
     const int GwlExStyle = -20;
     const long WsExTransparent = 0x00000020L;
@@ -781,6 +784,7 @@ sealed class DomesticQuotaAuthForm : Form
         header.Controls.Add(_providerState, 0, 1);
         header.SetColumnSpan(_providerState, 2);
         header.Controls.Add(_deepSeekSources,0,2);header.SetColumnSpan(_deepSeekSources,2);
+        InitializePlanControls(header);
         _miniMaxKeyPanel.AutoSize = true;
         _miniMaxKeyPanel.ColumnCount = 1;
         _miniMaxKeyPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -1067,7 +1071,7 @@ sealed class DomesticQuotaAuthForm : Form
         };
         var badge = new Label
         {
-            Text = provider.Id is "stepfun" or "baidu" or "xiaomi" ? "待验证" : provider.CaptureSupported ? "可用" : "待接", AutoSize = true,
+            Text = provider.Id is "stepfun" or "baidu" or "xiaomi" or "volcengine" or "tencent" or "huawei" ? "待验证" : provider.CaptureSupported ? "可用" : "待接", AutoSize = true,
             Padding = new Padding(8, 2, 8, 2), Margin = new Padding(0), Anchor = AnchorStyles.Top | AnchorStyles.Right,
             Font = new Font("Microsoft YaHei UI", 7.5f, FontStyle.Bold), Cursor = Cursors.Hand,
             ForeColor = provider.CaptureSupported ? Color.FromArgb(22, 101, 52) : Color.FromArgb(100, 116, 139),
@@ -1116,6 +1120,7 @@ sealed class DomesticQuotaAuthForm : Form
             : "可登录控制台，额度读取尚待适配。";
         _providerState.ForeColor = provider.CaptureSupported
             ? Color.FromArgb(22, 101, 52) : Color.FromArgb(180, 83, 9);
+        ConfigurePlanControls(provider);
     }
 
     async Task SelectProvider(DomesticProviderDefinition provider)
@@ -1136,7 +1141,7 @@ sealed class DomesticQuotaAuthForm : Form
     async Task SaveAndTestMiniMaxKey()
     {
         var provider = _activeProvider?.Id;
-        if (!DomesticQuotaService.SupportsOfficialApi(provider)) return;
+        if (!_service.SupportsSelectedApi(provider)) return;
         _miniMaxSaveKey.Enabled = false;
         try
         {
@@ -1154,7 +1159,7 @@ sealed class DomesticQuotaAuthForm : Form
             ++_navigationGeneration; // Cancel stale DOM capture before changing the authoritative source.
             _status.Text="正在通过官方接口查询…";
             var result=await _service.RefreshOfficialApi(provider);
-            if (_activeProvider?.Id==provider && !IsDisposed) { _capturedForNavigation=result.Success; _status.Text=result.Message; }
+            if (_activeProvider?.Id==provider && !IsDisposed) { _capturedForNavigation=result.Success; _status.Text=result.Message; UpdatePlanSummary(); }
         }
         catch { if(!IsDisposed) _status.Text="接口凭据保存失败，请检查 Windows 凭据管理器。"; }
         finally { if(!IsDisposed) { _miniMaxSaveKey.Enabled=true;UpdateDeepSeekSources(); } }
@@ -1162,6 +1167,8 @@ sealed class DomesticQuotaAuthForm : Form
 
     async Task Navigate(DomesticProviderDefinition provider)
     {
+        provider = PlanProvider(provider);
+        _activeProvider = provider;
         AIBotBridge.WebQuotaDiagnostics.Record(provider.Id, _backgroundRefresh ? "background-start" : "interactive-start");
         var generation = ++_navigationGeneration;
         _capturedForNavigation = false;
@@ -1171,17 +1178,19 @@ sealed class DomesticQuotaAuthForm : Form
             _web.Visible=false;
             _status.Text="正在通过官方接口查询…";
             var result=await _service.RefreshOfficialApi(provider.Id);
-            if(generation==_navigationGeneration && !IsDisposed) { _capturedForNavigation=result.Success; _status.Text=result.Message; UpdateDeepSeekSources(); }
+            if(generation==_navigationGeneration && !IsDisposed) { _capturedForNavigation=result.Success; _status.Text=result.Message; UpdateDeepSeekSources(); UpdatePlanSummary(); }
             return;
         }
-        if (provider.Id is "stepfun" or "baidu") {
+        if (provider.Id is "stepfun" or "baidu" && !_service.SelectedIsPlan(provider.Id)) {
             _web.Visible=false;
             _status.Text="请在上方填写官方接口凭据并保存测试。此厂商尚未启用网页自动采集。";
             return;
         }
         _web.Visible=true;
         await EnsureWebView();
-        _status.Text = provider.Id == "minimax" && _service.HasMiniMaxApiKey
+        _status.Text = _service.SelectedIsPlan(provider.Id)
+            ? "请登录官方平台并打开已订阅套餐的用量页；取得额度后会自动缓存。"
+            : provider.Id == "minimax" && _service.HasMiniMaxApiKey
             ? "MiniMax Key 已保存；后台刷新优先通过官方 API 查询额度。"
             : provider.Id == "zhipu"
             ? "请登录智谱 GLM 并进入财务总览；自动缓存可用余额和累计消费金额，不读取 Coding Plan 额度。"
@@ -1190,6 +1199,7 @@ sealed class DomesticQuotaAuthForm : Form
             : $"{provider.Name}已提供统一登录入口；当前版本暂不读取其额度数字。";
         ApplyZoom();
         _web.CoreWebView2.Navigate(provider.Url);
+        if (_service.SelectedIsPlan(provider.Id)) _ = CapturePlanPage(generation);
         if (provider.CaptureSupported) _ = ShowPendingStatus(provider, generation);
     }
 
@@ -1249,8 +1259,10 @@ sealed class DomesticQuotaAuthForm : Form
             await PersistLoginCookies(_activeProvider.Url);
         if (e.IsSuccess && _activeProvider?.Id == "kimi")
             _ = CaptureKimiPageMetadata(_navigationGeneration);
-        if (e.IsSuccess && _activeProvider?.Id == "qwen")
+        if (e.IsSuccess && _activeProvider?.Id == "qwen" && _service.Product("qwen") == "token")
             _ = CaptureQwenPageMetadata(_navigationGeneration);
+        if (e.IsSuccess && _activeProvider != null && _service.SelectedIsPlan(_activeProvider.Id))
+            _ = CapturePlanPage(_navigationGeneration);
     }
 
     void WebViewProcessFailed(object sender, CoreWebView2ProcessFailedEventArgs e)
@@ -1522,7 +1534,7 @@ sealed class DomesticQuotaAuthForm : Form
         // shell. On slower links the old 12-second window hid the background
         // WebView before BillingService/GetUsage completed, leaving both
         // Weekly and 5H stuck on the last successful cache.
-        await Task.Delay(TimeSpan.FromSeconds(provider.Id == "qwen" ? 45
+        await Task.Delay(TimeSpan.FromSeconds(_service.SelectedIsPlan(provider.Id) ? 60 : provider.Id == "qwen" ? 45
             : provider.Id is "kimi" or "minimax" or "deepseek" or "zhipu" ? 60 : 12));
         if (IsDisposed || generation != _navigationGeneration || _activeProvider != provider
             || _capturedForNavigation) return;
@@ -1548,6 +1560,8 @@ sealed class DomesticQuotaAuthForm : Form
             "zhipu" => snapshot.Zhipu?.UpdatedAt.UtcDateTime,
             _ => null,
         };
+        if (_service.SelectedIsPlan(provider.Id)) fetchedAt = _service.Plan(provider.Id)?.UpdatedAt.UtcDateTime;
+        UpdatePlanSummary();
         var last = fetchedAt.HasValue
             ? $"最近成功：{fetchedAt.Value.ToLocalTime():M月d日 HH:mm}"
             : "尚无成功记录";
@@ -1597,7 +1611,7 @@ sealed class DomesticQuotaAuthForm : Form
                 && IsDeepSeekUsageEndpoint(uri);
             var isZhipu = _activeProvider?.Id == "zhipu"
                 && (resourceType == "XHR" || resourceType == "Fetch")
-                && AIBotBridge.ZhipuBalance.IsEndpoint(uri);
+                && (_service.SelectedIsPlan("zhipu") ? CodingPlanSources.IsGlmEndpoint(uri) : AIBotBridge.ZhipuBalance.IsEndpoint(uri));
             if (isZhipu) AIBotBridge.WebQuotaDiagnostics.Record("zhipu", "balance-response", statusCode);
             if (isDeepSeek) AIBotBridge.WebQuotaDiagnostics.Record("deepseek", "wallet-response", statusCode);
             // A supplementary GLM report failure must not invalidate a fresh overview.
@@ -1630,6 +1644,10 @@ sealed class DomesticQuotaAuthForm : Form
                 return;
             }
             if(isDeepSeek && statusCode!=200)return;
+            if (statusCode != 200 && (isAlibaba || isMiniMax || isKimiUsage)) {
+                _service.ReportWebFailure(_activeProvider.Id,"套餐用量请求失败，已保留上次成功结果。",!_backgroundRefresh);
+                return;
+            }
             if (requestId != null && (isAlibaba || isXiaomi || isKimi || isMiniMax || isDeepSeek || isZhipu))
             {
                 var endpoint = Uri.TryCreate(uri, UriKind.Absolute, out var parsed)
@@ -1721,6 +1739,15 @@ sealed class DomesticQuotaAuthForm : Form
             }
             else if (responseInfo.ProviderId == "zhipu")
             {
+                if (_service.SelectedIsPlan("zhipu")) {
+                    if (!_service.ApplyPlanResponse("zhipu", "coding", body)) return;
+                    _capturedForNavigation = true;
+                    UpdatePlanSummary();
+                    _status.Text = "已取得智谱 Coding Plan 用量并缓存。";
+                    await PersistLoginCookies(_activeProvider.Url);
+                    if (_backgroundRefresh) Hide();
+                    return;
+                }
                 var isOverview = responseInfo.Endpoint == "bigmodel.cn" + AIBotBridge.ZhipuBalance.OverviewPath;
                 AIBotBridge.DomesticProviderQuotaSnapshot value;
                 try { value = AIBotBridge.ZhipuBalance.Parse(doc.RootElement, financeOverview: isOverview); }
@@ -1760,6 +1787,18 @@ sealed class DomesticQuotaAuthForm : Form
             }
             else
             {
+                if (responseInfo.ProviderId == "qwen" && _service.Product("qwen") == "coding") {
+                    // Other console APIs share /data/api.json. Ignore those without
+                    // the explicit Coding Plan subscription envelope.
+                    if (!body.Contains("codingPlanInstanceInfos", StringComparison.Ordinal)) return;
+                    if (!_service.ApplyPlanResponse("qwen", "coding", body)) return;
+                    _capturedForNavigation = true;
+                    UpdatePlanSummary();
+                    _status.Text = "已取得百炼 Coding Plan 的 5 小时、周及订阅月用量。";
+                    await PersistLoginCookies(_activeProvider.Url);
+                    if (_backgroundRefresh) Hide();
+                    return;
+                }
                 if (responseInfo.ProviderId == "qwen")
                     membership = DomesticQuotaService.QwenSubscriptionName;
                 var isQwen = responseInfo.ProviderId == "qwen";
@@ -1795,7 +1834,7 @@ sealed class DomesticQuotaAuthForm : Form
                     + (responseInfo.ProviderId == "qwen" && !string.IsNullOrWhiteSpace(membership)
                         ? $"；订阅：{membership}" : "")
                     + (loginSaved ? "；登录状态已持久保存" : ""));
-            BeginInvoke(UpdateDeepSeekSources);
+            BeginInvoke(() => { UpdateDeepSeekSources(); UpdatePlanSummary(); });
             if (_backgroundRefresh) BeginInvoke(Hide);
         }
         catch (Exception ex)
@@ -1855,20 +1894,7 @@ sealed class DomesticQuotaAuthForm : Form
             StringComparison.OrdinalIgnoreCase);
     }
 
-    static bool IsMiniMaxUsageEndpoint(string uri)
-    {
-        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed)) return false;
-        var host = parsed.Host;
-        if (!host.Contains("minimax", StringComparison.OrdinalIgnoreCase)
-            && !host.Contains("minimaxi", StringComparison.OrdinalIgnoreCase))
-            return false;
-        var path = parsed.AbsolutePath;
-        return path.Contains("token_plan", StringComparison.OrdinalIgnoreCase)
-            || path.Contains("coding_plan", StringComparison.OrdinalIgnoreCase)
-            || path.Contains("model_remains", StringComparison.OrdinalIgnoreCase)
-            || path.Contains("usage", StringComparison.OrdinalIgnoreCase)
-            || path.Contains("remains", StringComparison.OrdinalIgnoreCase);
-    }
+    static bool IsMiniMaxUsageEndpoint(string uri) => MiniMaxQuota.IsEndpoint(uri);
 
     static bool IsDeepSeekUsageEndpoint(string uri)
     {
@@ -2141,6 +2167,9 @@ sealed class DomesticQuotaAuthForm : Form
 
     internal static MiniMaxUsage? FindMiniMaxUsage(JsonElement element)
     {
+        if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty("base_resp", out var status)
+            && status.ValueKind == JsonValueKind.Object && status.TryGetProperty("status_code", out var code)
+            && code.ToString() != "0") throw new JsonException("MiniMax quota request failed.");
         var candidates = new List<(MiniMaxUsage Usage, int Score)>();
         CollectMiniMaxUsage(element, candidates);
         return candidates.Count == 0

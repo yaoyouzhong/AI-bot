@@ -6,6 +6,11 @@ namespace AIBotBridge;
 // Shared by live browser/API capture and the cached-response adapter.
 internal static class MiniMaxQuota
 {
+    internal static bool IsEndpoint(string url) => Uri.TryCreate(url, UriKind.Absolute, out var u)
+        && u.Scheme == "https" && u.IsDefaultPort
+        && u.Host is "platform.minimax.cn" or "www.minimax.cn" or "platform.minimaxi.com" or "www.minimaxi.com"
+        && u.AbsolutePath is "/v1/token_plan/remains" or "/v1/api/openplatform/coding_plan/remains" or "/backend/account/token_plan/remains_percent";
+
     internal static DateTimeOffset? Reset(JsonElement row,bool weekly,Func<DateTimeOffset?> legacy)
     {
         var value=QuotaCycle.Field(row,weekly?"weekly_end_time":"end_time");

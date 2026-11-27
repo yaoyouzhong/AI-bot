@@ -2,6 +2,8 @@
 
 **Your AI status, all on one screen.** AI-bot is a desktop AI companion that works with your computer, bringing AI task status, account quotas across providers and everyday information to a dedicated display, with fewer trips between windows. Follow Claude Code / Codex progress and view plan usage or API balances for Chinese AI services including DeepSeek, Zhipu, Kimi, MiniMax and Alibaba Model Studio.
 
+The Windows development build adds a product selector that separates Coding/Token Plan quotas from API wallets. See [plan setup and verification scope](docs/DOMESTIC_QUOTA_SETUP.md#2026-11-27-windows-开发版编程套餐) for the new providers. Current public installers do not yet include these changes.
+
 Beyond work, AI-bot serves as a desk clock and information display for weather, stocks, music and computer activity. Optional daily painting and calligraphy collections turn the TAB5 into an art display during quieter moments.
 
 [Downloads and device pairing](#downloads-and-device-pairing) · [Product video](#product-video) · [Complete downloads](DOWNLOADS.en.md) · [Illustrated first install](docs/FIRST-INSTALL.zh.md) · [Release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.31) · [简体中文](README.md)

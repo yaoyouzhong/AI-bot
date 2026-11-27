@@ -7,6 +7,7 @@ internal static class DomesticDisplayText
     internal static string Percent(double? value)=>value is double number?((int)Math.Clamp(number,0,100)).ToString(CultureInfo.InvariantCulture):"--";
     internal static string Membership(string provider,string? value,bool balance)
     {
+        value = CodingPlanSources.DisplayName(value);
         if((provider=="deepseek"||provider=="zhipu")&&balance)return "API PAYG";
         if(string.IsNullOrWhiteSpace(value))return "";
         if(provider=="minimax")return value.ToUpperInvariant();

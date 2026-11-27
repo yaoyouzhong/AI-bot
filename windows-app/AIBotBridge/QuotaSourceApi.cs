@@ -80,7 +80,7 @@ internal static class QuotaSourceApi
             else if(unit==6&&number==1){if(weekly is not null)throw new JsonException("Ambiguous weekly limit.");weekly=pct;weeklyReset=reset;weeklySeconds=604800;}
         }
         if(primary is null&&weekly is null)throw new JsonException("No supported Coding Plan window.");
-        return new("zhipu","GLM Coding Plan",primary,primaryReset,weekly,weeklyReset,null,null,null,DateTimeOffset.UtcNow,false)
+        return new("zhipu","Coding Plan",primary,primaryReset,weekly,weeklyReset,null,null,null,DateTimeOffset.UtcNow,false)
             {PrimaryWindowSeconds=primarySeconds,WeeklyWindowSeconds=weeklySeconds};
     }
 }

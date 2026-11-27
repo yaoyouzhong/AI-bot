@@ -2,6 +2,13 @@
 
 本文件记录项目的重要变更。
 
+## 未发布
+
+### Windows
+
+- 在「模型账号」分别选择 Coding／Token Plan 与 API 余额。新增智谱个人版 Coding Plan Key 查询、阿里 Coding Plan 的 5 小时／周／订阅月额度，更新 MiniMax 与小米的账号入口。
+- 新增火山、腾讯、百度、阶跃、华为控制台的带标签套餐进度采集。当前仅完成模拟测试，待开通真实套餐后核验；不新增设备显示模式。DeepSeek 保留按量账户余额。
+
 ## 0.6.31 - 2026-11-25
 
 ### Windows 和 Apple Silicon Mac

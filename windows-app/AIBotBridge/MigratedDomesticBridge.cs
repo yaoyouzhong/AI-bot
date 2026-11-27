@@ -28,12 +28,13 @@ internal sealed class MigratedDomesticBridge : IDisposable
             {
                 if (current is null || fallback is not null && fallback.UpdatedAt > current.UpdatedAt) current = fallback;
                 if (current is null) return null;
-                return current with { Stale = _service.RefreshHealth.Failed(healthKey ?? (current.Provider == "alibaba" ? "qwen" : current.Provider)) || current.UpdatedAt < _startedAt || DateTimeOffset.UtcNow - current.UpdatedAt > _staleAfter };
+                return current with { Plan = CodingPlanSources.DisplayName(current.Plan), Stale = _service.RefreshHealth.Failed(healthKey ?? (current.Provider == "alibaba" ? "qwen" : current.Provider)) || current.UpdatedAt < _startedAt || DateTimeOffset.UtcNow - current.UpdatedAt > _staleAfter };
             }
-            return new(Pick(parsed.Alibaba, _fallback?.Alibaba), Pick(parsed.Kimi, _fallback?.Kimi),
+            return new(_service.Product("qwen") == "coding" ? Pick(_service.Plan("qwen"), null) : Pick(parsed.Alibaba, _fallback?.Alibaba), Pick(parsed.Kimi, _fallback?.Kimi),
                 Pick(parsed.MiniMax, _fallback?.MiniMax), Pick(DeepSeekWebDisplay(source, DateTimeOffset.UtcNow), null, "deepseek-web"),
-                ZhipuBalance.Normalize(Pick(_service.Snapshot.Zhipu, _fallback?.Zhipu)),
-                Pick(_service.Snapshot.StepFun, null), Pick(_service.Snapshot.Baidu, null),
+                _service.SelectedIsPlan("zhipu") ? Pick(_service.Plan("zhipu"), null) : ZhipuBalance.Normalize(Pick(_service.Snapshot.Zhipu, _fallback?.Zhipu)),
+                Pick(_service.SelectedIsPlan("stepfun") ? _service.Plan("stepfun") : _service.Snapshot.StepFun, null),
+                Pick(_service.SelectedIsPlan("baidu") ? _service.Plan("baidu") : _service.Snapshot.Baidu, null),
                 Pick(XiaomiQuota.Snapshot(_service.Snapshot.XiaomiPlanPct, _service.Snapshot.XiaomiFetchedAt,
                     _service.Snapshot.XiaomiPlanResetAt,_service.Snapshot.XiaomiPlanWindowSeconds), null));
         }
@@ -57,7 +58,8 @@ internal sealed class MigratedDomesticBridge : IDisposable
             p=>_service.WasAuthorized(p) || _service.HasOfficialApi(p),Tab5Paired());
     }
     private string[] WebProviders(HashSet<string> monitored) => QuotaMonitoringPolicy.OrderWeb(
-        Providers.Where(p=>monitored.Contains(p) && !_service.UsesOnlyOfficialApi(p) && p is not ("stepfun" or "baidu")),Tab5Paired());
+        Providers.Where(p=>monitored.Contains(p) && !_service.UsesOnlyOfficialApi(p)
+            && !(p is "stepfun" or "baidu" && !_service.SelectedIsPlan(p))),Tab5Paired());
     internal void RefreshNext(DisplayPolicy policy)
     {
         _monitorPolicy=policy;
