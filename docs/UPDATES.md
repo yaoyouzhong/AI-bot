@@ -58,6 +58,10 @@ When updates are available, a small green update badge appears in the upper-righ
 
 0.6.2 修复：已连接的旧版 ESP8266 如果未上报固件版本，显示「版本未知（旧固件未上报）」，可以点「手动准备小屏升级」。这不表示发现了更新，不触发自动更新提醒。下载并校验最新正式固件包后，程序会说明无法排除同版本或降级，由用户确认进入 USB 刷机工具；仍需连接该小屏并点击开始刷机，先完整备份，再写入和校验。离线、版本上报无效、下载期间设备或版本改变都会阻止继续。新版固件通过 USB 和已认证的 Wi-Fi 请求上报自身版本。0.6.1 及更早的安装包不包含此修复。
 
+TAB5 自动模式下，升级优先选择 Wi-Fi，其次 USB，最后蓝牙。接收和写入结束后，设备先校验固件，通过后才切换启动分区并重启。
+
+In automatic mode, TAB5 prefers Wi-Fi for updates, followed by USB and then Bluetooth. After receiving and writing the image, TAB5 validates it before selecting the boot partition and restarting.
+
 TAB5 日常更新只下载升级 ZIP；新购设备首次安装仍使用设备中心的首刷流程。下载包与首次安装说明见[安装指南](INSTALL.zh.md)。本地与公开版功能统一，名画和书法图库独立下载；在本窗口“屏保图库”中导入 ZIP，程序升级保留图库。详见[图库说明](GALLERY-PACKS.md)。
 
 ## 验证与范围

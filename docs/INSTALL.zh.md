@@ -2,7 +2,7 @@
 
 第一次安装？请先按[首次安装图文指南](FIRST-INSTALL.zh.md)逐步操作。
 
-适用于 **Windows 桥接 0.6.32、Mac 桥接 0.6.34、TAB5 0.2.323-ui、ESP8266 0.5.8**，说明更新于 2026-11-26。Windows 与 Apple Silicon Mac 均支持两类设备。
+适用于 **Windows 桥接 0.6.32、Mac 桥接 0.6.34、TAB5 0.2.324-ui、ESP8266 0.5.8**，说明更新于 2026-11-27。Windows 与 Apple Silicon Mac 均支持两类设备。
 
 **先安装电脑应用，再按设备当前系统选择路线。** 第一次只需完成 USB 接入、添加设备和屏幕检查；模型账号、语音、Wi-Fi 和图库都可稍后设置。
 
@@ -24,10 +24,10 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 | Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/AI-bot-bridge-v0.6.32-windows-x64-setup.exe) |
 | Mac 安装应用（macOS 13+、M 系列芯片） | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.34/AI-bot-bridge-v0.6.34-macos-arm64.zip) |
 | ESP8266 首刷或更新 | [ESP8266 精简刷机 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) |
-| TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-first-install.zip) |
-| TAB5 已安装 AI-bot，更新固件 | [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.31/AI-bot-tab5-0.2.323-ui-upgrade.zip) |
+| TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-first-install.zip) |
+| TAB5 已安装 AI-bot，更新固件 | [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-upgrade.zip) |
 
-**TAB5 首刷版本是 0.2.323-ui。** Windows 首刷会自动下载。手动首刷可直接选择 ZIP；升级包先解压，再选里面的 `aibot_tab5.bin`，同目录保留 `aibot_tab5.bin.notes.json`。两种硬件的固件不可互换；GitHub 的 Source code 不是刷机文件。
+**TAB5 首刷版本是 0.2.324-ui。** Windows 首刷会自动下载。手动首刷可直接选择 ZIP；升级包先解压，再选里面的 `aibot_tab5.bin`，同目录保留 `aibot_tab5.bin.notes.json`。两种硬件的固件不可互换；GitHub 的 Source code 不是刷机文件。
 
 桥接、ESP8266 和 TAB5 分别更新，版本号可以不同；以后只升级更新说明要求的部分，无需每次一起刷机。
 
@@ -105,8 +105,8 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 
 日常检查新版请从 **设备中心 → 桥接设置 → 软件固件** 进入。以下步骤用于手动安装已下载的升级包。
 
-1. **解压并打开升级页。** 完整解压 `AI-bot-tab5-0.2.323-ui-upgrade.zip`。设备中心选中 TAB5 → **连接设置 → 固件升级**，保持有效连接和供电。
-2. **提供固件。** 点 **选择固件…**，选解压后的 `aibot_tab5.bin`，同目录保留更新说明文件；核对版本 **0.2.323-ui** 与更新说明，确认提供。
+1. **解压并打开升级页。** 完整解压 `AI-bot-tab5-0.2.324-ui-upgrade.zip`。设备中心选中 TAB5 → **连接设置 → 固件升级**，保持有效连接和供电。
+2. **提供固件。** 点 **选择固件…**，选解压后的 `aibot_tab5.bin`，同目录保留更新说明文件；核对版本 **0.2.324-ui** 与更新说明，确认提供。
 
 ![图 6：TAB5 固件升级界面示例；升级完成后在状态旁点“核验启动”](assets/screens/tab5-upgrade.png)
 
@@ -200,7 +200,7 @@ TAB5 需要无线时，在 **连接设置 → Wi-Fi** 保存网络并确认有�
 
 ## English quick start
 
-Current downloads are Windows bridge 0.6.32 and Apple Silicon Mac bridge 0.6.34, TAB5 0.2.323-ui, and ESP8266 0.5.8. Install the desktop app first. Model accounts, speech, wireless access and artwork packs can be configured after the USB connection works.
+Current downloads are Windows bridge 0.6.32 and Apple Silicon Mac bridge 0.6.34, TAB5 0.2.324-ui, and ESP8266 0.5.8. Install the desktop app first. Model accounts, speech, wireless access and artwork packs can be configured after the USB connection works.
 
 1. **Install the app.** On Windows, keep the default installation path unless needed. For an upgrade, keep the current path. Setup closes a running AI-bot gracefully and starts it again after installing. Setup downloads missing .NET 8 Desktop Runtime / WebView2 components and skips existing ones. First-time installation attempts to configure the unlock components and may request administrator approval. If setup cannot configure unlock, you can still start AI-bot and retry in Computer Control. Upgrades keep existing unlock settings. On Mac, extract the ZIP into Applications. The current Apple Silicon app uses a fixed self-signed certificate and is not Apple-notarized. If AI-bot is already installed, use One-Click Update from Software/Firmware. The first switch from an older signing identity may require renewed permission; later in-app updates signed with the same certificate retain Accessibility permission. Follow [Apple's opening guidance](https://support.apple.com/102445) and grant only the permissions requested by the features you use. Intel is unverified.
 2. **Connect with a USB data cable.** On Windows, Device Center opens on first launch. Choose **Add Your First Device**, select the model and confirm your USB device. Refresh the list if the device is missing. On Mac, open Device Center from the menu bar and choose **Add Device**.

@@ -1,5 +1,11 @@
 # 当前截图来源 / Screenshot provenance
 
+## 2026-11-27 · TAB5 0.2.324-ui 首页 / Overview
+
+`tab5-overview-0324.png` 取自 R16 原生 LVGL 离屏渲染，展示新版日历、Codex 周额度小钟和温湿度天气卡。数据为演示内容，PPM 转 PNG 保持像素。摘要登记在 `licenses/materials.json`。
+
+The overview uses the R16 firmware renderer and demonstration data. The conversion from PPM to PNG preserves the rendered pixels. The asset inventory records its digest.
+
 ## 2026-11-25 · 0.6.32 软件固件更新角标 / Software/Firmware update badge
 
 windows-bridge-update-badge-0632.png 取自封存 Windows 0.6.32（源码 9e14d70399a4）的原生 WinForms 隔离渲染，使用合成更新数据。用于说明「软件固件」卡片右上角的小箭头。截图沿用项目原生界面与许可，SHA-256 已登记。现有 Mac 菜单和安装确认截图仍对应各自展示的界面。
