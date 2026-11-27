@@ -31,6 +31,15 @@ enum MacDomesticCaptureValidation {
             if provider == "zhipu" { samples += [("https://bigmodel.cn"+MacDomesticQuotaParser.zhipuLegacyPath,true),
                 (good+"/",false),("https://bigmodel.cn"+path.uppercased(),false),
                 (good.replacingOccurrences(of:"finance-overview",with:"finance%2Doverview"),false)] }
+            if provider == "minimax" {
+                for host in ["www.minimax.cn","platform.minimax.cn","www.minimaxi.com","platform.minimaxi.com"] {
+                    for path in ["/v1/token_plan/remains","/v1/api/openplatform/coding_plan/remains","/backend/account/token_plan/remains_percent"] {
+                        samples.append(("https://"+host+path,true))
+                        samples.append(("https://"+host+path+"/",false))
+                    }
+                }
+                samples.append(("https://platform.minimax.cn/usage",false))
+            }
             let browser = MacDomesticBrowser(provider:provider,store:store,persistent:false,captureEnabled:{false},note:{_ in})
             defer { browser.stop() }
             guard let source = browser.webView.configuration.userContentController.userScripts.first?.source,

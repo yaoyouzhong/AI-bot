@@ -18,9 +18,8 @@ final class MacTab5Tests: XCTestCase {
         let chars = Array(hex)
         return Data(stride(from: 0, to: chars.count, by: 2).map { UInt8(String(chars[$0..<$0+2]), radix: 16)! })
     }
-    private func snapshot() -> MacStatusSnapshot {
-        let date = Date(timeIntervalSince1970: 1800000000)
-        return MacStatusSnapshot(version: 1, time: "12:00:00", epochUtc: 1800000000, utcOffsetSeconds: 28800,
+    private func snapshot(at date: Date = Date(timeIntervalSince1970: 1800000000)) -> MacStatusSnapshot {
+        return MacStatusSnapshot(version: 1, time: "12:00:00", epochUtc: Int64(date.timeIntervalSince1970), utcOffsetSeconds: 28800,
                                  capturedAt: date, codex: ToolState(state: "working", ageSeconds: 1),
                                  claude: ToolState(state: "idle", ageSeconds: 10), musicPlaying: false,
                                  weather: nil, stocks: nil, systemMetrics: nil, quotas: nil, music: nil,
@@ -107,6 +106,69 @@ final class MacTab5Tests: XCTestCase {
         XCTAssertTrue(health["displayCommand"] is NSNull)
         XCTAssertNil(health["computerControlVersion"]); XCTAssertNil(health["voiceEnabled"])
         XCTAssertEqual((data["calendar"] as? [String: Any])?["lunar"] as? String, LunarDate.format(epoch: 1800000000, utcOffset: 28800))
+    }
+
+    func testUpgradeDraftRejectionCompatibilityAndExplicitRetry() throws {
+        let service = self.service()
+        let pair = try XCTUnwrap(service.currentPairing)
+        service.observeUSBInfo(["deviceId": device, "firmware": "0.2.323-ui"])
+        let image = try MacTab5FirmwareImage(bytes: MacTab5TestData.firmware(version: "0.2.324-ui"))
+        try service.firmwareControl.select(image)
+        func health() throws -> [String: Any] {
+            // Commands have a short lifetime tied to the status frame clock.
+            service.publish(snapshot(at: Date()))
+            let frame = try MacTab5Protocol.object(service.frame(includeResources: false))
+            let data = try XCTUnwrap(frame["data"] as? [String: Any])
+            let health = try XCTUnwrap(data["connectionHealth"] as? [String: Any])
+            XCTAssertEqual(health["otaReceiptPreserveDraft"] as? Int, 1)
+            XCTAssertEqual(health["hostId"] as? String, MacTab5HostBinding.id(pair))
+            return health
+        }
+        func report(_ command: [String: Any], stage: String, error: String? = nil) throws -> [String: Any] {
+            var request = command
+            request["kind"] = "ota-control"
+            request["session"] = service.session
+            request["issuedAt"] = Int64(Date().timeIntervalSince1970 * 1000)
+            request["stage"] = stage
+            if let error { request["error"] = error }
+            let result = try send(request, to: service)
+            XCTAssertEqual(result.0, 200)
+            return result.1
+        }
+        XCTAssertNil(try health()["otaCommand"])
+        var oldRequestIDs = Set<String>()
+        for (reason, message) in [
+            ("delivery_unconfirmed", "还有消息待核对送达，草稿已保留，升级未开始。"),
+            ("draft_unsynced", "还有草稿未同步，草稿已保留，升级未开始。"),
+            ("draft_pending", "还有待确认或待同步的草稿，请先处理送达与同步状态。")
+        ] {
+            service.usbState("fixture", confirmed: true)
+            try service.requestUpgrade()
+            let start = try XCTUnwrap(try health()["otaCommand"] as? [String: Any])
+            XCTAssertTrue(oldRequestIDs.insert(try XCTUnwrap(start["requestId"] as? String)).inserted)
+            XCTAssertTrue(service.firmwareControl.summary.contains("尚未确认"))
+            XCTAssertEqual(try report(start, stage: "rejected", error: reason)["status"] as? Int, 200)
+            XCTAssertEqual(service.firmwareControl.summary, message)
+            XCTAssertFalse(service.firmwareControl.busy)
+            XCTAssertNil(try health()["otaCommand"])
+            XCTAssertNil((try health()["displayCommand"]) as? [String: Any])
+            XCTAssertEqual(service.currentPairing, pair)
+            XCTAssertEqual(try report(start, stage: "ready")["status"] as? Int, 409)
+        }
+        // A new explicit request, not replay of any rejected request.
+        service.usbState("fixture", confirmed: true)
+        try service.requestUpgrade()
+        let start = try XCTUnwrap(try health()["otaCommand"] as? [String: Any])
+        XCTAssertTrue(oldRequestIDs.insert(try XCTUnwrap(start["requestId"] as? String)).inserted)
+        let ready = try report(start, stage: "ready")
+        XCTAssertEqual(ready["status"] as? Int, 200)
+        XCTAssertEqual((ready["body"] as? [String: Any])?["commit"] as? Bool, true)
+        XCTAssertTrue(service.firmwareControl.summary.contains("确认保存草稿"))
+        XCTAssertEqual(try report(start, stage: "started")["status"] as? Int, 200)
+        XCTAssertTrue(service.firmwareControl.summary.contains("设备已确认开始升级"))
+        XCTAssertFalse(service.firmwareControl.summary.contains("核验通过"))
+        XCTAssertNil(try health()["otaCommand"])
+        XCTAssertEqual(service.currentPairing, pair)
     }
 
     func testMusicOnlyPermissionAdvertisesTheSharedControlTransport() throws {

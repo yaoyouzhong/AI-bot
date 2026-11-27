@@ -753,7 +753,14 @@ final class MacTab5Codex {
             if op == "receipt" || op == "receipt-confirm" {
                 guard var receipt = receipts[id] as? [String: Any], receipt["binding"] as? String == binding else { return .error(404, "receipt_not_found") }
                 if op == "receipt-confirm", !(enabled() && sendEnabled() && mutationAllowed()) { return .error(403, "codex_send_not_enabled") }
-                if receipt["status"] as? Int != 504 { return receiptResult(receipt) }
+                if receipt["status"] as? Int != 504 {
+                    if preserveDraft, receipt["status"] as? Int == 409 {
+                        var body = receipt["body"] as? [String:Any] ?? [:]
+                        body["deliveryFinal"] = true
+                        return .init(409, body)
+                    }
+                    return receiptResult(receipt)
+                }
                 if deliveryCancelled?(task,id) == true {
                     receipt["status"] = 409; receipt["body"] = ["error":"message_cancelled","deliveryFinal":true]
                     receipts[id] = receipt; data["receipts"] = receipts; try saveJournal(data)

@@ -22,7 +22,7 @@ enum MacMiniMaxQuota {
             guard let weekly = try window(row,["current_weekly","weekly"]) else { continue }
             let primary = try window(row,["current_interval","interval","five_hour","fivehour"])
             let name = ["combo_name","plan_name","plan_title","current_subscribe_title","subscribe_title","subscription_name","title"].compactMap { row[$0] as? String }.first { !$0.isEmpty && $0.utf8.count <= 192 }
-            var value = DomesticProviderQuotaSnapshot(provider:"minimax",plan:name ?? "MiniMax Token Plan",primaryPercent:primary,
+            var value = DomesticProviderQuotaSnapshot(provider:"minimax",plan:MacDomesticSources.displayName(name ?? "Token Plan"),primaryPercent:primary,
                 primaryResetsAt:reset(row,weekly:false,now:now),weeklyPercent:weekly,weeklyResetsAt:reset(row,weekly:true,now:now),
                 balance:nil,usedCost:nil,currency:nil,updatedAt:now,stale:false)
             let shortWindow = ((row["current_interval"] ?? row["interval"]) as? [String:Any])?["window"]

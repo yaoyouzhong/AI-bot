@@ -11,24 +11,33 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
     private let separateDeepSeek: () -> Bool
     private let note: (String) -> Void
     private let definition: MacModelAccountProvider
+    private let contentMode: String?
+    private let contentGeneration: Int
+    private var lastPageScan: TimeInterval = 0
+    private var lastDOMSignature: String?
+    private var captureActive: Bool {
+        !stopped && captureEnabled() && (contentMode == nil || store.domesticGeneration(provider) == contentGeneration)
+    }
     private(set) var refreshState = MacConsoleRefreshState()
     private var loaded = false
+    private var stopped = false
     nonisolated static func endpoint(provider: String, url: URL) -> Bool {
         guard url.scheme == "https", url.port == nil || url.port == 443, url.user == nil, url.password == nil else { return false }
         let host = url.host?.lowercased() ?? "", path = url.path.lowercased()
         switch provider {
         case "qwen": return host == "bailian.console.aliyun.com" && (path == "/data/api.json" || path.contains("quota") || path.contains("subscription") || path.contains("token-plan"))
         case "kimi": return ["www.kimi.com","kimi.com","api.kimi.com"].contains(host) && (path.contains("usage") || path.contains("quota") || path.hasSuffix("billingservice/getusage"))
-        case "minimax": return ["platform.minimaxi.com","www.minimaxi.com"].contains(host) && ["usage","token_plan","token-plan","coding_plan","model_remains","remains"].contains { path.contains($0) }
+        case "minimax": return ["platform.minimax.cn","www.minimax.cn","platform.minimaxi.com","www.minimaxi.com"].contains(host) && ["/v1/token_plan/remains","/v1/api/openplatform/coding_plan/remains","/backend/account/token_plan/remains_percent"].contains(URLComponents(url:url,resolvingAgainstBaseURL:false)?.percentEncodedPath ?? "")
         case "zhipu": return host == "bigmodel.cn" && MacDomesticQuotaParser.zhipuPaths.contains(URLComponents(url:url,resolvingAgainstBaseURL:false)?.percentEncodedPath ?? "")
         case "xiaomi": return host == "platform.xiaomimimo.com" && path == "/api/v1/tokenplan/usage"
         case "deepseek": return host == "platform.deepseek.com" && (path.hasSuffix("/get_user_summary") || path.hasSuffix("/balance"))
         default: return false
         }
     }
-    init(provider: String, store: MacDataStore, persistent: Bool = true,
+    init(provider: String, store: MacDataStore, persistent: Bool = true, contentMode: String? = nil,
          captureEnabled: @escaping () -> Bool, separateDeepSeek: @escaping () -> Bool = {false}, note: @escaping (String) -> Void) {
         self.provider = provider; self.store = store; self.captureEnabled = captureEnabled; self.note = note
+        self.contentMode = contentMode; contentGeneration = store.domesticGeneration(provider)
         self.separateDeepSeek = separateDeepSeek
         definition = MacModelAccountCatalog.provider(provider)!
         let configuration = WKWebViewConfiguration()
@@ -46,7 +55,7 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
             if(provider==='xiaomi') return h==='platform.xiaomimimo.com' && p==='/api/v1/tokenplan/usage';
             if(provider==='qwen') return h==='bailian.console.aliyun.com' && (p==='/data/api.json'||p.includes('quota')||p.includes('subscription')||p.includes('token-plan'));
             if(provider==='kimi') return ['www.kimi.com','kimi.com','api.kimi.com'].includes(h) && (p.includes('usage')||p.includes('quota')||p.endsWith('billingservice/getusage'));
-            if(provider==='minimax') return ['platform.minimaxi.com','www.minimaxi.com'].includes(h) && ['usage','token_plan','token-plan','coding_plan','model_remains','remains'].some(v=>p.includes(v));
+            if(provider==='minimax') return ['platform.minimax.cn','www.minimax.cn','platform.minimaxi.com','www.minimaxi.com'].includes(h) && ['/v1/token_plan/remains','/v1/api/openplatform/coding_plan/remains','/backend/account/token_plan/remains_percent'].includes(u.pathname);
             if(provider==='deepseek') return h==='platform.deepseek.com' && (p.endsWith('/get_user_summary')||p.endsWith('/balance'));
             return false;
           } catch {return false;} };
@@ -97,23 +106,39 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
     }
     func loadIfNeeded() { if !loaded { reload() } }
     func reload() {
-        loaded = true; refreshState.start(Date().timeIntervalSince1970)
-        note(captureEnabled() ? "正在加载官方控制台；等待登录或额度响应…":"官方控制台；额度仍使用已选择的数据来源。")
-        webView.load(URLRequest(url:definition.url))
+        loaded = true; lastDOMSignature = nil; refreshState.start(Date().timeIntervalSince1970)
+        note(captureActive ? "正在加载官方控制台；等待登录或额度响应…":"官方控制台；额度仍使用已选择的数据来源。")
+        webView.load(URLRequest(url:MacModelAccountCatalog.entry(provider,mode:contentMode ?? "console") ?? definition.url))
     }
     func tick(now: Date = Date(), interactive: Bool) {
-        guard captureEnabled() else { return }
+        guard captureActive else { return }
         let time = now.timeIntervalSince1970
+        if let mode = contentMode, MacDomesticPlanPage.supports(provider,mode:mode), (refreshState.awaiting || interactive), time-lastPageScan >= 5 {
+            lastPageScan = time
+            if let url = webView.url, MacDomesticPlanPage.allows(provider,mode:mode,url:url) {
+                webView.evaluateJavaScript(MacDomesticPlanPage.script) { [weak self] result,error in
+                    guard let self, error == nil, self.captureActive, self.webView.url == url,
+                          let rows = result as? [[String:Any]],
+                          let encoded = try? JSONSerialization.data(withJSONObject:rows,options:.sortedKeys),
+                          let value = try? MacDomesticPlanPage.parse(provider,mode:mode,rows:rows,now:now) else { return }
+                    let signature = MacTab5Protocol.sha256(encoded)
+                    guard self.lastDOMSignature != signature else { return }
+                    if self.store.updateDomesticContent(value,provider:provider,mode:mode,generation:self.contentGeneration) {
+                        self.lastDOMSignature = signature; self.refreshState.success(time); self.note("已读取网页可见套餐进度，实际账号页面待验证。")
+                    }
+                }
+            }
+        }
         if refreshState.timeout(time) { markStale(); note("尚未取得新的额度响应；保留上次数据。请检查右侧登录状态，或刷新网页重试。") }
         if refreshState.due(time,interactive:interactive) { reload() }
     }
     func stop() {
-        webView.stopLoading(); webView.configuration.userContentController.removeScriptMessageHandler(forName:"quota")
+        stopped = true; webView.stopLoading(); webView.configuration.userContentController.removeScriptMessageHandler(forName:"quota")
         webView.navigationDelegate = nil; webView.uiDelegate = nil
     }
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         let origin = message.frameInfo.securityOrigin
-        guard captureEnabled(), message.frameInfo.isMainFrame, origin.protocol == "https",
+        guard captureActive, message.frameInfo.isMainFrame, origin.protocol == "https",
               let originURL = URL(string:"https://"+origin.host),
               MacModelAccountCatalog.navigationAllowed(originURL,provider:provider,mainFrame:true),
               let body = message.body as? [String:Any], let raw = body["url"] as? String,
@@ -122,7 +147,7 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
         receive(status:status,bytes:Data(text.utf8),url:url)
     }
     func receive(status: Int, bytes: Data, now: Date = Date(), url: URL? = nil) {
-        guard captureEnabled(), url == nil || Self.endpoint(provider:provider,url:url!) else { return }
+        guard captureActive, url == nil || Self.endpoint(provider:provider,url:url!) else { return }
         if provider == "zhipu", url?.path == MacDomesticQuotaParser.zhipuLegacyPath { return }
         guard status == 200 else {
             refreshState.fail(now.timeIntervalSince1970,login:status == 401 || status == 403)
@@ -133,9 +158,11 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
         do {
             let value = try provider == "zhipu" && url?.path == MacDomesticQuotaParser.zhipuOverviewPath
                 ? MacDomesticQuotaParser.zhipuPair(bytes,now:now)
-                : MacDomesticSources.parse(provider,mode:"console",bytes:bytes,now:now,capturePath:url?.path)
+                : MacDomesticSources.parse(provider,mode:contentMode ?? "console",bytes:bytes,now:now,capturePath:url?.path)
             if provider == "deepseek" { store.updateDeepSeekWeb(value) }
-            if provider != "deepseek" || !separateDeepSeek() { store.updateDomestic(value,validatedGLMPair:provider == "zhipu" && url?.path == MacDomesticQuotaParser.zhipuOverviewPath) }
+            if let mode = contentMode {
+                guard store.updateDomesticContent(value,provider:provider,mode:mode,generation:contentGeneration) else { return }
+            } else if provider != "deepseek" || !separateDeepSeek() { store.updateDomestic(value,validatedGLMPair:provider == "zhipu" && url?.path == MacDomesticQuotaParser.zhipuOverviewPath) }
             refreshState.success(now.timeIntervalSince1970)
             note("已取得官方账户数据；关闭此窗口后仍会后台刷新。")
         } catch { /* Unrelated JSON never replaces a successful quota sample. */ }
@@ -151,18 +178,28 @@ final class MacDomesticBrowser: NSObject, WKScriptMessageHandler, WKNavigationDe
         if action.targetFrame == nil, let url = action.request.url, MacModelAccountCatalog.navigationAllowed(url,provider:provider,mainFrame:true) { webView.load(action.request) }
         return nil
     }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if let mode = contentMode, MacDomesticPlanPage.supports(provider,mode:mode) {
+            lastDOMSignature = nil
+            refreshState.start(Date().timeIntervalSince1970)
+        }
+    }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { failed(error) }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { failed(error) }
     private func failed(_ error: Error) {
         guard (error as NSError).code != NSURLErrorCancelled else { return }
-        refreshState.fail(Date().timeIntervalSince1970); if captureEnabled() { markStale() }
+        refreshState.fail(Date().timeIntervalSince1970); if captureActive { markStale() }
         note("官方网页加载失败，请检查网络或稍后刷新；保留上次数据。")
     }
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         refreshState.fail(Date().timeIntervalSince1970); note("网页进程已停止，将在后台重试；也可手动刷新。")
-        if captureEnabled() { markStale() }
+        if captureActive { markStale() }
     }
     private func markStale() {
+        if let mode = contentMode {
+            store.markDomesticContentStale(provider,mode:mode,generation:contentGeneration)
+            return
+        }
         if provider == "deepseek" { store.markDeepSeekWebStale() }
         if provider != "deepseek" || !separateDeepSeek() { store.markDomesticStale(provider) }
     }

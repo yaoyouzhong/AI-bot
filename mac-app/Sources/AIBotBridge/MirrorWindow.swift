@@ -151,7 +151,7 @@ final class MacMirrorView:NSView {
             guard let q else { text("等待账户数据",18,100,210,30,18,.gray); return }
             if let balance = q.balance { text(String(format:"%.2f %@",balance,q.currency ?? ""),18,78,210,36,24,.white) }
             else { text("短周期 \(percent(q.primaryPercent))",18,78,210,26,18,.white); text("周额度 \(percent(q.weeklyPercent))",18,112,210,26,18,.white) }
-            text(q.plan ?? "",18,152,210,25,13,.gray); text(q.stale ? "上次成功数据":"账户额度",18,190,210,24,13,q.stale ? .orange:.gray)
+            text(MacDomesticSources.displayName(q.plan) ?? "",18,152,210,25,13,.gray); text(q.stale ? "上次成功数据":"账户额度",18,190,210,24,13,q.stale ? .orange:.gray)
         default:
             let role=s.claude.state=="working" && s.codex.state != "working" ? "claude":"codex"
             text(role.uppercased(),20,20,210,22,15,.cyan);pet(role,centerY:120,animate:s.claude.state=="working" || s.codex.state=="working")

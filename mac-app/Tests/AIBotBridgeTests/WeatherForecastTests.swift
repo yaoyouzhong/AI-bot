@@ -150,6 +150,39 @@ final class WeatherForecastTests: XCTestCase {
         XCTAssertEqual(wire["pressureChange3hHpa"] as? Double, -1.2)
     }
 
+    func testPM25MissingConcentrationDoesNotReuseOldGrade() throws {
+        let suite = "pm25-alignment-"+UUID().uuidString
+        let defaults = UserDefaults(suiteName:suite)!
+        defer { defaults.removePersistentDomain(forName:suite) }
+        let store = MacDataStore(defaults:defaults)
+        let valid = try MacDataService.parseWeather(forecast:meteo(),air:Data(#"{"current":{"us_aqi":42,"pm2_5":19,"us_aqi_pm2_5":28}}"#.utf8),city:"Synthetic",now:now)
+        XCTAssertEqual(valid.airQualityIndex,42); XCTAssertEqual(valid.pm25Index,28)
+        store.update(weather:valid)
+        let partial = try MacDataService.parseWeather(forecast:meteo(),air:Data(#"{"current":{"us_aqi":44,"us_aqi_pm2_5":32}}"#.utf8),city:"Synthetic",now:now)
+        store.update(weather:partial)
+        XCTAssertEqual(store.snapshot().weather?.pm25,19)
+        XCTAssertEqual(store.snapshot().weather?.airQualityIndex,44)
+        XCTAssertNil(store.snapshot().weather?.pm25Index)
+        var qweather = try MacDataService.parseWeather(forecast:meteo(),air:nil,city:"Synthetic",now:now)
+        MacWeatherForecast.addQAir(Data(#"{"indexes":[{"code":"cn-mee","aqi":42}],"pollutants":[{"code":"pm2p5","concentration":{"value":19,"unit":"μg/m3"},"subIndexes":[{"code":"us-epa","aqi":75}]}]}"#.utf8),to:&qweather)
+        XCTAssertEqual(qweather.pm25,19); XCTAssertEqual(qweather.airQualityIndex,42); XCTAssertNil(qweather.pm25Index)
+    }
+    func testPressureTrendNotExposedOnDisconnectOrCacheRestore() throws {
+        let suite = "pressure-alignment-"+UUID().uuidString
+        let defaults = UserDefaults(suiteName:suite)!
+        defer { defaults.removePersistentDomain(forName:suite) }
+        let store = MacDataStore(defaults:defaults)
+        var weather = try MacDataService.parseWeather(forecast:meteo(),air:nil,city:"Synthetic",now:now)
+        weather.pressureChange3hHpa = -1.2
+        store.update(weather:weather)
+        XCTAssertEqual(store.snapshot().weather?.pressureChange3hHpa,-1.2)
+        XCTAssertNil(MacDataStore(defaults:defaults).snapshot().weather?.pressureChange3hHpa)
+        store.markWeatherStale()
+        XCTAssertNil(store.snapshot().weather?.pressureChange3hHpa)
+        XCTAssertEqual(store.snapshot().weather?.pressureHpa,1013.2)
+        XCTAssertTrue(store.snapshot().weather?.stale == true)
+    }
+
     func testWeatherFactsSurvivePartialFailureAndReachDevice() throws {
         let name = "weather-facts-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!

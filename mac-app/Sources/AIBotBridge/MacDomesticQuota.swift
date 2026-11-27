@@ -89,6 +89,7 @@ actor MacDomesticQuotaService {
     private var note = "DeepSeek：尚未授权"
     private static let account = "deepseek-api-key-v1"
     private var credentials: [String: MacDomesticCredential] = [:], sourceNotes: [String:String] = [:], revisions: [String:Int] = [:]
+    private var sourceNoteModes: [String:String] = [:]
     private var refreshingSources = false
     private var attemptedCredentials = Set<String>()
     init(store: MacDataStore) {
@@ -98,7 +99,10 @@ actor MacDomesticQuotaService {
         session = URLSession(configuration: configuration, delegate: MacQuotaNoRedirect(), delegateQueue: nil)
     }
     func diagnostic() -> String { (UserDefaults.standard.string(forKey:"domestic_source_deepseek") == nil ? [note]:[]) .joined(separator:"\n") + "\n" + MacDeviceRegistry.providers.compactMap { sourceNotes[$0.0].map { $0 } }.joined(separator:"\n") }
-    func diagnostic(provider: String) -> String { sourceNotes[provider] ?? (provider == "deepseek" ? note : "") }
+    func diagnostic(provider: String) -> String {
+        if provider != "deepseek", sourceNoteModes[provider] != store.selectedDomesticMode(provider) { return "" }
+        return sourceNotes[provider] ?? (provider == "deepseek" ? note : "")
+    }
     private var legacyDeepSeek: Bool { UserDefaults.standard.string(forKey:"domestic_fingerprint_deepseek") == nil && UserDefaults.standard.bool(forKey:"deepseek_quota_enabled") }
     func useSeparateDeepSeek() -> Bool {
         guard legacyDeepSeek || UserDefaults.standard.string(forKey:"domestic_fingerprint_deepseek") != nil else { return false }
@@ -109,17 +113,27 @@ actor MacDomesticQuotaService {
         }
         return true
     }
-    func saveCredential(_ credential: MacDomesticCredential, provider: String) throws {
+    func saveCredential(_ credential: MacDomesticCredential, provider: String, expectedGeneration: Int? = nil) throws {
         try credential.validate(provider:provider)
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]; let bytes = try encoder.encode(credential)
-        try MacKeychainAccess.save("domestic-provider-v1-" + provider, bytes)
-        let fingerprint = MacTab5Protocol.sha256(bytes), key = "domestic_fingerprint_" + provider
-        if UserDefaults.standard.string(forKey:key) != fingerprint { store.clearDomestic(provider); UserDefaults.standard.set(fingerprint,forKey:key) }
-        UserDefaults.standard.set(credential.mode,forKey:"domestic_source_" + provider)
-        credentials[provider] = credential; revisions[provider,default:0] += 1
+        let scoped = provider != "deepseek"
+        if scoped, let expectedGeneration, store.domesticGeneration(provider) != expectedGeneration { throw MacDomesticQuotaParser.Failure.invalid }
+        let credentialID = scoped ? provider+"-"+credential.mode:provider
+        try MacKeychainAccess.save("domestic-provider-v1-" + credentialID, bytes)
+        let fingerprint = MacTab5Protocol.sha256(bytes), key = "domestic_fingerprint_" + credentialID
+        if (UserDefaults.standard.string(forKey:key) ?? (scoped ? UserDefaults.standard.string(forKey:"domestic_fingerprint_"+provider):nil)) != fingerprint {
+            if scoped { store.clearDomesticContent(provider,mode:credential.mode) } else { store.clearDomestic(provider) }
+        }
+        UserDefaults.standard.set(fingerprint,forKey:key)
+        if scoped {
+            if expectedGeneration == nil { store.selectDomesticContent(provider,mode:credential.mode) }
+        }
+        else { UserDefaults.standard.set(credential.mode,forKey:"domestic_source_" + provider) }
+        credentials[credentialID] = credential; revisions[provider,default:0] += 1
         if provider == "deepseek" { revision += 1 }
     }
     func useConsole(_ provider: String) {
+        if provider != "deepseek" { store.selectDomesticContent(provider,mode:"console"); return }
         guard MacDomesticSources.modes(provider).contains(where:{$0.0 == "console"}) else { return }
         guard UserDefaults.standard.string(forKey:"domestic_source_"+provider) != "console" else { return }
         revisions[provider,default:0] += 1; UserDefaults.standard.set("console",forKey:"domestic_source_"+provider)
@@ -132,22 +146,41 @@ actor MacDomesticQuotaService {
         let useLegacy = deepSeekMode == nil || (deepSeekMode == "separate" && legacyDeepSeek)
         if useLegacy { await refreshDeepSeek() }
         for (provider,name) in MacDeviceRegistry.providers {
-            guard let mode = UserDefaults.standard.string(forKey:"domestic_source_" + provider), mode != "console" else { continue }
+            guard let mode = UserDefaults.standard.string(forKey:"domestic_source_" + provider), !MacDomesticSources.isWeb(mode) else { continue }
+            let scoped = provider != "deepseek"
+            let credentialID = scoped ? provider+"-"+mode:provider
+            sourceNoteModes[provider] = mode
+            let contentGeneration = store.domesticGeneration(provider)
             if provider == "deepseek" && useLegacy { continue }
             let generation = revisions[provider,default:0]
             do {
                 let credential: MacDomesticCredential
-                if let cached = credentials[provider] { credential = cached }
-                else { guard attemptedCredentials.insert(provider).inserted, let bytes = try MacKeychainAccess.read("domestic-provider-v1-" + provider) else { throw MacDomesticQuotaParser.Failure.invalid }; credential = try JSONDecoder().decode(MacDomesticCredential.self,from:bytes); credentials[provider] = credential }
+                if let cached = credentials[credentialID] { credential = cached }
+                else {
+                    guard attemptedCredentials.insert(credentialID).inserted,
+                          let bytes = try MacKeychainAccess.read("domestic-provider-v1-" + credentialID) ?? MacKeychainAccess.read("domestic-provider-v1-" + provider) else { throw MacDomesticQuotaParser.Failure.invalid }
+                    credential = try JSONDecoder().decode(MacDomesticCredential.self,from:bytes)
+                    guard credential.mode == mode || !scoped else { throw MacDomesticQuotaParser.Failure.invalid }
+                    credentials[credentialID] = credential
+                }
                 let request = try MacDomesticSources.request(provider,credential)
                 sourceNotes[provider] = "\(name)：正在读取…"
                 let (stream,response) = try await session.bytes(for:request)
                 guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw MacDomesticQuotaParser.Failure.invalid }
                 var data = Data(); for try await byte in stream { guard data.count < 1048576 else { throw MacDomesticQuotaParser.Failure.invalid }; data.append(byte) }
                 guard revisions[provider,default:0] == generation else { continue }
-                store.updateDomestic(try MacDomesticSources.parse(provider,mode:credential.mode,bytes:data,package:credential.package),deepSeekAPI:provider == "deepseek"); sourceNotes[provider] = "\(name)：官方账户数据已更新"
+                let value = try MacDomesticSources.parse(provider,mode:credential.mode,bytes:data,package:credential.package)
+                if scoped {
+                    guard store.updateDomesticContent(value,provider:provider,mode:mode,generation:contentGeneration) else { continue }
+                } else { store.updateDomestic(value,deepSeekAPI:true) }
+                sourceNotes[provider] = "\(name)：官方账户数据已更新"
             } catch {
-                guard revisions[provider,default:0] == generation else { continue }; store.markDomesticStale(provider); sourceNotes[provider] = "\(name)：读取未成功，保留最近成功结果；请检查授权或网络"
+                guard revisions[provider,default:0] == generation else { continue }
+                if scoped {
+                    guard store.domesticGeneration(provider) == contentGeneration else { continue }
+                    store.markDomesticContentStale(provider,mode:mode,generation:contentGeneration)
+                } else { store.markDomesticStale(provider) }
+                sourceNotes[provider] = "\(name)：读取未成功，保留最近成功结果；请检查授权或网络"
             }
         }
     }

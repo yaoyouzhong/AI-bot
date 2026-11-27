@@ -69,6 +69,9 @@ final class MacDataStore {
     }
     private var quotas: QuotaSnapshot?
     private var domesticQuotas: DomesticQuotaSnapshot?
+    private var domesticContent: [String: DomesticProviderQuotaSnapshot] = [:]
+    private var domesticGenerations: [String: Int] = [:]
+    private var initializedDomestic: Set<String> = []
     private var deepSeekUsageUpdatedAt: Date?
     private var deepSeekWeb: DomesticProviderQuotaSnapshot?
     private var music: MusicSnapshot = .empty()
@@ -91,6 +94,7 @@ final class MacDataStore {
            let value = try? decoder.decode(WeatherSnapshot.self, from: data) {
             weather = value
             weather?.stale = true
+            weather?.pressureChange3hHpa = nil
         }
         if let data = defaults.data(forKey: "stock_cache"),
            let value = try? decoder.decode(StockSnapshot.self, from: data) {
@@ -108,6 +112,21 @@ final class MacDataStore {
             if paired == nil || paired != value.zhipu { domesticQuotas?.zhipu?.usedCost = nil }
         }
         deepSeekUsageUpdatedAt = defaults.object(forKey:"deepseek_usage_updated_at") as? Date
+        initializedDomestic = Set(defaults.stringArray(forKey:"domestic_content_initialized") ?? [])
+        if let data = defaults.data(forKey:"domestic_content_cache"),
+           let values = try? decoder.decode([String:DomesticProviderQuotaSnapshot].self,from:data) {
+            domesticContent = values.mapValues(Self.staleDomestic)
+        }
+        for provider in MacModelAccountCatalog.all.map(\.id) where provider != "deepseek" && !initializedDomestic.contains(provider) {
+            if let legacy = domesticQuotas?[provider], let mode = defaults.string(forKey:"domestic_source_"+provider) {
+                // A previous release could leave a different source's data in its single cache.
+                if Self.matchesContent(legacy,provider:provider,mode:mode) {
+                    domesticContent[provider+"|"+mode] = Self.normalizedDomestic(legacy)
+                }
+                initializedDomestic.insert(provider)
+            }
+        }
+        persistDomesticContent()
         if let data = defaults.data(forKey:"deepseek_web_quota_cache_v1"), let value = try? decoder.decode(DomesticProviderQuotaSnapshot.self,from:data) { deepSeekWeb = Self.staleDomestic(value) }
         if deepSeekWeb == nil { domesticQuotas?.deepSeek?.usedCost = nil; deepSeekUsageUpdatedAt = nil }
     }
@@ -116,6 +135,15 @@ final class MacDataStore {
         lock.lock()
         defer { lock.unlock() }
         var visibleDomestic = domesticQuotas
+        for provider in initializedDomestic.intersection(Set(MacDeviceRegistry.providers.map(\.0))) {
+            let mode = selectedDomesticModeLocked(provider)
+            if visibleDomestic == nil { visibleDomestic = DomesticQuotaSnapshot(alibaba:nil,kimi:nil,miniMax:nil,deepSeek:nil) }
+            visibleDomestic?[provider] = domesticContent[provider+"|"+mode]
+        }
+        for provider in MacDeviceRegistry.providers.map(\.0) {
+            let normalized = visibleDomestic?[provider].map(Self.normalizedDomestic)
+            visibleDomestic?[provider] = normalized
+        }
         if !Self.usageFresh(deepSeekUsageUpdatedAt,now:now) { visibleDomestic?.deepSeek?.usedCost = nil }
         return MacDataExtras(weather: weather, stocks: stocks, systemMetrics: systemMetrics,
                              quotas: quotas, music: music, musicCover: musicCover, musicTab5Cover: musicTab5Cover, quotaTrend: quotaHistory?.snapshot(),
@@ -155,6 +183,80 @@ final class MacDataStore {
         if !Self.usageFresh(value?.updatedAt,now:now) { value?.usedCost = nil; value?.stale = true }
         return value
     }
+    private func selectedDomesticModeLocked(_ provider: String) -> String {
+        let saved = defaults.string(forKey:"domestic_source_"+provider)
+        if let saved, MacDomesticSources.modes(provider).contains(where:{$0.0 == saved}) { return saved }
+        return MacDomesticSources.defaultMode(provider,legacy:domesticQuotas?[provider])
+    }
+    func selectedDomesticMode(_ provider: String) -> String {
+        lock.lock(); defer { lock.unlock() }; return selectedDomesticModeLocked(provider)
+    }
+    private func persistDomesticContent() {
+        defaults.set(Array(initializedDomestic).sorted(),forKey:"domestic_content_initialized")
+        if let bytes = Self.encode(domesticContent) { defaults.set(bytes,forKey:"domestic_content_cache") }
+    }
+    @discardableResult
+    func selectDomesticContent(_ provider: String, mode: String) -> Int {
+        lock.lock(); defer { lock.unlock() }
+        guard MacDomesticSources.modes(provider).contains(where:{$0.0 == mode}) else { return -1 }
+        if !initializedDomestic.contains(provider), let legacy = domesticQuotas?[provider] {
+            let oldMode = selectedDomesticModeLocked(provider)
+            if Self.matchesContent(legacy,provider:provider,mode:oldMode) {
+                domesticContent[provider+"|"+oldMode] = Self.normalizedDomestic(legacy)
+            }
+        }
+        if selectedDomesticModeLocked(provider) != mode || !initializedDomestic.contains(provider) {
+            domesticGenerations[provider,default:0] += 1
+        }
+        initializedDomestic.insert(provider)
+        defaults.set(mode,forKey:"domestic_source_"+provider)
+        persistDomesticContent()
+        return domesticGenerations[provider,default:0]
+    }
+    func domesticGeneration(_ provider: String) -> Int {
+        lock.lock(); defer { lock.unlock() }; return domesticGenerations[provider,default:0]
+    }
+    func domesticContentSnapshot(_ provider: String, mode: String) -> DomesticProviderQuotaSnapshot? {
+        lock.lock(); defer { lock.unlock() }
+        if let value = domesticContent[provider+"|"+mode] { return value }
+        if !initializedDomestic.contains(provider), selectedDomesticModeLocked(provider) == mode,
+           let legacy = domesticQuotas?[provider], Self.matchesContent(legacy,provider:provider,mode:mode) { return Self.normalizedDomestic(legacy) }
+        return nil
+    }
+    @discardableResult
+    func updateDomesticContent(_ value: DomesticProviderQuotaSnapshot, provider: String, mode: String, generation: Int) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard selectedDomesticModeLocked(provider) == mode, domesticGenerations[provider,default:0] == generation,
+              Self.matchesContent(value,provider:provider,mode:mode) else { return false }
+        initializedDomestic.insert(provider)
+        domesticContent[provider+"|"+mode] = Self.normalizedDomestic(value)
+        persistDomesticContent()
+        return true
+    }
+    func markDomesticContentStale(_ provider: String, mode: String, generation: Int) {
+        lock.lock(); defer { lock.unlock() }
+        guard selectedDomesticModeLocked(provider) == mode, domesticGenerations[provider,default:0] == generation else { return }
+        domesticContent[provider+"|"+mode]?.stale = true
+        persistDomesticContent()
+    }
+    func clearDomesticContent(_ provider: String, mode: String) {
+        lock.lock(); defer { lock.unlock() }
+        domesticContent.removeValue(forKey:provider+"|"+mode)
+        if selectedDomesticModeLocked(provider) == mode { domesticGenerations[provider,default:0] += 1 }
+        initializedDomestic.insert(provider); persistDomesticContent()
+    }
+    private static func matchesContent(_ value: DomesticProviderQuotaSnapshot, provider: String, mode: String) -> Bool {
+        guard value.provider == (provider == "qwen" ? "alibaba":provider) else { return false }
+        let wallet = mode == "balance" || (provider == "zhipu" && mode == "console") || (provider == "stepfun" && mode == "api")
+        if wallet { return value.balance != nil && value.primaryPercent == nil && value.weeklyPercent == nil && value.planPercent == nil }
+        guard value.balance == nil, value.primaryPercent != nil || value.weeklyPercent != nil || value.planPercent != nil else { return false }
+        if provider == "qwen" { return (mode == "coding") == (MacDomesticSources.displayName(value.plan) == "Coding Plan") }
+        return true
+    }
+    private static func normalizedDomestic(_ input: DomesticProviderQuotaSnapshot) -> DomesticProviderQuotaSnapshot {
+        var value = input; value.plan = MacDomesticSources.displayName(value.plan); return value
+    }
+
     func updateDomestic(_ value: DomesticProviderQuotaSnapshot, deepSeekAPI: Bool = false, validatedGLMPair: Bool = false) {
         lock.lock(); defer { lock.unlock() }
         var current = domesticQuotas ?? DomesticQuotaSnapshot(alibaba: nil, kimi: nil, miniMax: nil, deepSeek: nil)
@@ -215,13 +317,14 @@ final class MacDataStore {
                 value.stale = true
             }
             if value.pm25 == nil, old.pm25 != nil {
-                value.pm25 = old.pm25; value.pm25Index = old.pm25Index; value.pm25Standard = old.pm25Standard
+                value.pm25 = old.pm25; value.pm25Index = nil; value.pm25Standard = nil
                 value.stale = true
             }
             if value.pressureHpa == nil, old.pressureHpa != nil {
                 value.pressureHpa = old.pressureHpa; value.pressureKind = old.pressureKind; value.stale = true
             }
         }
+        if value.stale { value.pressureChange3hHpa = nil }
         weather = value
         lock.unlock()
         if let data = Self.encode(value) { defaults.set(data, forKey: "weather_cache") }
@@ -239,6 +342,7 @@ final class MacDataStore {
         if let value = weather {
             weather = value
             weather?.stale = true
+            weather?.pressureChange3hHpa = nil
         }
         lock.unlock()
     }

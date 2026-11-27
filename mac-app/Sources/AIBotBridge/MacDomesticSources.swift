@@ -5,7 +5,7 @@ struct MacDomesticCredential: Codable {
     var mode: String, key: String = "", secret: String = "", package: String = "", port: Int = 5494
     func validate(provider: String) throws {
         guard MacDomesticSources.modes(provider).contains(where: { $0.0 == mode }) else { throw MacTab5LocalError.invalid("不支持此账户读取方式。") }
-        if mode == "console" { return }
+        if MacDomesticSources.isWeb(mode) { return }
         guard (1...2048).contains(key.utf8.count), key.utf8.allSatisfy({ (33...126).contains($0) }), secret.utf8.count <= 2048, secret.utf8.allSatisfy({ (33...126).contains($0) }) else { throw MacTab5LocalError.invalid("请填写有效凭据，不包含空白或控制字符。") }
         if provider == "qwen" || provider == "baidu" { guard !secret.isEmpty else { throw MacTab5LocalError.invalid("请填写 Access Key 和 Secret Key。") } }
         if mode == "package" { guard MacProfileValidation.text(package,limit:128) else { throw MacTab5LocalError.invalid("请填写模型资源包 ID。") } }
@@ -23,23 +23,47 @@ enum MacDomesticSources {
     }
     static func modes(_ provider: String) -> [(String,String)] {
         switch provider {
-        case "qwen": return [("console","百炼订阅控制台"),("balance","阿里云现金余额（AK/SK）")]
-        case "kimi": return [("local","Kimi Code 本地额度服务"),("balance","Moonshot API 余额"),("console","Kimi Code 控制台")]
-        case "minimax": return [("api","Token Plan API"),("console","MiniMax 控制台")]
+        case "qwen": return [("coding","Coding Plan"),("console","Token Plan"),("balance","阿里云现金余额（AK/SK）")]
+        case "kimi": return [("local","本地额度服务"),("balance","Moonshot API 余额"),("console","Coding Plan")]
+        case "minimax": return [("api","套餐 API 查询"),("console","Token Plan")]
         case "deepseek": return [("api","DeepSeek 官方余额 API"),("separate","分别显示：API 余额／网页消费"),("console","DeepSeek 官方控制台")]
-        case "zhipu": return [("plan","GLM Coding Plan API"),("console","智谱财务控制台")]
-        case "stepfun": return [("api","开放平台 API 余额")]
-        case "baidu": return [("package","模型资源包（AK/SK）"),("balance","百度云现金余额（AK/SK）")]
-        case "xiaomi": return [("console","MiMo Token Plan 控制台")]
+        case "zhipu": return [("plan","Coding Plan"),("console","API 账户余额")]
+        case "stepfun": return [("coding","Coding Plan"),("api","开放平台 API 余额")]
+        case "baidu": return [("token","Token Plan"),("package","模型资源包（AK/SK）"),("balance","百度云现金余额（AK/SK）")]
+        case "xiaomi": return [("console","Token Plan")]
+        case "volcengine": return [("coding","Coding Plan")]
+        case "tencent": return [("coding","Coding Plan"),("token","Token Plan")]
+        case "huawei": return [("token","Token Plan")]
         default: return []
         }
+    }
+    static func isWeb(_ mode: String) -> Bool { ["console","coding","token"].contains(mode) }
+    static func displayName(_ name: String?) -> String? {
+        guard let name else { return nil }
+        if name.localizedCaseInsensitiveContains("Coding Plan") || ["kimi code","step plan"].contains(name.lowercased()) { return "Coding Plan" }
+        if name.localizedCaseInsensitiveContains("Token Plan") || ["m plan","minimax m plan"].contains(name.lowercased()) { return "Token Plan" }
+        return name
+    }
+    static func defaultMode(_ provider: String, legacy: DomesticProviderQuotaSnapshot? = nil) -> String {
+        if legacy != nil {
+            switch provider {
+            case "qwen": return legacy?.balance != nil ? "balance":"console"
+            case "zhipu": return legacy?.balance != nil ? "console":"plan"
+            case "stepfun": return "api"
+            case "kimi": return legacy?.balance != nil ? "balance":"local"
+            case "baidu": return legacy?.balance != nil ? "balance":"package"
+            default: break
+            }
+        }
+        if legacy == nil, ["kimi","minimax"].contains(provider) { return "console" }
+        return modes(provider).first?.0 ?? ""
     }
     static func escape(_ text: String) -> String { text.addingPercentEncoding(withAllowedCharacters:CharacterSet(charactersIn:"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"))! }
     private static func hmac(_ key: String, _ text: String) -> String { HMAC<SHA256>.authenticationCode(for:Data(text.utf8),using:SymmetricKey(data:Data(key.utf8))).map { String(format:"%02x",$0) }.joined() }
     static func request(_ provider: String, _ c: MacDomesticCredential, now: Date = Date(), nonce: String = UUID().uuidString) throws -> URLRequest {
         try c.validate(provider:provider)
-        let endpoints = ["deepseek":"https://api.deepseek.com/user/balance","minimax":"https://www.minimaxi.com/v1/token_plan/remains","stepfun":"https://api.stepfun.com/v1/accounts","zhipu":"https://open.bigmodel.cn/api/monitor/usage/quota/limit","kimi":c.mode == "local" ? "http://127.0.0.1:\(c.port)/api/v1/oauth/usage":"https://api.moonshot.cn/v1/users/me/balance"]
-        if let endpoint = endpoints[provider], c.mode != "console" {
+        let endpoints = ["deepseek":"https://api.deepseek.com/user/balance","minimax":"https://www.minimax.cn/v1/token_plan/remains","stepfun":"https://api.stepfun.com/v1/accounts","zhipu":"https://open.bigmodel.cn/api/monitor/usage/quota/limit","kimi":c.mode == "local" ? "http://127.0.0.1:\(c.port)/api/v1/oauth/usage":"https://api.moonshot.cn/v1/users/me/balance"]
+        if let endpoint = endpoints[provider], !isWeb(c.mode) {
             var r = URLRequest(url:URL(string:endpoint)!); r.setValue(provider == "zhipu" ? c.key:"Bearer " + c.key,forHTTPHeaderField:"Authorization"); return r
         }
         let timestamp = ISO8601DateFormatter().string(from:now)
@@ -83,7 +107,7 @@ enum MacDomesticSources {
         func number(_ v: Any?) throws -> Double { guard let n = num(v) else { throw MacDomesticQuotaParser.Failure.invalid }; return n }
         func percent(_ v: Any?) throws -> Double { let n = try number(v); guard (0...100).contains(n) else { throw MacDomesticQuotaParser.Failure.invalid }; return n }
         func quota(_ plan: String, balance: Double? = nil, currency: String? = nil, primary: Double? = nil, primaryReset: Date? = nil, weekly: Double? = nil, weeklyReset: Date? = nil, planPercent: Double? = nil, planReset: Date? = nil) -> DomesticProviderQuotaSnapshot {
-            .init(provider:provider == "qwen" ? "alibaba":provider,plan:plan,primaryPercent:primary,primaryResetsAt:primaryReset,weeklyPercent:weekly,weeklyResetsAt:weeklyReset,balance:balance,usedCost:nil,currency:currency,updatedAt:now,stale:false,planPercent:planPercent,planResetsAt:planReset)
+            .init(provider:provider == "qwen" ? "alibaba":provider,plan:displayName(plan),primaryPercent:primary,primaryResetsAt:primaryReset,weeklyPercent:weekly,weeklyResetsAt:weeklyReset,balance:balance,usedCost:nil,currency:currency,updatedAt:now,stale:false,planPercent:planPercent,planResetsAt:planReset)
         }
         switch provider {
         case "deepseek":
@@ -146,13 +170,42 @@ enum MacDomesticSources {
             guard total > 0, used >= 0, used <= total, ["Pending","Active","Exhausted","Expired"].contains(state) else { throw MacDomesticQuotaParser.Failure.invalid }
             var value = quota(name,planPercent:["Expired","Exhausted"].contains(state) || expiry <= now ? 100:used/total*100,planReset:expiry); value.planExpiresAt = expiry; return value
         case "qwen":
+            if mode == "coding" {
+                if let success = root["success"], !MacTab5Protocol.isBoolean(success) || success as? Bool != true { throw MacDomesticQuotaParser.Failure.invalid }
+                let payload = (root["data"] as? [String:Any]) ?? root
+                let nested = (payload["Data"] as? [String:Any]) ?? payload
+                guard let rows = nested["codingPlanInstanceInfos"] as? [[String:Any]] else { throw MacDomesticQuotaParser.Failure.invalid }
+                let active = rows.filter { $0["status"] as? String == "VALID" }
+                guard active.count == 1, let q = active.first?["codingPlanQuotaInfo"] as? [String:Any] else { throw MacDomesticQuotaParser.Failure.invalid }
+                func usage(_ prefix: String) throws -> Double {
+                    let used = try number(q[prefix+"UsedQuota"]), total = try number(q[prefix+"TotalQuota"])
+                    guard used >= 0, total > 0 else { throw MacDomesticQuotaParser.Failure.invalid }
+                    return min(100, used / total * 100)
+                }
+                func consoleDate(_ raw: Any?) -> Date? {
+                    if let parsed = date(raw) { return parsed }
+                    guard let text = raw as? String else { return nil }
+                    let f = DateFormatter(); f.locale = Locale(identifier:"en_US_POSIX"); f.timeZone = TimeZone(secondsFromGMT:28800); f.dateFormat = "yyyy-MM-dd HH:mm:ss"; f.isLenient = false
+                    return f.date(from:text)
+                }
+                func reset(_ prefix: String) -> Date? { consoleDate(q[prefix+"QuotaNextRefreshTime"]) }
+                var value = quota("Coding Plan",primary:try usage("per5Hour"),primaryReset:reset("per5Hour"),weekly:try usage("perWeek"),weeklyReset:reset("perWeek"),planPercent:try usage("perBillMonth"),planReset:reset("perBillMonth"))
+                value.primaryWindowSeconds = 18000; value.weeklyWindowSeconds = 604800
+                // A reset timestamp alone does not establish subscription length.
+                if let start = consoleDate(active.first?["startTime"]), let end = consoleDate(active.first?["endTime"]), end == value.planResetsAt {
+                    let duration = end.timeIntervalSince(start)
+                    if duration > 0, duration <= 2147483647, duration.rounded() == duration { value.planWindowSeconds = Int64(duration) }
+                }
+                return value
+            }
             if mode == "balance" {
                 guard root["Success"] as? Bool == true, String(describing:root["Code"] ?? "") == "200", let data = root["Data"] as? [String:Any], let currency = data["Currency"] as? String, ["CNY","USD","JPY"].contains(currency) else { throw MacDomesticQuotaParser.Failure.invalid }
                 let cash = (data["AvailableCashAmount"] as? String)?.replacingOccurrences(of:",",with:"") as Any? ?? data["AvailableCashAmount"]
                 return quota("阿里云现金余额",balance:try number(cash),currency:currency)
             }
+            guard !nodes.contains(where: { $0["codingPlanInstanceInfos"] != nil }) else { throw MacDomesticQuotaParser.Failure.invalid }
             for row in nodes { if let total = num(row["TotalValue"]), total > 0, let remaining = num(row["TotalSurplusValue"] ?? row["SurplusValue"]), remaining >= 0, remaining <= total {
-                let name = nodes.compactMap { $0["SubscriptionName"] as? String }.first ?? "百炼 Token Plan"
+                let name = "Token Plan"
                 let period = bounds(row)
                 var value = quota(name,planPercent:(total-remaining)/total*100,planReset:date(row["resetTime"] ?? row["ResetTime"]) ?? period.0); value.planWindowSeconds = period.1; return value
             } }; throw MacDomesticQuotaParser.Failure.invalid
