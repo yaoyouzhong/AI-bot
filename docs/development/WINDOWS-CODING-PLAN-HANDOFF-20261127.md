@@ -67,6 +67,7 @@
 ## 自动化与渲染结果
 
 - `dotnet build windows-app/AIBotBridge/AIBotBridge.csproj -c Release`：通过，0 warning / 0 error。
+- `--self-test-public` 的显示断言覆盖百炼旧套餐名称、MiniMax 套餐标签与既有余额徽标。Windows 额度徽标沿用下拉选项的 Coding Plan / Token Plan 拼写。
 - `--self-test-domestic-quota`：官方接口、额外厂商、MiMo、周期、Coding Plan 模拟测试通过。
 - `--self-test-coding-plan-dom`：实际 WebView2 执行离线 HTML 的生产采集脚本，通过；未访问厂商、未使用真实凭据。
 - `--self-test-coding-plan-ui artifacts/coding-plans-20261127/ui`：六家账号页的三组相对尺寸（含 900×620 最小窗口）、GLM 镜像离屏预览通过；查看智谱、百炼、小米和 GLM 图片，选择器／摘要／凭据按钮可读，最新智谱截图及徽标均为 Coding Plan。测试窗透明、屏外、不激活、无浏览器导航。不是三档真实系统 DPI 验收。
