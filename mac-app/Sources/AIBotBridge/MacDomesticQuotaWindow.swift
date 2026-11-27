@@ -94,8 +94,9 @@ final class MacDomesticQuotaWindow: NSWindowController, NSWindowDelegate {
     }
     private func rememberDraft() {
         guard !key.stringValue.isEmpty || !secret.stringValue.isEmpty || !package.stringValue.isEmpty else { return }
-        let draftMode = previousMode.isEmpty ? mode:previousMode
-        drafts[selected+"|"+draftMode] = .init(mode:draftMode,key:key.stringValue,secret:secret.stringValue,package:package.stringValue,port:Int(port.stringValue) ?? 5494)
+        let draftMode = selected == "deepseek" || previousMode.isEmpty ? mode:previousMode
+        let draftKey = selected == "deepseek" ? selected:selected+"|"+draftMode
+        drafts[draftKey] = .init(mode:draftMode,key:key.stringValue,secret:secret.stringValue,package:package.stringValue,port:Int(port.stringValue) ?? 5494)
     }
     func selectProvider(_ id: String, userAction: Bool) {
         guard let item = MacModelAccountCatalog.provider(id) else { return }
@@ -103,7 +104,7 @@ final class MacDomesticQuotaWindow: NSWindowController, NSWindowDelegate {
         heading.stringValue = item.name; product.stringValue = item.product
         for (key,button) in buttons { button.state = key == id ? .on:.off }
         let modes = MacDomesticSources.modes(id); source.removeAllItems(); source.addItems(withTitles:modes.isEmpty ? ["仅官方网页（额度尚未接入）"]:modes.map(\.1)); source.isEnabled = !modes.isEmpty
-        let saved = id == "deepseek" ? (defaults.string(forKey:"domestic_source_"+id)) : store.selectedDomesticMode(id)
+        let saved = id == "deepseek" ? (drafts[id]?.mode ?? defaults.string(forKey:"domestic_source_"+id)) : store.selectedDomesticMode(id)
         if let index = modes.firstIndex(where: { $0.0 == saved }) { source.selectItem(at:index) }
         else if id == "deepseek", !(id == "deepseek" && defaults.bool(forKey:"deepseek_quota_enabled")), item.supportsWebQuota, let index = modes.firstIndex(where: { $0.0 == "console" }) { source.selectItem(at:index) }
         previousMode = mode
@@ -116,7 +117,7 @@ final class MacDomesticQuotaWindow: NSWindowController, NSWindowDelegate {
         if userAction, loadPages { defaults.set(id,forKey:"model_account_selected"); activateSelected() }
     }
     private func restoreCredentialDraft() {
-        let draft = drafts[selected+"|"+mode]
+        let draft = drafts[selected == "deepseek" ? selected:selected+"|"+mode]
         key.stringValue = draft?.key ?? ""; secret.stringValue = draft?.secret ?? ""
         package.stringValue = draft?.package ?? ""; port.stringValue = String(draft?.port ?? 5494)
     }
@@ -172,6 +173,7 @@ final class MacDomesticQuotaWindow: NSWindowController, NSWindowDelegate {
             if loadPages { activateSelected() }
             return
         }
+        previousMode = mode
         updateCredentialVisibility()
         if selected == "deepseek", mode == "separate" {
             Task { [weak self] in
@@ -212,7 +214,7 @@ final class MacDomesticQuotaWindow: NSWindowController, NSWindowDelegate {
             guard let self else { return }
             do {
                 try await service.saveCredential(value,provider:id,expectedGeneration:generation)
-                await MainActor.run { self.drafts[id+"|"+value.mode] = nil; if self.selected == id, self.mode == value.mode { self.key.stringValue = ""; self.secret.stringValue = "" }; self.notes[id] = "凭据已保存在钥匙串，正在查询…"; self.refreshStatus() }
+                await MainActor.run { self.drafts[id == "deepseek" ? id:id+"|"+value.mode] = nil; if self.selected == id, self.mode == value.mode { self.key.stringValue = ""; self.secret.stringValue = "" }; self.notes[id] = "凭据已保存在钥匙串，正在查询…"; self.refreshStatus() }
                 await service.refresh()
             } catch { await MainActor.run { self.notes[id] = "凭据未保存，请检查钥匙串授权；原配置未替换。"; self.refreshStatus() } }
         }

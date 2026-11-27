@@ -106,6 +106,25 @@ final class MacCodingPlanAlignmentTests: XCTestCase {
         let png = try XCTUnwrap(bitmap.representation(using:.png,properties:[:]))
         try png.write(to:URL(fileURLWithPath:NSTemporaryDirectory()).appendingPathComponent("aibot-mac-model-account-preview.png"))
     }
+    func testDeepSeekUnsavedCredentialDraftRetainsSelectedMode() throws {
+        _ = NSApplication.shared
+        let prefs = defaults(), store = MacDataStore(defaults:prefs)
+        prefs.set("console",forKey:"domestic_source_deepseek")
+        let window = MacDomesticQuotaWindow(service:.init(store:store),store:store,defaults:prefs,loadPages:false)
+        defer { window.stop(); window.window?.close() }
+        window.selectProvider("deepseek",userAction:false)
+        XCTAssertEqual(window.selectedContentMode,"console")
+        window.selectContentMode("api")
+        func fields(_ view: NSView) -> [NSSecureTextField] {
+            (view as? NSSecureTextField).map { [$0] } ?? view.subviews.flatMap(fields)
+        }
+        let field = try XCTUnwrap(fields(try XCTUnwrap(window.window?.contentView)).first { $0.placeholderString?.hasPrefix("API Key") == true })
+        field.stringValue = "synthetic-unsaved-draft"
+        window.selectProvider("qwen",userAction:false)
+        window.selectProvider("deepseek",userAction:false)
+        XCTAssertEqual(window.selectedContentMode,"api")
+        XCTAssertEqual(field.stringValue,"synthetic-unsaved-draft")
+    }
     func testZhipuPersonalPlanAndFailureRetention() throws {
         let request = try MacDomesticSources.request("zhipu",.init(mode:"plan",key:"synthetic-key"))
         XCTAssertEqual(request.url?.absoluteString,"https://open.bigmodel.cn/api/monitor/usage/quota/limit")
@@ -293,6 +312,7 @@ final class MacCodingPlanAlignmentTests: XCTestCase {
         <section style="display:none">每周 已用 <div role="progressbar">95%</div></section>
         <section>账户余额 每周 已用 <div role="progressbar">99%</div></section>
         <section>每周 已过期 已用 <div role="progressbar">90%</div></section>
+        <article><h2>套餐已过期</h2><div>每周 已用 <div role="progressbar">80%</div></div></article>
         """
         let value = try MacDomesticPlanPage.parse("tencent",mode:"coding",rows:extract(html))
         XCTAssertEqual(value.primaryPercent,0); XCTAssertEqual(value.weeklyPercent,20); XCTAssertEqual(value.planPercent,60)

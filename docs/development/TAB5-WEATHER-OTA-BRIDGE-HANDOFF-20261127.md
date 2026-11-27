@@ -23,7 +23,7 @@
 
 待验收：Windows｜最终候选连续采集满三小时后复核真实气压变化
 
-- macOS 接收端：已对齐本地实现。`WeatherForecastTests.testPM25SubIndexAndPressureTrend`、`testPressureTrendNotExposedOnDisconnectOrCacheRestore` 验证同口径趋势及断线、重启后不显示旧趋势。
+- macOS 接收端：已对齐本地实现。`WeatherForecastTests.testPM25SubIndexAndPressureTrend`、`testPressureTrendNotExposedOnDisconnectOrCacheRestore` 验证同口径趋势及断线、重启后不显示旧趋势。 独立审核后补充 `testFreshPressureTrendSurvivesPartialAirQualityFailure`，空气质量数据局部失败时仍保留本次有效气压趋势，气压本身缺失才隐藏。
 
 待验收：macOS｜确认真实气压变化及地点与口径切换后正确降级
 

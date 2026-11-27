@@ -302,6 +302,7 @@ final class MacDataStore {
     func update(weather value: WeatherSnapshot) {
         lock.lock()
         var value = value
+        let pressureIsStale = value.stale || value.pressureHpa == nil
         if let old = weather, old.city == value.city, old.source == value.source,
            old.utcOffsetSeconds == value.utcOffsetSeconds {
             if value.hourly?.isEmpty != false, old.hourly?.isEmpty == false {
@@ -324,7 +325,7 @@ final class MacDataStore {
                 value.pressureHpa = old.pressureHpa; value.pressureKind = old.pressureKind; value.stale = true
             }
         }
-        if value.stale { value.pressureChange3hHpa = nil }
+        if pressureIsStale { value.pressureChange3hHpa = nil }
         weather = value
         lock.unlock()
         if let data = Self.encode(value) { defaults.set(data, forKey: "weather_cache") }

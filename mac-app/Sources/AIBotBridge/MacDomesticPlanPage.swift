@@ -35,9 +35,20 @@ enum MacDomesticPlanPage {
       const used = /已用|已使用|已消耗|消耗比例|使用率|used|utilization/i, remaining = /剩余|remaining/i;
       const excluded = /余额|人民币|balance|CNY|￥|¥|已到期|已过期|未订阅|未开通|expired/i;
       const selector = '[role="progressbar"],progress,[class*="progress"],[class*="Progress"]';
+      const inactive = /已到期|已过期|未订阅|未开通|expired/i;
+      const inactiveAncestor = bar => {
+        for (let box = bar.parentElement, depth = 0; box && box !== body && depth < 4; box = box.parentElement, depth++) {
+          if (box.matches('nav,aside,header,table')) break;
+          const text = box.innerText || '';
+          if (text.length > 500) break;
+          if (inactive.test(text)) return true;
+          if (box.matches('section,article,[role=\"group\"]')) break;
+        }
+        return false;
+      };
       const rows = [];
       for (const bar of document.querySelectorAll(selector)) {
-        if (!visible(bar) || bar.closest('nav,aside,header,table')) continue;
+        if (!visible(bar) || bar.closest('nav,aside,header,table') || inactiveAncestor(bar)) continue;
         for (let box = bar, n = 0; box && box !== body && n < 4; box = box.parentElement, n++) {
           if (box.matches('nav,aside,header,table')) break;
           const label = box.innerText || '';

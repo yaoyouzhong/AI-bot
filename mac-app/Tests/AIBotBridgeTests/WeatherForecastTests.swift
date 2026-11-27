@@ -183,6 +183,23 @@ final class WeatherForecastTests: XCTestCase {
         XCTAssertTrue(store.snapshot().weather?.stale == true)
     }
 
+    func testFreshPressureTrendSurvivesPartialAirQualityFailure() throws {
+        let name = "weather-pressure-partial-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName:name)!
+        defer { defaults.removePersistentDomain(forName:name) }
+        let store = MacDataStore(defaults:defaults)
+        let old = try MacDataService.parseWeather(forecast:meteo(),air:Data(#"{"current":{"us_aqi":42,"pm2_5":19}}"#.utf8),city:"Synthetic",now:now)
+        store.update(weather:old)
+        var partial = try MacDataService.parseWeather(forecast:meteo(),air:nil,city:"Synthetic",now:now.addingTimeInterval(1))
+        partial.pressureChange3hHpa = -1.2
+        store.update(weather:partial)
+        XCTAssertEqual(store.snapshot().weather?.pressureChange3hHpa,-1.2)
+        XCTAssertTrue(store.snapshot().weather?.stale == true)
+        partial.pressureHpa = nil
+        store.update(weather:partial)
+        XCTAssertNil(store.snapshot().weather?.pressureChange3hHpa)
+    }
+
     func testWeatherFactsSurvivePartialFailureAndReachDevice() throws {
         let name = "weather-facts-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!
