@@ -23,8 +23,8 @@ Mac 用户先看[应用安装与权限](#mac)，再按相同设备状态选择�
 
 | 你要做什么 | 下载什么 |
 | --- | --- |
-| Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.32/AI-bot-bridge-v0.6.32-windows-x64-setup.exe) |
-| Mac 安装应用（macOS 13+、M 系列芯片） | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.34/AI-bot-bridge-v0.6.34-macos-arm64.zip) |
+| Windows 安装应用 | [Windows 安装器](https://github.com/yaoyouzhong/AI-bot/releases/download/v1.0.44/AI-bot-bridge-v0.6.35-windows-x64-setup.exe) |
+| Mac 安装应用（macOS 13+、M 系列芯片） | [Mac 应用 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v1.0.44/AI-bot-bridge-v0.6.35-macos-arm64.zip) |
 | ESP8266 首刷或更新 | [ESP8266 精简刷机 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/esp8266-v0.5.8/AI-bot-esp8266-0.5.8-flash.zip) |
 | TAB5 从出厂系统首次安装 | [TAB5 首刷 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-first-install.zip) |
 | TAB5 已安装 AI-bot，更新固件 | [TAB5 升级 ZIP](https://github.com/yaoyouzhong/AI-bot/releases/download/v0.6.35/AI-bot-tab5-0.2.324-ui-upgrade.zip) |
@@ -147,7 +147,7 @@ TAB5 需要无线时，在 **连接设置 → Wi-Fi** 保存网络并确认有�
 <a id="mac"></a>
 ## Mac：应用安装与两类设备接入
 
-解压 Mac 应用 ZIP，将 App 放入“应用程序”。应用采用固定自签名，未做 Apple 公证，首次打开按 [Apple 标准方法](https://support.apple.com/zh-cn/102445)操作；Intel Mac 未验证。Windows 安装器也未签名。
+先在发布页核对 Mac ZIP 的 SHA-256，再解压并将 App 放入「应用程序」。应用采用固定自签名，未获 Apple 公证。如果 macOS 阻止首次打开，在「系统设置 → 隐私与安全性」按 [Apple 的打开说明](https://support.apple.com/zh-cn/102445)选择「仍要打开」。已经安装同证书版本的用户可从「软件固件」一键升级。Intel Mac 未验证。
 
 **Mac 系统授权**　首次启动时，按提示处理定位、语音识别、麦克风、蓝牙、本地网络、适用的自动化和辅助功能权限。未配对 TAB5 也可申请 Terminal 自动化，实际控制仍需配对。从 0.6.34 起，系统通知在其他权限之后询问，右上角提示不点也不影响其他授权。以后可从 **设备中心 → 桥接设置 → 系统授权** 单独允许通知或补办其他权限。
 
@@ -206,7 +206,7 @@ Current downloads are Windows bridge 0.6.32 and Apple Silicon Mac bridge 0.6.34,
 
 The current Windows 0.6.32 and Mac 0.6.34 bridges continue to supply their existing weather data, including PM2.5 concentration and current pressure when the provider reports them. The PM2.5 category and three-hour pressure change require data from a future bridge update. The pressure trend also needs enough readings from the same location, source and pressure reference.
 
-1. **Install the app.** On Windows, keep the default installation path unless needed. For an upgrade, keep the current path. Setup closes a running AI-bot gracefully and starts it again after installing. Setup downloads missing .NET 8 Desktop Runtime / WebView2 components and skips existing ones. First-time installation attempts to configure the unlock components and may request administrator approval. If setup cannot configure unlock, you can still start AI-bot and retry in Computer Control. Upgrades keep existing unlock settings. On Mac, extract the ZIP into Applications. The current Apple Silicon app uses a fixed self-signed certificate and is not Apple-notarized. If AI-bot is already installed, use One-Click Update from Software/Firmware. The first switch from an older signing identity may require renewed permission; later in-app updates signed with the same certificate retain Accessibility permission. Follow [Apple's opening guidance](https://support.apple.com/102445) and grant only the permissions requested by the features you use. Intel is unverified.
+1. **Install the app.** On Windows, keep the default installation path unless needed. For an upgrade, keep the current path. Setup closes a running AI-bot gracefully and starts it again after installing. Setup downloads missing .NET 8 Desktop Runtime / WebView2 components and skips existing ones. First-time installation attempts to configure the unlock components and may request administrator approval. If setup cannot configure unlock, you can still start AI-bot and retry in Computer Control. Upgrades keep existing unlock settings. On Mac, extract the ZIP into Applications. The current Apple Silicon app uses a fixed self-signed certificate and is not Apple-notarized. If AI-bot is already installed, use One-Click Update from Software/Firmware. The first switch from an older signing identity may require renewed permission; later in-app updates signed with the same certificate retain Accessibility permission. Verify the official ZIP checksum before installing. If macOS blocks the first launch, follow [Apple's opening guidance](https://support.apple.com/102445) and select **Open Anyway** in **System Settings → Privacy & Security**. Grant the permissions requested by the features you use. Intel is unverified.
 2. **Connect with a USB data cable.** On Windows, Device Center opens on first launch. Choose **Add Your First Device**, select the model and confirm your USB device. Refresh the list if the device is missing. On Mac, open Device Center from the menu bar and choose **Add Device**.
 3. **Choose the next action.** If AI-bot is already installed on the device, select **Connect a device with AI-bot** on Windows. If AI-bot is installed only on the computer, select **Install AI-bot on the device**. Connect USB. For TAB5, hold RESET until the green light flashes quickly. Select **Install AI-bot** and confirm the write. After verification, press RESET briefly on TAB5 or wait for the ESP8266 to start. Select **Verify and Add** when the device is ready. [Illustrated steps for both devices](FIRST-INSTALL.zh.md#windows-first-device)
 4. **Check the result.** The device appears in Device Center as online, USB shows as connected, and the clock on the device updates.
