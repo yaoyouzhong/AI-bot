@@ -12,6 +12,8 @@ Beyond work, AI-bot serves as a desk clock and information display for weather, 
 
 **TAB5 0.2.324-ui**　The overview updates the calendar, weather and model cards. See remaining Codex weekly quota and time to reset. Long weather locations take priority, and gold badges mark solar terms in the monthly screensaver. [Firmware release notes](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35)
 
+The current Windows 0.6.32 and Mac 0.6.34 bridges continue to supply their existing weather data, including PM2.5 concentration and current pressure when the provider reports them. The PM2.5 category and three-hour pressure change require data from a future bridge update. The pressure trend also needs enough readings from the same location, source and pressure reference. [See the TAB5 screens](docs/FEATURES.zh.md#tab5)
+
 **Artwork edition 2026.2** updates guides, appreciation and sources for 366 paintings and 366 calligraphy works. Standard and HD editions are available. [Artwork downloads](docs/GALLERY-PACKS.md)
 
 <p><img src="docs/assets/screens/tab5-companion-savers-headphones-preview.png" width="880" alt="Codex and the headphone-wearing Claude screensavers"></p>
@@ -66,11 +68,11 @@ AI-bot pairs a computer app with a desktop display. Choose the device that fits 
 
 This project introduction compares the shared features of TAB5 and the ESP8266 display, then presents TAB5 highlights including overview, conversations, voice drafts, camera attachments, computer controls, agenda and art screensavers. Native interface footage uses demonstration data and composite hardware images, not hardware photography.
 
-The November 25 edition (2:08) shows the current TAB5 overview and conversation reminders. Around 1:00, look for the bell and unread badge. At 1:51, the desktop viewer shows Monet's *Water Lilies* and Su Shi's *The Cold Food Observance* fullscreen, then zooms in on the details.
+The November 27 edition (2:08) refreshes TAB5 quota, current weather, computer metrics, markets, overview, conversation reminders and the floral calendar. See the overview at 0:49 and the gold solar-term badges at 1:39. The desktop artwork viewer still begins at 1:51 with Monet's *Water Lilies* and Su Shi's *The Cold Food Observance*.
 
-<a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="560" alt="Play the AI-bot product video"></a>
+<a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="560" alt="Play the AI-bot product video"></a>
 
-[Watch or download the 1080p MP4](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261125.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)
+[Watch or download the 1080p MP4](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)
 
 ## What it does
 
@@ -111,7 +113,7 @@ The November 25 edition (2:08) shows the current TAB5 overview and conversation 
 
 **Agenda and scheduled reminders** are included in TAB5 210: aligned Today/All filtering, centered empty-state creation, local storage, offline edits/deletions and reconnect synchronization, with repeat and advance reminders. Up to 16 items; ended items remain until a full-capacity add evicts the oldest eligible expired one-time entry. [Usage and hardware boundaries](docs/RELEASE-0.6.11.md)
 
-**Dialogue workspace:** choose a Codex/Claude project and conversation, manage drafts/photos, and enter the exact current or unread conversation from Overview. Supported native Claude sessions can be located and controlled; sending is guarded when the target cannot be confirmed. Tool requests require computer approval. [Conversation bells and unread badge with demo data](docs/assets/screens/tab5-dialogue-claude-0323.png)
+**Dialogue workspace:** choose a Codex/Claude project and conversation, manage drafts/photos, and enter the exact current or unread conversation from Overview. Supported native Claude sessions can be located and controlled; sending is guarded when the target cannot be confirmed. Tool requests require computer approval. [Conversation bells and unread badge with demo data](docs/assets/screens/tab5-dialogue-claude-0324.png)
 
 **Codex Direct:** choose a recent session and finish recording to fill the computer input automatically. Review or edit on the computer, then confirm from TAB5. Supports question cards, continued dictation, failure recovery and hold to clear. [Guide](docs/TAB5-QUICK-CONSOLE.md)
 

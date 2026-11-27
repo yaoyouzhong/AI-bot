@@ -4,6 +4,8 @@
 
 适用于 **Windows 桥接 0.6.32、Mac 桥接 0.6.34、TAB5 0.2.324-ui、ESP8266 0.5.8**，说明更新于 2026-11-27。Windows 与 Apple Silicon Mac 均支持两类设备。
 
+现行 Windows 0.6.32 和 Mac 0.6.34 桥接可继续提供原有天气数据，包括气象来源提供的 PM2.5 浓度和当前气压。PM2.5 单项等级和近 3 小时气压变化需要后续桥接版本提供数据。气压趋势还需积累同地点、同来源、同口径的历史。
+
 **先安装电脑应用，再按设备当前系统选择路线。** 第一次只需完成 USB 接入、添加设备和屏幕检查；模型账号、语音、Wi-Fi 和图库都可稍后设置。
 
 | 设备现在是什么状态 | 下一步 |
@@ -201,6 +203,8 @@ TAB5 需要无线时，在 **连接设置 → Wi-Fi** 保存网络并确认有�
 ## English quick start
 
 Current downloads are Windows bridge 0.6.32 and Apple Silicon Mac bridge 0.6.34, TAB5 0.2.324-ui, and ESP8266 0.5.8. Install the desktop app first. Model accounts, speech, wireless access and artwork packs can be configured after the USB connection works.
+
+The current Windows 0.6.32 and Mac 0.6.34 bridges continue to supply their existing weather data, including PM2.5 concentration and current pressure when the provider reports them. The PM2.5 category and three-hour pressure change require data from a future bridge update. The pressure trend also needs enough readings from the same location, source and pressure reference.
 
 1. **Install the app.** On Windows, keep the default installation path unless needed. For an upgrade, keep the current path. Setup closes a running AI-bot gracefully and starts it again after installing. Setup downloads missing .NET 8 Desktop Runtime / WebView2 components and skips existing ones. First-time installation attempts to configure the unlock components and may request administrator approval. If setup cannot configure unlock, you can still start AI-bot and retry in Computer Control. Upgrades keep existing unlock settings. On Mac, extract the ZIP into Applications. The current Apple Silicon app uses a fixed self-signed certificate and is not Apple-notarized. If AI-bot is already installed, use One-Click Update from Software/Firmware. The first switch from an older signing identity may require renewed permission; later in-app updates signed with the same certificate retain Accessibility permission. Follow [Apple's opening guidance](https://support.apple.com/102445) and grant only the permissions requested by the features you use. Intel is unverified.
 2. **Connect with a USB data cable.** On Windows, Device Center opens on first launch. Choose **Add Your First Device**, select the model and confirm your USB device. Refresh the list if the device is missing. On Mac, open Device Center from the menu bar and choose **Add Device**.
