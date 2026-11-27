@@ -2,7 +2,9 @@
 
 Windows / Mac 协作、候选构建物与发布职责见[统一开发发布流程](DESKTOP-DEVELOPMENT-RELEASE.md)；本页维护版本规则，发布收尾继续使用既有清单。
 
-产品对外版本从 `0.6.20` 序列独立递增；桥接、ESP8266 和 TAB5 分别更新，不要求版本号相同。只修改一个组件时，不重编号、重发或要求用户重刷另外两个组件。历史 `v0.5.0` 标签与已发布文件保持不变。
+产品发布使用独立的 `1.0.x` 版本线。44 条历史产品发布（含预发布）的 GitHub 显示标题按公开顺序为 `AI-bot v1.0.0` 至 `AI-bot v1.0.43`，保留原标签、附件及下载地址。首个新产品发布使用标签 `v1.0.44`，随后每次递增补丁号。桥接、ESP8266 和 TAB5 继续分别编号，下载区标明本次交付的组件版本。
+
+Product releases use an independent `1.0.x` version line. The 44 historical product releases, including prereleases, have display titles from `AI-bot v1.0.0` through `AI-bot v1.0.43` in publication order. Their original tags, assets and download URLs are retained. New product tags start at `v1.0.44` and increment the patch number.
 
 Windows 桥接为 **0.6.32**，Mac 桥接为 **0.6.34**，TAB5 为 **0.2.324-ui**，ESP8266 为 **0.5.8**，独立精选图库为 **2026.2**。[统一下载](../DOWNLOADS.md) · [Mac 发布说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.34) · [TAB5 发布说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35)
 

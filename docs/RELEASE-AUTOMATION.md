@@ -80,9 +80,9 @@ python scripts/release_pipeline.py promote-set artifacts/release-next/plan.json 
 
 也可显式调度 `promote.yml`，提供成功的 `candidate.yml` 批次 ID、组件、`record` 生成的完整验收 JSON 和 `publish`。它取回该批次的原候选并核对 SHA，不调用构建；默认 `publish=false`。输入只通过环境变量交给 JSON 解析器，不拼接进 shell。多组件发布在本地用 `promote-set` 可统一收尾；独立组件适合 Actions 晋级入口。TAB5 用本地晋级入口，不伪造原生 Actions 批次。
 
-每次交付在 Releases 只公开一条 `AI-bot vX.Y.Z`，使用 `vX.Y.Z` 标签。产品版本从 `v0.6.20` 序列递增，与组件版本独立。`promote` 和 `promote-set` 创建或复用同一个产品草稿。总页列出实际交付的组件版本、中英文说明、验收通过的安装或升级包及 `SHA256SUMS.txt`。脚本核对服务端附件摘要，再公开总页并设为 Latest，随后刷新下载中心。中断后重试复用原产品版本和草稿。
+每次交付在 Releases 只公开一条 `AI-bot vX.Y.Z`，使用 `vX.Y.Z` 标签。产品版本使用独立的 `1.0.x` 版本线。历史显示标题为 `v1.0.0` 至 `v1.0.43`，保留原标签及下载地址。新发布标签从 `v1.0.44` 起递增。`promote` 和 `promote-set` 创建或复用同一个产品草稿。总页列出实际交付的组件版本、中英文说明、验收通过的安装或升级包及 `SHA256SUMS.txt`。脚本核对服务端附件摘要，再公开总页并设为 Latest，随后刷新下载中心。中断后重试复用原产品版本和草稿。
 
-Each delivery creates one public Release titled `AI-bot vX.Y.Z` and tagged `vX.Y.Z`. The product version advances independently of component versions. Both `promote` and `promote-set` reuse one product draft for the selected candidates. It contains the shipped component versions, bilingual notes, accepted packages, and `SHA256SUMS.txt`. Promotion verifies server-side asset digests, publishes the product as Latest, and refreshes the download center. Retries reuse the reserved product version and draft.
+Each delivery creates one public Release titled `AI-bot vX.Y.Z` and tagged `vX.Y.Z`. The product version advances independently of component versions on the `1.0.x` line. Historical display titles cover `v1.0.0` through `v1.0.43` and retain their original tags and URLs. New product tags start at `v1.0.44`. Both `promote` and `promote-set` reuse one product draft for the selected candidates. It contains the shipped component versions, bilingual notes, accepted packages, and `SHA256SUMS.txt`. Promotion verifies server-side asset digests, publishes the product as Latest, and refreshes the download center. Retries reuse the reserved product version and draft.
 
 组件标签 `bridge-vX.Y.Z`、`esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui` 只用于追溯源码。更新器按总页附件名中的组件版本查找安装包，继续兼容历史发布。ESP8266 精简包与完整包在候选封存前核对固件原件一致。新版桥接从总页优先选择带独立 `.sha256` 的精简包，旧版桥接从总页选择完整包。验收时核对两端识别的包和各自校验文件。
 

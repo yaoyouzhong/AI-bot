@@ -11,6 +11,20 @@ _REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 _SAFE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
 PRODUCT_ONLY_MARKER = '<!-- aibot-product-only -->'
 
+# Original product tags in publication order, including the early prereleases.
+_HISTORICAL_PRODUCT_TAGS = (
+    'v0.1.1', 'v0.1.2', 'v0.1.3', 'v0.2.0', 'v0.2.1', 'v0.2.2',
+    'v0.3.0', 'v0.4.0', 'v0.5.0', 'v0.6.0', 'v0.6.1', 'v0.6.2', 'v0.6.3',
+    *(f'v0.6.{patch}' for patch in range(5, 36)),
+)
+_HISTORICAL_PRODUCT_TITLES = {
+    tag: f'AI-bot v1.0.{patch}' for patch, tag in enumerate(_HISTORICAL_PRODUCT_TAGS)
+}
+
+
+def historical_product_title(tag):
+    return _HISTORICAL_PRODUCT_TITLES.get(tag)
+
 
 def valid_product_tag(tag):
     return bool(_PRODUCT_TAG.fullmatch(tag))
@@ -22,7 +36,8 @@ def next_product_version(tags):
     if not versions:
         raise ValueError("Cannot determine the latest product version from existing product tags")
     major, minor, patch = max(versions)
-    return f"{major}.{minor}.{patch + 1}"
+    major, minor, patch = max((major, minor, patch + 1), (1, 0, len(_HISTORICAL_PRODUCT_TAGS)))
+    return f"{major}.{minor}.{patch}"
 
 
 def plan_identity(components):
