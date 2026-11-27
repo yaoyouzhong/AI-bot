@@ -1680,3 +1680,21 @@ Overview parity in the local .313 candidate: both clients navigate by the card's
 `data.aiDialogueVersion=1` is an optional capability in both desktop candidates. It advertises the shared dialogue workspace even when a client catalog is unavailable. The .313 device must not fall back to the legacy Claude read-only page when this capability is present; its Overview action waits for that client's exact task/catalog instead. Older hosts without the capability or `claudeTasks` keep the read-only compatibility path.
 
 `data.aiDialogueVersion=1` 是两端候选的可选能力字段，即使某客户端目录暂不可用也声明统一对话工作区。设备看到该字段后不得回退到旧 Claude 只读页；总览入口等待该客户端的精确会话/目录。既无能力字段也无 `claudeTasks` 的旧桥接保留兼容路径。无目录时沿用原按钮位置、显示“对话待同步”并禁用；目录恢复后恢复普通入口，不跳转至其他会话。
+
+## TAB5 升级前保留草稿 / Draft preservation during OTA preparation
+
+配对桥接可在 `data.connectionHealth` 声明数字能力 `otaReceiptPreserveDraft=1`。设备仅在有效升级准备期间，使用原客户端、会话、设备绑定和现有加密对话 RPC，发出带 `preserveDraft:true` 的 `receipt` 或 `draft-save`。桥接核对送达时保留电脑端草稿。保存只接收与已存内容逐字节相同的原文和相同附件，或首次保存。空内容只核对电脑端是否同为空且无待核对的送达记录，不写入。不同草稿返回 `409 draft_changed`。Windows 对近期列表之外的 Codex 会话额外核实本机原会话身份，仅开放保守保存，不扩大读取、切换或发送权限。
+
+设备只有收到原请求的 `202` 或已鉴权的明确终态 `deliveryFinal:true`，且原草稿已安全保存，才解除送达标记。未知、无法保存和变化的草稿继续拦截。整个操作不调用发送、追加、人工确认送达或清除草稿。新增 OTA 拒绝原因 `delivery_unconfirmed`、`draft_unsynced`，桌面桥接继续识别旧设备的 `draft_pending`。协议版本、配对、OTA 提供与写入确认流程保持原样。
+
+Paired bridges may advertise numeric `data.connectionHealth.otaReceiptPreserveDraft=1`. During an active OTA prepare, firmware may send `preserveDraft:true` on authenticated `receipt` and `draft-save` for the original client, session and device. Receipt reconciliation retains the desktop draft. A preserving save accepts the exact same text bytes and attachments or creates the first copy. An empty payload only verifies that the desktop draft is empty and no delivery is pending. A different saved draft returns `409 draft_changed`. A known local Codex session outside the Windows recent list can use this conservative save without gaining read, navigation or send access.
+
+Firmware releases only the delivery marker after a matching authenticated `202` or explicit `deliveryFinal:true` and successful retention of the original draft. Uncertain receipts, changed state or storage failures remain blocking. No message submission, manual confirmation, or draft clearing is involved. `delivery_unconfirmed` and `draft_unsynced` refine the older `draft_pending` response. Existing pairing, protocol version and OTA offer and commit checks remain in use.
+
+## TAB5 天气实况补充 / Additional live weather fields
+
+`data.weather.pm25Index` 和 `pm25Standard` 是配对的可选字段，来自当前 PM2.5 读数所用来源的单项分指数。支持 `cn-mee-1h`、`cn-mee`、`us-epa` 和 `us-epa-nc`，按照分指数的标准显示等级。整体 AQI 仍独立显示。旧桥接、缺失浓度、缺失或不匹配的分指数继续显示可用的普通读数。
+
+可选数字 `data.weather.pressureChange3hHpa` 是当前气压减去约 3 小时前的气压，正值上升、负值下降、零值持平。桥接只比较同数据源、同预报站点或网格、同 `pressureKind` 的有效观测。用于匹配的地点标识和历史样本留在本机内存。时间差允许偏离 3 小时最多 15 分钟。有足够历史后显示趋势，过期、断线及缺样时保留可用当前读数。现有 `weather.daily`、温湿度和时区字段支持首页定位点与天气七列布局。协议版本仍为 1。
+
+Paired optional `data.weather.pm25Index` and `pm25Standard` carry the provider's particulate-specific sub-index and scale. They are separate from overall AQI. The signed optional `pressureChange3hHpa` compares compatible observations roughly three hours apart, with a 15-minute tolerance. Location identity and history stay in process memory. Unsupported or absent fields leave the numeric readings available, including with older bridges.

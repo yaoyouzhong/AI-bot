@@ -412,6 +412,7 @@ final class MacTab5Service {
         let offer = firmwareControl.projection(frameEpochMilliseconds:Int64(snapshot.capturedAt.timeIntervalSince1970*1000))
         additions["ota"] = offer.offer.map { $0 as Any } ?? NSNull()
         var health = offer.health
+        health["otaReceiptPreserveDraft"] = 1
         health["hostBindingVersion"] = 1; health["hostId"] = MacTab5HostBinding.id(pair)
         health["hostName"] = MacTab5HostBinding.name(ProcessInfo.processInfo.hostName)
         health["displayCommand"] = display.command.map { $0 as Any } ?? NSNull()

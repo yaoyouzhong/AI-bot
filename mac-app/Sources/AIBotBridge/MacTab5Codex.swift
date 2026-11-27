@@ -611,6 +611,25 @@ final class MacTab5Codex {
                     return .error(409, "draft_capacity_reached")
                 }
                 let images = root["images"] as? [String] ?? []; _ = try photos.inputs(images, device: device, task: task)
+                if root["preserveDraft"] as? Bool == true {
+                    if text.isEmpty, images.isEmpty {
+                        let saved = drafts[binding] as? [String: Any]
+                        let empty = (saved?["text"] as? String ?? "").isEmpty && (saved?["images"] as? [String] ?? []).isEmpty
+                        let pending = receipts.values.contains { entry in
+                            guard let receipt = entry as? [String: Any] else { return false }
+                            return receipt["binding"] as? String == binding && receipt["status"] as? Int == 504
+                        }
+                        guard empty, !pending else { return .error(409, "draft_changed") }
+                        return .init(200, ["status": "saved", "taskId": task, "requestId": id])
+                    }
+                    if let saved = drafts[binding] as? [String: Any] {
+                        let savedText = saved["text"] as? String ?? "", savedImages = saved["images"] as? [String] ?? []
+                        if !savedText.isEmpty || !savedImages.isEmpty {
+                            guard savedText.utf8.elementsEqual(text.utf8), savedImages == images else { return .error(409, "draft_changed") }
+                            return .init(200, ["status": "saved", "taskId": task, "requestId": id])
+                        }
+                    }
+                }
                 if !known, text.isEmpty, images.isEmpty, receipts.values.contains(where: {
                     guard let receipt = $0 as? [String: Any] else { return false }
                     return receipt["binding"] as? String == binding && receipt["status"] as? Int == 504
@@ -727,7 +746,8 @@ final class MacTab5Codex {
             defer { if journalLocked { journalGate.unlock() } }
             var data = try loadJournal(), receipts = data["receipts"] as! [String: Any], drafts = data["drafts"] as! [String: Any]
             let binding = device + "|" + task
-            if reconcileCancelled(task:task,binding:binding,receipts:&receipts,drafts:&drafts) {
+            let preserveDraft = op == "receipt" && root["preserveDraft"] as? Bool == true
+            if !preserveDraft, reconcileCancelled(task:task,binding:binding,receipts:&receipts,drafts:&drafts) {
                 data["receipts"] = receipts; data["drafts"] = drafts; try saveJournal(data)
             }
             if op == "receipt" || op == "receipt-confirm" {
@@ -747,7 +767,7 @@ final class MacTab5Codex {
                     // A newer local draft must survive reconciliation.
                     let current = drafts[binding] as? [String:Any] ?? [:]
                     let fingerprint = MacTab5Protocol.sha256(try MacTab5Protocol.json(["binding":binding,"op":receipt["operation"] as? String ?? "", "text":current["text"] as? String ?? "", "expected":receipt["expectedTurn"] as? String ?? "", "images":current["images"] as? [String] ?? []]))
-                    if receipt["operation"] as? String != "interrupt", fingerprint == receipt["fingerprint"] as? String { drafts[binding] = ["text":"", "images":[String]()] }
+                    if !preserveDraft, receipt["operation"] as? String != "interrupt", fingerprint == receipt["fingerprint"] as? String { drafts[binding] = ["text":"", "images":[String]()] }
                     data["receipts"] = receipts; data["drafts"] = drafts; try saveJournal(data)
                     return receiptResult(receipt)
                 }
@@ -770,7 +790,8 @@ final class MacTab5Codex {
                     receipt["status"] = 202
                     receipt["body"] = ["status": "submitted", "taskId": task, "turnId": pending!.expectedTurn, "requestId": id]
                     receipt["resolutionSource"] = automatic ? "desktop_receipt_reconciled" : "device_user_confirmed_delivered"
-                    receipts[id] = receipt; drafts[binding] = ["text": "", "images": [String]()]
+                    receipts[id] = receipt
+                    if !preserveDraft { drafts[binding] = ["text": "", "images": [String]()] }
                     data["receipts"] = receipts; data["drafts"] = drafts; try saveJournal(data)
                     pendingBaselines.removeValue(forKey: id)
                     stateLock.lock(); sendDiagnostic = automatic ? "已核实送达" : "已由用户确认送达"; stateLock.unlock()

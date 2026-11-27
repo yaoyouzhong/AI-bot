@@ -176,6 +176,7 @@ actor MacQWeatherService {
         async let hourly = try? get(host: host, key: key, path: "/v7/weather/24h", location: location)
         async let air = try? get(Self.airRequest(host: host, key: key, latitude: latitude, longitude: longitude))
         var value = try await MacWeatherForecast.qweather(current: current, daily: daily, hourly: hourly, city: label)
+        value.pressureLocation = location
         MacWeatherForecast.addQAir(await air, to: &value)
         return value
     }

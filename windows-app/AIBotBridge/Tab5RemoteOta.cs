@@ -77,6 +77,8 @@ internal sealed partial class Tab5Service
                     _remoteOtaStatus=Text(root,"error") switch {
                         "device_busy"=>"设备正在录音、拍照或处理消息，请结束后重试。",
                         "draft_pending"=>"设备还有未确认消息或正在同步的草稿，请处理后重试。",
+                        "delivery_unconfirmed"=>"设备还有待核对送达的消息，草稿已保留，升级未开始。",
+                        "draft_unsynced"=>"设备还有草稿未同步，草稿已保留，升级未开始。",
                         "draft_save_failed"=>"设备草稿保存失败，升级未开始。",
                         "offer_changed"=>"设备上的固件与本次请求不一致，请重新提供固件。",
                         "no_link"=>"设备没有可用的升级通道。",

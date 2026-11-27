@@ -65,6 +65,21 @@ internal sealed class Tab5CodexJournal
     }
     internal Tab5SendRecord? Pending(string task) {lock(_gate){Check();return _data.Sends.Values.Where(x=>x.TaskId==task&&x.State=="dispatching").OrderByDescending(x=>x.UpdatedAt).FirstOrDefault();}}
     internal Tab5SendRecord[] Accepted() {lock(_gate)return _damaged?[]:_data.Sends.Values.Where(x=>x.State=="accepted").ToArray();}
+    internal bool RetainDraft(string task,string text,string[] images,string device) {
+        if(device.Length==0)return false;
+        lock(_gate) {
+            Check();
+            var saved=_data.Drafts.GetValueOrDefault(task);
+            // An empty preserving request only compares state. It must never
+            // delete a saved draft or abandon a pending delivery.
+            if(text.Length==0&&images.Length==0)
+                return (saved is null||saved.Text.Length==0&&(saved.Images?.Length??0)==0)&&Pending(task) is null;
+            if(saved is not null)
+                return saved.Text==text&&(saved.Images??[]).SequenceEqual(images);
+            SaveDraft(task,text,images,device);
+            return true;
+        }
+    }
     internal void SaveDraft(string task,string text,string[]? images=null,string device="") {
         if(!Guid.TryParse(task,out _)||Encoding.UTF8.GetByteCount(text)>2000)throw new ArgumentException("Invalid draft");
         lock(_gate) {
@@ -84,7 +99,7 @@ internal sealed class Tab5CodexJournal
             Commit(_data with {Drafts=drafts,Sends=sends});
         }
     }
-    internal void Save(Tab5SendRecord record,string? draft=null,string[]? images=null) {
+    internal void Save(Tab5SendRecord record,string? draft=null,string[]? images=null,bool keepDraft=false) {
         lock(_gate) {
             Check();var sends=new Dictionary<string,Tab5SendRecord>(_data.Sends){[record.Id]=record};
             if(_data.Sends.GetValueOrDefault(record.Id)?.State=="abandoned")return;
@@ -99,7 +114,7 @@ internal sealed class Tab5CodexJournal
                 drafts[record.TaskId]=new(draft,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),images);
                 if(drafts.Count>80)throw new IOException("Draft storage full");
             }
-            if((record.State=="accepted"||record.State=="completed"&&record.ResolutionSource=="device_user_confirmed_delivered")&&record.Operation!="interrupt"&&drafts.TryGetValue(record.TaskId,out var saved)&&
+            if(!keepDraft&&(record.State=="accepted"||record.State=="completed"&&record.ResolutionSource=="device_user_confirmed_delivered")&&record.Operation!="interrupt"&&drafts.TryGetValue(record.TaskId,out var saved)&&
                 record.Hash==Fingerprint(record.TaskId,saved.Text,record.Operation,record.ExpectedTurn,saved.Images))drafts.Remove(record.TaskId);
             Commit(_data with {Sends=sends,Drafts=drafts});
         }

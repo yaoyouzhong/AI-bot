@@ -130,6 +130,26 @@ final class WeatherForecastTests: XCTestCase {
         }
     }
 
+    func testPM25SubIndexAndPressureTrend() throws {
+        var weather = try MacDataService.parseWeather(forecast: meteo(), air: nil, city: "Synthetic", now: now)
+        MacWeatherForecast.addQAir(Data(#"{"indexes":[{"code":"cn-mee","aqi":42}],"pollutants":[{"code":"pm2p5","concentration":{"value":19,"unit":"μg/m3"},"subIndexes":[{"code":"us-epa","aqi":75},{"code":"cn-mee-1h","aqi":27.2}]}]}"#.utf8), to: &weather)
+        XCTAssertEqual(weather.pm25Index, 28)
+        XCTAssertEqual(weather.pm25Standard, "cn-mee-1h")
+        var pressure = MacWeatherPressureHistory()
+        let earlier = now.addingTimeInterval(-10800)
+        XCTAssertNil(pressure.observe(identity: "station|a", at: earlier, pressure: 1013.2, now: earlier))
+        XCTAssertNil(pressure.observe(identity: "station|a", at: now.addingTimeInterval(-3600), pressure: 1012.4, now: now.addingTimeInterval(-3600)))
+        XCTAssertEqual(try XCTUnwrap(pressure.observe(identity: "station|a", at: now, pressure: 1012, now: now)), -1.2, accuracy: 0.001)
+        XCTAssertNil(pressure.observe(identity: "sea_level|a", at: now, pressure: 1012, now: now))
+        XCTAssertNil(pressure.observe(identity: "sea_level|b", at: now, pressure: 1014, now: now))
+        weather.pressureObservedAt = now; weather.pressureLocation = "internal-station"
+        weather.pressureChange3hHpa = -1.2
+        let wire = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(weather)) as? [String: Any])
+        XCTAssertNil(wire["pressureLocation"]); XCTAssertNil(wire["pressureObservedAt"])
+        XCTAssertEqual(wire["pm25Index"] as? Int, 28)
+        XCTAssertEqual(wire["pressureChange3hHpa"] as? Double, -1.2)
+    }
+
     func testWeatherFactsSurvivePartialFailureAndReachDevice() throws {
         let name = "weather-facts-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!

@@ -1,5 +1,24 @@
 import Foundation
 
+struct MacWeatherPressureHistory {
+    private var identity = ""
+    private var samples: [(Date, Double)] = []
+
+    mutating func observe(identity: String, at observed: Date?, pressure: Double?, now: Date) -> Double? {
+        if self.identity != identity { self.identity = identity; samples.removeAll() }
+        guard !identity.isEmpty, let observed, let pressure, (1...1200).contains(pressure),
+              (-60...1800).contains(now.timeIntervalSince(observed)),
+              samples.last.map({ observed >= $0.0 }) ?? true else { return nil }
+        let target = observed.addingTimeInterval(-10800)
+        samples.removeAll { $0.0 < target.addingTimeInterval(-900) || $0.0 == observed }
+        samples.append((observed, pressure))
+        if samples.count > 64 { samples.removeFirst(samples.count - 64) }
+        let best = samples.min { abs($0.0.timeIntervalSince(target)) < abs($1.0.timeIntervalSince(target)) }
+        guard let best, abs(best.0.timeIntervalSince(target)) <= 900 else { return nil }
+        return pressure - best.1
+    }
+}
+
 // Project the providers' public fields into the existing TAB5 forecast schema.
 enum MacWeatherForecast {
     static func number(_ value: Any?, range: ClosedRange<Double> = -1e6...1e6) -> Double? {
@@ -39,6 +58,13 @@ enum MacWeatherForecast {
         value.utcOffsetSeconds = offset
         // Without an explicit city timezone, do not guess which hours are future.
         guard let offset else { return }
+        if let stamp = current["time"] as? String {
+            value.pressureObservedAt = date(stamp, format: "yyyy-MM-dd'T'HH:mm", offset: offset)
+        }
+        if let latitude = number(root["latitude"], range: -90...90),
+           let longitude = number(root["longitude"], range: -180...180) {
+            value.pressureLocation = String(format: "%.5f,%.5f", locale: Locale(identifier: "en_US_POSIX"), latitude, longitude)
+        }
         let day = formatter("yyyy-MM-dd", offset: offset).string(from: now)
         let hours = root["hourly"] as? [String: Any] ?? [:]
         let days = root["daily"] as? [String: Any] ?? [:]
@@ -94,6 +120,9 @@ enum MacWeatherForecast {
             value.airQualityStandard = "us-epa"
         }
         value.pm25 = number(c["pm2_5"], range: 0...100000)
+        if value.pm25 != nil, let index = number(c["us_aqi_pm2_5"], range: 0...10000) {
+            value.pm25Index = Int(index.rounded(.up)); value.pm25Standard = "us-epa"
+        }
     }
     static func addQAir(_ data: Data?, to value: inout WeatherSnapshot) {
         guard let data, let r = try? root(data) else { return }
@@ -121,6 +150,15 @@ enum MacWeatherForecast {
            let concentration = pm["concentration"] as? [String: Any],
            ["μg/m3", "µg/m3", "μg/m³", "µg/m³"].contains(concentration["unit"] as? String ?? "") {
             value.pm25 = number(concentration["value"], range: 0...100000)
+            if value.pm25 != nil, let subIndexes = pm["subIndexes"] as? [[String: Any]], let standard = value.airQualityStandard {
+                let codes = standard.hasPrefix("cn-mee") ? ["cn-mee-1h", "cn-mee"] : [standard]
+                for code in codes {
+                    guard let index = subIndexes.first(where: { $0["code"] as? String == code }),
+                          let score = number(index["aqi"], range: 0...10000) else { continue }
+                    value.pm25Index = Int(score.rounded(.up)); value.pm25Standard = code
+                    break
+                }
+            }
         }
     }
     static func qweather(current: Data, daily: Data, hourly: Data?, city: String, now: Date = Date()) throws -> WeatherSnapshot {
@@ -151,6 +189,7 @@ enum MacWeatherForecast {
             utcOffsetSeconds: offset, daily: days, dailyStale: false)
         value.pressureHpa = number(c["pressure"], range: 1...1200)
         value.pressureKind = value.pressureHpa == nil ? nil : "station"
+        value.pressureObservedAt = formatter("yyyy-MM-dd'T'HH:mmXXXXX").date(from: observed)
         seen.removeAll()
         if let hourly, let h = try? qRoot(hourly), let rows = h["hourly"] as? [[String: Any]] {
             value.hourly = rows.compactMap { row -> MacWeatherHour? in
