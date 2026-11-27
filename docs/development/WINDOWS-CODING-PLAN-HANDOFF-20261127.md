@@ -18,7 +18,9 @@
 - 验收：分别造钱包与套餐数据，来回切换；套餐不能带钱包金额，窗口不能串行合并；重启后恢复选择和两份缓存。`CodingPlanSelfTest` 已覆盖本地集成。Mac 需核对原生账号 UI 和持久化，不能直接移植 WinForms/WebView2。
 - 发起端：代码与模拟已完成；真实账户待验证。接收端：待核对，未在 Windows 声称 Mac 已支持。
 
-待对齐：macOS｜国产模型统计内容选择与独立缓存
+- macOS 接收端：已对齐。`MacDomesticSources`、`MacDomesticQuotaWindow`、`MacDataStore` 分离统计内容、缓存与响应代次；`MacCodingPlanAlignmentTests` 覆盖旧选择、新账号默认、切换失败、迟到响应、重启缓存、名称及离屏账号窗口。
+
+待验收：macOS｜真实套餐、钱包及资源包账号切换与重启，核对各自缓存及展示
 
 ### 2. 智谱个人版 GLM Coding Plan
 
@@ -26,7 +28,9 @@
 - 验收：模拟成功、401、403、429、重定向、5xx；检查五小时／周窗口、重置时间、错误不泄漏原始响应、切换钱包期间迟到响应被拒绝。团队版登录页结构尚未核实，不能宣称个人 Key 接口支持团队额度。
 - 发起端：模拟 HTTP、缓存、状态、Windows 镜像检查已完成；Mac 原生查询及真实账号待验证。
 
-待对齐：macOS｜智谱个人版 Coding Plan 额度查询
+- macOS 接收端：已有等价个人版 Key 接口；`MacCodingPlanAlignmentTests.testZhipuPersonalPlanAndFailureRetention` 本地模拟短周期、周额度及失败保留。
+
+待验收：macOS｜使用真实智谱个人版 Key 检查授权、周期及失败缓存
 
 ### 3. 百炼 Coding Plan 三窗口
 
@@ -35,7 +39,9 @@
 - 验收：三个不同的比例、零用量、28/31 天订阅月、无效数据、缓存重载；Mac 需核对本端百炼采集契约。
 - 发起端：基于官方契约构造的响应与缓存测试已完成；实际订阅登录响应未采到。
 
-待对齐：macOS｜百炼 Coding Plan 三窗口与 Token Plan 区分
+- macOS 接收端：已对齐。`MacDomesticQuota` 和 `MacDomesticSources` 处理独立订阅与三个窗口；`MacCodingPlanAlignmentTests` 的 Qwen 三窗口、无效响应及月重置测试检查零用量、错误保留和未知月长。
+
+待验收：macOS｜真实百炼 Coding Plan 检查五小时、周、订阅月额度与重置
 
 ### 4. MiniMax 与 MiMo 官方入口
 
@@ -43,7 +49,9 @@
 - MiMo 打开 `https://platform.xiaomimimo.com/#/console/plan-manage`；现有 `/api/v1/tokenPlan/usage` 解析、失败保留与周期规则沿用，不臆造 Key 用量 API。
 - 验收：旧凭据读取、域名与路径拒绝、MiniMax 扩容额度、MiMo Credits 和周期；两个真实套餐均待验证。
 
-待对齐：macOS｜MiniMax 当前中国站域名与 MiMo 套餐管理入口
+- macOS 接收端：已对齐。`MacMiniMaxQuota`、`MacModelAccountCatalog`、`MacDomesticCaptureValidation` 更新入口和精确捕获范围；对应 MiniMax、MiMo 用例模拟原凭据、无效状态和 Credits 数据。
+
+待验收：macOS｜真实 MiniMax 中国站账号和 MiMo 套餐管理页，确认登录、额度及缓存
 
 ### 5. 其他官方套餐的保守网页进度适配
 
@@ -52,13 +60,17 @@
 - 验收：真实 WebView2 加载本地合成 HTML 后执行生产采集脚本，覆盖 0%、剩余转已用、隐藏内容、钱包、过期和冲突进度；各厂商归一化解析及缓存重载也有模拟测试。**这不是厂商登录后页面的端到端验收，实际 markup、团队／席位、多套餐及重置时间仍待实测。**
 - 发起端：模拟适配完成，UI 标“待验证”。另一端可选跟进，不能据此自动新增设备显示模式。
 
-待对齐：macOS｜其他国产套餐选项及可见进度采集能力核对
+- macOS 接收端：已对齐本地模拟。`MacDomesticPlanPage` 和 `MacDomesticBrowser` 的可见进度适配不新增设备协议或显示模式；`MacCodingPlanAlignmentTests` 覆盖五家套餐、独立选项、隐藏与冲突数据。未验证真实登录页面。
+
+待验收：macOS｜真实火山、腾讯、千帆、阶跃、华为套餐控制台核对可见进度、异常页面及缓存
 
 ### 6. GLM 设备显示边界
 
 - Windows 镜像修正 GLM 只认余额的分支，复用已有百分比／周期布局。状态结构没有新字段。
 - ESP8266 `esp8266/src/main.cpp` 的 GLM 无余额分支仍显示余额占位，未修改；TAB5 当前固件需分别核对套餐百分比、周／短周期、重置及缓存提示。
 - 验收：接收端先检查上述分支，再按另行授权修改并编译；用户有真实套餐后进行设备检查。本轮不刷固件、不变更设备展示设置。Windows 镜像不是实机证据。
+
+- macOS 接收端：已有等价 GLM 镜像呈现，`MacCodingPlanAlignmentTests.testGLMMirrorPlanOffscreen` 验证以百分比和周期显示。ESP8266 与实体 TAB5 的待办不变。
 
 待对齐：ESP8266｜GLM Coding Plan 百分比显示
 
@@ -91,3 +103,10 @@
 ## 发布与收尾
 
 本轮授权范围为推送 Windows 开发分支并创建 PR。真实套餐开通后补测，在本交接中回填结果。macOS 和设备侧按各条待办跟进。
+
+## Mac 接收端交付
+
+- 本轮只合入 macOS 对齐代码、回归及交接，不构建或发布安装包，不改变固件及配对设置。原始本机对齐提交 `eef625cbc32c870f2aaf41bfdc93b2c64fa0b9bc` 的 16 个源码/测试文件已无冲突承接至 `e7632438dd90` 主干。
+- 实体设备和真实账号条件尚未完成；保留上述待验收，不以离线夹具替代。
+- 在最新主干上以 macOS 原生 `swift test` 复验：592 项，5 跳过、0 失败；`swift build -c release` 通过。独立统计与 GLM 镜像离屏测试生成图像，实际镜像字号、标题及两个额度窗口可读；原生账号窗口的离屏捕获不能确认系统按钮的最终图形，选择器及窗口内容由测试断言，真实窗口与登录后的页面仍待实机核对。共享产品发布工具的 20 项测试通过，不改动发布工具。
+- PR 独立审核后补充回归：DeepSeek 保存未提交凭据草稿时恢复其原统计方式；网页采集拒绝外层套餐卡片明确标记过期的进度。两个场景分别由原生窗口与 WebKit 离线测试覆盖。

@@ -369,6 +369,174 @@ final class MacTab5CodexTests: XCTestCase {
             XCTAssertEqual(api.calls.filter { $0.0 == "turn/start" }.count, 1)
         }
     }
+    func testEvictedUpgradeDraftAndAttachmentSurviveRestartWithoutAccess() throws {
+        for provider in ["Codex", "Claude"] {
+            let api = API(), storage = try store()
+            let otherTask = UUID().uuidString.lowercased()
+            var evicted = false
+            func call(_ method: String, _ params: [String: Any]) throws -> [String: Any] {
+                if method == "thread/list", evicted {
+                    return ["data": [["id": otherTask, "cwd": "/other", "name": "other"]]]
+                }
+                return try api.call(method, params)
+            }
+            let first = MacTab5Codex(store: storage, enabled: { true }, sendEnabled: { true }, call: call, provider: provider)
+            first.refresh()
+            let image = UUID().uuidString.lowercased()
+            let png = try XCTUnwrap(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a8S0AAAAASUVORK5CYII="))
+            XCTAssertEqual(first.photos.upload(["taskId": api.task, "requestId": image], bytes: png, device: "A").status, 200)
+            evicted = true
+            first.refresh()
+            XCTAssertFalse(first.contains(api.task))
+            let save: [String: Any] = ["op": "draft-save", "taskId": api.task, "requestId": UUID().uuidString,
+                                       "message": "升级前保存的草稿", "images": [image], "preserveDraft": true]
+            XCTAssertEqual(first.handle(save, device: "A").status, 200)
+            let restarted = MacTab5Codex(store: storage, enabled: { true }, sendEnabled: { true }, call: call, provider: provider)
+            restarted.refresh()
+            XCTAssertFalse(restarted.contains(api.task))
+            XCTAssertEqual(restarted.handle(["op": "draft-load", "taskId": api.task, "requestId": UUID().uuidString], device: "A").status, 200)
+            let draft = try XCTUnwrap(restarted.snapshot(device: "A")?["draftView"] as? [String: Any])
+            XCTAssertEqual(draft["text"] as? String, "升级前保存的草稿")
+            XCTAssertEqual(draft["images"] as? [String], [image])
+            XCTAssertEqual(try restarted.photos.inputs([image], device: "A", task: api.task).first?["url"] as? String,
+                           "data:image/png;base64," + png.base64EncodedString())
+            XCTAssertThrowsError(try restarted.photos.inputs([image], device: "B", task: api.task))
+            XCTAssertEqual(restarted.handle(["op": "read", "taskId": api.task], device: "A").status, 404)
+            XCTAssertEqual(restarted.handle(["op": "send", "taskId": api.task, "requestId": UUID().uuidString, "message": "不得发送"], device: "A").status, 404)
+            XCTAssertFalse(api.calls.contains { ["thread/resume", "turn/start", "turn/steer", "turn/interrupt"].contains($0.0) })
+        }
+    }
+    func testPreserveDraftRejectedReceiptIsFinal() throws {
+        let api = API()
+        let codex = MacTab5Codex(store:try store(),enabled:{true},sendEnabled:{true},call:{ method, params in
+            if method == "turn/start" { api.calls.append((method,params)); throw MacCodexDesktopError.rejected("desktop_draft_present") }
+            return try api.call(method,params)
+        })
+        codex.refresh()
+        let id = UUID().uuidString
+        XCTAssertEqual(codex.handle(["op":"send","taskId":api.task,"requestId":id,"message":"原草稿"],device:"A").status,409)
+        let result = codex.handle(["op":"receipt","taskId":api.task,"requestId":id,"preserveDraft":true],device:"A")
+        XCTAssertEqual(result.status,409)
+        XCTAssertEqual(result.body["deliveryFinal"] as? Bool,true)
+        XCTAssertEqual(codex.handle(["op":"draft-load","taskId":api.task,"requestId":UUID().uuidString],device:"A").status,200)
+        XCTAssertEqual((codex.snapshot(device:"A")?["draftView"] as? [String:Any])?["text"] as? String,"原草稿")
+        XCTAssertEqual(api.calls.filter{$0.0 == "turn/start"}.count,1)
+    }
+    func testPreserveDraftUnknownThenResolvedForBothProviders() throws {
+        for provider in ["Codex","Claude"] {
+            for cancelled in [false,true] {
+                let api = API(); api.failSend = true
+                let codex = MacTab5Codex(store:try store(),enabled:{true},sendEnabled:{true},call:api.call,provider:provider)
+                var resolved = false
+                codex.deliveryReceipt = { _,_,_,_ in resolved && !cancelled ? api.turn:nil }
+                codex.deliveryCancelled = { _,_ in resolved && cancelled }
+                codex.refresh()
+                let id = UUID().uuidString
+                let request: [String:Any] = ["op":"receipt","taskId":api.task,"requestId":id,"preserveDraft":true]
+                XCTAssertEqual(codex.handle(["op":"send","taskId":api.task,"requestId":id,"message":"保留"],device:"A").status,504)
+                XCTAssertEqual(codex.handle(request,device:"A").status,504)
+                resolved = true
+                let result = codex.handle(request,device:"A")
+                XCTAssertEqual(result.status,cancelled ? 409:202)
+                if cancelled { XCTAssertEqual(result.body["deliveryFinal"] as? Bool,true) }
+                XCTAssertEqual(codex.handle(["op":"draft-load","taskId":api.task,"requestId":UUID().uuidString],device:"A").status,200)
+                XCTAssertEqual((codex.snapshot(device:"A")?["draftView"] as? [String:Any])?["text"] as? String,"保留")
+                XCTAssertEqual(api.calls.filter{$0.0 == "turn/start"}.count,1)
+            }
+        }
+    }
+    func testUpgradeReceiptPreservesTextAttachmentsAndPeerDrafts() throws {
+        for provider in ["Codex", "Claude"] {
+            let api = API()
+            api.failSend = true
+            let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { true }, call: api.call, provider: provider)
+            let requestID = UUID().uuidString.lowercased()
+            var delivered = false
+            codex.deliveryReceipt = { task, request, operation, _ in
+                delivered && task == api.task && request == requestID && operation == "send" ? api.turn : nil
+            }
+            codex.refresh()
+            let image = UUID().uuidString.lowercased(), peerImage = UUID().uuidString.lowercased()
+            let png = try XCTUnwrap(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a8S0AAAAASUVORK5CYII="))
+            for (device, id) in [("A", image), ("B", peerImage)] {
+                XCTAssertEqual(codex.photos.upload(["taskId": api.task, "requestId": id], bytes: png, device: device).status, 200)
+            }
+            XCTAssertEqual(codex.handle(["op": "draft-save", "taskId": api.task, "requestId": UUID().uuidString,
+                                         "message": "另一设备草稿", "images": [peerImage]], device: "B").status, 200)
+            XCTAssertEqual(codex.handle(["op": "send", "taskId": api.task, "requestId": requestID,
+                                         "message": "升级前草稿", "images": [image]], device: "A").status, 504)
+            func assertDraft(device: String, text: String, image: String, pending: String) throws {
+                XCTAssertEqual(codex.handle(["op": "draft-load", "taskId": api.task, "requestId": UUID().uuidString], device: device).status, 200)
+                let draft = try XCTUnwrap(codex.snapshot(device: device)?["draftView"] as? [String: Any])
+                XCTAssertEqual(draft["text"] as? String, text)
+                XCTAssertEqual(draft["images"] as? [String], [image])
+                XCTAssertEqual(draft["pendingRequest"] as? String, pending)
+                let inputs = try codex.photos.inputs([image], device: device, task: api.task)
+                XCTAssertEqual(inputs.first?["url"] as? String, "data:image/png;base64," + png.base64EncodedString())
+            }
+            let receipt: [String: Any] = ["op": "receipt", "taskId": api.task, "requestId": requestID, "preserveDraft": true]
+            let actionsBeforeReceipt = api.calls.filter { ["thread/resume", "turn/start", "turn/steer", "turn/interrupt"].contains($0.0) }.map { $0.0 }
+            XCTAssertEqual(actionsBeforeReceipt.filter { $0 == "turn/start" }.count, 1)
+            let unknown = codex.handle(receipt, device: "A")
+            XCTAssertEqual(unknown.status, 504)
+            XCTAssertEqual(unknown.body["error"] as? String, "delivery_unknown")
+            XCTAssertEqual(codex.handle(receipt, device: "B").status, 404)
+            try assertDraft(device: "A", text: "升级前草稿", image: image, pending: requestID)
+            try assertDraft(device: "B", text: "另一设备草稿", image: peerImage, pending: "")
+            delivered = true
+            for _ in 0..<2 {
+                let confirmed = codex.handle(receipt, device: "A")
+                XCTAssertEqual(confirmed.status, 202)
+                XCTAssertEqual(confirmed.body["turnId"] as? String, api.turn)
+                try assertDraft(device: "A", text: "升级前草稿", image: image, pending: "")
+            }
+            try assertDraft(device: "B", text: "另一设备草稿", image: peerImage, pending: "")
+            XCTAssertEqual(api.calls.filter { ["thread/resume", "turn/start", "turn/steer", "turn/interrupt"].contains($0.0) }.map { $0.0 }, actionsBeforeReceipt)
+        }
+    }
+    func testPreserveDraftConflictWithTextAndImages() throws {
+        let api = API(), storage = try store()
+        let codex = MacTab5Codex(store:storage,enabled:{true},sendEnabled:{true},call:api.call)
+        codex.refresh()
+        let image = UUID().uuidString.lowercased(), other = UUID().uuidString.lowercased()
+        let png = try XCTUnwrap(Data(base64Encoded:"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a8S0AAAAASUVORK5CYII="))
+        for id in [image,other] {
+            XCTAssertEqual(codex.photos.upload(["taskId":api.task,"requestId":id],bytes:png,device:"A").status,200)
+        }
+        func save(_ text: String,_ images:[String], preserve:Bool) -> MacTab5RPCResult {
+            codex.handle(["op":"draft-save","taskId":api.task,"requestId":UUID().uuidString,"message":text,"images":images,"preserveDraft":preserve],device:"A")
+        }
+        XCTAssertEqual(save("原稿",[image],preserve:false).status,200)
+        let before = try XCTUnwrap(storage.read("journal"))
+        XCTAssertEqual(save("原稿",[image],preserve:true).status,200)
+        for (text,images) in [("不同",[image]),("原稿",[other])] {
+            let result = save(text,images,preserve:true)
+            XCTAssertEqual(result.status,409); XCTAssertEqual(result.body["error"] as? String,"draft_changed")
+        }
+        XCTAssertEqual(try storage.read("journal"),before)
+        XCTAssertTrue(api.calls.allSatisfy{$0.0 != "turn/start"})
+    }
+    func testPreserveEmptyDraftOnlyChecksWithoutWriting() throws {
+        let api = API(), storage = try store(); api.failSend = true
+        let codex = MacTab5Codex(store:storage,enabled:{true},sendEnabled:{true},call:api.call)
+        codex.refresh()
+        func save(_ text:String, preserve:Bool) -> MacTab5RPCResult {
+            codex.handle(["op":"draft-save","taskId":api.task,"requestId":UUID().uuidString,"message":text,"preserveDraft":preserve],device:"A")
+        }
+        let original = try storage.read("journal")
+        XCTAssertEqual(save("",preserve:true).status,200)
+        XCTAssertEqual(try storage.read("journal"),original)
+        XCTAssertEqual(save("原稿",preserve:false).status,200)
+        let saved = try storage.read("journal")
+        XCTAssertEqual(save("",preserve:true).status,409)
+        XCTAssertEqual(try storage.read("journal"),saved)
+        XCTAssertEqual(codex.handle(["op":"send","taskId":api.task,"requestId":UUID().uuidString,"message":"未知"],device:"A").status,504)
+        // Force a genuinely empty saved draft while keeping its unknown delivery.
+        XCTAssertEqual(save("",preserve:false).status,200)
+        let pending = try storage.read("journal")
+        XCTAssertEqual(save("",preserve:true).status,409)
+        XCTAssertEqual(try storage.read("journal"),pending)
+    }
     func testActiveTurnBindingAndReadReceiptCannotCrossDevice() throws {
         let api = API(); let codex = MacTab5Codex(store: try store(), enabled: { true }, sendEnabled: { true }, call: api.call); codex.refresh()
         let page = codex.handle(["op": "read", "taskId": api.task], device: "A")

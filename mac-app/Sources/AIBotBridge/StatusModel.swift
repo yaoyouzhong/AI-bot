@@ -126,7 +126,7 @@ struct QuotaSnapshot: Codable, Equatable {
 // Account observations from official read-only endpoints or authorized consoles.
 struct DomesticProviderQuotaSnapshot: Codable, Equatable {
     let provider: String
-    let plan: String?
+    var plan: String?
     let primaryPercent: Double?
     let primaryResetsAt: Date?
     let weeklyPercent: Double?
