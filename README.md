@@ -2,6 +2,8 @@
 
 **AI 状态，一屏掌握。** AI-bot 是一款搭配电脑使用的桌面 AI 助手，将 AI 任务状态、多平台账户额度和日常信息集中呈现在独立屏幕上，减少来回切换窗口。支持查看 Claude Code / Codex 的工作进度，以及 DeepSeek、智谱、Kimi、MiniMax、阿里百炼等国产模型服务的套餐用量或 API 余额。
 
+Windows 开发版新增国产编程套餐的「统计内容」选择，区分 Coding／Token Plan 和 API 余额。新增厂商的真实订阅验证状态及使用范围见[套餐设置](docs/DOMESTIC_QUOTA_SETUP.md#2026-11-27-windows-开发版编程套餐)。当前公开安装包尚未包含本轮改动。
+
 工作之外，它也是桌边的时钟与信息看板，按需展示天气、行情、音乐和电脑运行状态。TAB5 还可搭配每日名画、每日书法图库，让屏幕在闲暇时展示艺术作品。
 
 [下载与搭配](#下载与搭配) · [宣传视频](#宣传视频) · [完整下载中心](DOWNLOADS.md) · [首次安装图文](docs/FIRST-INSTALL.zh.md) · [更新说明](https://github.com/yaoyouzhong/AI-bot/releases/tag/v0.6.35) · [English](README.en.md)

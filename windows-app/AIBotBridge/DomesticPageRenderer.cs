@@ -3,7 +3,9 @@ namespace AIBotBridge;
 internal static class DomesticPageRenderer
 {
     internal static bool Windowed(string provider,DomesticProviderQuotaSnapshot? quota)=>provider=="kimi"||quota?.PrimaryPercent is not null||quota?.WeeklyPercent is not null;
-    internal static double? DisplayPercent(DomesticProviderQuotaSnapshot? quota)=>quota?.WeeklyPercent??quota?.PlanPercent;
+    internal static double? DisplayPercent(DomesticProviderQuotaSnapshot? quota)=>quota?.WeeklyPercent??quota?.PlanPercent??quota?.PrimaryPercent;
+    private static string PrimaryLabel(DomesticProviderQuotaSnapshot? quota) => quota?.PrimaryWindowSeconds is long seconds && seconds > 0 && seconds % 3600 == 0
+        ? (seconds / 3600).ToString(System.Globalization.CultureInfo.InvariantCulture) + "H" : "5H";
     internal static string Remaining(DomesticProviderQuotaSnapshot? quota)=>quota?.PlanPercent is double plan?(Math.Truncate(Math.Max(0,100-plan)*100)/100).ToString("0.00",System.Globalization.CultureInfo.InvariantCulture)+"% LEFT":"QUOTA UNKNOWN";
     internal static void Draw(Graphics g, StatusSnapshot s, string mode)
     {
@@ -35,7 +37,7 @@ internal static class DomesticPageRenderer
         }
         using var muted=new SolidBrush(Color.FromArgb(123,125,123));g.FillRectangle(muted,20,53,200,1);
         var balance=quota?.Balance;
-        if(provider=="zhipu"&&!balance.HasValue) {
+        if(provider=="zhipu"&&quota is null && BridgeSettings.Load().Get("domestic_product_zhipu") == "wallet") {
             Label(g,"AVAILABLE BALANCE",20,73,200,20,12,Color.Gray,true);
             Label(g,"--",20,100,200,50,36,Color.FromArgb(255,251,222),true);
             Label(g,"Authorize in bridge",20,177,200,38,12,Color.FromArgb(139,156,255),true);
@@ -44,7 +46,7 @@ internal static class DomesticPageRenderer
         if(!balance.HasValue) {
             using var caption=new Font("Consolas",9,FontStyle.Regular,GraphicsUnit.Pixel);
             using var center=new StringFormat{Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center,FormatFlags=StringFormatFlags.NoWrap,Trimming=StringTrimming.EllipsisCharacter};
-            g.DrawString(windowed?"WEEKLY":"PLAN",caption,muted,new RectangleF(0,69,240,16),center);
+            g.DrawString(quota?.WeeklyPercent is not null?"WEEKLY":quota?.PlanPercent is not null?"PLAN":windowed?PrimaryLabel(quota):"PLAN",caption,muted,new RectangleF(0,69,240,16),center);
         }
         var number=balance?.ToString("0.00",System.Globalization.CultureInfo.InvariantCulture)??DomesticDisplayText.Percent(percent);
         var suffix=balance.HasValue?quota?.Currency??"":percent.HasValue?"%":"";
@@ -73,7 +75,7 @@ internal static class DomesticPageRenderer
         using var path=new System.Drawing.Drawing2D.GraphicsPath();
         foreach(var arc in new[]{(20,177,180),(204,177,270),(204,199,0),(20,199,90)})path.AddArc(arc.Item1,arc.Item2,16,16,arc.Item3,90);
         path.CloseFigure();using var border=new Pen(Color.FromArgb(41,52,41));g.DrawPath(border,path);
-        Label(g,balance.HasValue?"USED":windowed?"5H":provider=="baidu"?"EXPIRES":"RESET",20,177,66,38,12,Color.FromArgb(0,217,51),true);
+        Label(g,balance.HasValue?"USED":windowed?PrimaryLabel(quota):provider=="baidu"?"EXPIRES":"RESET",20,177,66,38,12,Color.FromArgb(0,217,51),true);
         if(balance.HasValue) {
             if(quota?.UsedCost is double cost) {
                 var amount=cost.ToString("0.00",System.Globalization.CultureInfo.InvariantCulture);var currency=quota.Currency??"";

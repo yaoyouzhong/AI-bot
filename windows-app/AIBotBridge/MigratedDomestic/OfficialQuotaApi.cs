@@ -7,13 +7,14 @@ sealed partial class DomesticQuotaService
 {
     internal readonly QuotaRefreshHealth RefreshHealth = new();
     private readonly HashSet<string> _apiBusy = new();
-    internal static bool SupportsOfficialApi(string provider) => provider is "deepseek" or "minimax" or "kimi" or "stepfun" or "baidu";
+    internal static bool SupportsOfficialApi(string provider) => provider is "deepseek" or "minimax" or "kimi" or "stepfun" or "baidu" or "zhipu";
     private static string Target(string provider) => provider switch {
         "deepseek" => "AI-bot/DeepSeekApiKey", "kimi" => "AI-bot/KimiLocalUsageToken",
         "stepfun" => "AI-bot/StepFunApiKey", "baidu" => "AI-bot/BaiduModelPackage",
+        "zhipu" => "AI-bot/ZhipuCodingPlanKey",
         "minimax" => MiniMaxCredentialTarget, _ => throw new ArgumentOutOfRangeException(nameof(provider)) };
     private static string ApiKey(string provider) => provider == "minimax" ? MiniMaxApiKey() : CredentialStore.Read(Target(provider)).Trim();
-    internal bool HasOfficialApi(string provider) => SupportsOfficialApi(provider) && ApiKey(provider).Length > 0;
+    internal bool HasOfficialApi(string provider) => SupportsSelectedApi(provider) && ApiKey(provider).Length > 0;
     internal bool UsesOnlyOfficialApi(string provider) => provider!="deepseek" && HasOfficialApi(provider);
     private static string DeepSeekKeyScope() {
         var key=ApiKey("deepseek");
@@ -34,6 +35,8 @@ sealed partial class DomesticQuotaService
         }
         try
         {
+            if (!SupportsSelectedApi(provider)) return (false,"当前统计内容使用网页登录查询。");
+            var selectedProduct = Product(provider);
             var key = ApiKey(provider);
             if (key.Length == 0) return (false,"尚未配置接口凭据，请在桥接 App 中保存并测试。");
             (bool Success, string Message) result;
@@ -41,20 +44,26 @@ sealed partial class DomesticQuotaService
             {
                 var response = await DeepSeekBalanceApi.FetchAsync(key, Snapshot.DeepSeekCurrency == "USD" ? "USD" : "CNY");
                 if (response.RateLimited) BackOff(provider);
-                if (key != ApiKey(provider)) return (false,"凭据已更换，请重新查询。");
+                if (key != ApiKey(provider) || Product(provider) != selectedProduct) return (false,"配置已更换，请重新查询。");
                 if (response.Success) SetDeepSeek(response.Balance!.Value, response.Currency, fromApi:true);
                 result = (response.Success, response.Success ? $"DeepSeek 官方 API 已更新：{response.Currency} {response.Balance:0.00}。" : response.Error);
             }
             else if (provider == "kimi")
             {
                 var value = await KimiUsageApi.FetchAsync(key, KimiPort);
-                if (key != ApiKey(provider)) return (false,"凭据已更换，请重新查询。");
+                if (key != ApiKey(provider) || Product(provider) != selectedProduct) return (false,"配置已更换，请重新查询。");
                 SetKimi(value);
                 result = (true,"Kimi Code 官方本地服务已更新账户提供的额度窗口。");
             }
+            else if (provider == "zhipu") {
+                var value = await QuotaSourceApi.FetchAsync(provider, key);
+                if (key != ApiKey(provider) || Product(provider) != "coding") return (false,"配置已更换，请重新查询。");
+                SetPlan(provider, "coding", value);
+                result = (true,"智谱 Coding Plan 额度已更新（个人版）。");
+            }
             else if (provider is "stepfun" or "baidu") {
                 var value = await AdditionalQuotaApi.FetchAsync(provider, key);
-                if (key != ApiKey(provider)) return (false,"凭据已更换，请重新查询。");
+                if (key != ApiKey(provider) || Product(provider) != selectedProduct) return (false,"配置已更换，请重新查询。");
                 SetAdditional(value);
                 result = (true, provider == "stepfun" ? $"阶跃星辰开放平台余额：CNY {value.Balance:0.00}（不是 Step Plan 额度）" : $"千帆模型资源包 {value.Plan}：已用 {value.PlanPercent:0.##}%；不包含云余额。");
             }
@@ -83,6 +92,8 @@ sealed partial class DomesticQuotaService
     }
     internal bool WasAuthorized(string provider)
     {
+        if (SelectedIsPlan(provider) && provider is not ("minimax" or "kimi" or "xiaomi") && !(provider == "qwen" && Product(provider) == "token"))
+            return Plan(provider) != null;
         var s = Snapshot;
         return provider switch { "qwen"=>s.QwenFetchedAt.HasValue, "kimi"=>s.KimiFetchedAt.HasValue,
             "minimax"=>s.MiniMaxFetchedAt.HasValue, "deepseek"=>s.DeepSeekFetchedAt.HasValue,
@@ -96,7 +107,7 @@ sealed partial class DomesticQuotaService
         }
         if (DomesticProviderCatalog.All.FirstOrDefault(x=>x.Id==provider)?.CaptureSupported!=true || HasOfficialApi(provider)) return;
         var s = Snapshot;
-        bool configured = provider switch { "qwen" => s.QwenFetchedAt.HasValue, "kimi" => s.KimiFetchedAt.HasValue,
+        bool configured = WasAuthorized(provider) || provider switch { "qwen" => s.QwenFetchedAt.HasValue, "kimi" => s.KimiFetchedAt.HasValue,
             "minimax" => s.MiniMaxFetchedAt.HasValue, "deepseek" => s.DeepSeekFetchedAt.HasValue, "zhipu" => s.Zhipu != null, "xiaomi" => s.XiaomiFetchedAt.HasValue, _ => false };
         if (configured || explicitlyRequested) RefreshHealth.Fail(provider,message);
     }

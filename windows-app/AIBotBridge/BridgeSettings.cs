@@ -16,6 +16,8 @@ internal sealed class BridgeSettings
 
     static BridgeSettings() {
         foreach(var provider in MigratedDomestic.DomesticProviderCatalog.All)LegacyAllowList.Add("model_web_zoom_"+provider.Id);
+        foreach(var provider in MigratedDomestic.DomesticProviderCatalog.All.Where(p => CodingPlanSources.Products(p.Id).Length > 0))
+            LegacyAllowList.Add("domestic_product_" + provider.Id);
     }
     private readonly Dictionary<string, string> _values;
     private static readonly object FileSync = new();
@@ -78,6 +80,12 @@ internal sealed class BridgeSettings
             if (!LegacyAllowList.Contains(pair.Key))
             {
                 error = $"不允许保存设置项：{pair.Key}";
+                return false;
+            }
+            if (pair.Key.StartsWith("domestic_product_", StringComparison.Ordinal)
+                && !CodingPlanSources.Products(pair.Key["domestic_product_".Length..]).Any(p => p.Id == pair.Value))
+            {
+                error = "请选择有效的套餐或账户统计内容。";
                 return false;
             }
             values[pair.Key] = pair.Value;
