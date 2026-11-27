@@ -10,7 +10,8 @@ import tempfile
 
 import release_pipeline as pipeline
 from artifact_names import ESP_FLASH_TEMPLATE, UPDATE_ALIASES, names
-from product_release import PRODUCT_ONLY_MARKER, next_product_version, plan_identity, render_product, valid_product_tag
+from product_release import (PRODUCT_ONLY_MARKER, historical_product_title, next_product_version,
+                             plan_identity, render_product, valid_product_tag)
 
 LABELS = {'windows': 'Windows 安装器', 'macos': 'Mac 应用', 'esp8266': 'ESP8266 固件',
           'tab5-first': 'TAB5 首次安装', 'tab5-upgrade': 'TAB5 升级'}
@@ -109,7 +110,10 @@ def orphan_matches(repository, tag, identity):
 
 
 def verify_product_release(release, product):
-    if (release['tag_name'] != product['tag'] or release['name'] != product['title']
+    title = release['name']
+    legacy_title = historical_product_title(product['tag'])
+    legacy_title_matches = not release['draft'] and legacy_title is not None and title == legacy_title
+    if (release['tag_name'] != product['tag'] or (title != product['title'] and not legacy_title_matches)
             or '<!-- aibot-product-release:' + product['identity'] + ' -->' not in (release.get('body') or '')
             or release['draft'] and (release.get('body') or '').replace('\r\n', '\n') != product['body']
             or release.get('prerelease')):
@@ -228,7 +232,7 @@ def promote_product(entries, repository, *, execute=False, publish=False, commit
     payload = Path(entries[0]['directory']).resolve().parent / ('publication-product-' + preview['identity'][:16])
     manifest = stage_product(components, payload)
     product, release = reserve_product(repository, components, manifest)
-    report.update(productVersion=product['tag'][1:], productTag=product['tag'], productTitle=product['title'])
+    report.update(productVersion=product['tag'][1:], productTag=product['tag'], productTitle=release['name'])
     if release['draft']:
         for candidate in candidates:
             pipeline.ensure_tag(repository, candidate)

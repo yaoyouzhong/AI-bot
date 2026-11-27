@@ -1,7 +1,7 @@
 """Product release identity, independent numbering, and scoped notes."""
 import unittest
 
-from product_release import next_product_version, plan_identity, render_product
+from product_release import historical_product_title, next_product_version, plan_identity, render_product
 
 
 def component(kind, version, tag, candidate_id, names):
@@ -13,9 +13,16 @@ def component(kind, version, tag, candidate_id, names):
 
 class ProductReleaseTests(unittest.TestCase):
     def test_product_sequence_ignores_independent_component_tags(self):
-        self.assertEqual(next_product_version(['v0.6.20', 'bridge-v0.6.27', 'tab5-v0.2.321-ui']), '0.6.21')
-        self.assertEqual(next_product_version(['v0.6.20', 'v0.6.21', 'esp8266-v0.9.0']), '0.6.22')
+        self.assertEqual(next_product_version(['v0.6.35', 'bridge-v0.6.35', 'tab5-v0.2.324-ui']), '1.0.44')
+        self.assertEqual(next_product_version(['v0.6.35', 'v1.0.44', 'esp8266-v0.9.0']), '1.0.45')
         with self.assertRaises(ValueError): next_product_version(['tab5-v0.2.320-ui'])
+
+    def test_historical_titles_use_publication_order(self):
+        self.assertEqual(historical_product_title('v0.1.1'), 'AI-bot v1.0.0')
+        self.assertEqual(historical_product_title('v0.6.5'), 'AI-bot v1.0.13')
+        self.assertEqual(historical_product_title('v0.6.35'), 'AI-bot v1.0.43')
+        self.assertIsNone(historical_product_title('v0.6.4'))
+        self.assertIsNone(historical_product_title('bridge-v0.6.35'))
 
     def test_single_firmware_product_does_not_invent_bridge(self):
         tab = component('tab5', '0.2.321-ui', 'tab5-v0.2.321-ui', 'a', ['AI-bot-tab5-0.2.321-ui-upgrade.zip'])

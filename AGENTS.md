@@ -27,7 +27,7 @@ Claude 桌宠素材例外。用户于 2026-11-02 确认旧宣传片中所用 Cla
 - 网络和供应商请求失败时保留最近一次成功的可显示数据，不能用空结果覆盖缓存。
 - `tokens_today` 只描述本机可见日志；供应商账户额度必须来自供应商接口或明确的本地授权状态，二者不得混算。
 - 桥接版本源为根目录 `VERSION`；ESP8266 使用 `esp8266/VERSION`，TAB5 待发布镜像版本登记在 `versions/TAB5`。三者独立编号，不因另一组件更新而重编号或要求一起刷机。`release-manifest.json` 登记各自标签与更新日志，详见 `docs/COMPONENT-VERSIONS.md`。
-- 每次交付电脑程序、TAB5 固件或 ESP8266 小屏固件，GitHub Releases 只发布一条 `AI-bot vX.Y.Z`，使用带注释的 `vX.Y.Z` 标签，从 `0.6.20` 序列递增。总页列出实际交付的组件、其版本和下载。组件标签 `bridge-vX.Y.Z`、`esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui` 用于追溯源码。历史发布、标签和下载地址继续保留。
+- 每次交付电脑程序、TAB5 固件或 ESP8266 小屏固件，GitHub Releases 只发布一条 `AI-bot vX.Y.Z`，使用带注释的 `vX.Y.Z` 标签，延续独立的 `1.0.x` 产品版本线。历史产品发布的显示标题统一为 `1.0.0` 至 `1.0.43`，原标签与下载地址保留。总页列出实际交付的组件、其版本和下载。组件标签 `bridge-vX.Y.Z`、`esp8266-vX.Y.Z`、`tab5-vX.Y.Z-ui` 用于追溯源码。历史发布、标签和下载地址继续保留。
 - README、CHANGELOG 的中英文内容必须同步。
 
 ## UI design requirements
