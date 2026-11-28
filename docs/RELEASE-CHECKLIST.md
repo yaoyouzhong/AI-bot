@@ -11,6 +11,8 @@
    - 核对本次只新增一条标题为 `AI-bot vX.Y.Z` 的公开发布。核对总页下载、组件版本和适用平台，确认更新器可从总页识别本次交付的包。
 3. 校验包格式、首刷与升级区别、兼容别名、许可证和 SHA-256；用 `promote` 一次完成带注释的组件标签、草稿上传、服务器摘要检查和已授权的正式发布。重试同一命令只补未完成项，禁止覆盖已公开附件。
 4. 按[统一 Release 模板](RELEASE-TEMPLATE.md)核对标题、中英文说明、组件版本、Assets 和校验文件是否覆盖所有实际交付的组件。核对已发布桥接能从正式发布列表按平台获取安装包，并按组件获取固件升级包。刷新 `download-catalog.json`，运行 `download_catalog.py sync` 和 `check`，同步中英文主页和完整下载中心。Windows、Mac、ESP8266、TAB5 和图库按实际附件分别取版本。
+   - Windows 桥接发布后，用 SHA-256 与公开附件一致的正式安装包更新日常使用的 Windows 本机。设备验收期间若临时切换了日常桥接，验收结束后用正式包恢复，并执行同一核验。
+   - 确认本机 `/status` 返回新鲜状态，并核对提供该响应的实际进程路径。桥接组件版本和构建提交须匹配候选清单，程序文件 SHA-256 须匹配已验收原包中的对应文件。确认 Windows 登录计划任务已启用且指向同一正式构建。记录发布标签、安装包 SHA-256、运行和登录启动核验结果。任一项未通过或待验证时，本机切换仍待完成。
 5. 全面复核主页介绍、功能说明、安装手册、安装说明、更新步骤及组件版本页，更新本次变化。保留正确的兼容性下限和历史验收记录。
 6. 按实际变化评估截图和宣传视频（含封面与可复现工程）。小幅更新且旧素材仍准确时，登记“已有无需修改”并复用，不要求每次重新截图或编码。界面、操作路径或功能表达发生实质变化、旧素材会误导用户时，仅更新受影响部分；以当前实际组件或隔离原生控件录制，检查文字、点击路径、版本及音画，标明演示数据与实拍边界，登记来源、许可及媒体 SHA-256。复用素材保留原来源与摘要，不写成新媒体已更新。
    - 主页宣传片介绍整个项目：共有功能对照两种硬件，TAB5 独有功能单独介绍；画面、文字和设备排列一致，封面不带具体版本号。中英文文案同步，历史更新放入更新日志。
@@ -21,6 +23,8 @@
 8. 记录正式发布地址、提交、附件摘要、验证和剩余限制。按 [本地工作区保留与清理](WORKSPACE-RETENTION.md) 提取长期验收证据，核实公开附件可下载后清理本地重复包，并核对项目占用及需继续保留的例外。以上项目均有完成证据后交付。
 
 Every release follows this checklist: confirm scope and authorization; preserve accepted bytes; validate source, tests, installation and hardware separately; publish verified assets; synchronize affected bilingual descriptions and download/install instructions; and verify public pages and downloads. Minor changes may retain accurate screenshots, video, covers and media source projects. Replace only material made misleading by changed interfaces, workflows or feature claims, registering new provenance, licenses and hashes. Record reuse without claiming new media was produced. An unchanged platform retains its published version; upload alone does not complete closeout.
+
+After a Windows bridge release, update the daily-use Windows machine with the official installer whose SHA-256 matches the public asset. Restore the official package and repeat these checks after hardware acceptance that temporarily replaced the daily-use bridge. Confirm that local `/status` returns fresh data and identify the executable path of the process serving it. Match the bridge component version and build commit to the candidate manifest and the program file SHA-256 to the corresponding file in the accepted package. Confirm that the Windows logon task is enabled and targets the same official build. Record the release tag, installer SHA-256, and both verification results. Leave the local rollout open if any check fails or is pending.
 
 After verification, follow the [workspace retention policy](WORKSPACE-RETENTION.md) to retain essential acceptance records and review local copies, exceptions and storage use.
 
