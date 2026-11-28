@@ -72,9 +72,9 @@ This project introduction compares the shared features of TAB5 and the ESP8266 d
 
 The November 27 edition (2:08) refreshes TAB5 quota, current weather, computer metrics, markets, overview, conversation reminders and the floral calendar. See the overview at 0:49 and the gold solar-term badges at 1:39. The desktop artwork viewer still begins at 1:51 with Monet's *Water Lilies* and Su Shi's *The Cold Food Observance*.
 
-<a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="560" alt="Play the AI-bot product video"></a>
+https://github.com/user-attachments/assets/37675bb2-ba13-4d87-bf98-5132362f7dc2
 
-[Watch or download the 1080p MP4](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)
+[Watch separately](https://github.com/yaoyouzhong/AI-bot/issues/8#issuecomment-7235115480) · [Download the 1080p original](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4) · [Media credits](docs/PRODUCT_VIDEO.md)
 
 ## What it does
 
