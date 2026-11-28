@@ -15,7 +15,7 @@
 6. 按实际变化评估截图和宣传视频（含封面与可复现工程）。小幅更新且旧素材仍准确时，登记“已有无需修改”并复用，不要求每次重新截图或编码。界面、操作路径或功能表达发生实质变化、旧素材会误导用户时，仅更新受影响部分；以当前实际组件或隔离原生控件录制，检查文字、点击路径、版本及音画，标明演示数据与实拍边界，登记来源、许可及媒体 SHA-256。复用素材保留原来源与摘要，不写成新媒体已更新。
    - 主页宣传片介绍整个项目：共有功能对照两种硬件，TAB5 独有功能单独介绍；画面、文字和设备排列一致，封面不带具体版本号。中英文文案同步，历史更新放入更新日志。
    - 宣传视频的现有展示顺序已由用户优化确认，作为后续维护基线。只替换受影响的页面或镜头，或按需增加内容；新增内容保持既有段落的相对顺序。未经用户另行明确要求，不大幅改版、重排顺序或整片重做。仅为输出更新文件而重新编码，不视为获准重设计视频。
-   - 新增或改动视频、播放器或观看入口时，验证受影响的主页内实际播放、独立观看入口与 MP4 下载，覆盖播放、暂停、拖动和重播；HTTP 200 不等同播放成功。媒体字节和播放集成都未变时，可复用既有播放验收，不因版本号变化重测整套播放流程。
+   - 每次发布收尾都以未登录访客身份打开中英文公开主页，确认宣传视频渲染为内嵌播放器，并在两个页面点击播放、看时间轴前进。GitHub 视频附件 URL 单独占一个段落；封面链接和 MP4 下载不能替代播放器。新增或改动视频或播放入口时，另验暂停、拖动、重播、独立观看与原版 MP4 下载；HTTP 200 不等同播放成功。未变更时仅复验本次播放起步，不重复整套验收。
 7. 运行公开内容与许可检查、文档链接检查和 `git diff --check`；核验公开主页、安装说明、媒体及实际下载入口。大文件优先比对本地完整哈希、服务器 digest、HEAD 和小 Range；不把抽查称为远端完整下载校验。
    - 高清图库后续发布默认在本地生成分段，并在上传前验证各段 SHA-256、合并后的完整包 SHA-256 和导入；上传后核对服务器报告的大小、摘要及公开链接。例行发布不再为校验而重新下载整套高清包；下载工具、协议或网络路径发生变化时，按受影响范围另做下载与续传验证。
 8. 记录正式发布地址、提交、附件摘要、验证和剩余限制。按 [本地工作区保留与清理](WORKSPACE-RETENTION.md) 提取长期验收证据，核实公开附件可下载后清理本地重复包，并核对项目占用及需继续保留的例外。以上项目均有完成证据后交付。
@@ -26,6 +26,6 @@ After verification, follow the [workspace retention policy](WORKSPACE-RETENTION.
 
 For future HD galleries, split locally and verify every part, the reconstructed archive SHA-256, and import before upload. After upload, check server-reported sizes and digests and public links; do not routinely redownload complete HD archives just for verification. Test actual download and resume paths when the tools, protocol, or network path changes.
 
-Homepage video covers the whole project: compare shared hardware features, present TAB5-only features separately, match captions and device order, and omit version numbers from covers. Changed video or playback integrations need actual playback checks; unchanged media and integrations may reuse prior acceptance. Synchronize affected bilingual copy.
+Homepage video covers the whole project: compare shared hardware features, present TAB5-only features separately, match captions and device order, and omit version numbers from covers. After each release, open both public homepages while signed out, start each embedded player, and confirm its timeline advances. Put the GitHub video attachment URL in its own paragraph; a linked cover or MP4 download does not replace the player. When the video or playback integration changes, also verify pause, seek, replay, the separate watch page, and the original MP4 download. Synchronize affected bilingual copy.
 
 Preserve the existing user-approved presentation order and overall video structure. Future updates replace only affected pages or shots, or add needed content while retaining the relative order of existing sections. Major redesign, reordering or a complete remake requires a separate explicit user instruction. Re-encoding an updated file does not authorize redesign.

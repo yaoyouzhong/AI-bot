@@ -2,7 +2,7 @@
 
 ## 2026-11-27 · TAB5 0.2.324-ui 界面更新 / Interface refresh
 
-[观看或下载 1080p MP4 / Watch or download 1080p](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4)
+[独立观看 / Watch separately](https://github.com/yaoyouzhong/AI-bot/issues/8#issuecomment-7235115480) · [下载 1080p 原版 / Download the 1080p original](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4)
 
 2 分 08 秒，保留原片的展示顺序、时长和音轨。更新的屏幕来自 R16 原生 LVGL 离屏渲染，使用演示数据。天气实况展示现行公开桥接可提供的数据。 [截图来源](SCREENSHOTS.md) · [固件对应源码](development/tab5-324-source/README.md)
 
@@ -18,7 +18,14 @@ The 2:08 edition retains the original scene order, timing and audio track. Refre
 
 片头五帧同步更新额度画面。/ The first five frames show the refreshed quota view.
 
-SHA-256: `977599d2ad0a2c115a5015467ae7741ce9ded8ecfb7b94d4b6cfd355259fef1c`
+GitHub 主页和独立观看页共用网页播放版（1280 × 720，30 fps，H.264 / AAC，7,178,137 字节）；仅从本节 1080p 原版转码画面，直接复制原 AAC 音轨。来源和许可不变。
+
+The GitHub homepages and separate watch page share a 720p/30 fps H.264/AAC web copy (7,178,137 bytes) derived from the 1080p original, with its AAC stream copied unchanged. Sources and usage rights are unchanged.
+
+| 文件 / File | SHA-256 |
+| --- | --- |
+| 1080p 原版 / Original | `977599d2ad0a2c115a5015467ae7741ce9ded8ecfb7b94d4b6cfd355259fef1c` |
+| 720p 网页播放版 / Web copy | `951a00d14208915cd6a2f9ba9b49f239d4a85d9dc8f5f4500e13343dae022846` |
 
 ## 2026-11-25 · TAB5 总览与会话提醒 / TAB5 overview and conversation reminders
 

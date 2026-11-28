@@ -72,9 +72,9 @@ AI-bot 由电脑端软件与桌面屏幕配合使用，两类设备按需选择�
 
 11 月 27 日版（2 分 08 秒）更新了 TAB5 额度、天气实况、电脑状态、行情、总览、会话提醒和十二月历画面。0:49 可看新版总览，1:39 可看金底红字节气徽章，1:51 起仍可看电脑端全屏欣赏莫奈《睡莲》和苏轼《黄州寒食诗帖》。
 
-<a href="https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4"><img src="docs/assets/product-intro/AI-bot-cover.png" width="560" alt="播放 AI-bot 产品视频"></a>
+https://github.com/user-attachments/assets/37675bb2-ba13-4d87-bf98-5132362f7dc2
 
-[观看或下载 1080p MP4](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4) · [视频与来源](docs/PRODUCT_VIDEO.md)
+[独立观看](https://github.com/yaoyouzhong/AI-bot/issues/8#issuecomment-7235115480) · [下载 1080p 原版](https://raw.githubusercontent.com/yaoyouzhong/AI-bot/main/docs/assets/product-intro/AI-bot-overview-20261127.mp4) · [视频与来源](docs/PRODUCT_VIDEO.md)
 
 ## 能做什么
 

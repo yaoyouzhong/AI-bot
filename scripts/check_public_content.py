@@ -10,6 +10,12 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+VIDEO_SECTIONS = {"README.md": "宣传视频", "README.en.md": "Product video"}
+VIDEO_ATTACHMENT = re.compile(
+    r"https://github\.com/user-attachments/assets/"
+    r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}",
+    re.IGNORECASE,
+)
 RULES = {
     "private-key": re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
     "github-token": re.compile(rb"\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,})\b"),
@@ -339,8 +345,42 @@ def findings(path, data):
             yield rule, data[:match.start()].count(b"\n") + 1
 
 
+def homepage_video_attachment(markdown, heading):
+    """GitHub renders a bare attachment URL in its own paragraph as a player."""
+    marker = re.search(rf"^## {re.escape(heading)}[ \t]*$", markdown, re.MULTILINE)
+    if not marker:
+        return None
+    section = re.split(r"^#{1,2} ", markdown[marker.end():], maxsplit=1, flags=re.MULTILINE)[0]
+    paragraphs = (p.strip("\n") for p in re.split(r"\n[ \t]*\n", section))
+    attachments = [p for p in paragraphs if VIDEO_ATTACHMENT.fullmatch(p)]
+    return attachments[0] if len(attachments) == 1 else None
+
+
+def homepage_video_findings(readmes):
+    attachments = {path: homepage_video_attachment(readmes[path], heading)
+                   for path, heading in VIDEO_SECTIONS.items()}
+    for path, attachment in attachments.items():
+        if attachment is None:
+            yield path, "homepage-video-needs-one-native-attachment"
+    if all(attachments.values()) and len(set(attachments.values())) != 1:
+        yield "README.en.md", "homepage-video-attachments-differ"
+
+
 def main():
     if "--self-test" in sys.argv:
+        attachment = "https://github.com/user-attachments/assets/11111111-2222-3333-4444-555555555555"
+        readmes = {path: f"## {heading}\n\n{attachment}\n\n## Next\n"
+                   for path, heading in VIDEO_SECTIONS.items()}
+        assert not list(homepage_video_findings(readmes))
+        for invalid in ("[![Cover](cover.png)](https://raw.githubusercontent.com/example/video.mp4)",
+                        f"[![Cover](cover.png)]({attachment})",
+                        f"    {attachment}", f"Watch here:\n{attachment}", f"{attachment}\n\n{attachment}"):
+            assert list(homepage_video_findings({
+                **readmes, "README.md": readmes["README.md"].replace(attachment, invalid)
+            })) == [("README.md", "homepage-video-needs-one-native-attachment")]
+        assert list(homepage_video_findings({
+            **readmes, "README.en.md": readmes["README.en.md"].replace("555555555555", "666666666666")
+        })) == [("README.en.md", "homepage-video-attachments-differ")]
         assert list(findings("auth.json", b"{}"))
         assert list(findings("source.cs", b"ghp_" + b"x" * 36))
         assert list(findings("source.cs", b"sk-proj-" + b"x" * 45))
@@ -401,6 +441,10 @@ def main():
                              "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
                             cwd=ROOT, check=True, stdout=subprocess.PIPE)
     failed = 0
+    readmes = {path: (ROOT / path).read_text(encoding="utf-8") for path in VIDEO_SECTIONS}
+    for path, rule in homepage_video_findings(readmes):
+        print(f"{path}:0: {rule}")
+        failed += 1
     paths = sorted(set(result.stdout.decode("utf-8").split("\0")) - {""})
     for path in paths:
         source = ROOT / path
